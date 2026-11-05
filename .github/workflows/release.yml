@@ -1,0 +1,98 @@
+# Sürüm yayımlama: master'a sürüm numarası (pyproject.toml) değişmiş bir commit gelince
+# "v<sürüm>" etiketi ve GitHub Release'i kendiliğinden oluşturulur. Release açıklaması
+# CHANGELOG.md'deki o sürümün bölümüdür. Uygulamadaki güncelleyici (nxceviri/core/update.py)
+# yalnızca bu release'lere bakar; master'daki ara commit'ler kullanıcıya gitmez.
+# Etiket zaten varsa (ör. yalnızca belge değişen commit) hiçbir şey yapılmaz.
+# Release, testler (tests.yml) geçmeden oluşturulmaz. Release oluşunca Windows için taşınabilir paket
+# (PyInstaller, packaging/NXTR.spec) derlenip release'e "NXTR-<sürüm>-windows.zip" olarak, yanına da
+# SHA-256 özeti "NXTR-<sürüm>-windows.zip.sha256" olarak eklenir (uygulamanın kendiliğinden güncellemesi doğrular).
+name: Sürüm yayımla
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
+  release:
+    needs: tests
+    runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.version.outputs.exists == 'false' }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sürümü oku, etiket var mı bak
+        id: version
+        run: |
+          VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "v$VERSION zaten yayımlanmış; yapılacak bir şey yok."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Release oluştur
+        if: steps.version.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python3 - "$VERSION" > notes.md <<'PY'
+          import re
+          import sys
+
+          version = sys.argv[1]
+          text = open("CHANGELOG.md", encoding="utf-8").read()
+          m = re.search(rf"^## \[{re.escape(version)}\].*?(?=^## \[|\Z)", text, re.M | re.S)
+          print(m.group(0).strip() if m else f"## [{version}]")
+          PY
+          TITLE=$(head -n 1 notes.md | sed -E 's/^## \[([^]]+)\]/v\1/')
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "$TITLE" --notes-file notes.md
+
+  package:
+    needs: release
+    if: needs.release.outputs.created == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Taşınabilir paketi derle
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install . "pyinstaller==6.22.3"
+          pyinstaller --noconfirm packaging/NXTR.spec
+
+      - name: Release'e ekle
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          $zip = "NXTR-$env:VERSION-windows.zip"
+          Compress-Archive -Path dist/NXTR -DestinationPath $zip
+          # Güncelleyici indirdiği zip'i bu dosyayla doğrular; biçim: "<hex>  <dosya adı>".
+          $hash = (Get-FileHash -Algorithm SHA256 -Path $zip).Hash.ToLower()
+          [System.IO.File]::WriteAllText((Join-Path $PWD "$zip.sha256"), "$hash  $zip`n", (New-Object System.Text.UTF8Encoding($false)))
+          gh release upload "v$env:VERSION" $zip "$zip.sha256" --clobber

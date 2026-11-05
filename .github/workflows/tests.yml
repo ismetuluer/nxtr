@@ -1,0 +1,45 @@
+# Testler: her pull request'te ve sürüm yayımlanmadan önce (release.yml bu iş akışını çağırır)
+# Windows'ta lint, tür denetimi ve pytest çalışır. Arayüz testleri ekransız (offscreen) çalışır.
+name: Testler
+
+on:
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      QT_QPA_PLATFORM: offscreen
+      # offscreen eklentisi Windows yazı tiplerini kendiliğinden görmez; görmezse metinler yedek yazı tipiyle
+      # ~2 kat geniş ölçülür ve düzen testleri (test_layout, başlık genişliği) yanlış başarısız olur.
+      QT_QPA_FONTDIR: C:\Windows\Fonts
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Bağımlılıkları kur
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]" "ruff==0.17.2" "mypy==2.4.0"
+
+      - name: ruff
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: mypy
+        run: mypy
+
+      - name: pytest
+        run: pytest -q

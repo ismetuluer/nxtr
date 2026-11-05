@@ -1,0 +1,1 @@
+"""Arayüzden bağımsız iş mantığı."""

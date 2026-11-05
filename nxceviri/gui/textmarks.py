@@ -1,0 +1,132 @@
+"""İşaretli metin üretimi: sembolleri göster/gizle, satır sonu boşluk vurgusu ve kontrol kodu çipleri.
+
+Buradaki her şey yalnızca **çizimdir**: çeviri metni hiçbir zaman değiştirilmez, kopyalama ve kayıt ham metin
+(`⟦n⟧` dahil) üzerinde yapılır. `marked_html` bir metni `QTextDocument`'in çizeceği HTML'e çevirir:
+
+- `symbols` açıkken boşluk `·`, sekme `→`, bölünmez boşluk `°` ve satır sonu `¶` olarak görünür (genişlik korunur,
+  metin kaymaz); satırın sonundaki boşluklar uyarı zeminiyle işaretlenir.
+- `chips` açıkken her `⟦n⟧` kod türüne göre renkli bir çip olur (simge + numara); kapalıyken ham kod görünür.
+
+Saf işlevlerdir (arayüz nesnesi bilmez), bu yüzden kolay test edilir.
+"""
+
+from __future__ import annotations
+
+import html
+import re
+from collections.abc import Mapping
+
+from nxceviri.core.translate.codekinds import (
+    KIND_LINE_BREAK,
+    KIND_OTHER,
+    KIND_PAGE_BREAK,
+    KIND_STYLE,
+    KIND_SYMBOL,
+    KIND_VARIABLE,
+    KindOf,
+)
+from nxceviri.core.translate.placeholders import TOKEN_RE
+
+#: Kod türü → çipteki simge.
+KIND_GLYPHS: dict[str, str] = {
+    KIND_LINE_BREAK: "↵",
+    KIND_PAGE_BREAK: "§",
+    KIND_VARIABLE: "◆",
+    KIND_SYMBOL: "★",
+    KIND_STYLE: "●",
+    KIND_OTHER: "◇",
+}
+#: Kod türü → çip rengi (tema belirteci).
+CHIP_TOKENS: dict[str, str] = {
+    KIND_LINE_BREAK: "accent",
+    KIND_PAGE_BREAK: "warning",
+    KIND_VARIABLE: "success",
+    KIND_SYMBOL: "redacted",
+    KIND_STYLE: "muted",
+    KIND_OTHER: "muted",
+}
+
+_TRAILING_RE = re.compile(r"[ \t]+$")
+
+
+def chip_glyph(kind: str) -> str:
+    """Çip simgesi; bilinmeyen (kullanıcı tanımlı) türler `diğer` gibidir."""
+    return KIND_GLYPHS.get(kind, KIND_GLYPHS[KIND_OTHER])
+
+
+def chip_color(kind: str, tokens: Mapping[str, str]) -> str:
+    return tokens[CHIP_TOKENS.get(kind, CHIP_TOKENS[KIND_OTHER])]
+
+
+def code_spans(text: str) -> list[tuple[int, int, int]]:
+    """Metindeki her `⟦n⟧` için `(başlangıç, bitiş, n)`."""
+    return [(m.start(), m.end(), int(m.group(1))) for m in TOKEN_RE.finditer(text)]
+
+
+def trailing_space_spans(text: str) -> list[tuple[int, int]]:
+    """Her satırın sonundaki boşluk ve sekme aralıkları (`(başlangıç, bitiş)`, metin ofsetleriyle)."""
+    spans: list[tuple[int, int]] = []
+    offset = 0
+    for line in text.split("\n"):
+        match = _TRAILING_RE.search(line)
+        if match:
+            spans.append((offset + match.start(), offset + match.end()))
+        offset += len(line) + 1
+    return spans
+
+
+def marked_html(
+    text: str,
+    kind_of: KindOf,
+    tokens: Mapping[str, str],
+    *,
+    symbols: bool,
+    chips: bool,
+    single_line: bool = False,
+) -> str:
+    """Metni `QTextDocument` için HTML'e çevirir. `single_line`: satır sonu satır içinde kalır (kaydırma kapalı)."""
+    muted = tokens["muted"]
+    warning_bg = tokens["warning_bg"]
+    trailing: set[int] = set()
+    if symbols:
+        for start, end in trailing_space_spans(text):
+            trailing.update(range(start, end))
+
+    def mark(glyph: str, index: int) -> str:
+        style = f"color:{muted};"
+        if index in trailing:
+            style += f"background-color:{warning_bg};"
+        return f'<span style="{style}">{glyph}</span>'
+
+    def run(start: int, end: int) -> str:
+        out: list[str] = []
+        for i in range(start, end):
+            ch = text[i]
+            if ch == "\n":
+                if symbols:
+                    out.append(mark("¶", i) + ("" if single_line else "<br>"))
+                else:
+                    out.append(" " if single_line else "<br>")
+            elif symbols and ch == " ":
+                out.append(mark("·", i))
+            elif symbols and ch == "\t":
+                out.append(mark("→", i) + "\t")
+            elif ch == " ":
+                out.append(mark("°", i) if symbols else "&nbsp;")
+            else:
+                out.append(html.escape(ch, quote=False))
+        return "".join(out)
+
+    parts: list[str] = []
+    pos = 0
+    for start, end, number in code_spans(text):
+        parts.append(run(pos, start))
+        if chips:
+            kind = kind_of(number)
+            style = f"color:{chip_color(kind, tokens)};background-color:{tokens['selection']};font-weight:600;"
+            parts.append(f'<span style="{style}">&nbsp;{chip_glyph(kind)}{number}&nbsp;</span>')
+        else:
+            parts.append(html.escape(text[start:end], quote=False))
+        pos = end
+    parts.append(run(pos, len(text)))
+    return f'<p style="white-space:pre-wrap;margin:0;">{"".join(parts)}</p>'

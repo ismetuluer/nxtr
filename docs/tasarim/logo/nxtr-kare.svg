@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!-- NXTR kare logo ve uygulama simgesi (32 px ve üstü): Joy-Con'lar ve ortada NX/TR. Kaynak dosyadır; nxtr.ico ve nxtr.png packaging/make_icon.py ile üretilir. -->
+  <path d="M71.04 8.96H52A43.04 43.04 0 0 0 8.96 52V204A43.04 43.04 0 0 0 52 247.04H71.04Z" fill="#00B4E6" stroke="#1E1E1E" stroke-width="1.92" stroke-linejoin="round"/>
+  <rect x="46.4" y="28.32" width="12.8" height="2.56" rx="0" fill="#1E1E1E"/>
+  <circle cx="37.44" cy="75.2" r="19" fill="#1E1E1E"/>
+  <circle cx="37.44" cy="75.2" r="11.78" fill="#4A4A4A"/>
+  <path d="M29.194 72.255A8.835 8.835 0 0 1 34.495 66.954" fill="none" stroke="#FFFFFF" stroke-width="1.71" stroke-linecap="round"/>
+  <circle cx="37.44" cy="138.32" r="5.13" fill="#1E1E1E"/>
+  <circle cx="37.44" cy="165.68" r="5.13" fill="#1E1E1E"/>
+  <circle cx="23.76" cy="152" r="5.13" fill="#1E1E1E"/>
+  <circle cx="51.12" cy="152" r="5.13" fill="#1E1E1E"/>
+  <rect x="32.64" y="204.8" width="9.6" height="9.6" rx="1.92" fill="#1E1E1E"/>
+  <path transform="translate(80 8) scale(0.813559 1.15)" d="M0 100V0H19L37 56V0H56V100H37L19 44V100Z" fill="#00B4E6" fill-rule="evenodd"/>
+  <path transform="translate(128.814 8) scale(0.813559 1.15)" d="M0 0H21L29 33L37 0H58L40 50L58 100H37L29 67L21 100H0L18 50Z" fill="#00B4E6" fill-rule="evenodd"/>
+  <path transform="translate(80 133) scale(0.8 1.15)" d="M0 0H56V14H38V100H18V14H0Z" fill="#FF3C28" fill-rule="evenodd"/>
+  <path transform="translate(128 133) scale(0.8 1.15)" d="M0 100V0H32C49 0 58 11 58 28C58 40 52 48 44 52L60 100H39L26 59H20V100ZM20 12V46H31C38 46 39 41 39 29C39 17 38 12 31 12Z" fill="#FF3C28" fill-rule="evenodd"/>
+  <path d="M184.96 8.96H204A43.04 43.04 0 0 1 247.04 52V204A43.04 43.04 0 0 1 204 247.04H184.96Z" fill="#FF3C28" stroke="#1E1E1E" stroke-width="1.92" stroke-linejoin="round"/>
+  <rect x="196.8" y="28.32" width="12.8" height="2.56" rx="0" fill="#1E1E1E"/>
+  <rect x="201.92" y="23.2" width="2.56" height="12.8" rx="0" fill="#1E1E1E"/>
+  <circle cx="218.56" cy="66.32" r="5.13" fill="#1E1E1E"/>
+  <circle cx="218.56" cy="93.68" r="5.13" fill="#1E1E1E"/>
+  <circle cx="204.88" cy="80" r="5.13" fill="#1E1E1E"/>
+  <circle cx="232.24" cy="80" r="5.13" fill="#1E1E1E"/>
+  <circle cx="218.56" cy="156.8" r="19" fill="#1E1E1E"/>
+  <circle cx="218.56" cy="156.8" r="11.78" fill="#4A4A4A"/>
+  <path d="M210.314 153.855A8.835 8.835 0 0 1 215.615 148.554" fill="none" stroke="#FFFFFF" stroke-width="1.71" stroke-linecap="round"/>
+  <circle cx="218.56" cy="212" r="4.8" fill="#1E1E1E"/>
+</svg>

@@ -1,0 +1,59 @@
+# --- Şifreleme anahtarları: ASLA depoya girmez ---
+*.keys
+prod.keys
+title.keys
+dev.keys
+*.keys.txt
+keys.txt
+
+# --- Oyun dosyaları: ASLA depoya girmez ---
+*.nsp
+*.nsz
+*.xci
+*.xcz
+*.nca
+*.ncz
+*.tik
+*.cert
+*.cnmt
+*\[NSZ\]*/
+*\[NSP\]*/
+
+# --- Proje dosyaları ve önbellek ---
+*.nxproj
+*.nxproj-journal
+*.nxproj.bak
+*_onbellek/
+onbellek/
+cache/
+
+# --- Uygulama güncellemesi (indirilen ve hazırlanan sürüm, yedek) ---
+.guncelleme/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Editör / işletim sistemi ---
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Kullanıcının oyun klasörü
+games/
+
+# Kullanıcı eklentileri (depo içi geliştirme klasörü; README dışında git'e girmez)
+eklentiler/*
+!eklentiler/README.md

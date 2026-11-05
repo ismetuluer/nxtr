@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="583" height="256" viewBox="0 0 583 256">
+  <!-- NXTR yatay logo (açık zemin). -->
+  <path d="M90.74 17.26H68A58.74 58.74 0 0 0 9.26 76V180A58.74 58.74 0 0 0 68 238.74H90.74Z" fill="#00B4E6" stroke="#1E1E1E" stroke-width="2.52" stroke-linejoin="round"/>
+  <rect x="58.4" y="34.48" width="16.8" height="3.36" rx="0" fill="#1E1E1E"/>
+  <circle cx="46.64" cy="78.72" r="24" fill="#1E1E1E"/>
+  <circle cx="46.64" cy="78.72" r="14.88" fill="#4A4A4A"/>
+  <path d="M36.224 75A11.16 11.16 0 0 1 42.92 68.304" fill="none" stroke="#FFFFFF" stroke-width="2.16" stroke-linecap="round"/>
+  <circle cx="46.64" cy="133.12" r="6.48" fill="#1E1E1E"/>
+  <circle cx="46.64" cy="167.68" r="6.48" fill="#1E1E1E"/>
+  <circle cx="29.36" cy="150.4" r="6.48" fill="#1E1E1E"/>
+  <circle cx="63.92" cy="150.4" r="6.48" fill="#1E1E1E"/>
+  <rect x="40.34" y="197.86" width="12.6" height="12.6" rx="2.52" fill="#1E1E1E"/>
+  <path transform="translate(104 16) scale(1.55 2.24)" d="M0 100V0H19L37 56V0H56V100H37L19 44V100Z" fill="#00B4E6" fill-rule="evenodd"/>
+  <path transform="translate(197 16) scale(1.55 2.24)" d="M0 0H21L29 33L37 0H58L40 50L58 100H37L29 67L21 100H0L18 50Z" fill="#00B4E6" fill-rule="evenodd"/>
+  <path transform="translate(293.1 16) scale(1.55 2.24)" d="M0 0H56V14H38V100H18V14H0Z" fill="#FF3C28" fill-rule="evenodd"/>
+  <path transform="translate(386.1 16) scale(1.55 2.24)" d="M0 100V0H32C49 0 58 11 58 28C58 40 52 48 44 52L60 100H39L26 59H20V100ZM20 12V46H31C38 46 39 41 39 29C39 17 38 12 31 12Z" fill="#FF3C28" fill-rule="evenodd"/>
+  <path d="M492.36 17.26H515.1A58.74 58.74 0 0 1 573.84 76V180A58.74 58.74 0 0 1 515.1 238.74H492.36Z" fill="#FF3C28" stroke="#1E1E1E" stroke-width="2.52" stroke-linejoin="round"/>
+  <rect x="507.9" y="34.48" width="16.8" height="3.36" rx="0" fill="#1E1E1E"/>
+  <rect x="514.62" y="27.76" width="3.36" height="16.8" rx="0" fill="#1E1E1E"/>
+  <circle cx="536.46" cy="65.92" r="6.48" fill="#1E1E1E"/>
+  <circle cx="536.46" cy="100.48" r="6.48" fill="#1E1E1E"/>
+  <circle cx="519.18" cy="83.2" r="6.48" fill="#1E1E1E"/>
+  <circle cx="553.74" cy="83.2" r="6.48" fill="#1E1E1E"/>
+  <circle cx="536.46" cy="154.88" r="24" fill="#1E1E1E"/>
+  <circle cx="536.46" cy="154.88" r="14.88" fill="#4A4A4A"/>
+  <path d="M526.044 151.16A11.16 11.16 0 0 1 532.74 144.464" fill="none" stroke="#FFFFFF" stroke-width="2.16" stroke-linecap="round"/>
+  <circle cx="536.46" cy="206.4" r="6.3" fill="#1E1E1E"/>
+</svg>

@@ -1,0 +1,590 @@
+[
+ {
+  "sha256": "dbfb17478a30b30b260d072a5c8d8e2f48a3793482b8d2bd3a71f31d9a294b83",
+  "tr": "Cisimleşmek için kuklaların\nbedenlerini ödünç alan alt\nseviye kötü ruhlardır."
+ },
+ {
+  "sha256": "41b73a7dcabc6c93500f4285cc20334d68107de5de3c7c541eb84a27fe26a856",
+  "tr": "Bazen ateşli silah kullanırlar.\nAteş etmeden önce bileklerini\nvızıltıyla çevirirler."
+ },
+ {
+  "sha256": "c40f7134615b5a2bd1129561ba6421b61881d1084cbbfdca35ff29fb324c42ba",
+  "tr": "Fırlattıkları hançerler düz\ngider. Saldırıya hazırlandıklarını\ngörürsen kaçınabilirsin."
+ },
+ {
+  "sha256": "411e9981f136eba1188f6642584a12c63bcf83e450cfff5bb5125f71ed60786c",
+  "tr": "Engellerin etrafından dönen\nhilal biçimli bıçaklar da\nfırlatırlar. Gözünü açık tut,\nhareketlerini izle."
+ },
+ {
+  "sha256": "fd1ece2d4e73592dcb7239cbdd240f349a48ded936949b9e37985bd3513016fa",
+  "tr": "Seni yakalarlarsa kolay\nbırakmaz, boynunu kesmeye\ndalarlar. Kurtulmak için Sol\nÇubuğu salla."
+ },
+ {
+  "sha256": "7daf1a1ae57fea7478cfb1f93e115b3ae793514a416c18b95e4fe15ced119400",
+  "tr": "Cırlak bir savaş çığlığıyla\nyakınlarındakileri\nhareketsiz bırakırlar. Felç\nolursan Sol Çubuğu salla."
+ },
+ {
+  "sha256": "a5c954be1ccd96be0cc52bbf3a99bf09c9795cb337e01d1d3c6e0402b8ba25e2",
+  "tr": "Fiziksel varlık oldukları için\nfiziksel yollarla yok edilirler.\nSilahını, kılıcını kullan,\nonları yok et!"
+ },
+ {
+  "sha256": "4b44c9290a5c1704357492598eab94430f51194ece1be499114a1283c34a6db3",
+  "tr": "Cisimleşmek için kuklaların\nbedenlerini ödünç alan alt\nseviye kötü ruhlardır. İnsan\nkanıyla boyalı kırmızı giysileri\ngüçlerini artırır."
+ },
+ {
+  "sha256": "df69489f16b2ef538cc6989fba2be2da875e17c2c031b580ffb25ac5125f3266",
+  "tr": "Bazen ateşli silah kullanırlar.\nAteşten önce bileklerini\nvızıltıyla çevirirler."
+ },
+ {
+  "sha256": "c40f7134615b5a2bd1129561ba6421b61881d1084cbbfdca35ff29fb324c42ba",
+  "tr": "Fırlattıkları hançerler düz\ngider. Saldırıya hazırlandıklarını\ngörürsen kaçınabilirsin."
+ },
+ {
+  "sha256": "411e9981f136eba1188f6642584a12c63bcf83e450cfff5bb5125f71ed60786c",
+  "tr": "Engellerin etrafından dönen\nhilal biçimli bıçaklar da\nfırlatırlar. Gözünü açık tut,\nhareketlerini izle."
+ },
+ {
+  "sha256": "9162c832545e818f1b1d92bcbb1aa9d3be135a1bd3cad0acc468ec53e34b3d7f",
+  "tr": "Seni yakalarlarsa kolay\nbırakmaz, boynunu kesmeye\ndalarlar. Kurtulmak için Sol\nÇubuğu salla."
+ },
+ {
+  "sha256": "7daf1a1ae57fea7478cfb1f93e115b3ae793514a416c18b95e4fe15ced119400",
+  "tr": "Cırlak bir savaş çığlığıyla\nyakınlarındakileri\nhareketsiz bırakırlar. Felç\nolursan Sol Çubuğu salla."
+ },
+ {
+  "sha256": "a5c954be1ccd96be0cc52bbf3a99bf09c9795cb337e01d1d3c6e0402b8ba25e2",
+  "tr": "Fiziksel varlık oldukları için\nfiziksel yollarla yok edilirler.\nSilahını, kılıcını kullan,\nonları yok et!"
+ },
+ {
+  "sha256": "362dbc34025a2bf2b811c19a6af194f9d58eb3c9c6f766b1bda447314a547daf",
+  "tr": "Fiziksel nesne biçimine\nbürünerek var olabilen alt\nseviye kötü ruhlardandır.\nBunlar ölümcül makası seçti."
+ },
+ {
+  "sha256": "be9184a3e070847de601d775b6f9df6922a709029c5a0fe1a4bf691da75bc50e",
+  "tr": "Bu kötü ruhlar taktıkları\nmaskelere bağlıdır. Onlarsız\nvar olamazlar."
+ },
+ {
+  "sha256": "87dabdbd37fdacc4cd743960cf1dfdfc0fe4e6cd257adf80dffb3712bd2b6688",
+  "tr": "Pelerinleri ruhların yarattığı\nbirer yanılsamadır. Fiziksel\nsaldırılar boşunadır, kolayca\nengellenir."
+ },
+ {
+  "sha256": "0cdea28d719fde903285e14f58ccebda4fd77f5c5cc0454c44cfaad3e3a8bde9",
+  "tr": "Makasla inerken kısa bir an\nkorumasız kalırlar. Doğru anda\nsaldırırsan onlara ölümcül\nhasar verirsin."
+ },
+ {
+  "sha256": "48cd44532ba6b4427366431f7607bf358a453a60ca09a5cbff66b9dbf288a342",
+  "tr": "Makaslarıyla saldırılarını\nsavuşturur. Makası elinden\ndüşürürsen savunmasız kalırlar.\nİşte silahını sıkma fırsatın!"
+ },
+ {
+  "sha256": "49688384d6e69ab78a1da2f83bd4343345654e023198647f0eb1c594331dd83f",
+  "tr": "Maskeleri savunmasızken silah\nyakın mesafeden sıkılırsa\ntek atışta yok edilirler."
+ },
+ {
+  "sha256": "538bf044864ad0b0ba9adb302cedd6145c3ff822d35653545987fdc9dac70814",
+  "tr": "Etrafında dönüp yaptıkları\nsaldırıdan kaçmak zor olsa da\npes etme. Karşılık vermek için\nhâlâ şansın var."
+ },
+ {
+  "sha256": "3a387369e159944648802a792beae8ff1425a2ee8cd9fa992945243fca3f46e3",
+  "tr": "Bu kötü ruhların makas yerine\norakları vardır."
+ },
+ {
+  "sha256": "a3d6ae89218aa40ee6d0f1bd3ddd931681b3bd02022989b1031782b0d36a870a",
+  "tr": "Sin Scissors gibi onlar da\nmaskelerine bağlıdır. Onlarsız\nvar olamazlar."
+ },
+ {
+  "sha256": "87dabdbd37fdacc4cd743960cf1dfdfc0fe4e6cd257adf80dffb3712bd2b6688",
+  "tr": "Pelerinleri ruhların yarattığı\nbirer yanılsamadır. Fiziksel\nsaldırılar boşunadır, kolayca\nengellenir."
+ },
+ {
+  "sha256": "cbc73a42f2228f6fadbeaf7b4dd7f53aa4233684a0b65008b8566421c3f658e3",
+  "tr": "Orakla yapılan geniş dönüş\nsaldırısı, Sin'in nefretinin\nve öfkesinin ifadesidir."
+ },
+ {
+  "sha256": "f211cb13bbf74f703d5261e54acb9334f4d96bdc0b1822ca9a5e0f424df6ad29",
+  "tr": "Bumerang orak saldırılarında\ngeri dönen oraktan kaçmak için\nçevik olmalısın."
+ },
+ {
+  "sha256": "a113fb16b7188d2a777882a2508af82bba69b99f35b8d87e17bb6ec353bd3479",
+  "tr": "Beliren şemsiye biçimli çekirdek\nkötü ruhları toplayıp kendi\nenerjisine çevirir. Bu olunca\ndaha da vahşileşirler."
+ },
+ {
+  "sha256": "03e75c0981bd135247c56d8b68852de2b523dc1dbdf1c5c55c820cf78c93149d",
+  "tr": "Oraklarını saplayıp avlarını\nhareketsiz bırakır, ruhlarını\ncalarlar. Ölümden kurtulmak\niçin Sol Çubuğu salla."
+ },
+ {
+  "sha256": "1140bf1b24401b2d375e0aa1281fbf7e8abdf4b1bbba515c993779e39be24f91",
+  "tr": "Etrafında döndükten sonraki\nsaldırı ölümcüldür. Dönmeye\nbaşlarlarsa dikkat et ve\nvurulmamaya çalış."
+ },
+ {
+  "sha256": "7bb94ce7bdf6c4ae984c54f1ed0af05b017187a96fa2268e06e6372728b6071a",
+  "tr": "Orakları savuşturmayı\nbaşarırsan saldırı için bir\nfırsat yaratırsın."
+ },
+ {
+  "sha256": "14f81f0fabf2f02f71c782e6262475d3322c16d89366651203f7d581751c6103",
+  "tr": "Üzerine uçan orakları Devil\nTrigger'ı etkinleştirirsen\nsilahlarınla savuşturabilirsin."
+ },
+ {
+  "sha256": "3be33b65ee7e9bf081b651244e4b1fd23dda0e6ad0d7fa4471c038b928924e6a",
+  "tr": "Silahlar bu ruhlara karşı çok\netkilidir, çünkü yalnızca kılıç\nkullanan eski şövalyelerle\ndövüştüler. Havada vur onları!"
+ },
+ {
+  "sha256": "49688384d6e69ab78a1da2f83bd4343345654e023198647f0eb1c594331dd83f",
+  "tr": "Maskeleri savunmasızken silah\nyakın mesafeden sıkılırsa\ntek atışta yok edilirler."
+ },
+ {
+  "sha256": "f38a3cbfce8b2ebb6d063f3ee3954b8d6e0bd9bc92f055c99de1708c5aa2d372",
+  "tr": "İnek kemiğine benzeyen kısım\nana gövdedir. Kötülükleri\nSin'inkinden çok daha güçlü ve\ndayanıklıdır."
+ },
+ {
+  "sha256": "b9eef712559d086f9081a3af381741aa99a89116759b8af58b0074db6c903bc0",
+  "tr": "Hayvan ve insan kemiklerinden\nyapılmış birçok asayla kötü\nbir bariyer kurarlar. Bariyer\naşılmaz. İçindeki düşmanı yen."
+ },
+ {
+  "sha256": "61bebe696372bb428955921a7d0e290c86a332192e5978259a3b5a15e9d1fb85",
+  "tr": "Vida saldırıları isabetli ve\nçok yıkıcıdır. Kaçınmak için\nsüzül."
+ },
+ {
+  "sha256": "5f495e128e83a764215d8222eff72051f4e5900c57ea96cd3ed593a198e2d11c",
+  "tr": "Bu ruhlarla yerden dövüşmek\nakılsızlıktır. Devil Hunter\nol, savaşı havaya taşı."
+ },
+ {
+  "sha256": "4cf1e24e272ee4ccfe489f24ab2227029b9b367145d6024e23594f91aef448a0",
+  "tr": "Ana gövdenin başı zayıf\nnoktasıdır. Ama sıradan silahlar\nbuna pek işlemez."
+ },
+ {
+  "sha256": "3a8bc028a7d6396f640e8b67b0d96f67153ee82630e3ee65d808e5e32ab37d3a",
+  "tr": "En zayıf noktaları boynuzlarıdır.\nBoynuzlarına saldırmanın bir\nyolunu bulursan en etkili\nyöntem budur."
+ },
+ {
+  "sha256": "0ed11ce9c426241edbb8179aa0e6b8bab6309916134a8ef3f71dc42e895f4494",
+  "tr": "Pelerinleri ruhların yarattığı\nbirer yanılsamadır. Fiziksel\nsaldırılar boşunadır."
+ },
+ {
+  "sha256": "7c990b2026ea586945b71f947c1767753318f1bf407aa8e7d77342aae1cbbde4",
+  "tr": "“Sin”lerden daha güçlüdürler.\nDante'nin saldırılarını büyük\nolasılıkla savuşturup karşılık\nverirler."
+ },
+ {
+  "sha256": "4d3eb43e41bd04182e55f82d7874c3a4216f1ab37c98a54ffa43ddefbb3f144b",
+  "tr": "Kötülüğü başlarında toplayınca\nbaşları kızarır ve tüm\nsaldırıların etkisiz kalır.\nBöyle yakalanırsan saldırılarından\nkaçmaya bak."
+ },
+ {
+  "sha256": "c353b67b29fae1b7b7ec3668013b27ee1fbf4ecbc00b920fda9e7ab66bbcff56",
+  "tr": "“Sin”lerin en kötüsü, en\ngüçlüsü ve en yüksek\nrütbelisidir."
+ },
+ {
+  "sha256": "4cbb3ad77a16a599d2edf08cbde0073771cb9209f51a942e61f2344170754e0f",
+  "tr": "Yukarıdan gelen ölümcül gövde\nsaldırılarından kaçın. Vurulursan\nciddi hasar kaçınılmazdır."
+ },
+ {
+  "sha256": "361f1824a69fea468ae8474757880c6d4ae120a558a130d263ab67b93f452b2a",
+  "tr": "Beliren hortumlar, kötülüğe boyun\neğmeye zorlanan atmosfer\nruhlarıdır. Avlarını havaya\nsoğurup hareket özgürlüğünü\nalır. Hortumları avantaja\nçevirmek, Devil Hunter\nkalibreni sınar."
+ },
+ {
+  "sha256": "1fc9994a5401153f8aa71d1e0dba896323535e3153dc68c9b5dae230631fb437",
+  "tr": "Hortumun gücünü avantaja\nçevirirsen gitmek istediğin\nyere sıçrayabilirsin."
+ },
+ {
+  "sha256": "2b0c65afca61621ad98cfc6bb897259f7a92514d578888b4c486fed11e752db1",
+  "tr": "Durum uzayınca Death canını\nriske atıp dört bıçağıyla\nsaldırır. Orakları ele\ngeçirmeden onları hızla yok et."
+ },
+ {
+  "sha256": "ab6ea26c51ca4520e6a4ed0defe037f7fef598b7d4d11848e9adc9c26d85fe40",
+  "tr": "Pelerinleri ruhların yarattığı\nbirer yanılsamadır. Fiziksel\nsaldırılar boşunadır ve karşı\nsaldırı getirir! Düşmandan\nyükseğe sıçra, yukarıdan\nisabetle vur."
+ },
+ {
+  "sha256": "151018557e52503f82237479668dec50f4178156325c898b0df5ab282c780385",
+  "tr": "Gerçek oraklara vurunca düşman\ngeri çekilir. Nadiren\nkorumasız kalır, tüm gücünle\nsaldır!"
+ },
+ {
+  "sha256": "b2bc4a9bebfb7631b4c56c27f9e147b0c8211c8ca10518dc63dae1ebebd3cd32",
+  "tr": "Vücudundaki kötü büyüler tüm kılıç\nsaldırılarını savuşturur. Kendi\ngölgelerinden doğan bir ruhtur.\nAma büyüleri değiştirerek başka\nbiçimlere de bürünebilir."
+ },
+ {
+  "sha256": "9d65e44741afab652542d019c9281ee9e51cce6b2535a68ed23e711805ff2366",
+  "tr": "Gölge biçiminde tüm kılıç\nsaldırılarını savuşturur. Çünkü\neski şövalyelerle savaşırken\nsilahları hatırlar. Ama ateşli\nsilahlar bunun dışındadır."
+ },
+ {
+  "sha256": "13f76348e4a227e54d6e71434806329113a565da68ddcb8794f4cae6c3d6aa57",
+  "tr": "Bazı saldırıları savuşturmak için\nbüyülü gücünü bir anda salar. Aynı\nanda bu güç düşmana doğru fırlar.\nBu saldırıdan kaçınmak çok zordur."
+ },
+ {
+  "sha256": "913e997df72f32aa56ca57cdff572b0f6604d21ad3a60d8aa47a4160cd5b1d3b",
+  "tr": "Yüzeyine belli ölçüde hasar\nverirsen artık saldırıları\nsavuşturamaz ve gerçek biçimini\ngösterir. En savunmasız anı budur."
+ },
+ {
+  "sha256": "6a1e6aaabccec73b1f65ce6e850e0e4c1a6f4a20e99cd3e903113112db62db97",
+  "tr": "Gerçek biçimi, kötü güçlerinin\nçekirdeğidir. Ateşli silahlar\nbu çekirdeğe işlemez."
+ },
+ {
+  "sha256": "3d347ab91cd7ef9c78ef4084b63a6fbf212bfe4974ac0c04fc34666ce88c7e95",
+  "tr": "Dönme saldırısı çok isabetlidir.\nHavaya yükseğe sıçradığında\ndikkat et."
+ },
+ {
+  "sha256": "a3fa71a490606f7d3ef7f437a26305781f667540b915751005bb196ad57b79d2",
+  "tr": "Gölge, dar mızrak benzeri bir\nsilaha dönüşüp düşmanına saplar.\nMızrak o kadar sert ki üstüne\nçıkabilirsin. Üstüne çıkarsan\ngölge kısa süre kıpırdayamaz.\nİşte o an tüm kurşunlarını sık!"
+ },
+ {
+  "sha256": "4deeef1d3a1a2f9d759f57210f4d85ff467b172da6bdf89fd5bc0b66c1b7df9d",
+  "tr": "Mızrağının üstüne çıkarsan Shadow\nşok geçirir. Büyüler bariyer\ngücünü yitirir, kurşunlar içeri\ngirer. Yani bu şok sırasında\nçok kurşun sıkarsan çekirdeğe\ndoğrudan saldırmadan yenebilirsin."
+ },
+ {
+  "sha256": "74b84d41866690e683f288e3d679ccf14e38d4836b611f2a92e1ff2c1273fcde",
+  "tr": "Bu kötü ruh bir sineğin bedenine\nyerleşmiştir. Görünüşünden ve\nhareketlerinden ne kadar iğrenç\nolduğu anlaşılır."
+ },
+ {
+  "sha256": "2338aa26569ca8accd1a12b5ef622c53cb1535bf624c3409022daf1ddc1ca4ea",
+  "tr": "Mavi Beelzebub'un kustuğu kurtlar\ngerçek değildir. Kötü bir güçtür.\ntemas edince hepsi üzerinden\ngidene kadar silahın ateş edemez.\nO zaman kılıca geç."
+ },
+ {
+  "sha256": "5838b8965dbb1e525179823330935f5a0bb76ca28d07ae5fcc6c61ac75a4dbdc",
+  "tr": "Büyük yeşil Beelzebub'lar, mavi\nuçan Beelzebub'lar için kötü güç\ndeposu gibidir. Gövdeleri daha\nbüyük olduğundan daha güçlüdür."
+ },
+ {
+  "sha256": "83c9deb58bc0191417a58d1b8fec06829512dc1b7db2ead4f065fa8c9b5ef645",
+  "tr": "Yeşil Beelzebub'lar ölüleri yer,\nkötü güçlerini emer ve daha da\nçok güçlenir. Emdikten sonra\nçevikleşip daha tehlikeli olur."
+ },
+ {
+  "sha256": "610f9babcf657728c2c74a36d462ba51696cd30e9b9548583b4867396b7a3e9e",
+  "tr": "Beelzebub'a asla sırtını dönme.\nÖn uzuvlarıyla seni yakalayıp\nsırtını kırmaya çalışır."
+ },
+ {
+  "sha256": "c9967ee5d7e97a216cfa41bf00ae20d88e294fe9f9baf7f158df2139132af744",
+  "tr": "Vurulup sırtüstü düştüğünde en\nsavunmasızdır. Havadan saldırıyla\nvur. Fırlattığı zehre dikkat et."
+ },
+ {
+  "sha256": "4f44832faf5a200db112f2eda9baebef8d8a41feae7e2c533c820f96ba8adb20",
+  "tr": "Kara İmparator'un hizmetkarı.\nDış iskeletinin içinde kızgın\nlav vardır. Kabuğu sert olmakla\nkalmaz, büyülerden de korur."
+ },
+ {
+  "sha256": "77667898a47e1d87ab7267ba3892d8fbd08b57e21376559f52521c2c44a73201",
+  "tr": "Büyülü gücünü ağzından salar.\nBu ağız, canavarın tek savunmasız\nyeridir."
+ },
+ {
+  "sha256": "7da39187968e79c886db7c36208debacf7c42c531d50ac87645c33708bee9197",
+  "tr": "Sırtındaki kıvrık kuyruk, iğnesini\ninanılmaz hızla saplayan ölümcül\nbir silahtır. Mesafeni koru."
+ },
+ {
+  "sha256": "d0b33e6752878a88ea69bd0bdce2c4621e850cb0911cbdf79e561e0765623334",
+  "tr": "Başını yere sokarak ölüleri\ndiriltir, ölüler ateş sütunlarına\ndönüşür. Sütunlar yerin ışıdığı\nyerlerden fırlar. Koş ve zıpla."
+ },
+ {
+  "sha256": "6e779a08f0689e8fef80d399bd8b3a9df31ee7eebdac9511921f8eb462024949",
+  "tr": "Kötü gücünü biriktirip ağzından\nateş püskürtebilir. Yuvarlanmak\nbu saldırıdan kaçmak için iyidir."
+ },
+ {
+  "sha256": "484e382c9188c91f2281b0f7c4ed372b7d377659c8389e1041200af24ed84a20",
+  "tr": "Öfkesi doruğa çıkınca sırtından\nyanardağ gibi ateş topu fırlatır.\nOdaklan ve kaç."
+ },
+ {
+  "sha256": "437f3e526b288a960c046582acce5d6977f303c735f06064929e456cdfba15a3",
+  "tr": "Gövdesinin üstü de zayıf noktası.\nGerçek bir Şeytan Avcısı\nolduğunu kanıtlamak istiyorsan\nyaklaş ve yukarıdan saldır!"
+ },
+ {
+  "sha256": "abc246572d134bee1d11841c937936b7147c105f063a4d625eca5e13b7ae5315",
+  "tr": "Phantom'a benzese de düşük sınıf\nkötü ruhlardandır. Ama toprak ve\nkayayı bedenine alarak epey\ndayanıklıdır. Görünüşünün aksine\nharika sıçrar."
+ },
+ {
+  "sha256": "faad3dab2ec5c853a04d8405b4e8c0a73da06cc11089c6985683d534139da451",
+  "tr": "Toprak yiyip ağzında kaya yapar\nve ağzından fırlatır. Mümkünse\nönlerinde durma."
+ },
+ {
+  "sha256": "d6ca83dd1f100f4cfe222bad108f994582edac006cd338a9db1bc3c8e7f473ea",
+  "tr": "Zırhları kayadandır ama Phantom'un\nzırhı kadar sağlam değildir.\nŞeytan Avcısı gücünle zırhlarıyla\nbirlikte ez."
+ },
+ {
+  "sha256": "7d912b7379fc10a212f2eff8bdae50d90d6993d3abb72230e41a65311ac2d7c0",
+  "tr": "Kara zırhlı şövalye, Dante'nin\ndövüş sanatını iyi bilir. Hakkında\nher şey bir sır olarak kalır."
+ },
+ {
+  "sha256": "618fd648a98c01df6b8db30b322aa94288147c5e79e9ec9563b1281358fe21a0",
+  "tr": "Çevredeki enerjiyi toplayıp\nsalmadan önce hep ışık yayar.\nIşığı görünce hazır ol."
+ },
+ {
+  "sha256": "43b3767abe95cbb449db39d0922b4e255ee6dfc5509a756c5ec1c551fe54514d",
+  "tr": "O boyda kılıç sallaması çok güçlü.\nKılıcını vahşice sallarken\nmesafeni koruyup açık beklemek\nakıllıca. Kılıcını onunkiyle aynı\nanda sallarsan saldırısını\nengeller ve açık yaratırsın."
+ },
+ {
+  "sha256": "7ce852666b017bd80413a230b08e095265e338760f9bb2770409f142af64358f",
+  "tr": "Özel bir yer değiştirme yöntemiyle\nanında bir yerden başka yere\ngeçer. Nerede belireceğini bilmek\nzordur. Sakin ol, çıkacağı yere\nodaklan."
+ },
+ {
+  "sha256": "62deee6bce009166ea2094b70f670dc5e11ffda2871222c462f680609a98b5d8",
+  "tr": "Üst savunma duruşundan sonraki\ngüçlü saldırısını durdurmak\nneredeyse imkansız. Kafa kafaya\ngirmek akılsızlık. Hız ve\nçevikliğinle kaç."
+ },
+ {
+  "sha256": "45333ccc0b5acb8bbfcca857a2975e8aac887818fae720dff6a850f273b984a3",
+  "tr": "Phantom Blade'lerin hedefini\nbelirlersen kolayca kaçabilirsin."
+ },
+ {
+  "sha256": "16208d7226507cd71e77ff170bb9e0bd4cafab3814c6dc4d11cdc05f907db06a",
+  "tr": "Phantom Blade'ler çevresinde\ndönerek şövalyeyi korur. Onları\nyok et ve saldırı açığı yarat."
+ },
+ {
+  "sha256": "66c9d44d422e12fa84fbe8afe55da913e61c975d4f2fce44a733e878ad4ff57a",
+  "tr": "Nelo Angelo'nun taktığı kolye\nDante'ninkiyle aynıydı. Gençliğine\ndair silik anıları canlandırır."
+ },
+ {
+  "sha256": "6a9668c7094533eff69237ed3c81ee7cf7998aa6f17f4c2e5d482aeb10febcda",
+  "tr": "Kara İmparator'un yüzeye hükmetmek\niçin yarattığı askerlerdir.\nKonak olarak sürüngen kullanır,\nbu yüzden kertenkele gibidirler."
+ },
+ {
+  "sha256": "7c00f22e943bd7b7642820d3784979ee90dacdc2918066b571ef4c872632ece8",
+  "tr": "Ön koldaki yuvarlak kalkan kötü\ngüçle kaplıdır ve çoğu saldırıyı\nsavuşturur. Yukarıdan gelen\nsaldırılara karşı iyidir, aşağıdan\ngelenlere karşı o kadar değil."
+ },
+ {
+  "sha256": "71153ed6faa7784e922125aa2ed81fc14a4822a2e119ccbdd8e386e857c2d70a",
+  "tr": "Taktıkları maske kurşunlara karşı\niyi korur. Maskeyi hızla kır ya\nda düşmanın çevresinden dolaşıp\nbaşka açılardan saldır."
+ },
+ {
+  "sha256": "7b8dc62c92c5fbded0a7d559a40aef28d97449676dc992fede021f90524e24cb",
+  "tr": "Kanlarına basınç uygulayıp\npençelerine toplar ve füze gibi\nfırlatırlar. Ateş etmek için\nduruş aldıklarını görünce kaç."
+ },
+ {
+  "sha256": "153d8a8ecd83217cc429d720e1acb6dac74aee292bea8ba86ebd13090c82ceb0",
+  "tr": "Avlarının zayıfladığını fark\nedince acımadan bitirmeye gelir.\nHer zaman tetikte ol."
+ },
+ {
+  "sha256": "717cad36dc9286e97370462a5a8b8a70800d120887715d38029d5fe7b0e95ef6",
+  "tr": "Üstün çevikliklerine güvenerek\nsu altında sanki su canlısıymış\ngibi serbestçe hareket ederler."
+ },
+ {
+  "sha256": "422e44b6810aeadae38b1a0acce108167e20bb7d0cc987ee427446b94e0fbde0",
+  "tr": "Müthiş zıplarlar, alt beden\ngüçleri su altı çevikliklerinde\nbelli olur. Dönme saldırıları\nölümcüldür."
+ },
+ {
+  "sha256": "9a9e6d62c305aca4dac47c1fdc78de674a0b147883dc0c241ed105b84acd85b0",
+  "tr": "Çok çevik olan Blade'ler havaya\nfırlatılsalar bile duruşlarını\ntoparlar. Onları tek düze\nsaldırılarla yenmek zordur."
+ },
+ {
+  "sha256": "ce60f23647551c1e82bda8a26a9201f6fee57e7f3ae6bc34b518efe9f8d0e2e5",
+  "tr": "Maske, pençe ve çevikliğe sahip\nBlade'ler bile dengeleri bozulunca\ndayanamaz. Arkadan saldırıp yüz\nüstü düşür. Sonra havadan\nsaldırarak işini bitir."
+ },
+ {
+  "sha256": "7361bb93d4bd18408becce4f146eb85d31418d22f98996d898d882df3c722b29",
+  "tr": "Zırhları çoğu saldırıdan korur ama\nzayıf noktaları zırhın altındadır.\nSırtlarının çoğu zırhlıdır. Zırhın\nörtmediği yerlere saldırmak çok\nhasar verir."
+ },
+ {
+  "sha256": "122a4ed8ba0dd2625781861f5cf126d65f4bf4a186c0b5a82675afd78005803a",
+  "tr": "Kara İmparator'un bir başka\nhizmetkarıdır. Kuş benzeri devasa\nbir canavardır. Rüzgar ve\nşimşeği silah olarak kullanır."
+ },
+ {
+  "sha256": "f5743381b264d8f69e531d6b934591c79cc528d45f7fb5683f0dfd0a0ee55eeb",
+  "tr": "Elektrik saldırıları zıplayarak\nsavuşturulabilir. Griffon kanat\ncırpıp mesafe almaya çalışırken\nbu saldırıya dikkat et."
+ },
+ {
+  "sha256": "bbd3cc2aacb15a47c2b131dd83376463aa90f09d5dc7ad5aadf33e9022d294f8",
+  "tr": "Şerit gibi elektrik saldırısı çok\nisabetlidir. Bu isabeti lehine\nkullanıp kaç. Havada saldırmak\nve havada durmak işe yarayabilir."
+ },
+ {
+  "sha256": "a0d5b35604c0d15ebb9ecb5f34a748cab9f1219579f0bcaf8d13b25a4a80b4be",
+  "tr": "Perde gibi üstüne yürüyen elektrik\nfırlatır. İlk bakışta kaçış yok\ngibi görünür. Şeytan Avcısı\nsoğukkanlılığını koru, elektriğin\narasında bir boşluk bulursun."
+ },
+ {
+  "sha256": "9384aeb12cda9c16f1b608edf6c6a970577cf4b3b28c6b4dcd4261c96f3b861c",
+  "tr": "Griffon uzakta diye saldırılardan\nkurtulduğunu sanma. Hızlı\nayaklarıyla üstüne atılıp şiddetli\nbir gagayla hasar verir."
+ },
+ {
+  "sha256": "107005802932e1f4daf17cefd1e83d63e9aa32e38632c21e8094844f80763133",
+  "tr": "Hava saldırısı gibi, havada\nsüzülürken çok sayıda enerji topu\nbırakır. Nereye düşeceğini tahmin\net ve vurulma."
+ },
+ {
+  "sha256": "3eec4f4d1bd382d92e11933678aa9312d4df3c48ffe7fd279693c9eaae31fe1d",
+  "tr": "Griffon'un gövde saldırısını\nrüzgar gücü destekler, çok\ntehlikelidir. Yükseğe uçup gözden\nkaybolunca dikkat et."
+ },
+ {
+  "sha256": "1ba0749f5bd87b692d70a25958f3ac16cc2574fe7296c5a8428db3983c46845d",
+  "tr": "Griffon, önündeki engelleri yok\nsayıp her yerden saldırabilen\nkırmızı enerji kanatları salar.\nZeminin şeklinden yararlanıp\nkaç."
+ },
+ {
+  "sha256": "9acc68aeb3101a327a482931860a934e6957751c172768bcb3dd66911805123a",
+  "tr": "Büyü çemberleri yıldırımdaki kötü\nruhları emip güçlü bir elektrik\nsaldırısı yapar. Bu saldırı\ngelince en iyisi kaçınmaya\nodaklanmaktır."
+ },
+ {
+  "sha256": "cf4a1d67ab7cdce0081f2ddba46ed50ab17814b6c060545eabe4acf66a181bb7",
+  "tr": "Denizin kıyısı ile Yeraltı Dünyası\narasında saklanırlar. Başıboş\ngezginleri bekleyip onları yerler.\nKurbanların ruhları Yeraltı\nDünyası'nın sonsuz denizinde\ndolaşmaya mahkumdur."
+ },
+ {
+  "sha256": "367d16adb61a2f3ba1a3f77766a3e0fb38ede68e74b0d22fcb8cfa4cad96c5f6",
+  "tr": "Hızla hareket edip yakındaki\nyaşam formlarını yerler. Gerçek\nhalini yalnızca saldırırken\ngösterirler."
+ },
+ {
+  "sha256": "c957cd837c6345c6ddcfc798ccbfa32dba310d28702a63616abeba2bfdbff049",
+  "tr": "Zekaları düşüktür, bu yüzden\nonlara isim verilmemiş. Ama\nhayatta kalma becerileri\nyabana atılmaz. Nihayetinde bu\nacımasız dünyada ayakta kaldılar."
+ },
+ {
+  "sha256": "e72ed160992c30d3e685e43f018454051d9c7eefb1c59d917a774aa81aef818f",
+  "tr": "Garip dansları boyutu bozup büyü\ngücünü (Devil Gauge) çalar.\nBunu engellemenin yolu yok. Bu\nruhlarla karşılaşınca büyü\ngücüne güvenme."
+ },
+ {
+  "sha256": "acd218f9db68d53d4a6bbb686a5ff8f49a9117d9c11aff0c79f57a645f53a5d7",
+  "tr": "Taktıkları gizemli maskeyi\nkırarsan vücutları ve güçleri\nbüyür. Bir Devil Hunter olarak\nönce hangi boydaki Nobody'yi\nindireceğine karar vermelisin."
+ },
+ {
+  "sha256": "e4b6880ed5586d14a7b167e8e6b63720d6b1255c83a33a7af0a4f0c049a44537",
+  "tr": "Aşırı hızlı metabolizmaları\nvücutlarından göz küresi gibi\nçürük parçalar düşürür. Bu\nküreler patlayıp içindeki zehri\nsaçar."
+ },
+ {
+  "sha256": "345c92addd0249aea3719090a9f412e44fe00a11a7b033a366fecb6c75f6991b",
+  "tr": "Bazen göz küresini kapıp sana\nfırlatırlar. Uzak durmak güvende\nolduğun anlamına gelmez."
+ },
+ {
+  "sha256": "7cf9a8f152b42d869c135b275ee9b95259131913b6e4287fa24faf3f479aa794",
+  "tr": "Sırtlarından çıkan dev koldan\nsakın. Dikkat etmezsen seni\nyakalayıp ağır hasar verirler."
+ },
+ {
+  "sha256": "d5d2af4ab62942b7a6054ce257719c369ed17719f359c12e8f14054d0399369b",
+  "tr": "Sıçrayarak tekme atma saldırıları\nöyle sert ki, vurulursan epey\nuzağa savrulursun. Özellikle\natılıp saldırından kaçtıklarında\ndikkat et. Bu tekmeden kaçın."
+ },
+ {
+  "sha256": "51286e4214ef417baeb7535f049384cb8b526a3eb0a77d4a244f0f86a2b80de1",
+  "tr": "Ölünce parçalara ayrılarak\npatlarlar. Nobody'nin vücudu\ncanlı zehir, bu yüzden ölürken\nbile uzak dur. Yaklaşırsan zehirli\netleri çarpıp sana hasar verir."
+ },
+ {
+  "sha256": "d86ecaa4476504704e241fdafea7f7d2666a218020817ac20f995ee00c34188e",
+  "tr": "Marionette'lere benzeseler de\nçok daha güçlü şer güçleri var.\nİnsan yapımı değiller, kötü bir\nvarlığın yarattığı belli."
+ },
+ {
+  "sha256": "437ed0469b85f7cb75bd3e5c982e3ce45b6b9b6d6575b549a74d703e34fbe792",
+  "tr": "Alevlere sarılı garip silahlar\nyo-yo gibi fırlatılır. İlk geçişi\nsavuştursan da ikincisine dikkat."
+ },
+ {
+  "sha256": "99fa5530ee3eb325b0fd6cea1bdb02a173ec0efb319c1c9ec38b6c570c00b5ee",
+  "tr": "Hızlarıyla oyuncuyu yakalayıp\nkuş gibi gagalarıyla kafasına\nvururlar. Kurtulmak için Sol\nÇubuğu salla."
+ },
+ {
+  "sha256": "0e93150796c715ad3d7cdfcc500779a65e9f83a924db1705a854e0be52654b23",
+  "tr": "Yakındakileri hareketsiz bırakan\nkötü bir savaş çığlığı atarlar.\nAv felç olunca diğerleri ona\nmerhametsizce saldırır."
+ },
+ {
+  "sha256": "87acbeda7164049e87984489e61b157184d15fe757820c6ee84eeac5dacc1502",
+  "tr": "Ağızlarından çıkan alevlerden\nkaçmak zor. Marionette'lerden\nakıllı olduklarından tekdüze\nsaldırılara alevle karşılık\nverirler."
+ },
+ {
+  "sha256": "20ea1f6d5c888fff8198d9e6100c480919b8e2d933b0187edaf1c02e2d16cf85",
+  "tr": "Kara İmparator'un yüzeyi ele\ngeçirmek için yarattığı askerler.\nSoğuk havaya bürünmüş, türlerinin\nseçkinidirler. Çevikliği, avı\nköşeye sıkıştırmakta avantajdır."
+ },
+ {
+  "sha256": "d0df4cc67e6e69d33fb14e72f1ff4a381a024ead1e80cd44ea45158aa068cdf7",
+  "tr": "Soğuk bilenmiş pençeler birer\nbuz bıçağıdır. Bıçakların\nçevresi mutlak sıfırın ötesinde,\nkesilen kurban acı duymadan ölür."
+ },
+ {
+  "sha256": "8998d0c12b2192fcb2354d8d59309d667bf1e88f9af665a42e41786e7f9cba42",
+  "tr": "Pençeler ölümcül mermi gibi\nfırlayan buz sarkıtlarına\ndönüşür. Atıldıktan sonra\nkaçmak neredeyse imkansız.\nVurulmamak için hareketlerini\nönceden tahmin et."
+ },
+ {
+  "sha256": "a0680f8becdfb65d355aead6c35f671c019f5a5c9cfd9be1a4f172bfb5db0d12",
+  "tr": "Düşmanın arkasına geçtin diye\ngüvende sayma kendini.\nPençelerinin hep ileri\nateşlenmediğini unutma."
+ },
+ {
+  "sha256": "1c2ed7090d95e004bc34ffe6bb13b6dca7a306b0b67cfe78a23fbda5eef1b32a",
+  "tr": "Soğuğu zemin üzerinden ileterek\nsalarlar. Zeminin donma sesini\ndikkatle dinle ve yanlara kaç."
+ },
+ {
+  "sha256": "899abbd3902cbf8fa37ccc71bf2baa0176a16369d8a9bc862e589bd01556a0ca",
+  "tr": "Yaydıkları soğuk havadaki nemi\ndondurup birçok keskin buz\nmızrağına çevirir. Bu saldırıyı\nsezmelisin. Yoksa mızraklara\nkurban gidersin."
+ },
+ {
+  "sha256": "d0aac645c90ec2efa21848b942696f2b5a6a5d8657cf754a815dcecf65755108",
+  "tr": "Vücutlarını moleküler düzeyde\ndağıtıp havada ilerleyebilirler,\nama yalnızca düz yönde. Nerede\nbelireceklerini tahmin etmek\nsavaşı kazanmana yardım eder."
+ },
+ {
+  "sha256": "8d4a537014f964cf6751b1bb66d2ae0422c1e427e9548a0076bf0e73379da0f4",
+  "tr": "Yeterince hasar verirsen donmuş\nvücut parçaları parçalanır. Hasar\nvermeye devam et ve kayıp\nparçalarını yenilemesinler."
+ },
+ {
+  "sha256": "5d0e04c9666206e5ba59e708b2d1b2b61e83ab5575ac284fe5ff5dc579426238",
+  "tr": "Kırılan parçalarını havayı\ndondurarak yenilemeye çalışırlar.\nBuz oluşumlarını olabildiğince\nçabuk yok et."
+ },
+ {
+  "sha256": "a94f674c027c4f0a2e0b529d744de2ce05d77e8a4c102ae15c5eba6c315b187e",
+  "tr": "Volkan ateşine bile dayanıklı olan\nFrost'lar daha üst ateş\nalemlerine zayıftır. Onlara karşı\nIfrit'in cehennem ateşini kullan."
+ },
+ {
+  "sha256": "a959aca9ade2a2315341e58708bc8f02f050bebd2601d87179326038099a1457",
+  "tr": "Kara İmparator'un yarattığı bir\nbiyo silah. İnorganik maddelerden\noluşur ve makine gibi onun\nemirlerine uyar. Bilinci olup\nolmadığı bilinmiyor."
+ },
+ {
+  "sha256": "d6fd962b6ccb6fd9b1233987127bff9b397de634b1b31875b56470eadbd2faed",
+  "tr": "Nightmare-Beta, Nightmare'e benzer\nbir silahtır. Bu yüzden ona\nkarşı etkisizdir."
+ },
+ {
+  "sha256": "d0dee4733a4d544440f287a0623e976b58394ba484ecef82addb48e718c7d424",
+  "tr": "Yerdeki kabartma çemberler,\nNightmare'in kontrolden çıkmasını\nengelleyen bağlama araçlarıdır.\nBağlanınca sert bir zırha bürünür\nama ara sıra nefes alır gibi\nçekirdeğini gösterir. Nightmare'e\nhasar vermek için bu halde\nolması gerekir."
+ },
+ {
+  "sha256": "268981e2e3f1ec2995147b79ddf381f16c20690114b4ce2f28adbb9f400e5334",
+  "tr": "Jel haline bürünmüşken seni\nkuşatırsa kötü bir boyuta\nışınlanırsın. Orayı yöneten kötü\nruhları yok etmelisin. Bu kötülük\nDante'nin bilinçaltındaki\ntravmanın yansımasıdır."
+ },
+ {
+  "sha256": "9637ad67d2f9028be3ebf3d4995cb321b671d8ec4a8798015222ab953b61a3e5",
+  "tr": "Gövdesindeki yuvarlak parçalar\nmakineli tüfek gibi küçük enerji\nmermileri ateşler. Her vuruşun\nhasarı azdır ama arka arkaya\nisabet ederse ciddi hasar verir."
+ },
+ {
+  "sha256": "52fbfb1d628e585f4ffc7b98a310658be6eb13fef82172433db89a1fb069e35a",
+  "tr": "Vücudunun bir parçasını koparıp\nboomerang gibi havaya fırlatır.\nDönen bıçak hep aynı yolda gider.\nHareketini iyi izle, saldırı\niçin boşluk bul!"
+ },
+ {
+  "sha256": "b824a515cd6969846f20f76081ed91628215cb83bd4020eb56e8a69284305a5d",
+  "tr": "Mümkünse yanlarına yaklaşma.\nSavunma refleksi devreye girip\nmızrak benzeri bir nesne yoldaki\nher şeyi deler. Saldırını yeterli\netkiyle zamanlarsan hücum için\nfırsat yaratırsın."
+ },
+ {
+  "sha256": "017ebb6f5800ab4abd67d46c911220d079c4c8a8883c75fa2c5e472281db7256",
+  "tr": "Çekirdekten çıkan beyaz ışık\nyerde ilerleyip yana yayılır.\nYanlara kaçmak tehlikeli olabilir."
+ },
+ {
+  "sha256": "cb9580e170e807fc186b38a835734b4c09e2827b0b5f13d6ab32ba7df9cab833",
+  "tr": "Saldığı siyah jel benzeri şeyler\nhedefe sarılıp onu dondurur.\nKurtulmak için Sol Çubuğu salla."
+ },
+ {
+  "sha256": "2080456c9729462f09f4db24d7c8f8a7856bf28ad8d51436e02e2d6bde137346",
+  "tr": "Güdümlü mermileri silahlarınla\ngeri vurabilirsin. Hedefini\nkaybeden mermiler Nightmare'in\nçekirdeğine dönüp ona hasar verir."
+ },
+ {
+  "sha256": "a5bbc5d389fd73678ae98151bfafeca588a24bcc1e0caec9882367456164d935",
+  "tr": "Ağ biçimine geçince saplarını\nkesip hızla kaç. Kaçamazsan\nciddi hasar alırsın."
+ },
+ {
+  "sha256": "9b6b714519a684f32acedd314391cd1c43600b011f7cfdd6d83d5530bb5cf7f5",
+  "tr": "Nightmare en ölümcül saldırısını\nuçlarındaki kapaklardan yapar.\nBu aşırı soğuk ölülerin toplanmış\nçığlıklarıdır, magmayı bile\ndondurur. Kapaklar açılmaya\nbaşlayınca vurulmamaya bak."
+ },
+ {
+  "sha256": "78e6a60935ce92209c02395eb497ecf866392057a56eb5feac53c108ab4dbce1",
+  "tr": "Nightmare'in birkaç çekirdeği\nvardır. Her çekirdek yok olunca\nkendini savunma düzeneği devreye\ngirer ve saldırı biçimi değişir.\nDeğişimleri yakından izle."
+ },
+ {
+  "sha256": "49763e91f3e4d4757e0c01fcca5becf28d8dd0b5eccc7d658ddf6d1e1bd08901",
+  "tr": "Çekirdek büyü güçlerini emer,\nDante'nin güçleri de dahil.\nEmmeye başlarsa çekirdeğe vurup\nbunu durdur. Yeterince büyü gücü\nemince kendi Devil Trigger'ını\naçar ve müthiş güçle saldırır."
+ },
+ {
+  "sha256": "0dc4f438ed589249cc0d930ba80a71ccd0b40cf15ba2f2f02f995fef974520d2",
+  "tr": "Yarasa şeklini almış elektrikli\nkötü ruhlardır."
+ },
+ {
+  "sha256": "dc07dded25e8e3498c14121f32d944b14bf168e16f6d486713e8a9d4791bbab2",
+  "tr": "Yarasa biçimindeyken elektrik\nbıçakları fırlatırlar. Işık\ntoplamaya başladıklarını görünce\nhazır ol."
+ },
+ {
+  "sha256": "32c0e2c54f256719f7e33d6065349b4a2b5ed0068278a2bc98935824f9508def",
+  "tr": "Rakiplerinin biçimini kopyalayıp\nonlara dönüşebilirler. Yalnızca\nşekli değil, davranış ve\nhareketleri de taklit ederler."
+ },
+ {
+  "sha256": "adbffa86a8b9c529d70df8394c67c6014a424387d166ee3db53b9b7b0bc153db",
+  "tr": "Gözlerinden çıkan yüklü elektrik\ntehlikelidir. Yatay ilerlediğinden\ntehlike sezersen yukarı zıpla."
+ },
+ {
+  "sha256": "7d3ad1783a2356e030e6c5f8509a74898018b1bcec368d67848eba1a399de7ea",
+  "tr": "Plasma uyarısız bölünür. Nasıl\nbölündükleri bilinmiyor. Sonra da\naynı yeteneklere ve dolu\nenerjiye sahiptirler. Çoğalmayı\ndurdurmak için hepsini neredeyse\naynı anda yok etmelisin."
+ },
+ {
+  "sha256": "02178ad014ba6f9880b0508996ecd6db26e99880421c5409745fe0c083b9b63b",
+  "tr": "Plasma, kötü elektriğin vücut\nbulmuş halidir. Bu yüzden\nNightmare-beta işe yaramaz. Çevre\nenerjisini ancak ışığı büker,\nhasar vermez."
+ },
+ {
+  "sha256": "1a8bd6a68a14fb1be67004c77c5d8a140c30964d988bcc34af9731b6d561d6a5",
+  "tr": "Alastor “Yıldırım Ruhu”dur.\nYalnızca seçilmiş kişinin\nemirlerine uyar. Bu yüzden\nAlastor'un güçleri Plasma'ya\nkarşı etkili değildir."
+ },
+ {
+  "sha256": "d9f57990cfcc64c0f37e48b4fd21fbed9883807d5566e5bd1049aa85c59a5c58",
+  "tr": "Yeraltı Dünyası'nın hükümdarı,\nKara İmparator Mundus! Bu ana\nbeklemiştin. Onu bir kez ve\ntamamen bitir!"
+ }
+]

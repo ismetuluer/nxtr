@@ -1,0 +1,1498 @@
+"""Adım 3 — Çevir: çeviri tablosu (sanal model, satır içi düzenleme, arama, filtre, toplu işlem)."""
+
+from __future__ import annotations
+
+import html
+from collections.abc import Callable
+from typing import Any
+
+from PySide6.QtCore import (
+    QAbstractItemModel,
+    QAbstractTableModel,
+    QEvent,
+    QModelIndex,
+    QObject,
+    QPersistentModelIndex,
+    QPoint,
+    QSettings,
+    QSize,
+    QSortFilterProxyModel,
+    Qt,
+    QTimer,
+    Signal,
+)
+from PySide6.QtGui import QAction, QColor, QKeyEvent, QKeySequence, QResizeEvent, QShortcut, QShowEvent
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QApplication,
+    QCheckBox,
+    QComboBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLineEdit,
+    QMenu,
+    QPlainTextEdit,
+    QProgressBar,
+    QSplitter,
+    QStackedWidget,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
+    QTableView,
+    QToolButton,
+    QVBoxLayout,
+    QWidget,
+)
+
+from nxceviri.core.errors import NxError
+from nxceviri.core.languages import sort_key
+from nxceviri.core.project import TranslationRow, row_group
+from nxceviri.core.qa.checks import (
+    KIND_LABELS,
+    ROW_FLAG_KINDS,
+    SEVERITY_ERROR,
+    SEVERITY_WARNING,
+    QaIssue,
+    check_row,
+)
+from nxceviri.core.translate.codekinds import CodeKinds
+from nxceviri.core.translate.fitconfig import FitConfig
+from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_REVISE, ACTION_TRANSLATE, target_rows
+from nxceviri.core.translate.status import STATUS_LABELS, Status
+from nxceviri.core.translate.uppercase import UppercaseRules
+from nxceviri.gui.changes_dialog import HtmlDelegate, diff_html
+from nxceviri.gui.editor_pane import EditorPane
+from nxceviri.gui.icons import bind_icon
+from nxceviri.gui.marked_delegate import ROW_ROLE, MarkedDelegate, kind_of_row
+from nxceviri.gui.theme import current_tokens
+from nxceviri.gui.view_actions import PANE_OFF, PANE_RIGHT, ViewActions
+from nxceviri.gui.widgets import Banner, Card, EmptyState, button, format_int, label, tip_html, title_row
+
+COL_SOURCE, COL_TRANSLATION, COL_STATUS, COL_FILE, COL_KEY, COL_PREVIOUS = range(6)
+_COLUMNS = ("Orijinal", "Çeviri", "Durum", "Dosya", "Anahtar", "Önceki çeviri")
+#: Durum süzgecinde "son işte değişen satırlar" seçeneğinin değeri.
+CHANGED_FILTER = "@changed"
+#: Durum süzgecinde yalnızca renkle işaretli (sorunlu) satırlar.
+ISSUES_FILTER = "@issues"
+#: Sorun türü → çeviri metninin rengi (tema belirteci).
+ISSUE_COLORS = {
+    "placeholder": "danger",
+    "markup": "issue_markup",
+    "max_length": "issue_length",
+    "code_position": "issue_lines",
+    "newlines": "issue_lines",
+    "overflow": "warning",
+}
+#: Canlı izlemede yeni yazılan satırların vurgulu kaldığı süre (ms).
+_FLASH_MS = 2500
+_STATUS_COLORS = {
+    Status.UNTRANSLATED: "muted",
+    Status.MACHINE: "accent",
+    Status.REDACTED: "redacted",
+    Status.APPROVED: "success",
+    Status.ERROR: "danger",
+}
+
+#: Durum sütunu sıralanırken kullanılan sıra: sorunlu satırlar önce gelir.
+_STATUS_RANK = {
+    Status.ERROR: 0,
+    Status.UNTRANSLATED: 1,
+    Status.MACHINE: 2,
+    Status.REDACTED: 3,
+    Status.APPROVED: 4,
+}
+#: Durum sütununda son işi ("· redaksiyon") gösterilen durumlar.
+_MARKED_STATUSES = (Status.MACHINE, Status.REDACTED, Status.ERROR)
+#: Başlık genişlikleri: durum, dosya, anahtar sütunlarının varsayılanı; kalan alan orijinal/çeviriye bölünür.
+_FIXED_WIDTHS = {COL_STATUS: 190, COL_FILE: 150, COL_KEY: 150}
+_MIN_COLUMN_WIDTH = 60
+#: "Önceki çeviri" sütunu açılınca en az bu genişlikte gösterilir.
+_MIN_PREVIOUS_WIDTH = 200
+_RESIZE_DELAY_MS = 60
+#: Büyük harfle gösterilen satırların anahtar sütunundaki işareti.
+_UPPERCASE_MARK = "⇧ "
+#: Görünen satırların üstünde/altında da ölçülen satır sayısı (kaydırırken boşluk görünmesin).
+_ROW_MARGIN = 8
+
+_Index = QModelIndex | QPersistentModelIndex
+#: Bu genişliğin altında "sağda" panel altta gösterilir; panelin en küçük ölçüleri.
+NARROW_WIDTH = 1000
+PANE_MIN_WIDTH = 280
+#: Değişiklikleri kaydeder ve güncellenmiş satırları döndürür; hata olursa NxError fırlatır.
+CommitFn = Callable[[list[tuple[int, str]]], list[TranslationRow]]
+
+
+def clipboard_text(rows: list[TranslationRow], what: str) -> str:
+    """Panoya konacak metin. "both": her satır için orijinal, alt satırda çeviri; satırlar arasında boş satır."""
+    if what == "source":
+        return "\n".join(r.source for r in rows)
+    if what == "translation":
+        return "\n".join(r.translation for r in rows)
+    return "\n\n".join(f"{r.source}\n{r.translation}" for r in rows)
+
+
+def issue_legend_html() -> str:
+    """Renk açıklaması (Görünüm menüsündeki seçeneğin ipucu)."""
+    t = current_tokens()
+    names = {
+        "placeholder": "Kontrol kodu hatası (eksik, fazla, sırası bozuk)",
+        "markup": "Orijinalde olmayan etiket (<div> …)",
+        "max_length": "Uzunluk sınırı aşıldı",
+        "code_position": "Satır sonu kodları yanlış yerde / satır sonu sayısı farklı",
+        "overflow": "Orijinalden belirgin uzun (olası taşma)",
+    }
+    rows = "".join(
+        f"<tr><td style='color:{t[ISSUE_COLORS[k]]}'>■</td><td>{html.escape(v)}</td></tr>" for k, v in names.items()
+    )
+    return f"<b>Çeviri metninin rengi sorunu gösterir:</b><table>{rows}</table>Ayrıntı satırın ipucunda."
+
+
+class TranslationModel(QAbstractTableModel):
+    """Binlerce satırda akıcı çalışan sanal model. Düzenlemeler `commit` ile hemen kaydedilir."""
+
+    commit_failed = Signal(str)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.rows: list[TranslationRow] = []  # görüntülenen sıra
+        self._pos: dict[int, int] = {}  # satır kimliği → görüntülenen sıra
+        self._original: list[int] = []  # özgün (veritabanı) sırasındaki satır kimlikleri
+        self.sort_column = -1
+        self.sort_order = Qt.SortOrder.AscendingOrder
+        self.commit: CommitFn | None = None
+        self.uppercase = UppercaseRules()
+        self.marks: dict[int, str] = {}  # satır kimliği → son değişikliği yapan işin kısa adı ("redaksiyon")
+        self.previous: dict[int, str] = {}  # son işte değişen satırların önceki çevirisi
+        self._flash: set[int] = set()  # canlı izlemede az önce yazılan satırlar
+        self.issue_colors = True  # çeviri metni sorun türüne göre renklendirilir
+        self.wrap = True  # tabloda metin kaydırma açık mı (satır sonları gerçek satır olarak gösterilir)
+        self._checked: dict[int, tuple[TranslationRow, list[QaIssue]]] = {}  # satır → (denetlenen hâli, sorunları)
+        #: Son "Kontrol Et" sonucu: satır → (denetlenen çeviri, sorunları). Çeviri değişince geçersiz sayılır.
+        self._qa: dict[int, tuple[str, list[QaIssue]]] = {}
+
+    def _quick_issues(self, r: TranslationRow) -> list[QaIssue]:
+        """Fonttan ve sözlükten bağımsız hızlı denetim; satır değişmedikçe yeniden yapılmaz."""
+        cached = self._checked.get(r.id)
+        if cached is not None and cached[0] is r:
+            return cached[1]
+        found = check_row(r, "", "") if r.translation else []
+        self._checked[r.id] = (r, found)
+        return found
+
+    def flag(self, r: TranslationRow) -> QaIssue | None:
+        """Çeviri metnini renklendiren en önemli sorun (yoksa None)."""
+        found = {i.kind: i for i in self._quick_issues(r)}
+        return next((found[k] for k in ROW_FLAG_KINDS if k in found), None)
+
+    def issues(self, r: TranslationRow) -> list[QaIssue]:
+        """Satırın hata ve uyarıları: hızlı denetim + çeviri değişmediyse son Kontrol Et sonucu (yinelenmeden)."""
+        out = {(i.kind, i.message): i for i in self._quick_issues(r)}
+        qa = self._qa.get(r.id)
+        if qa is not None and qa[0] == r.translation:
+            for i in qa[1]:
+                out.setdefault((i.kind, i.message), i)
+        return [i for i in out.values() if i.severity in (SEVERITY_ERROR, SEVERITY_WARNING)]
+
+    def set_qa_issues(self, issues: list[QaIssue], checked: list[TranslationRow]) -> None:
+        """Kontrol Et sonuçlarını (`checked` satırlarının o anki çevirisiyle) durum hücresine bağlar."""
+        by_row: dict[int, list[QaIssue]] = {}
+        for i in issues:
+            by_row.setdefault(i.row_id, []).append(i)
+        self._qa = {r.id: (r.translation, by_row[r.id]) for r in checked if r.id in by_row}
+        if self.rows:
+            self.dataChanged.emit(self.index(0, COL_STATUS), self.index(len(self.rows) - 1, COL_STATUS))
+
+    def _issue_summary(self, r: TranslationRow) -> str:
+        found = self.issues(r)
+        errors = sum(i.severity == SEVERITY_ERROR for i in found)
+        warnings = len(found) - errors
+        parts = ([f"✖ {errors} hata"] if errors else []) + ([f"⚠ {warnings} uyarı"] if warnings else [])
+        return " · ".join(parts)
+
+    def set_rows(self, rows: list[TranslationRow]) -> None:
+        self.beginResetModel()
+        self._checked.clear()
+        self._original = [r.id for r in rows]
+        self.rows = list(rows)
+        self._reorder()
+        self.endResetModel()
+
+    def update_rows(self, rows: list[TranslationRow]) -> None:
+        for r in rows:
+            i = self._pos.get(r.id)
+            if i is None:
+                continue
+            self.rows[i] = r
+            self._row_changed(i)
+
+    def position(self, row_id: int) -> int | None:
+        return self._pos.get(row_id)
+
+    def row_by_id(self, row_id: int) -> TranslationRow | None:
+        i = self._pos.get(row_id)
+        return None if i is None else self.rows[i]
+
+    def _row_changed(self, i: int) -> None:
+        self.dataChanged.emit(self.index(i, 0), self.index(i, len(_COLUMNS) - 1))
+
+    def _ids_changed(self, ids: set[int] | list[int]) -> None:
+        for row_id in ids:
+            i = self._pos.get(row_id)
+            if i is not None:
+                self._row_changed(i)
+
+    def set_marks(self, marks: dict[int, str]) -> None:
+        changed = set(self.marks) ^ set(marks) | {k for k in marks if self.marks.get(k) != marks[k]}
+        self.marks = dict(marks)
+        self._ids_changed(changed)
+
+    def set_previous(self, previous: dict[int, str]) -> None:
+        changed = set(self.previous) | set(previous)
+        self.previous = dict(previous)
+        self._ids_changed(changed)
+
+    def set_flash(self, ids: list[int], on: bool) -> None:
+        if on:
+            self._flash.update(ids)
+        else:
+            self._flash.difference_update(ids)
+        self._ids_changed(ids)
+
+    @staticmethod
+    def _sort_key(r: TranslationRow, col: int) -> Any:
+        if col == COL_SOURCE:
+            return sort_key(r.source)
+        if col == COL_TRANSLATION:
+            return sort_key(r.translation)
+        if col == COL_STATUS:
+            return _STATUS_RANK[Status(r.status)]
+        if col == COL_FILE:
+            return sort_key(r.file.rsplit(">", 1)[-1].rsplit("/", 1)[-1])
+        return sort_key(r.context or r.key)
+
+    def _sort_key_for(self, r: TranslationRow, col: int) -> Any:
+        if col == COL_PREVIOUS:
+            return sort_key(self.previous.get(r.id, ""))
+        return self._sort_key(r, col)
+
+    def _reorder(self) -> None:
+        """`rows` listesini geçerli sıralamaya göre dizer (eşit olanlar özgün sırayı korur)."""
+        by_id = {r.id: r for r in self.rows}
+        ordered = [by_id[i] for i in self._original if i in by_id]
+        if self.sort_column >= 0:
+            col = self.sort_column
+            ordered.sort(
+                key=lambda r: self._sort_key_for(r, col), reverse=self.sort_order == Qt.SortOrder.DescendingOrder
+            )
+        self.rows = ordered
+        self._pos = {r.id: i for i, r in enumerate(ordered)}
+
+    def sort_by(self, column: int, order: Qt.SortOrder = Qt.SortOrder.AscendingOrder) -> None:
+        """Sütuna göre sıralar; `column < 0` özgün sıraya döner. Sıralama modelde yapılır: milyonlarca
+        Python karşılaştırması yerine tek bir `list.sort` çağrısı yeterlidir."""
+        self.beginResetModel()
+        self.sort_column, self.sort_order = column, order
+        self._reorder()
+        self.endResetModel()
+
+    def rowCount(self, parent: _Index = QModelIndex()) -> int:  # noqa: B008 - Qt imzası
+        return 0 if parent.isValid() else len(self.rows)
+
+    def columnCount(self, parent: _Index = QModelIndex()) -> int:  # noqa: B008 - Qt imzası
+        return 0 if parent.isValid() else len(_COLUMNS)
+
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
+            return _COLUMNS[section]
+        return None
+
+    def flags(self, index: _Index) -> Qt.ItemFlag:
+        base = super().flags(index)
+        if index.isValid() and index.column() == COL_TRANSLATION:
+            return base | Qt.ItemFlag.ItemIsEditable
+        return base
+
+    def _cell_text(self, text: str) -> str:
+        """Hücrede gösterilecek metin: satır sonları simgeye çevrilmez, gerçek satır sonu olarak kalır.
+
+        Kaydırma kapalıyken satır yüksekliği tek satıra indiği için satır sonları boşluğa dönüşür; aksi hâlde
+        metnin ilk satırdan sonrası görünmezdi.
+        """
+        return text if self.wrap else text.replace("\n", " ")
+
+    def refresh_display(self) -> None:
+        """Kaydırma değişince görünen metinleri yeniden çizdirir (satır yükseklikleri de yeniden ölçülür)."""
+        if self.rows:
+            self.dataChanged.emit(self.index(0, 0), self.index(len(self.rows) - 1, len(_COLUMNS) - 1))
+
+    def data(self, index: _Index, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
+        if not index.isValid():
+            return None
+        r = self.rows[index.row()]
+        col = index.column()
+        if role == ROW_ROLE:
+            return r
+        if role == Qt.ItemDataRole.DisplayRole:
+            if col == COL_SOURCE:
+                return self._cell_text(r.source)
+            if col == COL_TRANSLATION:
+                return self._cell_text(r.translation)
+            if col == COL_STATUS:
+                mark = self.marks.get(r.id, "") if r.status in _MARKED_STATUSES else ""
+                text = "● " + STATUS_LABELS[Status(r.status)] + (f" · {mark}" if mark else "")
+                summary = self._issue_summary(r)
+                if summary:
+                    text += ("\n" if self.wrap else " · ") + summary  # sorunlar durumun altında
+                return text
+            if col == COL_PREVIOUS:
+                if r.id not in self.previous:
+                    return ""
+                return diff_html(self.previous[r.id], r.translation)[0]
+            if col == COL_FILE:
+                return r.file.rsplit(">", 1)[-1].rsplit("/", 1)[-1]
+            marker = _UPPERCASE_MARK if self.uppercase.applies(r.file, r.key, row_group(r)) else ""
+            return marker + (r.context or r.key)
+        if role == Qt.ItemDataRole.EditRole:
+            return r.translation if col == COL_TRANSLATION else None
+        if role == Qt.ItemDataRole.ForegroundRole and col == COL_STATUS:
+            return QColor(current_tokens()[_STATUS_COLORS[Status(r.status)]])
+        if role == Qt.ItemDataRole.ForegroundRole and col == COL_TRANSLATION and self.issue_colors:
+            issue = self.flag(r)
+            return None if issue is None else QColor(current_tokens()[ISSUE_COLORS[issue.kind]])
+        if role == Qt.ItemDataRole.BackgroundRole and r.id in self._flash:
+            return QColor(current_tokens()["warning_bg"])
+        if role == Qt.ItemDataRole.ToolTipRole:
+            tip = self._tooltip(r, col)
+            if col == COL_KEY and self.uppercase.applies(r.file, r.key, row_group(r)):
+                tip = (tip or "") + "\n\nBüyük harfle gösterilir: dışa aktarırken i harfleri İ yazılır."
+            return tip
+        return None
+
+    def _tooltip(self, r: TranslationRow, col: int) -> str | None:
+        if col == COL_STATUS:
+            mark = self.marks.get(r.id, "")
+            parts = [r.note] if r.note else []
+            found = self.issues(r)
+            if found:
+                parts.append("\n".join(f"{'✖' if i.severity == SEVERITY_ERROR else '⚠'} {i.message}" for i in found))
+            if mark and r.status in _MARKED_STATUSES:
+                parts.append(f"Son değişiklik: {mark}. Önceki hâli için sağ tık → Çeviri geçmişi.")
+            return "\n\n".join(parts) or None
+        if col == COL_PREVIOUS:
+            previous = self.previous.get(r.id)
+            return tip_html(previous) if previous else None
+        if col in (COL_SOURCE, COL_TRANSLATION):
+            text = r.source if col == COL_SOURCE else r.translation
+            lines = [text or "(boş)"]
+            if r.code_labels:
+                lines.append("")
+                lines.append("Kontrol kodları (çeviride aynı sırayla korunmalı):")
+                lines += [f"  ⟦{i}⟧  {lbl}" for i, lbl in enumerate(r.code_labels, start=1)]
+            if r.note:
+                lines += ["", r.note]
+            issue = self.flag(r) if col == COL_TRANSLATION else None
+            if issue is not None and issue.message != r.note:
+                lines += ["", f"⚠ {KIND_LABELS[issue.kind]}: {issue.message}"]
+            return tip_html("\n".join(lines))  # düz metin: çevirideki "<div>" biçim sanılmasın
+        if col == COL_FILE:
+            return r.file.replace(">", "  ›  ")
+        if col == COL_KEY:
+            return f"{r.context}\nKimlik: {r.key}" if r.context else r.key
+        return None
+
+    def setData(self, index: _Index, value: Any, role: int = Qt.ItemDataRole.EditRole) -> bool:
+        if role != Qt.ItemDataRole.EditRole or index.column() != COL_TRANSLATION or self.commit is None:
+            return False
+        r = self.rows[index.row()]
+        text = str(value)
+        if text == r.translation:
+            return False
+        return self.apply([(r.id, text)])
+
+    def apply(self, changes: list[tuple[int, str]]) -> bool:
+        if self.commit is None or not changes:
+            return False
+        try:
+            updated = self.commit(changes)
+        except NxError as exc:
+            self.commit_failed.emit(exc.user_text())
+            return False
+        self.update_rows(updated)
+        return True
+
+
+class TranslationFilter(QSortFilterProxyModel):
+    def __init__(self) -> None:
+        super().__init__()
+        self.status = ""
+        self.group = ""
+        self.text = ""
+        # Düzenleme sırasında satırlar süzgeçten çıkıp yer değiştirmesin: süzgeç yalnızca süzgeç
+        # değişince yeniden uygulanır. Sıralama proxy'de değil modelde yapılır (bkz. TranslationModel.sort_by).
+        self.setDynamicSortFilter(False)
+
+    def update(self, status: str, group: str, text: str) -> None:
+        self.beginFilterChange()
+        self.status, self.group, self.text = status, group, text.casefold()
+        self.endFilterChange()
+
+    def filterAcceptsRow(self, source_row: int, source_parent: _Index) -> bool:
+        model = self.sourceModel()
+        assert isinstance(model, TranslationModel)
+        r = model.rows[source_row]
+        if self.status == CHANGED_FILTER:
+            if r.id not in model.previous:
+                return False
+        elif self.status == ISSUES_FILTER:
+            if not model.issues(r):
+                return False
+        elif self.status and r.status != self.status:
+            return False
+        if self.group and row_group(r) != self.group:
+            return False
+        if not self.text:
+            return True
+        return any(self.text in s.casefold() for s in (r.source, r.translation, r.key, r.context))
+
+
+class _Editor(QPlainTextEdit):
+    """Çok satırlı düzenleyici: Enter kaydeder, Shift+Enter yeni satır, Esc vazgeçer."""
+
+    committed = Signal()
+
+    def keyPressEvent(self, e: QKeyEvent) -> None:
+        if e.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and not e.modifiers() & Qt.KeyboardModifier.ShiftModifier:
+            self.committed.emit()
+            return
+        super().keyPressEvent(e)
+
+
+class _ElideLeftDelegate(QStyledItemDelegate):
+    """Yol ve anahtar gibi sonu önemli metinleri tek satırda, baştan kısaltarak gösterir.
+
+    "Metni kaydır" açıkken bile alt satıra kaymaz: uzun bir anahtar satırı dört satır yüksekliğe çıkarmasın.
+    Tamamı ipucunda görünür.
+    """
+
+    def initStyleOption(self, option: QStyleOptionViewItem, index: _Index) -> None:
+        super().initStyleOption(option, index)
+        option.textElideMode = Qt.TextElideMode.ElideLeft
+        option.features &= ~QStyleOptionViewItem.ViewItemFeature.WrapText
+
+    def sizeHint(self, option: QStyleOptionViewItem, index: _Index) -> QSize:
+        hint = super().sizeHint(option, index)
+        return QSize(hint.width(), option.fontMetrics.height() + 8)
+
+
+class TranslationDelegate(MarkedDelegate):
+    def __init__(self, parent: QWidget | None) -> None:
+        super().__init__(parent, "translation")
+
+    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: _Index) -> QWidget:
+        editor = _Editor(parent)
+        editor.setTabChangesFocus(True)
+        editor.committed.connect(lambda: self._finish(editor))
+        return editor
+
+    def _finish(self, editor: _Editor) -> None:
+        self.commitData.emit(editor)
+        self.closeEditor.emit(editor, QStyledItemDelegate.EndEditHint.NoHint)
+
+    def setEditorData(self, editor: QWidget, index: _Index) -> None:
+        assert isinstance(editor, _Editor)
+        editor.setPlainText(str(index.data(Qt.ItemDataRole.EditRole) or ""))
+        editor.selectAll()
+
+    def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: _Index) -> None:
+        assert isinstance(editor, _Editor)
+        model.setData(index, editor.toPlainText(), Qt.ItemDataRole.EditRole)
+
+    def updateEditorGeometry(self, editor: QWidget, option: QStyleOptionViewItem, index: _Index) -> None:
+        rect = option.rect
+        rect.setHeight(max(rect.height(), 6 * option.fontMetrics.height()))
+        editor.setGeometry(rect)
+
+
+class TranslatePage(QWidget):
+    go_to_scan = Signal()
+    machine_requested = Signal()
+    uppercase_changed = Signal(object)  # UppercaseRules
+    machine_action_requested = Signal(str)  # bağlam menüsü: seçili satırlara iş (çevir/yeniden çevir/düzelt)
+    changes_requested = Signal()  # son makine işinin değişiklikleri
+    history_requested = Signal(int)  # bir satırın çeviri geçmişi (satır kimliği)
+    unapprove_requested = Signal(list)  # onayı kaldırılacak satır kimlikleri
+    reflow_requested = Signal(list)  # satır sonları yeniden bölünecek satır kimlikleri
+    glossary_requested = Signal()
+    cancel_machine = Signal()
+    find_replace_requested = Signal()
+    csv_export_requested = Signal()
+    csv_import_requested = Signal()
+    translation_export_requested = Signal()
+    translation_import_requested = Signal()
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setObjectName("page")
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(24, 22, 24, 22)
+        lay.setSpacing(14)
+        lay.addWidget(
+            title_row(
+                "Çevir",
+                "Çeviri sütununa çift tıklayarak yazın; değişiklikler hemen kaydedilir. "
+                "⟦1⟧ gibi işaretler kontrol kodlarıdır ve çeviride aynı sırayla kalmalıdır.",
+                icon="languages",
+            )
+        )
+        self.stack = QStackedWidget()
+        lay.addWidget(self.stack, 1)
+
+        to_scan = button("Metinleri Tara adımına git", "primary")
+        to_scan.clicked.connect(self.go_to_scan)
+        self.empty = EmptyState(
+            "Henüz metin aktarılmadı",
+            "“Metinleri Tara” adımından sonra metinler burada görünür.",
+            to_scan,
+        )
+        self.stack.addWidget(self.empty)
+
+        content = QWidget()
+        cl = QVBoxLayout(content)
+        cl.setContentsMargins(0, 0, 0, 0)
+        cl.setSpacing(12)
+        self.banner = Banner(closable=True)
+        cl.addWidget(self.banner)
+        progress_row = QHBoxLayout()
+        self.progress_label = label("", "muted")
+        self.progress = QProgressBar()
+        self.progress.setTextVisible(False)
+        self.progress.setFixedSize(120, 8)  # etiketin hemen yanında ince çubuk; düğme sanılmasın
+        progress_row.addWidget(self.progress_label)
+        progress_row.addWidget(self.progress, 0, Qt.AlignmentFlag.AlignVCenter)
+        progress_row.addStretch(1)
+        self.machine_button = button("Makine Çevirisi…", "primary", icon="sparkles")
+        self.machine_button.setToolTip(tip_html("Ollama veya DeepL ile toplu çeviri, yeniden çeviri ve redaksiyon."))
+        self.machine_button.clicked.connect(self.machine_requested)
+        # İkincil eylemler tek menüde: sık yol (Makine Çevirisi) önde, gerisi bir seviye altta.
+        more_menu = QMenu(self)
+        self.glossary_button = more_menu.addAction("Sözlük…")
+        self.glossary_button.triggered.connect(self.glossary_requested)
+        self.changes_button = more_menu.addAction("Son İşin Değişiklikleri…")
+        self.changes_button.triggered.connect(self.changes_requested)
+        self.changes_button.setVisible(False)
+        more_menu.addSeparator()
+        more_menu.addAction("Dış redaksiyon dosyası oluştur…").triggered.connect(self.csv_export_requested)
+        more_menu.addAction("Dış redaksiyondan içe aktar…").triggered.connect(self.csv_import_requested)
+        more_menu.addAction("Dış çeviri dosyası oluştur…").triggered.connect(self.translation_export_requested)
+        more_menu.addAction("Dış çeviriden içe aktar…").triggered.connect(self.translation_import_requested)
+        self.more_button = QToolButton()
+        self.more_button.setObjectName("viewButton")
+        self.more_button.setText("Daha Fazla")
+        self.more_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        bind_icon(self.more_button, "ellipsis")
+        self.more_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.more_button.setMenu(more_menu)
+        progress_row.addWidget(self.more_button)
+        progress_row.addWidget(self.machine_button)
+        cl.addLayout(progress_row)
+
+        # Makine çevirisi sürerken görünen şerit.
+        self.run_panel = QWidget()
+        run = QHBoxLayout(self.run_panel)
+        run.setContentsMargins(0, 0, 0, 0)
+        self.run_label = label("", "muted")
+        self.run_bar = QProgressBar()
+        self.run_bar.setTextVisible(False)
+        self.run_cancel = button("İptal", icon="x")
+        self.run_cancel.clicked.connect(self._on_cancel_machine)
+        self.follow_box = QCheckBox("Canlı izle")
+        self.follow_box.setChecked(True)
+        self.follow_box.setToolTip(
+            tip_html(
+                "Açıkken tablo, her parti yazıldıkça o satırlara kayar. Yeni yazılan satırlar her durumda kısa "
+                "süre sarı vurgulanır."
+            )
+        )
+        run.addWidget(self.run_label, 1)
+        run.addWidget(self.follow_box)
+        run.addWidget(self.run_bar, 1)
+        run.addWidget(self.run_cancel)
+        self.run_panel.hide()
+        cl.addWidget(self.run_panel)
+
+        self._fit = FitConfig()
+        self._kinds = CodeKinds({})
+        self._last_commit_error: str | None = None
+        self._syncing = False
+        self._pane_layout: str | None = "?"  # henüz uygulanmadı
+        self._pane_timer = QTimer(self)
+        self._pane_timer.setSingleShot(True)
+        self._pane_timer.setInterval(0)
+        self._pane_timer.timeout.connect(self._recheck_pane)
+        self._fits = True  # yükseklik kuralı yerleşim oturunca `_recheck_pane` ile güncellenir
+        self.view_actions = ViewActions(self)
+        self.view_actions.symbols_changed.connect(lambda _on: self._apply_view())
+        self.view_actions.align_changed.connect(lambda _align: self._apply_view())
+        self.view_actions.pane_changed.connect(lambda _pane: self._apply_pane())
+        self.card = Card("Çeviri tablosu")
+        filters = QHBoxLayout()
+        self.search = QLineEdit()
+        self.search.setPlaceholderText("Ara…")
+        self.search.setToolTip("Orijinal metinde, çeviride ve anahtarda arar.")
+        self.search.setClearButtonEnabled(True)
+        self.search.setMinimumWidth(110)  # dar pencerede arama kutusu süzgeçlerden önce ezilmesin
+        self.status_filter = QComboBox()
+        self.group_filter = QComboBox()
+        self.group_filter.setMinimumContentsLength(10)
+        self.group_filter.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        filters.addWidget(self.search, 2)
+        filters.addWidget(self.status_filter)
+        filters.addWidget(self.group_filter, 1)
+        # Görünüm seçenekleri tek menüde: dar pencerede filtre satırı sığsın.
+        self.wrap_box = QAction("Metni kaydır", self, checkable=True)
+        self.wrap_box.setChecked(True)
+        self.wrap_box.setToolTip(
+            "Açıkken uzun metinler ve satır sonları hücre içinde gerçek satırlara kaydırılır, tamamı görünür. "
+            "Kapalıyken her satır tek satır yüksekliğinde kalır."
+        )
+        self.previous_box = QAction("Önceki çeviri sütunu", self, checkable=True)
+        self.previous_box.setToolTip(
+            "Son yeniden çeviri, düzeltme veya otomatik düzeltmede değişen satırların önceki çevirisini ayrı "
+            "sütunda gösterir. Yalnızca değişenleri görmek için durum süzgecinden “Son işte değişenler”i seçin."
+        )
+        self.previous_box.setEnabled(False)
+        self.colors_box = QAction("Sorunları renkle göster", self, checkable=True)
+        self.colors_box.setChecked(True)
+        self.colors_box.setToolTip(issue_legend_html())
+        view_menu = QMenu(self)
+        view_menu.setToolTipsVisible(True)
+        view_menu.aboutToShow.connect(self._refresh_legend)  # tema değişmiş olabilir
+        for act in (self.previous_box, self.wrap_box, self.colors_box):
+            view_menu.addAction(act)
+        self.view_button = QToolButton()
+        self.view_button.setObjectName("viewButton")
+        self.view_button.setText("Görünüm")
+        self.view_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        bind_icon(self.view_button, "settings")  # menü oku zaten sağda; ikinci bir ok olmasın
+        self.view_button.setToolTip(tip_html("Önceki çeviri sütunu, metin kaydırma ve sorun renkleri."))
+        self.view_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.view_button.setMenu(view_menu)
+        filters.addWidget(self.view_button)
+        self.card.body.addLayout(filters)
+
+        self.model = TranslationModel()
+        self.model.setParent(self)  # model sayfayla birlikte yok olsun (geç kalan sinyaller ölü tabloya gitmesin)
+        self.proxy = TranslationFilter()
+        self.proxy.setSourceModel(self.model)
+        self.table = QTableView()
+        self.table.setModel(self.proxy)
+        self.source_delegate = MarkedDelegate(self.table, "source")
+        self.translation_delegate = TranslationDelegate(self.table)
+        self.table.setItemDelegateForColumn(COL_SOURCE, self.source_delegate)
+        self.table.setItemDelegateForColumn(COL_TRANSLATION, self.translation_delegate)
+        self.table.setItemDelegateForColumn(COL_PREVIOUS, HtmlDelegate(self.table))
+        self.table.setColumnHidden(COL_PREVIOUS, True)
+        # Önceki çeviri, karşılaştırması kolay olsun diye Çeviri sütununun hemen yanında görünür.
+        self.table.horizontalHeader().moveSection(COL_PREVIOUS, COL_TRANSLATION + 1)
+        for col in (COL_FILE, COL_KEY):
+            self.table.setItemDelegateForColumn(col, _ElideLeftDelegate(self.table))
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.table.setEditTriggers(
+            QAbstractItemView.EditTrigger.DoubleClicked
+            | QAbstractItemView.EditTrigger.EditKeyPressed
+            | QAbstractItemView.EditTrigger.AnyKeyPressed
+        )
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._show_context_menu)
+        # Yalnızca tablo odaktayken: çeviri hücresi düzenlenirken Ctrl+C kendi düzenleyicisinde çalışır.
+        copy_keys = QShortcut(QKeySequence(QKeySequence.StandardKey.Copy), self.table)
+        copy_keys.setContext(Qt.ShortcutContext.WidgetShortcut)
+        copy_keys.activated.connect(lambda: self.copy_to_clipboard("both"))
+        self.table.setAlternatingRowColors(True)
+        self.table.setWordWrap(True)
+        self.table.setTextElideMode(Qt.TextElideMode.ElideNone)
+        self.table.verticalHeader().hide()
+        self.table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        self.table.setMinimumHeight(120)
+        h = self.table.horizontalHeader()
+        h.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)  # her sütun sürüklenerek ayarlanır
+        h.setStretchLastSection(False)
+        h.setMinimumSectionSize(_MIN_COLUMN_WIDTH)
+        h.setSectionsClickable(True)
+        h.setSortIndicatorShown(True)
+        h.setSortIndicatorClearable(True)
+        h.setSortIndicator(-1, Qt.SortOrder.AscendingOrder)
+        h.sortIndicatorChanged.connect(self._sort_changed)
+        self.card.body.addWidget(self.table, 1)
+        self.settings: QSettings | None = None
+        self._machine_running = False
+        self._user_sized = False
+        self._fitting = False
+        self.table.viewport().installEventFilter(self)
+        self._resize_timer = QTimer(self)
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.timeout.connect(self._fit_rows)
+        # Süzgeç değişince görünümün başa dönmemesi için seçili satıra dönüş, yerleşim oturduktan sonra yapılır.
+        self._scroll_row_id: int | None = None
+        self._scroll_timer = QTimer(self)
+        self._scroll_timer.setSingleShot(True)
+        self._scroll_timer.setInterval(0)
+        self._scroll_timer.timeout.connect(self._scroll_row_into_view)
+        h.sectionResized.connect(self._section_resized)
+        self.table.verticalScrollBar().valueChanged.connect(lambda _v: self._schedule_fit_rows())
+        self.wrap_box.toggled.connect(self._set_wrap)
+        self.colors_box.toggled.connect(self._set_issue_colors)
+        self.previous_box.toggled.connect(self._show_previous)
+        self.follow_box.toggled.connect(
+            lambda on: self.settings.setValue("translate/follow", "1" if on else "0") if self.settings else None
+        )
+        for keys, slot in (
+            (QKeySequence.StandardKey.Find, self.focus_search),
+            (QKeySequence.StandardKey.Replace, self.find_replace_requested.emit),
+            (QKeySequence("F3"), self.next_open),
+        ):
+            shortcut = QShortcut(QKeySequence(keys), self)
+            shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            shortcut.activated.connect(slot)
+        self._fit_rows()
+
+        bulk = QHBoxLayout()
+        self.count_label = label("", "muted")
+        bulk.addWidget(self.count_label, 1)
+        self.card.body.addLayout(bulk)
+        self.pane = EditorPane()
+        self.pane.commit_requested.connect(self._on_pane_commit)
+        self.pane.navigate_requested.connect(self._navigate)
+        self.pane.approve_requested.connect(self._approve_from_pane)
+        self.splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter.setChildrenCollapsible(False)
+        self.splitter.addWidget(self.card)
+        self.splitter.addWidget(self.pane)
+        self.splitter.setStretchFactor(0, 3)
+        self.splitter.setStretchFactor(1, 1)
+        self.splitter.splitterMoved.connect(lambda *_args: self._save_pane_sizes())
+        cl.addWidget(self.splitter, 1)
+        self.stack.addWidget(content)
+        self.content = content
+
+        self.search.textChanged.connect(self._refilter)
+        self.status_filter.currentIndexChanged.connect(self._refilter)
+        self.group_filter.currentIndexChanged.connect(self._refilter)
+        self.model.dataChanged.connect(self._update_progress)
+        self.model.commit_failed.connect(lambda text: self.banner.show_message("danger", text))
+        self.model.commit_failed.connect(self._remember_commit_error)
+        selection = self.table.selectionModel()
+        selection.selectionChanged.connect(lambda *_args: self._sync_pane())
+        selection.currentChanged.connect(lambda *_args: self._sync_pane())
+        self.proxy.rowsRemoved.connect(lambda *_args: self._sync_pane())
+        self.proxy.layoutChanged.connect(lambda *_args: self._sync_pane())
+        self.proxy.modelReset.connect(lambda *_args: self._sync_pane())
+        self.model.dataChanged.connect(lambda *_args: self._refresh_idle_pane())
+        self._apply_pane()
+        self._sync_pane(force=True)
+
+    # --- tablo düzeni: sütun genişlikleri, sözcük kaydırma ---------------------------------
+
+    def bind_settings(self, settings: QSettings) -> None:
+        """Kayıtlı sütun genişliklerini ve kaydırma tercihini geri yükler."""
+        self.settings = settings
+        saved = str(settings.value("translate/column_widths", ""))
+        try:
+            widths = [int(x) for x in saved.split(",")] if saved else []
+        except ValueError:
+            widths = []
+        if len(widths) >= COL_KEY + 1:  # eski sürümlerde "Önceki çeviri" sütunu yoktu
+            self._fitting = True
+            for col, w in enumerate(widths[: len(_COLUMNS)]):
+                self.table.horizontalHeader().resizeSection(col, max(_MIN_COLUMN_WIDTH, w))
+            self._fitting = False
+            self._user_sized = True
+        self.wrap_box.setChecked(str(settings.value("translate/wrap", "1")) != "0")
+        self.colors_box.setChecked(str(settings.value("translate/issue_colors", "1")) != "0")
+        self.follow_box.setChecked(str(settings.value("translate/follow", "1")) != "0")
+        self.view_actions.bind_settings(settings)
+        self._apply_view()
+        self._apply_pane()
+
+    def _fit_columns(self) -> None:
+        """Kullanıcı elle ayarlamadıysa sütunları pencere genişliğine göre dağıtır."""
+        if self._user_sized:
+            return
+        h = self.table.horizontalHeader()
+        free = max(self.table.viewport().width() - sum(_FIXED_WIDTHS.values()), 2 * 160)
+        self._fitting = True
+        if self.table.isColumnHidden(COL_PREVIOUS):
+            h.resizeSection(COL_SOURCE, int(free * 0.45))
+            h.resizeSection(COL_TRANSLATION, int(free * 0.55))
+        else:
+            h.resizeSection(COL_SOURCE, int(free * 0.3))
+            h.resizeSection(COL_TRANSLATION, int(free * 0.35))
+            h.resizeSection(COL_PREVIOUS, int(free * 0.35))
+        for col, w in _FIXED_WIDTHS.items():
+            h.resizeSection(col, w)
+        self._fitting = False
+        self._schedule_fit_rows()
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """Tablo alanı yeniden boyutlanınca sütunlar, düzenleme alanı daralınca panelin düğmeleri uyarlanır."""
+        if watched is self.table.viewport() and event.type() == QEvent.Type.Resize:
+            self._fit_columns()
+        return super().eventFilter(watched, event)
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        self._fit_columns()
+        self._schedule_fit_rows()
+        self._pane_timer.start()
+
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.FontChange:  # yazı boyutu değişince satır yükseklikleri yeniden hesaplanır
+            self._schedule_fit_rows()
+
+    def _sort_changed(self, column: int, order: Qt.SortOrder) -> None:
+        self.model.sort_by(column, order)
+        self.table.scrollToTop()
+        self._refilter()
+
+    def _section_resized(self, _col: int, _old: int, _new: int) -> None:
+        if self._fitting:
+            return
+        self._user_sized = True
+        self._schedule_fit_rows()
+        if self.settings is not None:
+            h = self.table.horizontalHeader()
+            self.settings.setValue(
+                "translate/column_widths", ",".join(str(h.sectionSize(c)) for c in range(len(_COLUMNS)))
+            )
+
+    def _refresh_legend(self) -> None:
+        self.colors_box.setToolTip(issue_legend_html())
+
+    def _set_issue_colors(self, on: bool) -> None:
+        self.model.issue_colors = on
+        self.table.viewport().update()
+        if self.settings is not None:
+            self.settings.setValue("translate/issue_colors", "1" if on else "0")
+
+    # --- düzenleme paneli: yerleşim, seçim eşleşmesi, kayıt -----------------------------------
+
+    def set_fit_config(self, config: FitConfig) -> None:
+        """Sığdırma ayarı (panelin sayacı) ve kod türleri (çipler) buradan gelir."""
+        self._fit = config
+        self.set_code_kinds(config.kinds)
+
+    def flush_pending(self) -> None:
+        """Panelde kaydedilmemiş metin varsa kaydettirir (pencere kapanırken, proje değişirken)."""
+        self.pane.flush()
+
+    def _fits_below(self) -> bool:
+        """Panel tablonun altına, tablo kartını en küçük ölçüsünün altına sıkıştırmadan sığıyor mu?"""
+        if self.isVisible():
+            self._relayout()  # sayfa az önce yeniden boyutlandıysa bölme yüksekliği güncel olsun
+        height = self.splitter.height()
+        needed = (
+            self.card.minimumSizeHint().height() + self.pane.minimumSizeHint().height() + self.splitter.handleWidth()
+        )
+        return height <= 0 or height >= needed  # henüz yerleşmediyse (0) sığıyor say; yerleşince yeniden bakılır
+
+    def _wanted_pane_layout(self) -> str | None:
+        """Panelin şu an gösterileceği yer: `"bottom"`, `"right"` ya da `None` (gizli).
+
+        Seçim (`view_actions.pane`) tercihtir, bu işlev o anda uygulananı bulur: dar pencerede "sağda" yerine altta;
+        altta sığmıyorsa ve genişlik yeterliyse sağda; ikisi de yetmiyorsa (en küçük pencere) gizli.
+        """
+        mode = self.view_actions.pane
+        if mode == PANE_OFF:
+            return None
+        wide = self.width() >= NARROW_WIDTH
+        if mode == PANE_RIGHT and wide:
+            return "right"
+        if self._fits:
+            return "bottom"
+        return "right" if wide else None
+
+    def _relayout(self) -> None:
+        """Panel görünür/gizli olunca yerleşimi hemen yeniler (bir olay turu bayat geometri kalmasın)."""
+        layout = self.layout()
+        if layout is not None:
+            layout.activate()
+
+    def _recheck_pane(self) -> None:
+        """Yerleşim oturduktan sonra (zamanlayıcıyla) yüksekliğe bakar; ilk yerleşimde bayat ölçü kullanılmaz."""
+        self._fits = self._fits_below()
+        self._apply_pane()
+
+    def _apply_pane(self) -> None:
+        layout = self._wanted_pane_layout()
+        if layout == self._pane_layout:
+            return
+        self._pane_layout = layout
+        if layout is None:
+            self.pane.flush()
+            self.pane.hide()
+            self._relayout()
+            return
+        horizontal = layout == "right"
+        self.splitter.setOrientation(Qt.Orientation.Horizontal if horizontal else Qt.Orientation.Vertical)
+        # Sağda en az PANE_MIN_WIDTH genişlik. Altta sabit yükseklik verilmez: bölücü panelin güncel en küçük
+        # ölçüsünü (minimumSizeHint) kullanır, çipler veya uyarılar sonradan belirince panel de büyür.
+        self.pane.setMinimumSize(PANE_MIN_WIDTH if horizontal else 0, 0)
+        self.pane.show()
+        self._restore_pane_sizes(layout)
+        self._relayout()
+
+    def _restore_pane_sizes(self, position: str) -> None:
+        saved = str(self.settings.value(f"translate/pane_sizes_{position}", "")) if self.settings is not None else ""
+        try:
+            sizes = [int(x) for x in saved.split(",")] if saved else []
+        except ValueError:
+            sizes = []
+        if len(sizes) == 2 and all(size > 0 for size in sizes):
+            self.splitter.setSizes(sizes)
+            return
+        total = self.splitter.width() if position == "right" else self.splitter.height()
+        total = max(total, 600)
+        self.splitter.setSizes([int(total * 0.62), int(total * 0.38)])
+
+    def _save_pane_sizes(self) -> None:
+        if self.settings is None or not self.pane.isVisibleTo(self):
+            return
+        position = "right" if self.splitter.orientation() == Qt.Orientation.Horizontal else "bottom"
+        self.settings.setValue(f"translate/pane_sizes_{position}", ",".join(str(x) for x in self.splitter.sizes()))
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        if self.isVisible():
+            self._recheck_pane()  # görünürken hem genişlik hem yükseklik kuralı hemen uygulanır
+        else:
+            self._apply_pane()  # ilk yerleşimde ölçü bayat olabilir: yükseklik kuralı zamanlayıcıyla
+        self._pane_timer.start()
+
+    def _sync_pane(self, force: bool = False) -> None:
+        """Panelde tablonun geçerli satırını gösterir; önce önceki satırın bekleyen metni kaydedilir."""
+        if self._syncing:
+            return
+        self._syncing = True
+        try:
+            current = self.current_row()
+            selected = self.selected_rows()
+            row = current if current is not None else (selected[0] if selected else None)
+            count = max(len(selected), 1)
+            if not force and row is not None and self.pane.row_id == row.id:
+                self.pane.set_selected_count(count)
+                return
+            self.pane.flush()
+            if self.pane.has_pending():
+                return  # kayıt başarısız: yazılan metin kaybolmasın, panel eski satırda kalır
+            current = self.current_row()  # kayıt satırı güncellemiş olabilir
+            if current is None and selected:
+                selected = self.selected_rows()
+                current = selected[0] if selected else None
+            self._show_in_pane(current, count)
+        finally:
+            self._syncing = False
+
+    def _show_in_pane(self, row: TranslationRow | None, count: int = 1) -> None:
+        if row is None:
+            self.pane.set_row(None, lambda _n: "other", None)
+            return
+        self.pane.set_row(row, kind_of_row(row, self._kinds), self._fit.rules_for_row(row), count)
+
+    def _refresh_idle_pane(self) -> None:
+        """Satır dışarıdan değiştiyse (satır içi düzenleme, geri alma, toplu işlem) panel bayat metin göstermesin."""
+        row_id = self.pane.row_id
+        if row_id is None or self._syncing or self.pane.has_pending():
+            return
+        row = self.model.row_by_id(row_id)
+        if row is not None and not self.pane.shows(row):
+            self._refresh_pane_row(row_id)
+
+    def _remember_commit_error(self, text: str) -> None:
+        self._last_commit_error = text
+
+    def _commit_error(self) -> str | None:
+        return self._last_commit_error
+
+    def _on_pane_commit(self, row_id: int, text: str) -> None:
+        self._last_commit_error = None
+        applied = self.model.apply([(row_id, text)])
+        error = self._commit_error()  # `apply` başarısız olunca `commit_failed` sinyaliyle doldurulur
+        if applied:
+            if not self._syncing and self.pane.row_id == row_id:
+                self._refresh_pane_row(row_id)
+        elif error is not None:
+            self.pane.show_error(error)
+
+    def _refresh_pane_row(self, row_id: int) -> None:
+        row = self.model.row_by_id(row_id)
+        if row is None:
+            return
+        edit = self.pane.translation_edit
+        position = edit.textCursor().position()
+        self._show_in_pane(row, max(len(self.selected_rows()), 1))
+        cursor = edit.textCursor()
+        cursor.setPosition(min(position, len(edit.toPlainText())))
+        edit.setTextCursor(cursor)
+
+    def _navigate(self, step: int) -> None:
+        total = self.proxy.rowCount()
+        if not total:
+            return
+        index = self.table.currentIndex().row()
+        target = (0 if step > 0 else total - 1) if index < 0 else min(max(index + step, 0), total - 1)
+        self._select_proxy_row(target)
+        self.pane.translation_edit.setFocus()
+
+    def _approve_from_pane(self) -> None:
+        self.pane.flush()
+        row = self.current_row()
+        if row is not None:
+            self.approve([row])
+            self._refresh_pane_row(row.id)
+
+    def set_code_kinds(self, kinds: CodeKinds) -> None:
+        """Proje kod türü eşlemesi (çip simgeleri ve renkleri bundan gelir)."""
+        self._kinds = kinds
+        self.source_delegate.set_kinds(kinds)
+        self.translation_delegate.set_kinds(kinds)
+        self.table.viewport().update()
+        self._schedule_fit_rows()
+        if self.pane.row_id is not None and not self.pane.has_pending():
+            self._refresh_pane_row(self.pane.row_id)  # çip renkleri/simge türleri paneli de etkiler
+
+    def set_view(self, symbols: bool, align: str) -> None:
+        """Sembolleri ve hizayı hücrelere uygular (yalnızca görünüm)."""
+        wrap = self.table.wordWrap()
+        for delegate in (self.source_delegate, self.translation_delegate):
+            delegate.configure(symbols=symbols, align=align, wrap=wrap)
+        self.pane.set_view(symbols, align)
+        self.model.refresh_display()
+        self._schedule_fit_rows()
+
+    def _apply_view(self) -> None:
+        self.set_view(self.view_actions.symbols_on, self.view_actions.align)
+
+    def _set_wrap(self, on: bool) -> None:
+        self.table.setWordWrap(on)
+        self.model.wrap = on
+        self._apply_view()
+        self.model.refresh_display()
+        if self.settings is not None:
+            self.settings.setValue("translate/wrap", "1" if on else "0")
+        self._schedule_fit_rows()
+
+    def set_qa_issues(self, issues: list[QaIssue], checked: list[TranslationRow]) -> None:
+        """Kontrol Et sonuçlarını tabloya bağlar; durum hücresi uzayabileceği için satır yükseklikleri yenilenir."""
+        self.model.set_qa_issues(issues, checked)
+        self._schedule_fit_rows()
+
+    def _schedule_fit_rows(self) -> None:
+        self._resize_timer.start(_RESIZE_DELAY_MS)
+
+    def _fit_rows(self) -> None:
+        """Ekrandaki satırların (ve çevresinin) yüksekliğini ayarlar: kaydırma açıksa metnin tamamına göre,
+        kapalıysa tek satır. Binlerce satırın hepsini ölçmek arayüzü saniyelerce dondururdu; ekran dışındaki
+        satırlar ekrana gelince (kaydırma, süzgeç, sıralama) ölçülür."""
+        vh = self.table.verticalHeader()
+        single = self.table.fontMetrics().height() + 14
+        vh.setDefaultSectionSize(single)
+        total = self.proxy.rowCount()
+        if not total:
+            return
+        wrap = self.table.wordWrap()
+        first = max(self.table.rowAt(0), 0)
+        last = self.table.rowAt(self.table.viewport().height() - 1)
+        last = total - 1 if last < 0 else last
+        for row in range(max(first - _ROW_MARGIN, 0), min(last + _ROW_MARGIN, total - 1) + 1):
+            if wrap:
+                self.table.resizeRowToContents(row)
+            else:
+                self.table.setRowHeight(row, single)
+
+    # --- veri --------------------------------------------------------------------------
+
+    def set_rows(self, rows: list[TranslationRow]) -> None:
+        self.pane.flush()  # kaydedilmemiş panel metni satırlar yenilenmeden önce kaydedilir (kimlikle)
+        # Satırlar yeniden kurulurken önceki süzgeçten kalan "seçili satıra dön" isteği geçersizdir.
+        self._scroll_row_id = None
+        self._scroll_timer.stop()
+        self.model.set_rows(rows)
+        # "Makine" ve "Redakte" durumları yalnızca o durumda satır varsa listelenir.
+        present = {r.status for r in rows}
+        current_status = self.status_filter.currentData()
+        self.status_filter.blockSignals(True)
+        self.status_filter.clear()
+        self.status_filter.addItem("Tüm durumlar", "")
+        for s in Status:
+            if s not in (Status.MACHINE, Status.REDACTED) or s in present:
+                self.status_filter.addItem(STATUS_LABELS[s], s.value)
+        self.status_filter.addItem("Hata veya uyarısı olan satırlar", ISSUES_FILTER)
+        if self.model.previous:
+            self.status_filter.addItem(f"Son işte değişenler ({format_int(len(self.model.previous))})", CHANGED_FILTER)
+        self.status_filter.setCurrentIndex(max(self.status_filter.findData(current_status), 0))
+        self.status_filter.blockSignals(False)
+        groups: dict[str, int] = {}
+        for r in rows:
+            g = row_group(r)
+            groups[g] = groups.get(g, 0) + 1
+        current = self.group_filter.currentData()
+        self.group_filter.blockSignals(True)
+        self.group_filter.clear()
+        self.group_filter.addItem(f"Tüm gruplar ({format_int(len(groups))})", "")
+        for g in sorted(groups, key=str.casefold):
+            self.group_filter.addItem(f"{g} ({format_int(groups[g])})", g)
+        self.group_filter.setCurrentIndex(max(self.group_filter.findData(current), 0))
+        self.group_filter.blockSignals(False)
+        self.stack.setCurrentWidget(self.content if rows else self.empty)
+        self.banner.show_message("danger", "")
+        self._refilter()
+        self._update_progress()
+        self._schedule_fit_rows()
+
+    def show_notice(self, state: str, text: str) -> None:
+        self.banner.show_message(state, text)
+
+    def _refilter(self) -> None:
+        # Süzgeç gevşeyince görünüm başa dönmesin: seçili (geçerli) satır görünür kalırsa oraya dönülür.
+        current = self.current_row()
+        self.proxy.update(
+            str(self.status_filter.currentData()), str(self.group_filter.currentData() or ""), self.search.text()
+        )
+        shown, total = self.proxy.rowCount(), self.model.rowCount()
+        self.count_label.setText(f"{format_int(shown)} / {format_int(total)} satır gösteriliyor")
+        self._schedule_fit_rows()
+        if current is not None:
+            self._scroll_row_id = current.id
+            self._scroll_timer.start()
+
+    def _scroll_row_into_view(self) -> None:
+        """Bekleyen satırı görünür alanda tutar; satır süzgeçten çıktıysa bir şey yapmaz."""
+        row_id, self._scroll_row_id = self._scroll_row_id, None
+        if row_id is not None:
+            self._scroll_to_row(row_id)
+
+    def _scroll_to_row(self, row_id: int) -> None:
+        """Kimliği verilen satırı görünür alanda tutar (arama temizlenince görünüm başa dönmez)."""
+        source = self.model.position(row_id)
+        if source is None:
+            return
+        index = self.proxy.mapFromSource(self.model.index(source, COL_TRANSLATION))
+        if index.isValid():
+            self.table.scrollTo(index, QAbstractItemView.ScrollHint.EnsureVisible)
+
+    def _update_progress(self) -> None:
+        rows = self.model.rows
+        done = sum(1 for r in rows if r.status in (Status.APPROVED, Status.MACHINE, Status.REDACTED))
+        errors = sum(1 for r in rows if r.status == Status.ERROR)
+        self.progress.setRange(0, max(len(rows), 1))
+        self.progress.setValue(done)
+        percent = round(done * 100 / len(rows)) if rows else 0
+        text = f"Çevrilen: {format_int(done)} / {format_int(len(rows))} (%{percent})"
+        if errors:
+            text += f"  ·  Hatalı: {format_int(errors)} (dışa aktarılmaz)"
+        self.progress_label.setText(text)
+
+    def selected_rows(self) -> list[TranslationRow]:
+        indexes = self.table.selectionModel().selectedRows()
+        return [self.model.rows[self.proxy.mapToSource(i).row()] for i in indexes]
+
+    def filtered_rows(self) -> list[TranslationRow]:
+        """Arama ve filtrelere uyan (tabloda görünen) satırlar."""
+        return [
+            self.model.rows[self.proxy.mapToSource(self.proxy.index(i, 0)).row()] for i in range(self.proxy.rowCount())
+        ]
+
+    # --- gezinme ve seçim -----------------------------------------------------------------------
+
+    def focus_search(self) -> None:
+        self.search.setFocus()
+        self.search.selectAll()
+
+    def current_row(self) -> TranslationRow | None:
+        index = self.table.currentIndex()
+        if not index.isValid():
+            return None
+        return self.model.rows[self.proxy.mapToSource(index).row()]
+
+    def next_open(self) -> None:
+        """Sonraki bakılacak satır: onaylanmamış (çevrilmemiş, makine, redakte, hatalı), sona gelince başa döner."""
+        total = self.proxy.rowCount()
+        start = self.table.currentIndex().row()
+        for step in range(1, total + 1):
+            i = (start + step) % total
+            r = self.model.rows[self.proxy.mapToSource(self.proxy.index(i, 0)).row()]
+            if r.status != Status.APPROVED and r.source.strip():
+                self._select_proxy_row(i)
+                self.table.setFocus()
+                return
+        self.show_notice("success", "Görünen satırların hepsi onaylanmış.")
+
+    def select_row(self, row_id: int) -> None:
+        """Kimliği verilen satırı (gerekirse filtreleri temizleyerek) seçer."""
+        source = self.model.position(row_id)
+        if source is None:
+            return
+        index = self.proxy.mapFromSource(self.model.index(source, 0))
+        if not index.isValid():
+            self._clear_filters()
+            index = self.proxy.mapFromSource(self.model.index(source, 0))
+        if index.isValid():
+            self._select_proxy_row(index.row())
+            self.table.setFocus()
+
+    def reveal_in_place(self, row_id: int) -> None:
+        """Satırı, arama ve süzgeçleri kaldırıp tablodaki gerçek yerinde gösterir.
+
+        Arama sonucunda tek başına görünen satırın komşularını görebilmek içindir: satırı gizleyen
+        bütün süzgeçler temizlenir ve satır ekranın ortasına kaydırılır.
+        """
+        source = self.model.position(row_id)
+        if source is None:
+            return
+        cleared = self._clear_filters()
+        index = self.proxy.mapFromSource(self.model.index(source, 0))
+        if not index.isValid():  # süzgeçler temizlendiğine göre buraya düşmemeli
+            return
+        self._select_proxy_row(index.row(), center=True)
+        self.table.setFocus()
+        if cleared:
+            self.show_notice("success", "Arama ve süzgeçler temizlendi; satır kendi yerinde gösteriliyor.")
+
+    def _clear_filters(self) -> bool:
+        """Arama metnini, durum ve grup süzgeçlerini birlikte temizler; bir şey değiştiyse True döner."""
+        changed = (
+            bool(self.search.text())
+            or bool(str(self.status_filter.currentData() or ""))
+            or bool(str(self.group_filter.currentData() or ""))
+        )
+        if not changed:
+            return False
+        widgets = (self.search, self.status_filter, self.group_filter)
+        for widget in widgets:
+            widget.blockSignals(True)
+        try:
+            self.search.clear()
+            self.status_filter.setCurrentIndex(0)
+            self.group_filter.setCurrentIndex(0)
+        finally:
+            for widget in widgets:
+                widget.blockSignals(False)
+        self._refilter()
+        return True
+
+    def _select_proxy_row(self, i: int, center: bool = False) -> None:
+        # Açıkça seçilen satır, süzgeç değişikliğinden kalan "seçili satıra dön" isteğini geçersiz kılar.
+        self._scroll_row_id = None
+        self._scroll_timer.stop()
+        index = self.proxy.index(i, COL_TRANSLATION)
+        self.table.setCurrentIndex(index)
+        self.table.selectRow(i)
+        hint = QAbstractItemView.ScrollHint.PositionAtCenter if center else QAbstractItemView.ScrollHint.EnsureVisible
+        self.table.scrollTo(index, hint)
+
+    def approve(self, rows: list[TranslationRow]) -> None:
+        """Makine veya dış redaksiyondan gelen çevirileri değiştirmeden onaylar."""
+        if rows and self.model.apply([(r.id, r.translation) for r in rows]):
+            self.show_notice("success", f"{format_int(len(rows))} satır onaylandı.")
+
+    def _show_context_menu(self, pos: QPoint) -> None:
+        """Sağ tık menüsü: tıklanan satır seçili değilse yalnızca o satır seçilir."""
+        index = self.table.indexAt(pos)
+        selection = self.table.selectionModel()
+        if index.isValid() and not selection.isRowSelected(index.row(), index.parent()):
+            self.table.selectRow(index.row())
+        if not selection.selectedRows():
+            return
+        rows = self.selected_rows()
+        menu = QMenu(self.table)
+        menu.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        menu.setToolTipsVisible(True)
+        for action, text in (
+            (ACTION_TRANSLATE, "Seçili satırları çevir…"),
+            (ACTION_RETRANSLATE, "Seçili satırları yeniden çevir…"),
+            (ACTION_REVISE, "Seçili satırları talimatla düzelt…"),
+        ):
+            # Onaylı satırlar da sayılır: yeniden çeviri ve düzeltme penceresinde "onaylananlara da uygula"
+            # kendiliğinden işaretlenir.
+            n = len(target_rows(rows, action, include_approved=action != ACTION_TRANSLATE))
+            act = menu.addAction(f"{text} ({format_int(n)})")
+            act.setEnabled(n > 0 and not self._machine_running)
+            act.triggered.connect(lambda _=False, a=action: self.machine_action_requested.emit(a))
+        menu.addSeparator()
+        approvable = [r for r in rows if r.status in (Status.MACHINE, Status.REDACTED)]
+        approve = menu.addAction(f"Onayla ({format_int(len(approvable))})")
+        approve.setToolTip("Makine çevirisini veya dış redaksiyonu değiştirmeden onaylar.")
+        approve.setEnabled(bool(approvable))
+        approve.triggered.connect(lambda: self.approve(approvable))
+        approved = [r for r in rows if r.status == Status.APPROVED]
+        unapprove = menu.addAction(f"Onayı kaldır ({format_int(len(approved))})")
+        unapprove.setToolTip("Metni değiştirmeden durumu “Makine”ye döndürür (yanlışlıkla onaylanan satırlar için).")
+        unapprove.setEnabled(bool(approved))
+        unapprove.triggered.connect(lambda: self.unapprove_requested.emit([r.id for r in approved]))
+        source = menu.addAction("Orijinali çeviri olarak yaz")
+        source.setToolTip("Çevrilmeyecek metinler (özel adlar, sayılar) için.")
+        source.triggered.connect(self._copy_source)
+        # Sık işler üstte; dosya dışa aktarma, kopyalama ve görünüm kuralları bir seviye altta.
+        menu.addSeparator()
+        more = menu.addMenu("Daha fazla")
+        more.setToolTipsVisible(True)
+        more.addAction(
+            f"Seçili satırlarla dış redaksiyon dosyası oluştur… ({format_int(len(rows))})"
+        ).triggered.connect(self.csv_export_requested)
+        more.addAction(f"Seçili satırlarla dış çeviri dosyası oluştur… ({format_int(len(rows))})").triggered.connect(
+            self.translation_export_requested
+        )
+        more.addSeparator()
+        reveal = more.addAction("Satırı yerinde göster")
+        reveal.setToolTip(
+            "Arama metnini ve süzgeçleri temizleyip satırı tablodaki gerçek yerinde, komşu satırlarla birlikte "
+            "gösterir. Tek satır seçiliyken kullanılabilir."
+        )
+        reveal.setEnabled(len(rows) == 1)
+        if len(rows) == 1:
+            reveal.triggered.connect(lambda: self.reveal_in_place(rows[0].id))
+        history = more.addAction("Çeviri geçmişi…")
+        history.setEnabled(len(rows) == 1)
+        history.triggered.connect(lambda: self.history_requested.emit(rows[0].id))
+        copy_menu = more.addMenu("Panoya kopyala")
+        copy_menu.addAction("Orijinal ve çeviri\tCtrl+C").triggered.connect(lambda: self.copy_to_clipboard("both"))
+        copy_menu.addAction("Yalnızca orijinal").triggered.connect(lambda: self.copy_to_clipboard("source"))
+        copy_menu.addAction("Yalnızca çeviri").triggered.connect(lambda: self.copy_to_clipboard("translation"))
+        reflow = more.addAction("Satırları yeniden böl")
+        reflow.setToolTip(
+            "Çevirideki satır sonlarını kaldırıp satırı sınıra ya da orijinale göre dengeli yeniden böler."
+        )
+        reflow.setEnabled(any(r.translation for r in rows))
+        reflow.triggered.connect(lambda: self.reflow_requested.emit([r.id for r in rows]))
+        clear = more.addAction("Çevirisini temizle")
+        clear.setEnabled(any(r.translation for r in rows))
+        clear.triggered.connect(self._clear)
+        more.addSeparator()
+        rules = self.model.uppercase
+        marked = more.addAction("Büyük harfle gösterilir (i → İ)")
+        marked.setCheckable(True)
+        marked.setChecked(all(rules.applies(r.file, r.key, row_group(r)) for r in rows))
+        marked.setToolTip(
+            "Menü ve başlık gibi büyük harfle çizilen metinlerde i harfi İ yazılır. Tablosu işaretliyken "
+            "işareti kaldırırsanız yalnızca bu satırlarda uygulanmaz."
+        )
+        marked.triggered.connect(lambda on: self._set_uppercase_rows(rows, on))
+        for group in sorted({row_group(r) for r in rows}):
+            whole = more.addAction(f"“{group}” tablosunun tamamı büyük harfle gösterilir")
+            whole.setCheckable(True)
+            whole.setChecked(group in rules.groups)
+            whole.triggered.connect(lambda on, g=group: self._set_uppercase_group(g, on))
+        menu.popup(self.table.viewport().mapToGlobal(pos))
+
+    def set_uppercase(self, rules: UppercaseRules) -> None:
+        self.model.uppercase = rules
+        self._redraw_keys()
+
+    def _redraw_keys(self) -> None:
+        if self.model.rows:
+            self.model.dataChanged.emit(
+                self.model.index(0, COL_KEY), self.model.index(len(self.model.rows) - 1, COL_KEY)
+            )
+
+    def _set_uppercase_rows(self, rows: list[TranslationRow], on: bool) -> None:
+        rules = self.model.uppercase
+        for r in rows:
+            rules = rules.with_row(r.file, r.key, row_group(r), on)
+        self._apply_uppercase(rules)
+
+    def _set_uppercase_group(self, group: str, on: bool) -> None:
+        self._apply_uppercase(self.model.uppercase.with_group(group, on))
+
+    def _apply_uppercase(self, rules: UppercaseRules) -> None:
+        self.set_uppercase(rules)
+        self.uppercase_changed.emit(rules)
+
+    def copy_to_clipboard(self, what: str) -> None:
+        """Seçili satırların metnini panoya koyar: "source", "translation" veya "both" (orijinal + çeviri)."""
+        indexes = sorted(self.table.selectionModel().selectedRows(), key=lambda i: i.row())  # tablodaki sırayla
+        rows = [self.model.rows[self.proxy.mapToSource(i).row()] for i in indexes]
+        if not rows:
+            return
+        QApplication.clipboard().setText(clipboard_text(rows, what))
+        self.show_notice("success", f"{format_int(len(rows))} satırın metni panoya kopyalandı.")
+
+    def _copy_source(self) -> None:
+        self.model.apply([(r.id, r.source) for r in self.selected_rows()])
+
+    def _clear(self) -> None:
+        self.model.apply([(r.id, "") for r in self.selected_rows() if r.translation])
+
+    # --- makine çevirisi şeridi -----------------------------------------------------------
+
+    def set_last_changes(self, previous: dict[int, str]) -> None:
+        """Son işte değişen satırlar (kimlik → önceki çeviri): düğme, "Önceki çeviri" sütunu ve süzgeç güncellenir."""
+        count = len(previous)
+        self.changes_button.setText(f"Son İşin Değişiklikleri ({format_int(count)})…")
+        self.changes_button.setVisible(count > 0)
+        self.model.set_previous(previous)
+        self.previous_box.setEnabled(count > 0)
+        if not count and self.previous_box.isChecked():
+            self.previous_box.setChecked(False)
+        current = self.status_filter.currentData()
+        self.status_filter.blockSignals(True)
+        idx = self.status_filter.findData(CHANGED_FILTER)
+        if idx >= 0:
+            self.status_filter.removeItem(idx)
+        if count:
+            self.status_filter.addItem(f"Son işte değişenler ({format_int(count)})", CHANGED_FILTER)
+        self.status_filter.setCurrentIndex(max(self.status_filter.findData(current), 0))
+        self.status_filter.blockSignals(False)
+        if current == CHANGED_FILTER or self.status_filter.currentData() != current:
+            self._refilter()
+
+    def _show_previous(self, on: bool) -> None:
+        self._fitting = True  # gizleme/gösterme genişlik değişikliği sayılır; kullanıcı ayarı sanılmasın
+        self.table.setColumnHidden(COL_PREVIOUS, not on)
+        self._fitting = False
+        if on and self.table.columnWidth(COL_PREVIOUS) < _MIN_PREVIOUS_WIDTH:  # elle ayarlanmış düzende de okunur olsun
+            self._fitting = True
+            self.table.horizontalHeader().resizeSection(
+                COL_PREVIOUS, max(_MIN_PREVIOUS_WIDTH, self.table.columnWidth(COL_TRANSLATION))
+            )
+            self._fitting = False
+        self._fit_columns()
+        self._schedule_fit_rows()
+
+    def show_live(self, ids: list[int]) -> None:
+        """Az önce yazılan satırları kısa süre vurgular; "Canlı izle" açıksa tabloyu onlara kaydırır."""
+        if not ids:
+            return
+        self.model.set_flash(ids, True)
+        QTimer.singleShot(_FLASH_MS, self, lambda: self.model.set_flash(ids, False))  # sayfa kapanırsa çalışmaz
+        pos = self.model.position(ids[-1])
+        if self.follow_box.isChecked() and pos is not None:
+            index = self.proxy.mapFromSource(self.model.index(pos, 0))
+            if index.isValid():
+                self.table.scrollTo(index, QAbstractItemView.ScrollHint.PositionAtCenter)
+        self._schedule_fit_rows()
+
+    def set_machine_running(self, running: bool) -> None:
+        if running:
+            self.pane.flush()
+        self.pane.set_read_only(running)
+        self._machine_running = running
+        self.run_panel.setVisible(running)
+        self.machine_button.setEnabled(not running)
+        self.more_button.setEnabled(not running)
+        if running:
+            self.run_cancel.setEnabled(True)
+            self.run_cancel.setText("İptal")
+            self.run_bar.setRange(0, 0)
+            self.run_label.setText("Sağlayıcıya bağlanılıyor…")
+
+    def update_machine_progress(self, done: int, total: int, message: str) -> None:
+        if total > 0:
+            self.run_bar.setRange(0, total)
+            self.run_bar.setValue(done)
+        self.run_label.setText(message)
+
+    def _on_cancel_machine(self) -> None:
+        self.run_cancel.setEnabled(False)
+        self.run_cancel.setText("Durduruluyor…")
+        self.cancel_machine.emit()
