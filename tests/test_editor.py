@@ -333,8 +333,7 @@ def test_minimum_window_keeps_layout(qtbot: QtBot, window: MainWindow) -> None:
     qtbot.wait(50)
     page = window.translate_page
     table_bottom = page.table.mapTo(page, page.table.rect().bottomLeft()).y()
-    count_top = page.count_label.mapTo(page, page.count_label.rect().topLeft()).y()
-    assert table_bottom <= count_top  # alttaki sayaç tablonun üstüne binmiyor
+    assert table_bottom <= page.height()  # tablo en küçük pencerede de sayfanın dışına taşmıyor
 
 
 def test_issue_colors_filter_and_toggle(window: MainWindow) -> None:

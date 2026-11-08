@@ -1,25 +1,34 @@
-"""Durum çubuğunun kalıcı bölmeleri: anahtar durumu, satır sayısı, ilerleme, hatalı satırlar, sağlayıcı ve kayıt.
+"""Durum çubuğunun kalıcı bölmeleri: simge + kısa sayı; ayrıntı ipucundadır.
 
-Geçici mesajlar (`QStatusBar.showMessage`) olduğu gibi çalışır; bölmeler sağda kalıcı bileşenlerdir ve en
-sağdaki bileşen "Yeni sürüm" rozetidir. Bölmeler yalnızca anlamlı olduğunda görünür (metin aktarılmadan satır
-sayısı ve ilerleme, hatalı satır yokken sorunlar, sağlayıcı seçilmeden sağlayıcı gösterilmez).
+Bölmeler: anahtar durumu, satır sayısı, çeviri ilerlemesi, sorunlar, sağlayıcı ve kayıt. Geçici mesajlar
+(`QStatusBar.showMessage`) olduğu gibi çalışır; bölmeler sağda kalıcı bileşenlerdir ve en sağdaki bileşen
+"Yeni sürüm" rozetidir. Bölmeler yalnızca anlamlı olduğunda görünür (metin aktarılmadan satır sayısı ve
+ilerleme, hatalı satır yokken sorunlar, sağlayıcı seçilmeden sağlayıcı gösterilmez).
 """
 
 from __future__ import annotations
 
-from PySide6.QtCore import QObject, Qt, Signal
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QProgressBar, QStatusBar, QToolButton, QWidget
+from PySide6.QtCore import QEvent, QObject, Qt, Signal
+from PySide6.QtGui import QAction, QCursor
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QProgressBar, QStatusBar, QToolButton, QToolTip, QWidget
 
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.widgets import format_int, repolish
 
-PROGRESS_WIDTH = 90
-PROGRESS_HEIGHT = 5
+PROGRESS_WIDTH = 60
+PROGRESS_HEIGHT = 4
+#: Anahtar durumu → simge rengi (tema belirteci).
+_KEYS_TOKENS = {"success": "success", "danger": "danger", "neutral": "muted"}
+#: Sağlayıcı türü → simge (Lucide'de marka simgesi yok: bulut = DeepL, işlemci = yerel Ollama).
+_PROVIDER_ICONS = {"deepl": "cloud", "ollama": "cpu"}
+_PROVIDER_NAMES = {"deepl": "DeepL", "ollama": "Ollama"}
 
 
 class _Segment(QFrame):
     """Solunda ince ayırıcı çizgi olan durum çubuğu bölmesi."""
+
+    #: İpucu istendi (fare bölmenin üstünde bekledi); ayrıntıyı tembel yüklemek için.
+    tooltip_requested = Signal()
 
     def __init__(self, *children: QWidget) -> None:
         super().__init__()
@@ -30,39 +39,54 @@ class _Segment(QFrame):
         for child in children:
             lay.addWidget(child, alignment=Qt.AlignmentFlag.AlignVCenter)
 
+    def event(self, event: QEvent) -> bool:
+        if event.type() == QEvent.Type.ToolTip:
+            self.tooltip_requested.emit()
+        return super().event(event)
+
+
+def _icon_label(name: str, tone: str = "muted") -> QLabel:
+    label = QLabel()
+    bind_icon(label, name, size=14, tone=tone)
+    return label
+
+
+def _tool_button(role: str) -> QToolButton:
+    button = QToolButton()
+    button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+    button.setCursor(Qt.CursorShape.PointingHandCursor)
+    button.setAutoRaise(True)
+    button.setProperty("role", role)
+    return button
+
 
 class StatusSegments(QObject):
     """`QStatusBar`a kalıcı bölmeleri kurar ve `update` ile günceller."""
 
-    #: "N hatalı" düğmesine tıklandı (Kontrol Et adımına gidilsin).
+    #: Sorunlar düğmesine tıklandı (Kontrol Et adımına gidilsin).
     problems_clicked = Signal()
     #: Anahtar bölmesine tıklandı (prod.keys seçme penceresi açılsın).
     keys_clicked = Signal()
+    #: Sağlayıcı bölmesinin ipucu istendi (ayrıntı arka planda yenilensin).
+    provider_tip_requested = Signal()
 
     def __init__(self, bar: QStatusBar, update_badge: QWidget) -> None:
         super().__init__(bar)
-        self.keys_button = QToolButton()
-        self.keys_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.keys_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.keys_button.setAutoRaise(True)
-        self.keys_button.setProperty("role", "keys")
-        bind_icon(self.keys_button, "key-round", size=14)
+        self.keys_button = _tool_button("keys")
+        self.keys_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        bind_icon(self.keys_button, "key-round", size=14, tone="muted")
         self.keys_button.clicked.connect(self.keys_clicked)
+        self.rows_icon = _icon_label("list")
         self.rows_label = QLabel()
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
         self.progress.setTextVisible(False)
         self.progress.setFixedSize(PROGRESS_WIDTH, PROGRESS_HEIGHT)
         self.progress_label = QLabel()
-        self.problems_button = QToolButton()
-        self.problems_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.problems_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.problems_button.setAutoRaise(True)
-        self.problems_button.setProperty("role", "problems")
-        bind_icon(self.problems_button, "triangle-alert", size=14)
+        self.problems_button = _tool_button("problems")
+        bind_icon(self.problems_button, "triangle-alert", size=14, tone="danger")
         self.problems_button.clicked.connect(self.problems_clicked)
-        self.provider_icon = QLabel()
-        bind_icon(self.provider_icon, "cpu", size=14)
+        self.provider_icon = _icon_label("cpu")
         self.provider_label = QLabel()
         self.cursor_label = QLabel()
         self.symbols_button = QToolButton()
@@ -73,16 +97,16 @@ class StatusSegments(QObject):
         self.save_dot = QLabel()
         self.save_dot.setObjectName("saveDot")
         self.save_dot.setFixedSize(8, 8)
-        self.save_label = QLabel()
 
         self._keys = _Segment(self.keys_button)
-        self._rows = _Segment(self.rows_label)
+        self._rows = _Segment(self.rows_icon, self.rows_label)
         self._progress = _Segment(self.progress, self.progress_label)
         self._problems = _Segment(self.problems_button)
         self._provider = _Segment(self.provider_icon, self.provider_label)
+        self._provider.tooltip_requested.connect(self.provider_tip_requested)
         self._cursor = _Segment(self.cursor_label)
         self._symbols = _Segment(self.symbols_button)
-        self._save = _Segment(self.save_dot, self.save_label)
+        self._save = _Segment(self.save_dot)
         for segment in (
             self._keys,
             self._rows,
@@ -99,9 +123,10 @@ class StatusSegments(QObject):
             segment.hide()
 
     def set_keys(self, state: str, text: str, tip: str) -> None:
-        """Anahtar durumu: `state` "success", "danger" ya da "neutral" (renk), `tip` ayrıntı (yol, title.keys)."""
-        self.keys_button.setText(text)
-        self.keys_button.setToolTip(tip)
+        """Anahtar durumu: `state` "success", "danger" ya da "neutral" (simge rengi), `text` başlık, `tip` ayrıntı."""
+        bind_icon(self.keys_button, "key-round", size=14, tone=_KEYS_TOKENS.get(state, "muted"))
+        self.keys_button.setAccessibleName(text)
+        self.keys_button.setToolTip(f"{text}\n{tip}")
         self.keys_button.setProperty("state", state)
         repolish(self.keys_button)
 
@@ -116,18 +141,50 @@ class StatusSegments(QObject):
         if visible:
             self.cursor_label.setText(f"Satır {line} · Sütun {column}")
 
-    def update(self, rows: int, translated: int, errors: int, provider: str, saved: bool) -> None:
+    def set_provider_tip(self, text: str) -> None:
+        """Sağlayıcı ipucunu günceller; ipucu o sırada açıksa yerinde yenilenir."""
+        self._provider.setToolTip(text)
+        if QToolTip.isVisible() and self._provider.underMouse():
+            QToolTip.showText(QCursor.pos(), text, self._provider)
+
+    def update(
+        self,
+        *,
+        rows: int,
+        shown: int,
+        translated: int,
+        approved: int,
+        errors: int,
+        provider: str,
+        saved: bool,
+    ) -> None:
+        """`shown` süzgeçten geçen satır sayısıdır; `provider` "deepl", "ollama" ya da boş."""
         has_rows = rows > 0
         percent = round(100 * translated / rows) if has_rows else 0
         self._rows.setVisible(has_rows)
-        self.rows_label.setText(f"{format_int(rows)} satır")
+        filtered = shown != rows
+        self.rows_label.setText(f"{format_int(shown)} / {format_int(rows)}" if filtered else format_int(rows))
+        self._rows.setToolTip(
+            f"{format_int(rows)} satırdan {format_int(shown)} tanesi süzgeçte gösteriliyor"
+            if filtered
+            else f"{format_int(rows)} satır"
+        )
         self._progress.setVisible(has_rows)
         self.progress.setValue(percent)
-        self.progress_label.setText(f"%{percent} çevrildi")
+        self.progress_label.setText(f"%{percent}")
+        self._progress.setToolTip(
+            f"Çevrilen: {format_int(translated)} / {format_int(rows)}\n"
+            f"Onaylı: {format_int(approved)}\nHatalı: {format_int(errors)}"
+        )
         self._problems.setVisible(errors > 0)
-        self.problems_button.setText(f"{format_int(errors)} hatalı")
+        self.problems_button.setText(format_int(errors))
+        self.problems_button.setToolTip(
+            f"{format_int(errors)} hatalı satır var (dışa aktarılmaz). Kontrol Et için tıklayın."
+        )
         self._provider.setVisible(bool(provider))
-        self.provider_label.setText(provider)
-        self.save_label.setText("Kaydedildi" if saved else "Kaydedilmedi")
+        if provider:
+            bind_icon(self.provider_icon, _PROVIDER_ICONS.get(provider, "cpu"), size=14, tone="muted")
+            self.provider_label.setText(_PROVIDER_NAMES.get(provider, provider))
         self.save_dot.setProperty("state", "success" if saved else "warning")
+        self._save.setToolTip("Kaydedildi" if saved else "Kaydedilmedi")
         repolish(self.save_dot)

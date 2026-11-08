@@ -162,9 +162,7 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QStatusBar QFrame[segment="true"] {{ border: none; border-left: 1px solid {t["border"]}; background: transparent; }}
     QStatusBar QLabel {{ color: {t["muted"]}; }}
     QStatusBar QToolButton[role="problems"] {{ color: {t["danger"]}; border: none; padding: 0 2px; }}
-    QStatusBar QToolButton[role="keys"] {{ color: {t["muted"]}; border: none; padding: 0 2px; }}
-    QStatusBar QToolButton[role="keys"][state="success"] {{ color: {t["success"]}; }}
-    QStatusBar QToolButton[role="keys"][state="danger"] {{ color: {t["danger"]}; }}
+    QStatusBar QToolButton[role="keys"] {{ border: none; padding: 0 2px; }}
     QStatusBar QProgressBar {{ background: {t["surface2"]}; border: none; border-radius: 2px; }}
     QStatusBar QProgressBar::chunk {{ background: {t["accent"]}; border-radius: 2px; }}
     QLabel#saveDot {{ border-radius: 4px; background: {t["muted"]}; }}

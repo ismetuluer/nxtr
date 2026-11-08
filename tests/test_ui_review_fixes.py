@@ -54,7 +54,7 @@ def test_rows_replaced_refreshes_badges_and_status(qtbot: QtBot, tmp_path: Path)
         w.project.set_translations([(row.id, "Hoşça kal")], machine=True)
         w.translate_page.set_rows(w.project.translation_rows())
         qtbot.waitUntil(lambda: _badge(w) == "%100", timeout=3000)
-        assert w.status_segments.progress_label.text() == "%100 çevrildi"
+        assert w.status_segments.progress_label.text() == "%100"
     finally:
         _close(w)
 
@@ -79,7 +79,7 @@ def test_error_rows_do_not_count_as_translated(qtbot: QtBot, tmp_path: Path) -> 
     w = _make_window(qtbot, tmp_path, _project(changed_source=True))
     try:
         assert _badge(w) == "%33"
-        assert w.status_segments.progress_label.text() == "%33 çevrildi"
+        assert w.status_segments.progress_label.text() == "%33"
     finally:
         _close(w)
 

@@ -50,6 +50,11 @@ _MIN_WIDTH = 188
 _ITEM_INSET = 2
 #: Listenin iç dolgusu (sol + sağ); QSS'teki `padding: … 8px … 8px` ile aynı olmalı.
 LIST_PADDING = 16
+#: Daraltılmış çubuk: yalnızca simge; simgenin iki yanında bu kadar boşluk kalır.
+_COLLAPSED_PAD = 14
+COLLAPSED_WIDTH = ICON_SIZE + 2 * _COLLAPSED_PAD + 2 * _ITEM_INSET + LIST_PADDING
+#: Daraltılmış çubukta rozet yerine çizilen nokta (yalnızca uyarı ve hata durumlarında) çapı.
+_DOT = 7
 
 _Index = QModelIndex | QPersistentModelIndex
 
@@ -75,6 +80,7 @@ class _StepDelegate(QStyledItemDelegate):
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
         hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
         done = bool(index.data(DONE_ROLE))
+        collapsed = isinstance(option.widget, StepNav) and option.widget.collapsed
         rect = option.rect.adjusted(_ITEM_INSET, _ITEM_INSET, -_ITEM_INSET, -_ITEM_INSET)
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -85,7 +91,18 @@ class _StepDelegate(QStyledItemDelegate):
         text_color = QColor(tokens["text" if enabled else "muted"])
         icon_color = tokens["success"] if (done and enabled) else tokens["accent" if enabled else "muted"]
         mark = icons.icon(str(index.data(ICON_ROLE)), icon_color, ICON_SIZE).pixmap(ICON_SIZE, ICON_SIZE)
-        painter.drawPixmap(QPoint(rect.left() + _PAD, rect.center().y() - ICON_SIZE // 2 + 1), mark)
+        icon_x = rect.center().x() - ICON_SIZE // 2 + 1 if collapsed else rect.left() + _PAD
+        painter.drawPixmap(QPoint(icon_x, rect.center().y() - ICON_SIZE // 2 + 1), mark)
+        if collapsed:
+            state = str(index.data(STATE_ROLE) or "neutral")
+            if index.data(BADGE_ROLE) and state in ("warning", "danger"):
+                painter.setPen(Qt.PenStyle.NoPen)
+                painter.setBrush(QColor(tokens[state]))
+                painter.drawEllipse(
+                    QPoint(icon_x + ICON_SIZE, rect.center().y() - ICON_SIZE // 2 + 2), _DOT // 2, _DOT // 2
+                )
+            painter.restore()
+            return
 
         font = QFont(option.font)
         font.setBold(selected)
@@ -129,6 +146,7 @@ class StepNav(QListWidget):
         self.setItemDelegate(_StepDelegate(self))
         self.setMouseTracking(True)
         self.setUniformItemSizes(True)
+        self._collapsed = False
         for name, icon_name in STEPS:
             item = QListWidgetItem(name)
             item.setData(ICON_ROLE, icon_name)
@@ -137,10 +155,27 @@ class StepNav(QListWidget):
             item.setData(DONE_ROLE, False)
             self.addItem(item)
 
+    @property
+    def collapsed(self) -> bool:
+        return self._collapsed
+
+    def set_collapsed(self, collapsed: bool) -> None:
+        """Daraltılmış hâlde yalnızca simgeler çizilir; ad ve rozet sayısı ipucuna taşınır."""
+        self._collapsed = collapsed
+        for step in range(self.count()):
+            self._refresh_tip(step)
+        self.viewport().update()
+
+    def _refresh_tip(self, step: int) -> None:
+        item = self.item(step)
+        badge = str(item.data(BADGE_ROLE) or "")
+        item.setToolTip((f"{item.text()} · {badge}" if badge else item.text()) if self._collapsed else "")
+
     def set_badge(self, step: int, text: str = "", state: str = "neutral") -> None:
         item = self.item(step)
         item.setData(BADGE_ROLE, text)
         item.setData(STATE_ROLE, state)
+        self._refresh_tip(step)
         self.viewport().update()
 
     def set_done(self, step: int, done: bool) -> None:

@@ -33,7 +33,7 @@ DEFAULT_SIZE = 18
 
 _cache: dict[tuple[str, str, int, float], QPixmap] = {}
 _Target = QAbstractButton | QAction | QLabel
-_bound: weakref.WeakKeyDictionary[_Target, tuple[str, int]] = weakref.WeakKeyDictionary()
+_bound: weakref.WeakKeyDictionary[_Target, tuple[str, int, str | None]] = weakref.WeakKeyDictionary()
 
 
 def clear_cache() -> None:
@@ -86,25 +86,28 @@ def icon(name: str, color: str | None = None, size: int = DEFAULT_SIZE) -> QIcon
     return result
 
 
-def _apply(target: _Target, name: str, size: int) -> None:
-    result = icon(name, size=size)
+def _apply(target: _Target, name: str, size: int, tone: str | None) -> None:
+    result = icon(name, current_tokens()[tone] if tone else None, size)
     if isinstance(target, QLabel):
         target.setPixmap(result.pixmap(size, size))
     else:
         target.setIcon(result)
 
 
-def bind_icon(target: _Target, name: str, size: int = DEFAULT_SIZE) -> None:
-    """Hedefin (düğme, eylem ya da etiket) simgesini kurar ve tema değişince yenilenmek üzere kaydeder."""
-    _bound[target] = (name, size)
-    _apply(target, name, size)
+def bind_icon(target: _Target, name: str, size: int = DEFAULT_SIZE, tone: str | None = None) -> None:
+    """Hedefin (düğme, eylem ya da etiket) simgesini kurar ve tema değişince yenilenmek üzere kaydeder.
+
+    `tone` verilirse simge o tema renginde ("success", "danger" …) çizilir; yoksa metin renginde.
+    """
+    _bound[target] = (name, size, tone)
+    _apply(target, name, size, tone)
 
 
 def refresh_icons() -> None:
     """Kayıtlı hedeflerin simgesini geçerli tema renkleriyle yeniden üretir."""
-    for target, (name, size) in list(_bound.items()):
+    for target, (name, size, tone) in list(_bound.items()):
         try:
-            _apply(target, name, size)
+            _apply(target, name, size, tone)
         except RuntimeError:
             # Python sarmalayıcısı yaşıyor ama Qt nesnesi silinmiş: kaydı at.
             _bound.pop(target, None)

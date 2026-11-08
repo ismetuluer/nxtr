@@ -514,6 +514,8 @@ class TranslationDelegate(MarkedDelegate):
 
 class TranslatePage(QWidget):
     go_to_scan = Signal()
+    #: Süzgeç değişti ya da satırlar yenilendi (durum çubuğundaki "N / M satır" güncellensin).
+    view_changed = Signal()
     machine_requested = Signal()
     uppercase_changed = Signal(object)  # UppercaseRules
     machine_action_requested = Signal(str)  # bağlam menüsü: seçili satırlara iş (çevir/yeniden çevir/düzelt)
@@ -561,14 +563,8 @@ class TranslatePage(QWidget):
         cl.setSpacing(12)
         self.banner = Banner(closable=True)
         cl.addWidget(self.banner)
-        progress_row = QHBoxLayout()
-        self.progress_label = label("", "muted")
-        self.progress = QProgressBar()
-        self.progress.setTextVisible(False)
-        self.progress.setFixedSize(120, 8)  # etiketin hemen yanında ince çubuk; düğme sanılmasın
-        progress_row.addWidget(self.progress_label)
-        progress_row.addWidget(self.progress, 0, Qt.AlignmentFlag.AlignVCenter)
-        progress_row.addStretch(1)
+        action_row = QHBoxLayout()
+        action_row.addStretch(1)
         self.machine_button = button("Makine Çevirisi…", "primary", icon="sparkles")
         self.machine_button.setToolTip(tip_html("Ollama veya DeepL ile toplu çeviri, yeniden çeviri ve redaksiyon."))
         self.machine_button.clicked.connect(self.machine_requested)
@@ -591,9 +587,9 @@ class TranslatePage(QWidget):
         bind_icon(self.more_button, "ellipsis")
         self.more_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.more_button.setMenu(more_menu)
-        progress_row.addWidget(self.more_button)
-        progress_row.addWidget(self.machine_button)
-        cl.addLayout(progress_row)
+        action_row.addWidget(self.more_button)
+        action_row.addWidget(self.machine_button)
+        cl.addLayout(action_row)
 
         # Makine çevirisi sürerken görünen şerit.
         self.run_panel = QWidget()
@@ -756,10 +752,6 @@ class TranslatePage(QWidget):
             shortcut.activated.connect(slot)
         self._fit_rows()
 
-        bulk = QHBoxLayout()
-        self.count_label = label("", "muted")
-        bulk.addWidget(self.count_label, 1)
-        self.card.body.addLayout(bulk)
         self.pane = EditorPane()
         self.pane.commit_requested.connect(self._on_pane_commit)
         self.pane.navigate_requested.connect(self._navigate)
@@ -778,7 +770,6 @@ class TranslatePage(QWidget):
         self.search.textChanged.connect(self._refilter)
         self.status_filter.currentIndexChanged.connect(self._refilter)
         self.group_filter.currentIndexChanged.connect(self._refilter)
-        self.model.dataChanged.connect(self._update_progress)
         self.model.commit_failed.connect(lambda text: self.banner.show_message("danger", text))
         self.model.commit_failed.connect(self._remember_commit_error)
         selection = self.table.selectionModel()
@@ -1147,7 +1138,6 @@ class TranslatePage(QWidget):
         self.stack.setCurrentWidget(self.content if rows else self.empty)
         self.banner.show_message("danger", "")
         self._refilter()
-        self._update_progress()
         self._schedule_fit_rows()
 
     def show_notice(self, state: str, text: str) -> None:
@@ -1159,8 +1149,7 @@ class TranslatePage(QWidget):
         self.proxy.update(
             str(self.status_filter.currentData()), str(self.group_filter.currentData() or ""), self.search.text()
         )
-        shown, total = self.proxy.rowCount(), self.model.rowCount()
-        self.count_label.setText(f"{format_int(shown)} / {format_int(total)} satır gösteriliyor")
+        self.view_changed.emit()
         self._schedule_fit_rows()
         if current is not None:
             self._scroll_row_id = current.id
@@ -1180,18 +1169,6 @@ class TranslatePage(QWidget):
         index = self.proxy.mapFromSource(self.model.index(source, COL_TRANSLATION))
         if index.isValid():
             self.table.scrollTo(index, QAbstractItemView.ScrollHint.EnsureVisible)
-
-    def _update_progress(self) -> None:
-        rows = self.model.rows
-        done = sum(1 for r in rows if r.status in (Status.APPROVED, Status.MACHINE, Status.REDACTED))
-        errors = sum(1 for r in rows if r.status == Status.ERROR)
-        self.progress.setRange(0, max(len(rows), 1))
-        self.progress.setValue(done)
-        percent = round(done * 100 / len(rows)) if rows else 0
-        text = f"Çevrilen: {format_int(done)} / {format_int(len(rows))} (%{percent})"
-        if errors:
-            text += f"  ·  Hatalı: {format_int(errors)} (dışa aktarılmaz)"
-        self.progress_label.setText(text)
 
     def selected_rows(self) -> list[TranslationRow]:
         indexes = self.table.selectionModel().selectedRows()

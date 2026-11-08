@@ -8,3 +8,4 @@ Bu klasördeki `*.svg` dosyaları [Lucide](https://lucide.dev) simge setindendir
 - Paketlemede (`pyproject.toml` `package-data`) bu klasördeki dosyalar uygulamayla birlikte gider.
 - Görünüm simgeleri (çeviri sayfası): `pilcrow`, `align-left`, `align-center`, `align-right`, `panel-bottom`, `panel-right`, `chevron-up` (aynı sürüm, 0.35.0).
 - Eylem menüsü (çeviri ve kontrol sayfaları): `ellipsis` (aynı sürüm, 0.46.0).
+- Durum çubuğu (kenar çubuğu çalışması): `list`, `cloud` (aynı sürüm, 1.66.0).

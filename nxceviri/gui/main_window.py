@@ -8,7 +8,8 @@ import os
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, QUrl
+import httpx
+from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, QUrl, QVariantAnimation
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QGuiApplication, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -61,7 +62,7 @@ from nxceviri.core.qa.checks import KIND_LABELS, SEVERITY_ERROR, SEVERITY_WARNIN
 from nxceviri.core.qa.checks import run_checks as run_qa_checks
 from nxceviri.core.qa.fonts import FontReport
 from nxceviri.core.qa.fonts import scan_fonts as scan_font_files
-from nxceviri.core.secrets import GITHUB_UPDATE_KEY, KeyringStore, SecretStore
+from nxceviri.core.secrets import DEEPL_API_KEY, GITHUB_UPDATE_KEY, KeyringStore, SecretStore
 from nxceviri.core.selfupdate import PreparedInstall, current_install, discard_prepared, launch_installer
 from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.spell.loader import load_spell_checker
@@ -88,7 +89,9 @@ from nxceviri.core.translate.fitconfig import (
 )
 from nxceviri.core.translate.glossary_io import merge_terms
 from nxceviri.core.translate.port import ReadyTranslations, port_translations, read_ready_translations
+from nxceviri.core.translate.probe import deepl_summary, ollama_summary
 from nxceviri.core.translate.providers.base import ProviderError, TranslationProvider
+from nxceviri.core.translate.providers.deepl import DeepLProvider
 from nxceviri.core.translate.providers.ollama import DEFAULT_URL, OllamaProvider
 from nxceviri.core.translate.report import job_label, mark_label
 from nxceviri.core.translate.runner import (
@@ -132,14 +135,16 @@ from nxceviri.gui.machine_dialogs import (
     TermSuggestionsDialog,
     make_provider,
 )
+from nxceviri.gui.motion import animations_enabled
 from nxceviri.gui.plugins_dialog import PluginsDialog
+from nxceviri.gui.provider_probe import ProviderProbe
 from nxceviri.gui.qa_page import QaPage
 from nxceviri.gui.recent import RecentProjects
 from nxceviri.gui.recovery import RecoveryFile, RecoveryKeeper, default_recovery_dir, discard, leftover_files
 from nxceviri.gui.scan_page import ScanPage
 from nxceviri.gui.spell_dialogs import AddSpellWordsDialog, UserDictionaryDialog
 from nxceviri.gui.statusbar import StatusSegments
-from nxceviri.gui.step_nav import ProjectHeader, StepNav
+from nxceviri.gui.step_nav import COLLAPSED_WIDTH, ProjectHeader, StepNav
 from nxceviri.gui.tasks import Task
 from nxceviri.gui.theme import (
     DEFAULT_FONT_SIZE,
@@ -168,6 +173,12 @@ TRANSLATE_INSTRUCTION_KEY = "translate_instruction"
 
 #: Kaydedilmemiş projenin kurtarma kopyasının yenilenme aralığı.
 RECOVERY_INTERVAL_MS = 60_000
+#: Bu genişlikten dar pencerede kenar çubuğu ilk açılışta daralmış başlar.
+NAV_AUTO_COLLAPSE_BELOW = 1000
+#: Kenar çubuğu daralma/açılma animasyonunun süresi (ms).
+NAV_ANIMATION_MS = 150
+#: Sağlayıcı durumu sorgularının zaman aşımı (sn); arka plandadır ama ipucunu uzun bekletmez.
+PROBE_TIMEOUT_S = 2.0
 
 
 def log_dir() -> Path:
@@ -236,6 +247,10 @@ class MainWindow(QMainWindow):
         column.setSpacing(0)
         self.nav_header = ProjectHeader()
         self.nav = StepNav()
+        self._nav_anim: QVariantAnimation | None = None
+        self._nav_collapsed = self._initial_nav_collapsed()
+        self.nav.set_collapsed(self._nav_collapsed)
+        self.nav_header.setVisible(not self._nav_collapsed)
         self.nav.preferred_width_changed.connect(self._update_nav_width)
         column.addWidget(self.nav_header)
         column.addWidget(self.nav, 1)
@@ -265,6 +280,14 @@ class MainWindow(QMainWindow):
         self.status_segments.problems_clicked.connect(self._open_qa_from_status)
         self.status_segments.keys_clicked.connect(self._choose_keys)
         self.status_segments.bind_symbols_action(self.translate_page.view_actions.symbols)
+        #: Testlerde sahte HTTP verebilmek için değiştirilebilir.
+        self.probe_client_factory: Callable[[], httpx.Client] = lambda: httpx.Client(
+            timeout=httpx.Timeout(PROBE_TIMEOUT_S)
+        )
+        self.provider_probe = ProviderProbe(self, lambda: self.probe_client_factory())  # noqa: PLW0108 (alan sonradan değiştirilebilir)
+        self.provider_probe.fetched.connect(self._show_provider_tip)
+        self.status_segments.provider_tip_requested.connect(self._probe_provider)
+        self._provider_tip_title = ""
         self._pane_focused = False
         pane = self.translate_page.pane
         pane.focus_changed.connect(self._pane_focus_changed)
@@ -276,6 +299,7 @@ class MainWindow(QMainWindow):
         self._derived_timer.setSingleShot(True)
         self._derived_timer.setInterval(0)
         self._derived_timer.timeout.connect(self._refresh_derived)
+        self.translate_page.view_changed.connect(self._refresh_status)
         self.translate_page.model.modelReset.connect(self._derived_timer.start)
         self.translate_page.model.dataChanged.connect(lambda *_args: self._derived_timer.start())
 
@@ -335,9 +359,56 @@ class MainWindow(QMainWindow):
         self._push_fit_to_page()
         self._refresh()
 
+    def _initial_nav_collapsed(self) -> bool:
+        """Kayıtlı tercih; yoksa dar pencere ya da dar ekranda daralmış başlar (tercih kaydedilmez)."""
+        saved = self.settings.value("ui/nav_collapsed")
+        if saved is not None:
+            return str(saved) == "1"
+        width = self.width()
+        screen = self.screen()
+        # Offscreen platformun sanal ekranı 800 px'tir; gerçek bir dar ekranı temsil etmez.
+        if screen is not None and QGuiApplication.platformName() != "offscreen":
+            width = min(width, screen.availableGeometry().width())
+        return width < NAV_AUTO_COLLAPSE_BELOW
+
+    def _nav_width(self) -> int:
+        return COLLAPSED_WIDTH if self._nav_collapsed else self.nav.preferred_width()
+
     def _update_nav_width(self) -> None:
-        """Kenar çubuğu sütunu en uzun adımı, simgeyi ve rozeti yazı boyutuna göre sığdırır."""
-        self.nav_column.setFixedWidth(self.nav.preferred_width())
+        """Kenar çubuğu sütunu en uzun adımı, simgeyi ve rozeti yazı boyutuna göre sığdırır (daraltılmışsa simgeye)."""
+        if self._nav_anim is None:
+            self.nav_column.setFixedWidth(self._nav_width())
+
+    def set_nav_collapsed(self, collapsed: bool, *, animate: bool = True) -> None:
+        """Kenar çubuğunu daraltır ya da açar; tercih kaydedilir. Animasyon kapalıysa anında olur."""
+        self.settings.setValue("ui/nav_collapsed", "1" if collapsed else "0")
+        self.nav_action.setChecked(not collapsed)
+        if self._nav_anim is not None:
+            self._nav_anim.stop()
+            self._nav_anim = None
+        self._nav_collapsed = collapsed
+        target = self._nav_width()
+        start = self.nav_column.width()
+        if not (animate and self.isVisible() and animations_enabled()) or start == target:
+            self._finish_nav(collapsed)
+            return
+        if not collapsed:  # açılırken önce ad ve başlık görünür, sonra genişlik büyür
+            self.nav.set_collapsed(False)
+            self.nav_header.setVisible(True)
+        anim = QVariantAnimation(self)
+        anim.setDuration(NAV_ANIMATION_MS)
+        anim.setStartValue(start)
+        anim.setEndValue(target)
+        anim.valueChanged.connect(lambda value: self.nav_column.setFixedWidth(int(value)))
+        anim.finished.connect(lambda: self._finish_nav(collapsed))
+        self._nav_anim = anim
+        anim.start()
+
+    def _finish_nav(self, collapsed: bool) -> None:
+        self._nav_anim = None
+        self.nav.set_collapsed(collapsed)
+        self.nav_header.setVisible(not collapsed)
+        self.nav_column.setFixedWidth(self._nav_width())
 
     def changeEvent(self, event: QEvent) -> None:
         super().changeEvent(event)
@@ -367,6 +438,12 @@ class MainWindow(QMainWindow):
         self._action(file_menu, "Çıkış", self.close, QKeySequence.StandardKey.Quit)
 
         view_menu = self.menuBar().addMenu("&Görünüm")
+        self.nav_action = QAction("Kenar Çubuğu", self, checkable=True)
+        self.nav_action.setChecked(not self._nav_collapsed)
+        self.nav_action.setShortcut(QKeySequence("Ctrl+Alt+S"))
+        self.nav_action.triggered.connect(lambda checked: self.set_nav_collapsed(not checked))
+        view_menu.addAction(self.nav_action)
+        view_menu.addSeparator()
         theme_menu = view_menu.addMenu("Tema")
         group = QActionGroup(self)
         current = self._theme_mode()
@@ -678,19 +755,53 @@ class MainWindow(QMainWindow):
     def _refresh_status(self) -> None:
         """Durum çubuğu bölmeleri; satır sayıları, hatalı satırlar, sağlayıcı ve kayıt durumundan türetilir."""
         rows = self.translate_page.model.rows
-        translated = sum(1 for r in rows if r.status in TRANSLATED_STATUSES)
-        errors = sum(1 for r in rows if r.status == Status.ERROR)
-        self.status_segments.update(len(rows), translated, errors, self._provider_text(), not self.dirty)
+        self.status_segments.update(
+            rows=len(rows),
+            shown=self.translate_page.proxy.rowCount(),
+            translated=sum(1 for r in rows if r.status in TRANSLATED_STATUSES),
+            approved=sum(1 for r in rows if r.status == Status.APPROVED),
+            errors=sum(1 for r in rows if r.status == Status.ERROR),
+            provider=self._provider_kind(),
+            saved=not self.dirty,
+        )
 
-    def _provider_text(self) -> str:
-        """Son kullanılan çeviri sağlayıcısı ("Ollama · model" ya da "DeepL"); seçilmediyse boş."""
+    def _provider_kind(self) -> str:
+        """Son kullanılan çeviri sağlayıcısı ("ollama" ya da "deepl"); seçilmediyse boş."""
         kind = str(self.settings.value("translate/provider", ""))
+        return kind if kind in (PROVIDER_OLLAMA, PROVIDER_DEEPL) else ""
+
+    def _probe_provider(self) -> None:
+        """Sağlayıcı bölmesinin ipucu açılırken durumu (kota / bellekteki model) arka planda yeniler."""
+        kind = self._provider_kind()
+        if not kind:
+            return
         if kind == PROVIDER_OLLAMA:
+            url = str(self.settings.value("ollama/url", DEFAULT_URL))
             model = str(self.settings.value("ollama/model", ""))
-            return f"Ollama · {model}" if model else "Ollama"
-        if kind == PROVIDER_DEEPL:
-            return "DeepL"
-        return ""
+            key: tuple[str, ...] = (kind, url, model)
+            self._provider_tip_title = "Ollama"
+
+            def fetch(client: httpx.Client) -> list[str]:
+                return ollama_summary(url, model, client)
+
+        else:
+            key = (kind,)
+            self._provider_tip_title = "DeepL"
+            secrets = self.secrets
+
+            def fetch(client: httpx.Client) -> list[str]:
+                try:
+                    provider = DeepLProvider(secrets.get(DEEPL_API_KEY) or "", client=client)
+                except ProviderError as exc:
+                    return [exc.message]
+                return deepl_summary(provider)
+
+        known = self.provider_probe.lines_for(key)
+        self._show_provider_tip(known or ["Durum alınıyor…"])
+        self.provider_probe.request(key, fetch)
+
+    def _show_provider_tip(self, lines: list[str]) -> None:
+        self.status_segments.set_provider_tip("\n".join([self._provider_tip_title, *lines]))
 
     def _refresh_nav(self) -> None:
         """Kenar çubuğu rozetleri ve proje başlığı; projedeki durumdan türetilir."""
@@ -881,7 +992,7 @@ class MainWindow(QMainWindow):
             lines.append(f"title.keys: {self.title_keys_path} ({len(self.title_keys)} kayıt)")
         else:
             lines.append("title.keys: seçilmedi (isteğe bağlı; oyun dosyasında bilet yoksa gerekir)")
-        lines.append("Değiştirmek için: Dosya > Anahtarlar")
+        lines.append("Değiştirmek için: Dosya → Anahtarlar")
         self.status_segments.set_keys(state, text, "\n".join(lines))
         self.title_keys_clear_action.setEnabled(self.title_keys_path is not None)
 
@@ -2507,6 +2618,7 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         self._recovery_timer.stop()
+        self.provider_probe.close()
         self.recovery.clear()
         self.project.close()
         event.accept()
