@@ -12,6 +12,7 @@ from PySide6.QtCore import (
     QModelIndex,
     QPersistentModelIndex,
     QPoint,
+    QSettings,
     QSortFilterProxyModel,
     Qt,
     QTimer,
@@ -32,7 +33,6 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QSpinBox,
-    QTableView,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -41,6 +41,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from nxceviri.core.languages import natural_sort_key
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa import transliterate
 from nxceviri.core.qa.autofix import FIX_KINDS
@@ -49,6 +50,7 @@ from nxceviri.core.qa.fonts import FontReport
 from nxceviri.core.translate.codekinds import KIND_NAMES, CodeKinds
 from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, FitRules
 from nxceviri.core.translate.fitconfig import EACH_GROUP, GROUP_PREFIX, FitConfig, FitOptions
+from nxceviri.gui.table_columns import ColumnFitter, FitTableView, HeaderColumnMenu
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.widgets import ActionBar, Banner, Card, PageHeader, button, format_int, label, tip_html
 
@@ -56,7 +58,7 @@ _Index = QModelIndex | QPersistentModelIndex
 #: Bu kadar bulguya kadar satırlar metne göre yükseltilir (üstünde ipucundan okunur).
 _FIT_ROWS_LIMIT = 3000
 _COLUMNS = ("Önem", "Tür", "Açıklama", "Orijinal", "Çeviri")
-COL_DESCRIPTION, COL_SOURCE, COL_TRANSLATION = 2, 3, 4
+COL_SEVERITY, COL_KIND, COL_DESCRIPTION, COL_SOURCE, COL_TRANSLATION = range(5)
 #: Sığdırma ilk açıldığında (henüz sınır yokken) kutularda görünen değerler.
 _FIT_START_WIDTH, _FIT_START_LINES = 40, 3
 _FIT_OFF_TEXT = "Sınır girilmedi; sığdırma kapalı."
@@ -134,6 +136,10 @@ class IssueFilter(QSortFilterProxyModel):
         super().__init__()
         self.kind = ""
         self.show_info = False
+
+    def lessThan(self, left: _Index, right: _Index) -> bool:
+        """Doğal sıralama: sayılar değerine göre (1, 2, 10), harfler Türkçe sırayla."""
+        return natural_sort_key(str(left.data() or "")) < natural_sort_key(str(right.data() or ""))
 
     def update(self, kind: str, show_info: bool) -> None:
         self.beginFilterChange()
@@ -275,7 +281,7 @@ class QaPage(QWidget):
         self.model = IssueModel()
         self.proxy = IssueFilter()
         self.proxy.setSourceModel(self.model)
-        self.table = QTableView()
+        self.table = FitTableView()
         self.table.setModel(self.proxy)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -287,10 +293,19 @@ class QaPage(QWidget):
         self.table.setMinimumHeight(80)
         self.table.setWordWrap(True)  # açıklama, orijinal ve çeviri kesilmeden okunsun
         h = self.table.horizontalHeader()
-        for c in range(COL_DESCRIPTION):
-            h.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
-        for c in (COL_DESCRIPTION, COL_SOURCE, COL_TRANSLATION):
-            h.setSectionResizeMode(c, QHeaderView.ResizeMode.Stretch)
+        h.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)  # sütunlar sürüklenerek ayarlanır
+        h.setMinimumSectionSize(40)
+        self.fitter = ColumnFitter(
+            self.table,
+            {COL_SEVERITY: (80, 50), COL_KIND: (140, 60)},
+            {COL_DESCRIPTION: (0.3, 100), COL_SOURCE: (0.35, 100), COL_TRANSLATION: (0.35, 100)},
+        )
+        self.column_menu = HeaderColumnMenu(
+            self.table,
+            dict(enumerate(_COLUMNS)),
+            frozenset({COL_DESCRIPTION, COL_SOURCE, COL_TRANSLATION}),
+            self.fitter,
+        )
         # Sütun genişliği değişince (pencere boyutu) satır yükseklikleri yeniden hesaplanır; art arda gelen
         # değişiklikler tek seferde.
         self._fit_timer = QTimer(self)
@@ -298,6 +313,7 @@ class QaPage(QWidget):
         self._fit_timer.setInterval(80)
         self._fit_timer.timeout.connect(self._fit_rows)
         h.sectionResized.connect(lambda *_args: self._fit_timer.start())
+        self.fitter.resized.connect(self._fit_timer.start)
         # Yazım sözlüğü eylemleri bulgu tablosunun sağ tık menüsünde.
         self.spell_add_button = QAction("Yazım sözlüğüne ekle…", self)
         self.spell_add_button.setEnabled(False)
@@ -743,6 +759,11 @@ class QaPage(QWidget):
         self.summary.setProperty("role", None)
         self._update_fix_counts(issues)
         self._refilter()
+
+    def bind_settings(self, settings: QSettings) -> None:
+        """Bulgu tablosunun sütun genişliklerini ve gizli sütunlarını geri yükler."""
+        self.fitter.bind_settings(settings, "qa/column_widths")
+        self.column_menu.bind_settings(settings, "qa/hidden_columns")
 
     def _refilter(self) -> None:
         kind = str(self.kind.currentData() or "")

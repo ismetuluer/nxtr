@@ -180,12 +180,15 @@ def test_columns_are_user_resizable_and_remembered(qtbot: QtBot, tmp_path: Path)
     assert q.table.horizontalHeader().sectionSize(COL_SOURCE) == 333
 
 
+def _visible_width(p: TranslatePage) -> int:
+    h = p.table.horizontalHeader()
+    return sum(h.sectionSize(c) for c in range(h.count()) if not h.isSectionHidden(c))
+
+
 def test_columns_fill_width_until_user_resizes(page: TranslatePage, qtbot: QtBot) -> None:
-    h = page.table.horizontalHeader()
-    total = sum(h.sectionSize(c) for c in range(5))
-    assert abs(total - page.table.viewport().width()) < 8
+    assert abs(_visible_width(page) - page.table.viewport().width()) < 8
     page.resize(1400, 700)
-    qtbot.waitUntil(lambda: abs(sum(h.sectionSize(c) for c in range(5)) - page.table.viewport().width()) < 8)
+    qtbot.waitUntil(lambda: abs(_visible_width(page) - page.table.viewport().width()) < 8)
 
 
 def test_word_wrap_shows_whole_text(qtbot: QtBot, tmp_path: Path) -> None:

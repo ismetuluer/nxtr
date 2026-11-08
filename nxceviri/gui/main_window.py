@@ -251,6 +251,7 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(self.scan_page)
         self.pages.addWidget(self.translate_page)
         self.qa_page = QaPage()
+        self.qa_page.bind_settings(self.settings)
         self.export_page = ExportPage()
         self.pages.addWidget(self.qa_page)
         self.pages.addWidget(self.export_page)
@@ -2392,6 +2393,9 @@ class MainWindow(QMainWindow):
         self._refresh_marks()
         self._push_fit_to_page()
         self.translate_page.set_qa_issues([], [])  # önceki projenin denetim sonuçları taşınmaz
+        self.translate_page.set_project_key(
+            str(project.path) if project.path else None
+        )  # süzgeçler projeye göre hatırlanır
         self.translate_page.set_rows(project.translation_rows())
         self._sync_spell()
         self.font_report = None

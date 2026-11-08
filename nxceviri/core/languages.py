@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 #: ISO 15924 yazı kodu uzunluğu (ör. "Hant").
 _SCRIPT_SUBTAG_LEN = 4
 
@@ -52,3 +54,23 @@ def sort_key(text: str) -> str:
     """Türkçe alfabe sırasına göre sıralama anahtarı: ç c'den sonra, ğ g'den sonra, ş s'den sonra gelir;
     büyük/küçük harf ayırt edilmez. `str.casefold` kullanmak "çilek"i "dünya"dan sonraya atardı."""
     return text.translate(_COLLATION)
+
+
+_DIGITS = re.compile(r"(\d+)")
+
+
+def natural_sort_key(text: str) -> tuple[tuple[int, int, str], ...]:
+    """Doğal sıralama anahtarı: sayılar değerine göre ("2" < "10"), harfler Türkçe sırayla (`sort_key`).
+
+    Rakam öbekleri harflerden önce gelir; aynı sayı değerinde ("07" / "7") metin sırası belirler.
+    """
+    parts = _DIGITS.split(text)
+    key: list[tuple[int, int, str]] = []
+    for i, part in enumerate(parts):
+        if not part:
+            continue
+        if i % 2:
+            key.append((0, int(part), part))
+        else:
+            key.append((1, 0, sort_key(part)))
+    return tuple(key)
