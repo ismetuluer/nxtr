@@ -1253,7 +1253,7 @@ class MainWindow(QMainWindow):
 
     def _sync_spell(self) -> None:
         """Editördeki yazım işaretlerini güncel denetleyici ve oyun sözlüğüyle yeniler."""
-        self.translate_page.pane.set_spell(self.spell, glossary_words(self.project.glossary()))
+        self.translate_page.set_spell(self.spell, glossary_words(self.project.glossary()))
 
     def add_spell_words(self, words: list[str]) -> None:
         """Sözcükleri kalıcı kullanıcı sözlüğüne ekler; editör ve (yapıldıysa) denetim sonucu yenilenir."""

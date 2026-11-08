@@ -4,7 +4,10 @@ Buradaki her şey yalnızca **çizimdir**: çeviri metni hiçbir zaman değişti
 (`⟦n⟧` dahil) üzerinde yapılır. `marked_html` bir metni `QTextDocument`'in çizeceği HTML'e çevirir:
 
 - `symbols` açıkken boşluk `·`, sekme `→`, bölünmez boşluk `°` ve satır sonu `¶` olarak görünür (genişlik korunur,
-  metin kaymaz); satırın sonundaki boşluklar uyarı zeminiyle işaretlenir.
+  metin kaymaz); satırın sonundaki boşluklar uyarı zeminiyle işaretlenir. `·` ve `→` sözcük sınırı olarak kalır:
+  `·` bir harf gibi davranıp kaydırmayı sözcük ortasına çekmesin diye ardına sıfır genişlikli bir bölme fırsatı konur.
+- `wrong` aralıkları (yazım hatalı sözcükler) tema "danger" renginde alt çizgiyle işaretlenir; hücre çizicisi bunu
+  dalgalı çizgiye çevirir (Qt'nin HTML ayrıştırıcısı dalgalı çizgiyi bilmez).
 - `chips` açıkken her `⟦n⟧` kod türüne göre renkli bir çip olur (simge + numara); kapalıyken ham kod görünür.
 
 Saf işlevlerdir (arayüz nesnesi bilmez), bu yüzden kolay test edilir.
@@ -14,7 +17,7 @@ from __future__ import annotations
 
 import html
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from nxceviri.core.translate.codekinds import (
     KIND_LINE_BREAK,
@@ -47,6 +50,8 @@ CHIP_TOKENS: dict[str, str] = {
 }
 
 _TRAILING_RE = re.compile(r"[ \t]+$")
+#: Sıfır genişlikli bölme fırsatı (U+200B): `·` sembolünden sonra kaydırma sözcük sınırında olabilsin.
+ZWSP = "\u200b"
 
 
 def chip_glyph(kind: str) -> str:
@@ -83,8 +88,11 @@ def marked_html(
     symbols: bool,
     chips: bool,
     single_line: bool = False,
+    wrong: Sequence[tuple[int, int]] = (),
 ) -> str:
-    """Metni `QTextDocument` için HTML'e çevirir. `single_line`: satır sonu satır içinde kalır (kaydırma kapalı)."""
+    """Metni `QTextDocument` için HTML'e çevirir. `single_line`: satır sonu satır içinde kalır (kaydırma kapalı).
+
+    `wrong`: alt çizgi çekilecek metin aralıkları (başlangıç, bitiş), örneğin yazım hatalı sözcükler."""
     muted = tokens["muted"]
     warning_bg = tokens["warning_bg"]
     trailing: set[int] = set()
@@ -98,23 +106,40 @@ def marked_html(
             style += f"background-color:{warning_bg};"
         return f'<span style="{style}">{glyph}</span>'
 
+    wrong_at: set[int] = set()
+    for start, end in wrong:
+        wrong_at.update(range(start, end))
+    wrong_open = f'<span style="text-decoration:underline;text-decoration-color:{tokens["danger"]};">'
+    break_after = "" if single_line else ZWSP
+
+    def char(i: int) -> str:
+        ch = text[i]
+        if ch == "\r":
+            if i + 1 < len(text) and text[i + 1] == "\n":
+                return ""  # "\r\n" tek satır sonudur
+            ch = "\n"
+        if ch == "\n":
+            if symbols:
+                return mark("¶", i) + ("" if single_line else "<br>")
+            return " " if single_line else "<br>"
+        if symbols and ch == " ":
+            return mark("·", i) + break_after
+        if symbols and ch == "\t":
+            return mark("→", i) + "\t"
+        if ch == " ":
+            return mark("°", i) if symbols else "&nbsp;"
+        return html.escape(ch, quote=False)
+
     def run(start: int, end: int) -> str:
         out: list[str] = []
+        inside = False
         for i in range(start, end):
-            ch = text[i]
-            if ch == "\n":
-                if symbols:
-                    out.append(mark("¶", i) + ("" if single_line else "<br>"))
-                else:
-                    out.append(" " if single_line else "<br>")
-            elif symbols and ch == " ":
-                out.append(mark("·", i))
-            elif symbols and ch == "\t":
-                out.append(mark("→", i) + "\t")
-            elif ch == " ":
-                out.append(mark("°", i) if symbols else "&nbsp;")
-            else:
-                out.append(html.escape(ch, quote=False))
+            if (i in wrong_at) != inside:
+                inside = not inside
+                out.append(wrong_open if inside else "</span>")
+            out.append(char(i))
+        if inside:
+            out.append("</span>")
         return "".join(out)
 
     parts: list[str] = []

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import time
+from typing import Any
 
 from nxceviri.core.translate.codekinds import KIND_LINE_BREAK, KIND_OTHER, KIND_PAGE_BREAK
 from nxceviri.gui.textmarks import KIND_GLYPHS, code_spans, marked_html, trailing_space_spans
@@ -17,7 +18,7 @@ def kind_of(n: int) -> str:
     return KINDS.get(n, KIND_OTHER)
 
 
-def html(text: str, **kwargs: bool) -> str:
+def html(text: str, **kwargs: Any) -> str:
     options = {"symbols": False, "chips": False, **kwargs}
     return marked_html(text, kind_of, TOKENS_LIGHT, **options)
 
@@ -94,3 +95,24 @@ def test_very_long_line_is_fast() -> None:
     start = time.perf_counter()
     html(text, symbols=True, chips=True)
     assert time.perf_counter() - start < 0.5
+
+
+def test_symbol_space_keeps_a_break_opportunity() -> None:
+    out = html("a b", symbols=True)
+    assert "·</span>\u200b" in out  # kaydırma sözcük sınırında kalsın
+    assert "\u200b" not in html("a b", symbols=True, single_line=True)
+    assert "\u200b" not in html("a b")
+
+
+def test_crlf_is_one_line_break() -> None:
+    assert html("a\r\nb", symbols=True).count("¶") == 1
+    assert html("a\rb", symbols=True).count("¶") == 1
+    assert html("a\r\nb").count("<br>") == 1
+
+
+def test_wrong_ranges_are_underlined_and_text_unchanged() -> None:
+    out = html("ab cd ef", wrong=[(3, 5)])
+    underline = f"text-decoration:underline;text-decoration-color:{TOKENS_LIGHT['danger']}"
+    assert out.count(underline) == 1
+    assert plain(out) == "ab cd ef"
+    assert "<span" not in html("ab cd ef")

@@ -54,6 +54,7 @@ from nxceviri.core.qa.checks import (
     QaIssue,
     check_row,
 )
+from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.translate.codekinds import CodeKinds
 from nxceviri.core.translate.fitconfig import FitConfig
 from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_REVISE, ACTION_TRANSLATE, target_rows
@@ -1068,6 +1069,13 @@ class TranslatePage(QWidget):
             delegate.configure(symbols=symbols, align=align, wrap=wrap)
         self.pane.set_view(symbols, align)
         self.model.refresh_display()
+        self._schedule_fit_rows()
+
+    def set_spell(self, spell: SpellChecker | None, extra: frozenset[str]) -> None:
+        """Yazım denetleyicisi: panelde ve çeviri hücrelerinde yazım hatalı sözcüklerin altı çizilir."""
+        self.pane.set_spell(spell, extra)
+        self.translation_delegate.set_spell(spell, extra)
+        self.table.viewport().update()
         self._schedule_fit_rows()
 
     def _apply_view(self) -> None:
