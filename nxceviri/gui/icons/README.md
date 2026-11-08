@@ -9,3 +9,4 @@ Bu klasördeki `*.svg` dosyaları [Lucide](https://lucide.dev) simge setindendir
 - Görünüm simgeleri (çeviri sayfası): `pilcrow`, `align-left`, `align-center`, `align-right`, `panel-bottom`, `panel-right`, `chevron-up` (aynı sürüm, 0.35.0).
 - Eylem menüsü (çeviri ve kontrol sayfaları): `ellipsis` (aynı sürüm, 0.46.0).
 - Çevir tablosu durum simgeleri: `circle-dashed`, `monitor`, `monitor-check`, `user-check` (aynı sürüm, 1.66.0); başlıktaki süzgeç hunisi `funnel`, hücredeki uyarı `triangle-alert`.
+- Durum çubuğu (kenar çubuğu çalışması): `list`, `cloud` (aynı sürüm, 1.66.0).

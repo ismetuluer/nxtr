@@ -6,16 +6,25 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import QAbstractAnimation, QSettings, Qt
 from PySide6.QtGui import QFont, QFontMetrics
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMenu
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.formats.base import ControlCode, TextEntry
 from nxceviri.core.project import ImportedFile, Project, SourceRecord
 from nxceviri.core.secrets import MemoryStore
 from nxceviri.gui.main_window import STEP_ADD, STEP_QA, STEP_SCAN, STEP_TRANSLATE, MainWindow
-from nxceviri.gui.step_nav import BADGE_ROLE, DONE_ROLE, ICON_ROLE, STATE_ROLE, STEPS, ProjectHeader, StepNav
+from nxceviri.gui.step_nav import (
+    BADGE_ROLE,
+    COLLAPSED_WIDTH,
+    DONE_ROLE,
+    ICON_ROLE,
+    STATE_ROLE,
+    STEPS,
+    ProjectHeader,
+    StepNav,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -208,3 +217,95 @@ def test_nav_width_follows_font_size(window: MainWindow) -> None:
     window._set_font_size(18)
     assert window.nav_column.width() > before
     window._set_font_size(10)
+
+
+def _collapsed(w: MainWindow) -> bool:
+    """Kenar çubuğunun çizim durumu (mypy, art arda doğrulamalarda özelliği tek değere daraltmasın)."""
+    return w.nav.collapsed
+
+
+@pytest.fixture
+def instant(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Animasyonlar kapalı: daralma/açılma anında olur (Windows "animasyonları azalt" ile aynı yol)."""
+    monkeypatch.setattr("nxceviri.gui.main_window.animations_enabled", lambda: False)
+
+
+@pytest.mark.gui
+def test_collapse_shows_only_icons_with_tips(window: MainWindow, instant: None) -> None:
+    expanded = window.nav_column.width()
+    window.set_nav_collapsed(True)
+    assert window.nav_column.width() == COLLAPSED_WIDTH < expanded
+    assert _collapsed(window)
+    assert not window.nav_header.isVisibleTo(window)
+    assert window.nav.item(STEP_TRANSLATE).toolTip() == f"Çevir · {_badge(window, STEP_TRANSLATE)}"
+    assert window.nav.item(STEP_ADD).toolTip() == "Oyunu Ekle"  # rozeti yoksa yalnızca ad
+    assert window.grab().width() > 0  # daraltılmış çizim hatasız
+    window.set_nav_collapsed(False)
+    assert window.nav_column.width() == expanded
+    assert not _collapsed(window)
+    assert window.nav_header.isVisibleTo(window)
+    assert window.nav.item(STEP_TRANSLATE).toolTip() == ""
+
+
+@pytest.mark.gui
+def test_collapse_is_remembered_across_windows(qtbot: QtBot, tmp_path: Path, instant: None) -> None:
+    path = tmp_path / "ayarlar.ini"
+    first = MainWindow(QSettings(str(path), QSettings.Format.IniFormat))
+    first.set_nav_collapsed(True)
+    first.dirty = False
+    first.close()
+    first.deleteLater()
+    second = MainWindow(QSettings(str(path), QSettings.Format.IniFormat))
+    try:
+        assert _collapsed(second)
+        assert second.nav_column.width() == COLLAPSED_WIDTH
+        assert not second.nav_action.isChecked()
+    finally:
+        second.dirty = False
+        second.close()
+        second.deleteLater()
+
+
+@pytest.mark.gui
+def test_menu_action_and_shortcut_toggle_sidebar(qtbot: QtBot, window: MainWindow, instant: None) -> None:
+    action = window.nav_action
+    assert action.text() == "Kenar Çubuğu"
+    assert action.isCheckable()
+    assert action.isChecked()
+    assert action.shortcut().toString() == "Ctrl+Alt+S"
+    view_menu = next(m for m in window.menuBar().findChildren(QMenu) if action in m.actions())
+    assert view_menu.title() == "&Görünüm"
+    action.trigger()
+    assert _collapsed(window)
+    assert not action.isChecked()
+    qtbot.keyClick(window, Qt.Key.Key_S, Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier)
+    assert not _collapsed(window)
+    assert action.isChecked()
+
+
+@pytest.mark.gui
+def test_collapse_animates_when_enabled(qtbot: QtBot, window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("nxceviri.gui.main_window.animations_enabled", lambda: True)
+    window.set_nav_collapsed(True)
+    anim = window._nav_anim
+    assert anim is not None  # hemen bitmedi
+    assert window.nav_column.width() > COLLAPSED_WIDTH
+    qtbot.waitUntil(lambda: window.nav_column.width() == COLLAPSED_WIDTH and _collapsed(window), timeout=2000)
+    assert anim.state() == QAbstractAnimation.State.Stopped
+    assert not window.nav_header.isVisibleTo(window)
+
+
+@pytest.mark.gui
+def test_small_window_starts_collapsed_without_saved_choice(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, instant: None
+) -> None:
+    monkeypatch.setattr(MainWindow, "width", lambda _self: 900)
+    settings = QSettings(str(tmp_path / "ayarlar.ini"), QSettings.Format.IniFormat)
+    w = MainWindow(settings)
+    try:
+        assert _collapsed(w)
+        assert settings.value("ui/nav_collapsed") is None  # otomatik karar kaydedilmez
+    finally:
+        w.dirty = False
+        w.close()
+        w.deleteLater()

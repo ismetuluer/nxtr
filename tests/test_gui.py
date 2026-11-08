@@ -89,7 +89,7 @@ def test_invalid_key_file_shows_error(window: MainWindow, tmp_path: Path) -> Non
     bad = tmp_path / "prod.keys"
     bad.write_text("bu bir anahtar dosyası değil\n", encoding="utf-8")
     assert not window.load_keys_file(bad)
-    assert window.status_segments.keys_button.text() == "Anahtar geçersiz"
+    assert window.status_segments.keys_button.toolTip().startswith("Anahtar geçersiz")
     assert not window.add_page.keys_card.isHidden()
     assert window.add_page.keys_banner.isVisible()
     assert "1. satır" in window.add_page.keys_banner.text.text()
@@ -107,7 +107,7 @@ def _drop(window: MainWindow, paths: list[Path]) -> None:
 
 def test_full_flow_drop_scan_save_reopen(qtbot: QtBot, window: MainWindow, game: GameFiles, tmp_path: Path) -> None:
     assert window.load_keys_file(game.keys_path)
-    assert window.status_segments.keys_button.text() == "Anahtarlar doğrulandı"
+    assert window.status_segments.keys_button.toolTip().startswith("Anahtarlar doğrulandı")
     assert window.add_page.keys_card.isHidden()  # anahtar hazırsa ana ekranda yer kaplamaz
     assert window.add_page.drop.isEnabled()
 

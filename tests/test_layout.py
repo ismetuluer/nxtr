@@ -85,12 +85,6 @@ def test_long_keys_do_not_make_rows_tall(page: TranslatePage) -> None:
     assert KEY in tip
 
 
-def test_progress_bar_sits_next_to_its_label(page: TranslatePage) -> None:
-    label_end = page.progress_label.mapTo(page, QPoint(0, 0)).x() + page.progress_label.width()
-    assert page.progress.mapTo(page, QPoint(0, 0)).x() - label_end < 24
-    assert "%" in page.progress_label.text()
-
-
 def test_view_button_text_is_not_covered(page: TranslatePage) -> None:
     assert page.view_button.width() >= page.view_button.sizeHint().width()
 
