@@ -116,3 +116,41 @@ def test_wrong_ranges_are_underlined_and_text_unchanged() -> None:
     assert out.count(underline) == 1
     assert plain(out) == "ab cd ef"
     assert "<span" not in html("ab cd ef")
+
+
+def found_spans(markup: str, color: str) -> list[str]:
+    """Verilen arka plan rengiyle boyanmış parçaların düz metinleri."""
+    pattern = rf'<span style="[^"]*background-color:{re.escape(color)};[^"]*">(.*?)</span>'
+    return [plain(m) for m in re.findall(pattern, markup)]
+
+
+def test_found_spans_get_selection_background() -> None:
+    out = html("Bir iki üç", found=[(4, 7)])
+    assert found_spans(out, TOKENS_LIGHT["selection"]) == ["iki"]
+    assert plain(out).replace("\xa0", " ") == "Bir iki üç"  # metin değişmez
+
+
+def test_current_found_span_is_stronger() -> None:
+    out = html("Bir iki üç", found=[(4, 7)], found_current=True)
+    assert found_spans(out, TOKENS_LIGHT["accent"]) == ["iki"]
+    assert found_spans(out, TOKENS_LIGHT["selection"]) == []
+
+
+def test_found_spans_use_text_offsets_with_symbols_and_chips() -> None:
+    # Boşluk "·" olarak çizilse de aralıklar ham metin konumudur; çip de eşleşmeyle örtüşürse eşleşme zeminini alır.
+    out = html("a b ⟦1⟧ cd", symbols=True, chips=True, found=[(2, 3), (4, 7)], found_current=True)
+    painted = found_spans(out, TOKENS_LIGHT["accent"])
+    assert painted[0] == "b"
+    assert "↵1" in painted[1]
+    assert not any("cd" in p for p in painted)
+
+
+def test_found_and_wrong_spans_combine() -> None:
+    out = html("abc def", wrong=[(0, 3)], found=[(2, 5)])
+    assert plain(out) == "abc def"
+    assert "text-decoration:underline" in out
+
+
+def test_found_span_in_selected_row_is_distinct_from_selection_background() -> None:
+    out = html("Bir iki üç", found=[(4, 7)], selected_row=True)
+    assert found_spans(out, TOKENS_LIGHT["surface"]) == ["iki"]

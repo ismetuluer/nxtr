@@ -10,3 +10,4 @@ Bu klasördeki `*.svg` dosyaları [Lucide](https://lucide.dev) simge setindendir
 - Eylem menüsü (çeviri ve kontrol sayfaları): `ellipsis` (aynı sürüm, 0.46.0).
 - Çevir tablosu durum simgeleri: `circle-dashed`, `monitor`, `monitor-check`, `user-check` (aynı sürüm, 1.66.0); başlıktaki süzgeç hunisi `funnel`, hücredeki uyarı `triangle-alert`.
 - Durum çubuğu (kenar çubuğu çalışması): `list`, `cloud` (aynı sürüm, 1.66.0).
+- Bul ve Değiştir çubuğu: `case-sensitive`, `whole-word`, `regex`, `replace`, `replace-all` (aynı sürüm, 1.66.0).

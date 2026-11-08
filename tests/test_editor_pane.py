@@ -15,7 +15,16 @@ from nxceviri.core.project import TranslationRow
 from nxceviri.core.translate.codekinds import KIND_LINE_BREAK, KIND_OTHER, KIND_PAGE_BREAK
 from nxceviri.core.translate.fit import FitRules
 from nxceviri.core.translate.status import Status
-from nxceviri.gui.editor_pane import EditorPane, counter_info
+from nxceviri.gui.editor_pane import (
+    BASIS_MANUAL,
+    BASIS_MAX_LENGTH,
+    BASIS_NONE,
+    BASIS_ORIGINAL,
+    BASIS_RULE,
+    EditorPane,
+    counter_info,
+    overflow_spans,
+)
 from nxceviri.gui.theme import current_tokens
 
 pytestmark = pytest.mark.gui
@@ -69,15 +78,126 @@ def type_text(qtbot: QtBot, pane: EditorPane, text: str) -> None:
 
 def test_counter_info_variants() -> None:
     rules = FitRules(10, 2)
-    assert counter_info("Bu çok uzun bir satır", 0, kind_of, rules, None) == ("Satır 21/10 · Sayfa 1/2", "danger")
-    assert counter_info("kısa", 0, kind_of, rules, None) == ("Satır 4/10 · Sayfa 1/2", "")
-    assert counter_info("a\nb\nc", 0, kind_of, rules, None) == ("Satır 1/10 · Sayfa 3/2", "danger")
-    page_two = "a⟦2⟧b\nc"
-    assert counter_info(page_two, len(page_two), kind_of, rules, None) == ("Satır 1/10 · Sayfa 2/2", "")
-    assert counter_info("abcde", 0, kind_of, None, 3) == ("5/3", "danger")
-    assert counter_info("abc", 0, kind_of, None, 3) == ("3/3", "")
-    assert counter_info("a⟦1⟧bc", 0, kind_of, None, None) == ("3 karakter", "")
-    assert counter_info("", 0, kind_of, rules, None) == ("Satır 0/10 · Sayfa 1/2", "")
+    # Sığdırma kuralı varsa sınır odur (en uzun satır + sayfa satırı).
+    c = counter_info("Bu çok uzun bir satır", kind_of, rules, None, source="x")
+    assert (c.text, c.state, c.basis, c.limit) == ("En uzun satır 21 / 10 · Sayfa 1/2", "danger", BASIS_RULE, 10)
+    assert counter_info("kısa", kind_of, rules, None).text == "En uzun satır 4 / 10 · Sayfa 1/2"
+    assert counter_info("kısa", kind_of, rules, None).state == ""
+    assert counter_info("a\nb\nc", kind_of, rules, None).state == "danger"  # 3 satır > 2
+    two_pages = "a⟦2⟧b\nc"
+    assert counter_info(two_pages, kind_of, rules, None).text == "En uzun satır 1 / 10 · Sayfa 2/2"
+    # Kural yoksa orijinalin en uzun satırı.
+    c = counter_info("abcdef", kind_of, None, None, source="ab\ncdefg")
+    assert (c.text, c.state, c.basis) == ("En uzun satır 6 / 5", "danger", BASIS_ORIGINAL)
+    assert counter_info("abc", kind_of, None, None, source="ab\ncdefg").state == ""
+    # Elle sınır her şeyden önce gelir.
+    c = counter_info("abcdef", kind_of, rules, None, source="abcdefghij", manual=6)
+    assert (c.text, c.state, c.basis, c.limit) == ("En uzun satır 6 / 6", "", BASIS_MANUAL, 6)
+    assert counter_info("abcdefg", kind_of, rules, None, manual=6).state == "danger"
+    # Yalnızca max_length varsa toplam karakter.
+    assert counter_info("abcde", kind_of, None, 3, source="x").text == "5 / 3"
+    assert counter_info("abc", kind_of, None, 3).basis == BASIS_MAX_LENGTH
+    assert counter_info("abc", kind_of, None, 3).state == ""
+    # Sınır yok (boş orijinal): yalnızca görünen karakter sayısı; kodlar sayılmaz.
+    c = counter_info("a⟦1⟧bc", kind_of, None, None, source="")
+    assert (c.text, c.basis) == ("3 karakter", BASIS_NONE)
+
+
+def test_counter_counts_codes_like_fit() -> None:
+    # Satır sonu kodu satırı böler, değişken kodu `variable_width` genişlik sayılır (fit.py hesabı).
+    rules = FitRules(8, 3, variable_width=4)
+
+    def kinds(number: int) -> str:
+        return {1: KIND_LINE_BREAK, 2: "variable"}.get(number, KIND_OTHER)
+
+    assert counter_info("abc⟦1⟧defghij", kinds, rules, None).text.startswith("En uzun satır 7 / 8")
+    assert counter_info("ab⟦2⟧cd", kinds, rules, None).text.startswith("En uzun satır 8 / 8")
+
+
+def test_overflow_spans_cover_end_of_long_lines() -> None:
+    assert overflow_spans("abcdefgh\nxy", kind_of, 5) == [(5, 8)]
+    assert overflow_spans("abc", kind_of, 5) == []
+    text = "abcdefg⟦1⟧hijklmn"  # satır sonu kodundan sonra ikinci satır
+    assert overflow_spans(text, kind_of, 5) == [(5, 7), (15, 17)]
+
+
+def test_live_counter_turns_red_and_highlights_overflow(qtbot: QtBot) -> None:
+    pane = make_pane(qtbot, make_row(source="Press A", translation="kısa"), FitRules(10, 3))
+    assert pane.counter_label.property("role") == "muted"
+    type_text(qtbot, pane, "bu satir on karakterden uzun")
+    assert pane.counter_label.text().startswith("En uzun satır 28 / 10")
+    assert pane.counter_label.property("role") == "danger"
+    danger_bg = current_tokens()["danger_bg"]
+    spans = [
+        (s.cursor.selectionStart(), s.cursor.selectionEnd())
+        for s in pane.translation_edit.extraSelections()
+        if s.format.background().color().name().lower() == danger_bg.lower()
+    ]
+    assert spans == [(10, 28)]
+    type_text(qtbot, pane, "kisa")
+    assert pane.counter_label.property("role") == "muted"
+    assert not [
+        s
+        for s in pane.translation_edit.extraSelections()
+        if s.format.background().color().name().lower() == danger_bg.lower()
+    ]
+
+
+def test_counter_limit_from_rule_original_or_manual(qtbot: QtBot) -> None:
+    row = make_row(source="12345678\n123", translation="12345678901")
+    pane = make_pane(qtbot, row, FitRules(20, 3))
+    assert pane.counter_label.text().startswith("En uzun satır 11 / 20")  # satır kuralı
+    pane.set_row(row, kind_of, None)
+    assert pane.counter_label.text() == "En uzun satır 11 / 8"  # kural yok: orijinalin en uzun satırı
+    assert pane.counter_label.property("role") == "danger"
+    pane.limit_box.setChecked(True)  # elle sınır
+    pane.limit_spin.setValue(12)
+    assert pane.counter_label.text() == "En uzun satır 11 / 12"
+    assert pane.counter_label.property("role") == "muted"
+    assert pane.manual_limit == 12
+
+
+def test_manual_limit_signal_and_restore(qtbot: QtBot) -> None:
+    pane = make_pane(qtbot, make_row(), None)
+    seen: list[int] = []
+    pane.manual_limit_changed.connect(seen.append)
+    pane.limit_box.setChecked(True)
+    pane.limit_spin.setValue(30)
+    pane.limit_box.setChecked(False)
+    assert seen[0] > 0
+    assert seen[-2:] == [30, 0]
+    assert pane.manual_limit is None
+    seen.clear()
+    pane.set_manual_limit(40)  # kayıtlı değeri yüklemek sinyal yaymaz
+    assert seen == []
+    assert pane.limit_spin.value() == 40
+    assert pane.limit_box.isChecked()
+    assert pane.limit_spin.isVisibleTo(pane)
+
+
+def test_title_shows_short_identity_and_full_key_in_tooltip(qtbot: QtBot) -> None:
+    row = make_row()
+    pane = make_pane(qtbot, row)
+    pane.set_row(row, kind_of, None, number=120)
+    assert pane.title_label.text() == "No 120 · a.msbt"
+    assert "Menu_Start" in pane.title_label.toolTip()
+    pane.set_row(row, kind_of, None, selected_count=3, number=120)
+    assert pane.title_label.text() == "3 satır seçili · No 120 · a.msbt"
+    pane.set_row(row, kind_of, None)  # numarası bilinmiyorsa yalnızca grup
+    assert pane.title_label.text() == "a.msbt"
+
+
+def test_source_view_is_selectable_and_copyable(qtbot: QtBot) -> None:
+    pane = make_pane(qtbot, make_row(source="Kopyalanacak metin"))
+    flags = pane.source_view.textInteractionFlags()
+    assert flags & Qt.TextInteractionFlag.TextSelectableByMouse
+    assert flags & Qt.TextInteractionFlag.TextSelectableByKeyboard
+    assert pane.source_view.isReadOnly()
+    QApplication.clipboard().clear()
+    pane.source_view.setFocus()
+    pane.source_view.selectAll()
+    qtbot.keyClick(pane.source_view, Qt.Key.Key_C, Qt.KeyboardModifier.ControlModifier)
+    assert QApplication.clipboard().text() == "Kopyalanacak metin"
 
 
 def test_set_row_fills_and_disables_when_none(qtbot: QtBot) -> None:

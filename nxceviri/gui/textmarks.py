@@ -8,6 +8,9 @@ Buradaki her şey yalnızca **çizimdir**: çeviri metni hiçbir zaman değişti
   `·` bir harf gibi davranıp kaydırmayı sözcük ortasına çekmesin diye ardına sıfır genişlikli bir bölme fırsatı konur.
 - `wrong` aralıkları (yazım hatalı sözcükler) tema "danger" renginde alt çizgiyle işaretlenir; hücre çizicisi bunu
   dalgalı çizgiye çevirir (Qt'nin HTML ayrıştırıcısı dalgalı çizgiyi bilmez).
+- `found` aralıkları (Bul ve Değiştir eşleşmeleri) tema "selection" zeminiyle, `found_current` ise "accent" zeminiyle
+  boyanır. Aralıklar ham metindeki konumlardır; semboller (`·`, `¶`) metni kaydırmadığından eşleme birebirdir, bir
+  `⟦n⟧` koduyla örtüşen eşleşmede çipin tamamı eşleşme zeminini alır.
 - `chips` açıkken her `⟦n⟧` kod türüne göre renkli bir çip olur (simge + numara); kapalıyken ham kod görünür.
 
 Saf işlevlerdir (arayüz nesnesi bilmez), bu yüzden kolay test edilir.
@@ -89,10 +92,15 @@ def marked_html(
     chips: bool,
     single_line: bool = False,
     wrong: Sequence[tuple[int, int]] = (),
+    found: Sequence[tuple[int, int]] = (),
+    found_current: bool = False,
+    selected_row: bool = False,
 ) -> str:
     """Metni `QTextDocument` için HTML'e çevirir. `single_line`: satır sonu satır içinde kalır (kaydırma kapalı).
 
-    `wrong`: alt çizgi çekilecek metin aralıkları (başlangıç, bitiş), örneğin yazım hatalı sözcükler."""
+    `wrong`: alt çizgi çekilecek metin aralıkları (başlangıç, bitiş), örneğin yazım hatalı sözcükler.
+    `found`: bul eşleşmesi olarak boyanacak aralıklar; `found_current` o satırın o anki eşleşme olduğunu söyler.
+    `selected_row`: satır seçili; "selection" zemini seçimle aynı olduğundan eşleşmeler "surface" ile boyanır."""
     muted = tokens["muted"]
     warning_bg = tokens["warning_bg"]
     trailing: set[int] = set()
@@ -109,8 +117,20 @@ def marked_html(
     wrong_at: set[int] = set()
     for start, end in wrong:
         wrong_at.update(range(start, end))
-    wrong_open = f'<span style="text-decoration:underline;text-decoration-color:{tokens["danger"]};">'
+    found_at: set[int] = set()
+    for start, end in found:
+        found_at.update(range(start, end))
+    found_bg = tokens["accent"] if found_current else tokens["surface" if selected_row else "selection"]
+    found_text = tokens["accent_text"] if found_current else None
     break_after = "" if single_line else ZWSP
+
+    def open_tag(is_wrong: bool, is_found: bool) -> str:
+        style = ""
+        if is_wrong:
+            style += f"text-decoration:underline;text-decoration-color:{tokens['danger']};"
+        if is_found:
+            style += f"background-color:{found_bg};" + (f"color:{found_text};" if found_text else "")
+        return f'<span style="{style}">'
 
     def char(i: int) -> str:
         ch = text[i]
@@ -132,13 +152,17 @@ def marked_html(
 
     def run(start: int, end: int) -> str:
         out: list[str] = []
-        inside = False
+        state = (False, False)
         for i in range(start, end):
-            if (i in wrong_at) != inside:
-                inside = not inside
-                out.append(wrong_open if inside else "</span>")
+            now = (i in wrong_at, i in found_at)
+            if now != state:
+                if any(state):
+                    out.append("</span>")
+                if any(now):
+                    out.append(open_tag(*now))
+                state = now
             out.append(char(i))
-        if inside:
+        if any(state):
             out.append("</span>")
         return "".join(out)
 
@@ -148,7 +172,10 @@ def marked_html(
         parts.append(run(pos, start))
         if chips:
             kind = kind_of(number)
-            style = f"color:{chip_color(kind, tokens)};background-color:{tokens['selection']};font-weight:600;"
+            if found_at.intersection(range(start, end)):
+                style = f"color:{found_text or chip_color(kind, tokens)};background-color:{found_bg};font-weight:600;"
+            else:
+                style = f"color:{chip_color(kind, tokens)};background-color:{tokens['selection']};font-weight:600;"
             parts.append(f'<span style="{style}">&nbsp;{chip_glyph(kind)}{number}&nbsp;</span>')
         else:
             parts.append(html.escape(text[start:end], quote=False))

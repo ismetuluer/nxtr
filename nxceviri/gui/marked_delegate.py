@@ -6,6 +6,7 @@ Binlerce satırda akıcı kalmak için üretilen HTML sınırlı bir ön bellekt
 
 Çeviri hücresinde yazım sözlüğünde olmayan sözcüklerin altına, panelle aynı kurallarla, kırmızı dalgalı çizgi çizilir
 (sözcükler yalnızca HTML üretilirken, yani yalnızca görünen hücreler için ve ön bellekten bir kez hesaplanır).
+Bul ve Değiştir eşleşmeleri modelden `FIND_SPANS_ROLE` ile gelir ve sözcük düzeyinde boyanır.
 Orijinal hücresine çift tıklanınca salt okunur, seçilebilir bir düzenleyici açılır (kopyalamak için).
 """
 
@@ -40,6 +41,7 @@ from PySide6.QtWidgets import (
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.translate.codekinds import KIND_OTHER, CodeKinds, KindOf
+from nxceviri.gui.find_replace import FIND_SPANS_ROLE, FindCell
 from nxceviri.gui.textmarks import marked_html
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.view_actions import ALIGN_CENTER, ALIGN_LEFT, ALIGN_RIGHT
@@ -127,13 +129,16 @@ class MarkedDelegate(QStyledItemDelegate):
 
     # --- üretim ----------------------------------------------------------------------------
 
-    def html_for(self, index: _Index) -> str:
+    def html_for(self, index: _Index, *, selected: bool = False) -> str:
         row = index.data(ROW_ROLE)
         if not isinstance(row, TranslationRow):
             return ""
         text = str(getattr(row, self.field))
         tokens = current_tokens()
         spell = self._spell if self.field == "translation" else None
+        cell = index.data(FIND_SPANS_ROLE)
+        found = cell.spans if isinstance(cell, FindCell) else ()
+        found_current = isinstance(cell, FindCell) and cell.current
         key = (
             row.id,
             self.field,
@@ -145,6 +150,9 @@ class MarkedDelegate(QStyledItemDelegate):
             tokens["bg"],
             tokens["accent"],
             self._spell_version if spell else 0,
+            found,
+            found_current,
+            selected and bool(found),
         )
         cached = self._cache.get(key)
         if cached is not None:
@@ -159,6 +167,9 @@ class MarkedDelegate(QStyledItemDelegate):
             chips=True,
             single_line=not self.wrap,
             wrong=wrong,
+            found=found,
+            found_current=found_current,
+            selected_row=selected,
         )
         self._cache[key] = markup
         while len(self._cache) > self.cache_limit:
@@ -184,7 +195,7 @@ class MarkedDelegate(QStyledItemDelegate):
             QTextOption.WrapMode.WrapAtWordBoundaryOrAnywhere if self.wrap else QTextOption.WrapMode.NoWrap
         )
         doc.setDefaultTextOption(text_option)
-        markup = self.html_for(index)
+        markup = self.html_for(index, selected=bool(option.state & QStyle.StateFlag.State_Selected))
         doc.setHtml(markup)
         if "text-decoration" in markup:
             self._waves(doc, QColor(current_tokens()["danger"]))

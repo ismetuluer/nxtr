@@ -119,7 +119,6 @@ from nxceviri.gui.add_game_page import AddGamePage
 from nxceviri.gui.changes_dialog import ChangesDialog
 from nxceviri.gui.csv_dialog import FORMAT_TXT, MODE_REDACTION, MODE_TRANSLATION, CsvExportDialog
 from nxceviri.gui.export_page import ExportPage
-from nxceviri.gui.find_replace import FindReplaceDialog
 from nxceviri.gui.jobs import JOB_TITLES, describe_summary, new_job_id, run_and_close
 from nxceviri.gui.machine_dialogs import (
     PROVIDER_DEEPL,
@@ -261,6 +260,7 @@ class MainWindow(QMainWindow):
         self.scan_page = ScanPage()
         self.translate_page = TranslatePage()
         self.translate_page.model.commit = self._commit_translations
+        self.translate_page.replace_fn = self._replace_translations
         self.translate_page.bind_settings(self.settings)
         self.pages.addWidget(self.add_page)
         self.pages.addWidget(self.scan_page)
@@ -326,7 +326,6 @@ class MainWindow(QMainWindow):
         self.qa_page.add_spelling_requested.connect(self.add_spelling_from_qa)
         self.qa_page.user_dictionary_requested.connect(self.edit_user_dictionary)
         self.translate_page.changes_requested.connect(self.show_job_changes)
-        self.translate_page.find_replace_requested.connect(self.find_replace)
         self.translate_page.history_requested.connect(self.show_row_history)
         self.translate_page.unapprove_requested.connect(self.unapprove)
         self.translate_page.reflow_requested.connect(self.reflow_selected)
@@ -486,7 +485,8 @@ class MainWindow(QMainWindow):
         align_menu = view_menu.addMenu("Hizala")
         for action in view.align_actions.values():
             align_menu.addAction(action)
-        pane_menu = view_menu.addMenu("Çeviri Paneli")
+        view_menu.addAction(view.pane_toggle)
+        pane_menu = view_menu.addMenu("Panel Konumu")
         for action in view.pane_actions.values():
             pane_menu.addAction(action)
 
@@ -495,8 +495,9 @@ class MainWindow(QMainWindow):
         edit_menu.aboutToShow.connect(self._update_undo_action)
         edit_menu.addSeparator()
         for text, slot in (
-            ("Ara\tCtrl+F", self._menu_search),
-            ("Bul ve Değiştir…\tCtrl+H", self._menu_find_replace),
+            ("Bul…\tCtrl+F", self._menu_find),
+            ("Değiştir…\tCtrl+H", self._menu_find_replace),
+            ("Tabloyu Süz…\tCtrl+Shift+F", self._menu_search),
             ("Sonraki Bakılacak Satır\tF3", self._menu_next_open),
         ):
             self._action(edit_menu, text, slot)
@@ -2066,61 +2067,42 @@ class MainWindow(QMainWindow):
         if self._to_translate_step():
             self.translate_page.focus_search()
 
+    def _menu_find(self) -> None:
+        if self._to_translate_step():
+            self.translate_page.open_find(False)
+
     def _menu_find_replace(self) -> None:
         if self._to_translate_step():
-            self.find_replace()
+            self.translate_page.open_find(True)
 
     def _menu_next_open(self) -> None:
         if self._to_translate_step():
             self.translate_page.next_open()
 
-    def find_replace(self) -> None:
-        """Çevirilerde bul ve değiştir; değişiklik geçmişe yazılır, onaylı satırlar onaylı kalır.
+    def _replace_translations(self, changes: list[tuple[int, str]]) -> list[TranslationRow] | None:
+        """Bul ve Değiştir çubuğunun yazma yolu: her eylem tek iştir, Ctrl+Z hepsini geri alır.
 
-        Tek tek değiştirmede her satır hemen yazılır ama aynı iş kimliği kullanıldığı için Ctrl+Z hepsini
-        tek işlem olarak geri alır.
+        Onaylı satırlar onaylı kalır, diğerleri makine durumunda yazılır. Hata olursa None döner ve neden
+        sayfada bildirilir.
         """
         if self.busy:
-            return
+            return None
         page = self.translate_page
         job_id = new_job_id("replace")
-
-        def apply(changes: list[tuple[int, str]]) -> list[TranslationRow] | None:
-            status = {r.id: r.status for r in page.model.rows}
-            approved = [c for c in changes if status.get(c[0]) == Status.APPROVED]
-            others = [c for c in changes if status.get(c[0]) != Status.APPROVED]
-            try:
-                rows = self.project.set_translations(approved, job=job_id)
-                rows += self.project.set_translations(others, machine=True, job=job_id)
-            except NxError as exc:
-                page.show_notice("danger", exc.user_text())
-                return None
-            page.model.update_rows(rows)
-            self._mark_changed()
-            self._refresh_marks()
-            return rows
-
-        dialog = FindReplaceDialog(
-            self,
-            page.model.rows,
-            page.filtered_rows(),
-            page.selected_rows(),
-            page.search.text(),
-            apply=apply,
-        )
-        accepted = dialog.exec() == FindReplaceDialog.DialogCode.Accepted
-        if not dialog.applied:
-            # Tek tek değiştirme kullanılmadı: kabul edilen planı şimdi yaz (tek işlem).
-            if not accepted or not dialog.plan.changes:
-                return
-            if apply(list(dialog.plan.changes)) is None:
-                return
-        count = self._set_last_job(job_id)
-        page.show_notice(
-            "success",
-            f"{format_int(count)} satırda değiştirildi. Görmek veya geri almak için “Son İşin Değişiklikleri” "
-            "düğmesini kullanın.",
-        )
+        status = {r.id: r.status for r in page.model.rows}
+        approved = [c for c in changes if status.get(c[0]) == Status.APPROVED]
+        others = [c for c in changes if status.get(c[0]) != Status.APPROVED]
+        try:
+            rows = self.project.set_translations(approved, job=job_id)
+            rows += self.project.set_translations(others, machine=True, job=job_id)
+        except NxError as exc:
+            page.show_notice("danger", exc.user_text())
+            return None
+        page.model.update_rows(rows)
+        self._mark_changed()
+        self._refresh_marks()
+        self._set_last_job(job_id)
+        return rows
 
     def show_row_history(self, entry_id: int) -> None:
         changes = self.project.row_history(entry_id)

@@ -13,7 +13,6 @@ from pytestqt.qtbot import QtBot
 from nxceviri.gui import icons
 from nxceviri.gui.add_game_page import AddGamePage
 from nxceviri.gui.export_page import ExportPage
-from nxceviri.gui.find_replace import FindReplaceDialog
 from nxceviri.gui.qa_page import QaPage
 from nxceviri.gui.translate_page import TranslatePage
 
@@ -34,7 +33,8 @@ BUTTON_ICONS = [
     ("export_page.py", "Modu Oluştur", "package"),
     ("export_page.py", "Mod Klasörünü Aç", "folder-open"),
     ("machine_dialogs.py", "Modelleri Listele", "refresh-cw"),
-    ("find_replace.py", "Sonrakini Bul", "search"),
+    ("find_replace.py", "Değiştir", "replace"),
+    ("find_replace.py", "Tümünü Değiştir", "replace-all"),
     ("csv_dialog.py", "Vazgeç", "x"),
     ("main_window.py", "Yeni sürüm var", "download"),
 ]
@@ -66,13 +66,6 @@ def test_page_buttons_have_icons_and_keep_text(qtbot: QtBot) -> None:
     assert qa.fix_button.text() == "Seçilenleri Düzelt"
     assert not export.export_button.icon().isNull()
     assert not export.open_button.icon().isNull()
-
-
-def test_find_replace_dialog_buttons(qtbot: QtBot) -> None:
-    dialog = FindReplaceDialog(None, [], [], ())
-    qtbot.addWidget(dialog)
-    buttons = _buttons(dialog)
-    assert not buttons["Sonrakini Bul"].icon().isNull()
 
 
 def test_cancel_and_start_buttons_in_dialog_boxes_have_icons() -> None:

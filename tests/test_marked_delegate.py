@@ -205,3 +205,30 @@ def test_very_long_line_and_html_characters(qtbot: QtBot) -> None:
     assert page.model.rows[0].source == long_text
     assert page.model.rows[1].source == "<b>kalın</b>"
     assert "<b>" not in delegate_for(page, COL_SOURCE).html_for(page.proxy.index(1, COL_SOURCE))
+
+
+def test_find_spans_paint_matches_in_cell(qtbot: QtBot) -> None:
+    page = make_page(qtbot, [make_row(1, "a", "Bir iki üç")])
+    page.open_find(False)
+    page.find_bar.find_edit.setText("iki")
+    delegate = delegate_for(page, COL_TRANSLATION)
+    out = delegate.html_for(page.proxy.index(0, COL_TRANSLATION))
+    tokens = current_tokens()
+    assert f"background-color:{tokens['accent']}" in out  # tek eşleşme aynı zamanda o anki eşleşme
+    assert "iki" in plain(out)
+    other = delegate_for(page, COL_SOURCE).html_for(page.proxy.index(0, COL_SOURCE))
+    assert f"background-color:{tokens['accent']}" not in other  # alan çeviri; orijinal hücresi boyanmaz
+
+
+def test_find_preview_row_is_drawn_with_new_text_and_no_stale_spans(qtbot: QtBot) -> None:
+    page = make_page(qtbot, [make_row(1, "a", "Bir iki üç")])
+    page.open_find(True)
+    page.find_bar.find_edit.setText("iki")
+    page.find_bar.replace_edit.setText("dört")
+    page.find_bar.preview_box.setChecked(True)
+    delegate = delegate_for(page, COL_TRANSLATION)
+    out = delegate.html_for(page.proxy.index(0, COL_TRANSLATION))
+    assert "dört" in plain(out)
+    assert "iki" not in plain(out)
+    assert f"background-color:{current_tokens()['accent']}" not in out  # eski metne ait aralıklar boyanmaz
+    assert page.model.rows[0].translation == "Bir iki üç"  # yazılmadı

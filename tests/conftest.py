@@ -5,11 +5,14 @@ Klasör adları bilerek Türkçe karakter içerir (ç ğ ı İ ö ş ü).
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 import zstandard
+from PySide6.QtCore import QEvent
+from PySide6.QtWidgets import QApplication
 
 from tests import nxbuild
 
@@ -18,6 +21,22 @@ from tests import nxbuild
 def _private_app_data(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
     """Kurtarma kopyaları, günlükler ve önbellek testlerde gerçek kullanıcı klasörüne yazılmasın."""
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path_factory.mktemp("appdata")))
+
+
+@pytest.fixture(autouse=True)
+def _free_top_level_widgets() -> Iterator[None]:
+    """Her testten sonra kalan üst düzey pencereleri gerçekten siler.
+
+    `deleteLater` olayı `processEvents` ile işlenmez; silinmeyen pencereler yığılınca `app.setStyleSheet` (yazı boyutu
+    ve tema değişimi her widget'ı yeniden düzenler) tam test setinde dakikalar sürüyordu."""
+    yield
+    app = QApplication.instance()
+    if not isinstance(app, QApplication):
+        return
+    for widget in app.topLevelWidgets():
+        widget.hide()  # close() olmaz: ana pencere kaydedilmemiş değişiklik sorusu açıp testi bekletir
+        widget.deleteLater()
+    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
 BASE_TID = 0x0100ABCD12340000
