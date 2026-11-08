@@ -5,11 +5,16 @@ Panel veri değiştirmez: kayıt isteğini `commit_requested(satır_kimliği, me
 kaydettirilir; sayfa satır değişiminde, panel kapanırken ve pencere kapanırken bunu çağırır.
 
 Kurallar hücre düzenleyicisiyle aynıdır: Enter kaydeder, Shift+Enter yeni satır açar, Esc kayıtlı hâle döndürür.
+
+Karakter sayacı yazılırken canlıdır: "En uzun satır 23 / 28". Sınır sırayla elle girilen değer (panelde "Elle
+sınır"), satırın sığdırma kuralı, satırın `max_length` değeri, yoksa orijinalin en uzun satırıdır. Sınırı aşan
+satırın aşan kısmı düzenleyicide vurgulanır.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import NamedTuple
 
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt, Signal
 from PySide6.QtGui import (
@@ -26,21 +31,23 @@ from PySide6.QtGui import (
     QTextOption,
 )
 from PySide6.QtWidgets import (
+    QCheckBox,
     QHBoxLayout,
     QMenu,
     QPlainTextEdit,
     QSizePolicy,
+    QSpinBox,
     QTextEdit,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
-from nxceviri.core.project import TranslationRow
+from nxceviri.core.project import TranslationRow, row_group
 from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.codekinds import KindOf
-from nxceviri.core.translate.fit import FitRules, split_lines, split_pages, visible_width
+from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, FitRules, split_lines, split_pages, visible_width
 from nxceviri.core.translate.status import STATUS_LABELS, Status
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.textmarks import chip_color, chip_glyph, code_spans, trailing_space_spans
@@ -63,31 +70,109 @@ _BADGE_STATES = {
 NO_ROW_TEXT = "Satır seçin"
 
 
-def counter_info(
-    text: str, cursor_pos: int, kind_of: KindOf, rules: FitRules | None, max_length: int | None
-) -> tuple[str, str]:
-    """Sayaç metni ve durumu (`""`, `"danger"`).
+#: Elle sınırın varsayılan değeri (panelde "Elle sınır" ilk açıldığında).
+DEFAULT_MANUAL_LIMIT = 28
 
-    Sığdırma sınırı varsa imlecin olduğu satırın uzunluğu ve sayfanın satır sayısı; yalnızca `max_length` varsa
-    "N/sınır"; ikisi de yoksa görünen (kodlar hariç) karakter sayısı.
-    """
+BASIS_MANUAL = "manual"
+BASIS_RULE = "rule"
+BASIS_MAX_LENGTH = "max_length"
+BASIS_ORIGINAL = "original"
+BASIS_NONE = "none"
+_BASIS_TIPS = {
+    BASIS_MANUAL: "Sınır: panelde elle girdiğiniz değer.",
+    BASIS_RULE: "Sınır: bu satırın sığdırma kuralı.",
+    BASIS_MAX_LENGTH: "Sınır: oyunun bu satır için verdiği uzunluk sınırı.",
+    BASIS_ORIGINAL: "Sınır: orijinalin en uzun satırı. Başka bir sınır için “Elle sınır”ı açın.",
+    BASIS_NONE: "Sınır yok: orijinal metin boş.",
+}
+
+
+class Counter(NamedTuple):
+    """Sayaç metni, durumu (`""`, `"danger"`), sınırın kaynağı (`BASIS_*`) ve satır sınırı (yoksa None)."""
+
+    text: str
+    state: str
+    basis: str
+    limit: int | None
+
+
+def _measure_rules(rules: FitRules | None) -> FitRules:
+    return FitRules(1, 1, rules.variable_width if rules is not None else DEFAULT_VARIABLE_WIDTH)
+
+
+def line_widths(text: str, kind_of: KindOf, rules: FitRules | None) -> list[tuple[int, int, int]]:
+    """Metnin satırları: `(başlangıç, bitiş, görünen genişlik)`. Sayfa sonu ve satır sonu kodları satırlara
+    girmez; genişlik sığdırma hesabıyla (`fit.visible_width`) ölçülür."""
+    measure = _measure_rules(rules)
+    found: list[tuple[int, int, int]] = []
+    offset = 0
+    for page, separator in split_pages(text, kind_of):
+        start = offset
+        lines = split_lines(page, kind_of)
+        for i, line in enumerate(lines):
+            found.append((start, start + len(line), visible_width(line, kind_of, measure)))
+            start += len(line)
+            if i < len(lines) - 1:  # satırlar arasında tek ayırıcı var: "\n" ya da satır sonu kodu
+                token = placeholders.TOKEN_RE.match(text, start)
+                start += 1 if text[start] == "\n" or token is None else len(token.group(0))
+        offset += len(page) + len(separator)
+    return found
+
+
+def longest_line(text: str, kind_of: KindOf, rules: FitRules | None = None) -> int:
+    """Metnin en uzun satırının görünen genişliği."""
+    return max((width for _s, _e, width in line_widths(text, kind_of, rules)), default=0)
+
+
+def line_limit(
+    source: str, kind_of: KindOf, rules: FitRules | None, max_length: int | None, manual: int | None
+) -> tuple[int | None, str]:
+    """Satır sınırı ve kaynağı: elle girilen, sığdırma kuralı, `max_length`, orijinalin en uzun satırı."""
+    if manual:
+        return manual, BASIS_MANUAL
     if rules is not None:
-        offset = 0
-        pages = split_pages(text, kind_of)
-        for i, (page, separator) in enumerate(pages):
-            if cursor_pos <= offset + len(page) or i == len(pages) - 1:
-                relative = min(max(cursor_pos - offset, 0), len(page))
-                lines = split_lines(page, kind_of)
-                line_index = len(split_lines(page[:relative], kind_of)) - 1
-                width = visible_width(lines[line_index], kind_of, rules)
-                over = width > rules.width or len(lines) > rules.max_lines
-                shown = f"Satır {width}/{rules.width} · Sayfa {len(lines)}/{rules.max_lines}"
-                return shown, "danger" if over else ""
-            offset += len(page) + len(separator)
-    visible = len(placeholders.TOKEN_RE.sub("", text))
+        return rules.width, BASIS_RULE
     if max_length is not None:
-        return f"{visible}/{max_length}", "danger" if visible > max_length else ""
-    return f"{visible} karakter", ""
+        return None, BASIS_MAX_LENGTH
+    original = longest_line(source, kind_of)
+    return (original, BASIS_ORIGINAL) if original else (None, BASIS_NONE)
+
+
+def counter_info(
+    text: str,
+    kind_of: KindOf,
+    rules: FitRules | None,
+    max_length: int | None,
+    *,
+    source: str = "",
+    manual: int | None = None,
+) -> Counter:
+    """Canlı karakter sayacı. Satır sınırı varsa "En uzun satır W / sınır" (sığdırma kuralı varsa sayfa satır
+    sayısı da); yalnızca `max_length` varsa "N / sınır"; hiçbiri yoksa görünen (kodlar hariç) karakter sayısı."""
+    limit, basis = line_limit(source, kind_of, rules, max_length, manual)
+    if limit is not None:
+        widest = longest_line(text, kind_of, rules)
+        over = widest > limit
+        shown = f"En uzun satır {widest} / {limit}"
+        if basis == BASIS_RULE and rules is not None:
+            tallest = max(len(split_lines(page, kind_of)) for page, _sep in split_pages(text, kind_of))
+            shown += f" · Sayfa {tallest}/{rules.max_lines}"
+            over = over or tallest > rules.max_lines
+        return Counter(shown, "danger" if over else "", basis, limit)
+    visible = len(placeholders.TOKEN_RE.sub("", text))
+    if basis == BASIS_MAX_LENGTH and max_length is not None:
+        return Counter(f"{visible} / {max_length}", "danger" if visible > max_length else "", basis, None)
+    return Counter(f"{visible} karakter", "", basis, None)
+
+
+def overflow_spans(text: str, kind_of: KindOf, limit: int, rules: FitRules | None = None) -> list[tuple[int, int]]:
+    """Sınırı aşan satırların aşan kısmı (satırın sonundan aşan karakter kadarı), metindeki konumlarıyla."""
+    spans: list[tuple[int, int]] = []
+    for start, end, width in line_widths(text, kind_of, rules):
+        if width > limit:
+            stop = start + len(text[start:end].rstrip())
+            spans.append((max(stop - (width - limit), start), stop))
+    return spans
 
 
 class _PaneEdit(QPlainTextEdit):
@@ -153,11 +238,14 @@ class EditorPane(QWidget):
     focus_changed = Signal(bool)
     #: Kullanıcı sağ tıkla bir sözcüğün yazım sözlüğüne eklenmesini istedi.
     spell_word_requested = Signal(str)
+    #: "Elle sınır" değişti (0: kapalı); sayfa bunu uygulama ayarı olarak saklar.
+    manual_limit_changed = Signal(int)
 
     def __init__(self) -> None:
         super().__init__()
         self.setObjectName("editorPane")
         self._row: TranslationRow | None = None
+        self._number: int | None = None
         self._kind_of: KindOf = lambda _n: "other"
         self._rules: FitRules | None = None
         self._saved: str | None = None
@@ -204,6 +292,10 @@ class EditorPane(QWidget):
         lay.addWidget(label("Orijinal", "muted"))
         self.source_view = QPlainTextEdit()
         self.source_view.setReadOnly(True)
+        # Salt okunur ama kopyalanabilir: fare ve klavye seçimi, Ctrl+C.
+        self.source_view.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
         lay.addWidget(self.source_view, 1)
 
         lay.addWidget(label("Çeviri", "muted"))
@@ -220,9 +312,20 @@ class EditorPane(QWidget):
         lay.addWidget(self.chips_row)
 
         self.counter_label = label("", "muted")
+        self.limit_box = QCheckBox("Elle sınır")
+        self.limit_box.setToolTip("Sayaç, satırın kuralı yerine sizin girdiğiniz satır uzunluğunu esas alır.")
+        self.limit_spin = QSpinBox()
+        self.limit_spin.setRange(1, 999)
+        self.limit_spin.setValue(DEFAULT_MANUAL_LIMIT)
+        self.limit_spin.setToolTip("Satır başına en çok karakter.")
+        self.limit_spin.hide()
+        counter_row = QHBoxLayout()
+        counter_row.addWidget(self.counter_label, 1)
+        counter_row.addWidget(self.limit_box)
+        counter_row.addWidget(self.limit_spin)
         self.warning_label = label("", "warning", wrap=True)
         self.error_label = label("", "danger", wrap=True)
-        lay.addWidget(self.counter_label)
+        lay.addLayout(counter_row)
         lay.addWidget(self.warning_label)
         lay.addWidget(self.error_label)
 
@@ -234,6 +337,8 @@ class EditorPane(QWidget):
         self.translation_edit.committed.connect(self._commit)
         self.translation_edit.reverted.connect(self._revert)
         self.translation_edit.navigate.connect(self.navigate_requested)
+        self.limit_box.toggled.connect(self._manual_limit_edited)
+        self.limit_spin.valueChanged.connect(self._manual_limit_edited)
         self.translation_edit.installEventFilter(self)
         self.title_label.installEventFilter(self)
         for key, step in (("Alt+Up", -1), ("Alt+Down", 1)):
@@ -245,11 +350,42 @@ class EditorPane(QWidget):
     # --- dışarıdan kullanım --------------------------------------------------------------
 
     def set_row(
-        self, row: TranslationRow | None, kind_of: KindOf, rules: FitRules | None, selected_count: int = 1
+        self,
+        row: TranslationRow | None,
+        kind_of: KindOf,
+        rules: FitRules | None,
+        selected_count: int = 1,
+        number: int | None = None,
     ) -> None:
+        """`number`: satırın tablodaki No değeri (başlıkta "No 120 · grup" olarak görünür)."""
         self._kind_of = kind_of
         self._rules = rules
+        self._number = number
         self._show_row(row, selected_count)
+
+    @property
+    def manual_limit(self) -> int | None:
+        """Elle girilen satır sınırı; "Elle sınır" kapalıysa None."""
+        return self.limit_spin.value() if self.limit_box.isChecked() else None
+
+    def set_manual_limit(self, limit: int) -> None:
+        """Kayıtlı elle sınırı yükler (0: kapalı); sinyal yaymaz."""
+        for widget in (self.limit_box, self.limit_spin):
+            widget.blockSignals(True)
+        self.limit_box.setChecked(limit > 0)
+        if limit > 0:
+            self.limit_spin.setValue(limit)
+        self.limit_spin.setVisible(limit > 0)
+        for widget in (self.limit_box, self.limit_spin):
+            widget.blockSignals(False)
+        self._refresh_marks()
+        self._refresh_counter()
+
+    def _manual_limit_edited(self) -> None:
+        self.limit_spin.setVisible(self.limit_box.isChecked())
+        self.manual_limit_changed.emit(self.manual_limit or 0)
+        self._refresh_marks()
+        self._refresh_counter()
 
     def set_view(self, symbols: bool, align: str) -> None:
         self._symbols = symbols
@@ -329,7 +465,8 @@ class EditorPane(QWidget):
     def _update_title(self) -> None:
         if self._row is None:
             return
-        title = self._row.context or self._row.key
+        group = row_group(self._row)
+        title = f"No {self._number} · {group}" if self._number is not None else group
         if self._selected_count > 1:
             title = f"{self._selected_count} satır seçili · {title}"
         self._set_title(title)
@@ -437,15 +574,21 @@ class EditorPane(QWidget):
 
     def _cursor_changed(self) -> None:
         self._emit_cursor()
-        self._refresh_counter()
 
     def _refresh_counter(self) -> None:
         text = self.translation_edit.toPlainText()
-        pos = self.translation_edit.textCursor().position()
-        max_length = self._row.max_length if self._row is not None else None
-        shown, state = counter_info(text, pos, self._kind_of, self._rules, max_length)
-        self.counter_label.setText(shown)
-        self.counter_label.setProperty("role", "danger" if state == "danger" else "muted")
+        row = self._row
+        counter = counter_info(
+            text,
+            self._kind_of,
+            self._rules,
+            row.max_length if row is not None else None,
+            source=row.source if row is not None else "",
+            manual=self.manual_limit,
+        )
+        self.counter_label.setText(counter.text)
+        self.counter_label.setToolTip(_BASIS_TIPS[counter.basis])
+        self.counter_label.setProperty("role", "danger" if counter.state == "danger" else "muted")
         self.counter_label.style().unpolish(self.counter_label)
         self.counter_label.style().polish(self.counter_label)
         source = self._row.source if self._row is not None else ""
@@ -497,6 +640,15 @@ class EditorPane(QWidget):
                 fmt.setUnderlineStyle(QTextCharFormat.UnderlineStyle.WaveUnderline)
                 fmt.setUnderlineColor(QColor(tokens["danger"]))
                 add(start, end, fmt)
+        if edit is self.translation_edit and self._row is not None:
+            limit, _basis = line_limit(
+                self._row.source, self._kind_of, self._rules, self._row.max_length, self.manual_limit
+            )
+            if limit is not None:
+                for start, end in overflow_spans(text, self._kind_of, limit, self._rules):
+                    fmt = QTextCharFormat()
+                    fmt.setBackground(QColor(tokens["danger_bg"]))
+                    add(start, end, fmt)
         if self._symbols:
             for start, end in trailing_space_spans(text):
                 fmt = QTextCharFormat()

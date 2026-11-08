@@ -98,11 +98,78 @@ def test_position_switching_and_off(qtbot: QtBot) -> None:
     actions[PANE_RIGHT].trigger()
     assert page.splitter.orientation() == Qt.Orientation.Horizontal
     assert page.pane.isVisibleTo(page)
-    actions[PANE_RIGHT].trigger()  # etkine tıklamak kapatır
+    actions[PANE_RIGHT].trigger()  # etkine tıklamak paneli kapatmaz
+    assert page.pane.isVisibleTo(page)
+    page.view_actions.pane_toggle.trigger()  # Ctrl+J eylemi: kapat
     assert not page.pane.isVisibleTo(page)
-    actions[PANE_BOTTOM].trigger()
+    actions[PANE_BOTTOM].trigger()  # konum seçimi paneli de açar
     assert page.splitter.orientation() == Qt.Orientation.Vertical
     assert page.pane.isVisibleTo(page)
+
+
+def test_ctrl_j_toggles_pane_and_button_and_menu_share_the_action(qtbot: QtBot) -> None:
+    page, _ = make_page(qtbot)
+    assert page.pane.isVisibleTo(page)
+    assert page.pane_button.defaultAction() is page.view_actions.pane_toggle
+    assert page.pane_button.toolButtonStyle() == Qt.ToolButtonStyle.ToolButtonIconOnly
+    assert not page.pane_button.icon().isNull()
+    assert page.view_actions.pane_toggle.shortcut().toString() == "Ctrl+J"
+    page.view_actions.pane_toggle.trigger()  # kısayolun eylemi (gerçek tuş vuruşu Qt'nin tuş durumunu bozar)
+    assert not page.pane.isVisibleTo(page)
+    assert not page.view_actions.pane_toggle.isChecked()
+    page.pane_button.click()
+    assert page.pane.isVisibleTo(page)
+    assert page.view_actions.pane_toggle.isChecked()
+
+
+def test_pane_visibility_and_position_persist_as_app_setting(qtbot: QtBot, tmp_path: Path) -> None:
+    ini = str(tmp_path / "panel.ini")
+    page, _ = make_page(qtbot, settings=QSettings(ini, QSettings.Format.IniFormat))
+    page.view_actions.pane_actions[PANE_RIGHT].trigger()
+    page.view_actions.pane_toggle.trigger()  # kapat
+    other, _ = make_page(qtbot, settings=QSettings(ini, QSettings.Format.IniFormat))
+    assert not other.pane.isVisibleTo(other)
+    assert not other.view_actions.pane_toggle.isChecked()
+    assert other.view_actions.pane == PANE_RIGHT
+    other.view_actions.pane_toggle.trigger()
+    assert other.pane.isVisibleTo(other)
+    assert other.splitter.orientation() == Qt.Orientation.Horizontal
+
+
+def test_manual_limit_persists_as_app_setting(qtbot: QtBot, tmp_path: Path) -> None:
+    ini = str(tmp_path / "limit.ini")
+    page, _ = make_page(qtbot, settings=QSettings(ini, QSettings.Format.IniFormat))
+    page.pane.limit_box.setChecked(True)
+    page.pane.limit_spin.setValue(33)
+    other, _ = make_page(qtbot, settings=QSettings(ini, QSettings.Format.IniFormat))
+    assert other.pane.manual_limit == 33
+    page.pane.limit_box.setChecked(False)
+    third, _ = make_page(qtbot, settings=QSettings(ini, QSettings.Format.IniFormat))
+    assert third.pane.manual_limit is None
+
+
+def test_pane_title_uses_row_number_and_group(qtbot: QtBot) -> None:
+    page, _ = make_page(qtbot)
+    page.table.sortByColumn(1, Qt.SortOrder.DescendingOrder)  # sıralama No'yu değiştirmez
+    page.search.setText("Three")
+    page._select_proxy_row(0)
+    assert page.pane.title_label.text() == "No 3 · a.msbt"
+    assert "k3" in page.pane.title_label.toolTip()
+    assert page.model.row_number(1) == 1
+
+
+def test_pane_counter_follows_rule_original_and_manual(qtbot: QtBot) -> None:
+    rows = [make_row(1, "12345\n1234567", "123456789")]
+    page, _ = make_page(qtbot, rows)
+    page._select_proxy_row(0)
+    assert page.pane.counter_label.text() == "En uzun satır 9 / 7"  # kural yok: orijinalin en uzun satırı
+    page.set_fit_config(FitConfig(default=FitRules(12, 3)))
+    page._select_proxy_row(0)
+    assert page.pane.counter_label.text().startswith("En uzun satır 9 / 12")  # satır kuralı
+    page.pane.limit_box.setChecked(True)
+    page.pane.limit_spin.setValue(5)
+    assert page.pane.counter_label.text().startswith("En uzun satır 9 / 5")
+    assert page.pane.counter_label.property("role") == "danger"
 
 
 def test_selection_fills_pane(qtbot: QtBot) -> None:
@@ -145,7 +212,7 @@ def test_pending_saved_on_pane_close_and_machine_start(qtbot: QtBot) -> None:
     assert not page.pane.translation_edit.isReadOnly()
     page._select_proxy_row(0)
     type_in_pane(qtbot, page, "kapanmadan once")
-    page.view_actions.pane_actions[PANE_BOTTOM].trigger()  # paneli kapat
+    page.view_actions.pane_toggle.trigger()  # paneli kapat
     assert fake.calls[-1] == [(1, "kapanmadan once")]
     assert not page.pane.isVisibleTo(page)
 
@@ -191,20 +258,23 @@ def test_counter_uses_fit_rules(qtbot: QtBot) -> None:
     page, _ = make_page(qtbot)
     page.set_fit_config(FitConfig(default=FitRules(40, 3)))
     page._select_proxy_row(0)
-    assert page.pane.counter_label.text().startswith("Satır ")
+    assert page.pane.counter_label.text().startswith("En uzun satır ")
+    assert " / 40" in page.pane.counter_label.text()
     page.set_fit_config(FitConfig())
     page._select_proxy_row(2)
-    assert page.pane.counter_label.text().endswith("karakter")
+    assert " / " in page.pane.counter_label.text()  # kural yok: orijinalin en uzun satırı
 
 
-def test_narrow_window_right_falls_back_to_bottom(qtbot: QtBot) -> None:
+def test_right_pane_never_falls_back_to_bottom(qtbot: QtBot) -> None:
     page, _ = make_page(qtbot)
     page.view_actions.pane_actions[PANE_RIGHT].trigger()
     assert page.splitter.orientation() == Qt.Orientation.Horizontal
     page.resize(800, 1000)
-    assert page.splitter.orientation() == Qt.Orientation.Vertical  # dar: altta gösterilir
-    assert page.view_actions.pane == PANE_RIGHT  # seçim değişmez
+    qtbot.wait(50)
+    assert page.splitter.orientation() == Qt.Orientation.Horizontal  # eski "dar pencerede alta al" kuralı yok
+    assert page.view_actions.pane == PANE_RIGHT
     page.resize(1300, 1000)
+    qtbot.wait(50)
     assert page.splitter.orientation() == Qt.Orientation.Horizontal
 
 
@@ -221,7 +291,12 @@ def test_splitter_sizes_persist_per_position(qtbot: QtBot, tmp_path: Path) -> No
 
 def test_toolbar_has_no_duplicate_view_buttons(qtbot: QtBot) -> None:
     page, _ = make_page(qtbot)
-    assert not [t for t in page.findChildren(QToolButton) if t.property("role") == "viewTool"]
+    outside = [
+        t
+        for t in page.findChildren(QToolButton)
+        if t.property("role") == "viewTool" and not page.find_bar.isAncestorOf(t)
+    ]
+    assert not outside
     for act in (*page.view_actions.align_actions.values(), *page.view_actions.pane_actions.values()):
         assert act.toolTip()
 
@@ -257,14 +332,17 @@ def test_view_settings_restored_via_bind_settings(qtbot: QtBot, tmp_path: Path) 
     assert page.view_actions.symbols.isChecked()
 
 
-def test_short_wide_window_uses_right_layout(qtbot: QtBot) -> None:
+def test_short_window_hides_bottom_pane_instead_of_moving_it_right(qtbot: QtBot) -> None:
     page, _ = make_page(qtbot)
     assert page.splitter.orientation() == Qt.Orientation.Vertical
     page.setMinimumSize(1, 1)  # bağımsız sayfa, panel yüzünden ana penceredeki gibi küçülemez
-    page.resize(1300, 560)  # altta sığmaz ama genişlik yeterli
-    qtbot.waitUntil(lambda: page.splitter.orientation() == Qt.Orientation.Horizontal, timeout=3000)
-    assert page.pane.isVisibleTo(page)
-    assert page.view_actions.pane == PANE_BOTTOM  # seçim değişmez
+    page.resize(1300, 560)  # altta sığmaz, genişlik yeterli: yine de sağa geçmez
+    qtbot.waitUntil(lambda: not page.pane.isVisibleTo(page), timeout=3000)
+    assert page.splitter.orientation() == Qt.Orientation.Vertical
+    assert page.view_actions.pane == PANE_BOTTOM
+    assert page.view_actions.pane_visible  # kullanıcının seçimi (açık) korunur
+    page.resize(1300, 1000)
+    qtbot.waitUntil(lambda: page.pane.isVisibleTo(page), timeout=3000)
 
 
 def test_tiny_window_hides_pane_without_changing_choice(qtbot: QtBot) -> None:
@@ -273,8 +351,26 @@ def test_tiny_window_hides_pane_without_changing_choice(qtbot: QtBot) -> None:
     page.resize(820, 520)
     qtbot.waitUntil(lambda: not page.pane.isVisibleTo(page), timeout=3000)
     assert page.view_actions.pane == PANE_BOTTOM
+    assert page.view_actions.pane_visible
+    assert "yer yok" in page.view_actions.pane_toggle.toolTip()  # neden gizli olduğu ipucunda yazar
     page.resize(1300, 1000)
     qtbot.waitUntil(lambda: page.pane.isVisibleTo(page), timeout=3000)
+    assert "yer yok" not in page.view_actions.pane_toggle.toolTip()
+
+
+def test_pane_starts_closed_when_there_is_no_room_and_state_is_remembered(qtbot: QtBot, tmp_path: Path) -> None:
+    ini = str(tmp_path / "dar.ini")
+    page = TranslatePage()
+    qtbot.addWidget(page)
+    page.setMinimumSize(1, 1)
+    page.resize(820, 520)
+    page.bind_settings(QSettings(ini, QSettings.Format.IniFormat))
+    page.show()
+    page.set_rows(default_rows())
+    qtbot.waitUntil(lambda: not page.pane.isVisibleTo(page), timeout=3000)
+    page.view_actions.pane_toggle.trigger()  # kullanıcı kapatır; seçim hatırlanır
+    other, _ = make_page(qtbot, settings=QSettings(ini, QSettings.Format.IniFormat))
+    assert not other.pane.isVisibleTo(other)
 
 
 def test_external_update_refreshes_idle_pane(qtbot: QtBot) -> None:

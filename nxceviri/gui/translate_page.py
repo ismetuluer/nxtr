@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import html
 from collections.abc import Callable
 from typing import Any
@@ -61,14 +62,25 @@ from nxceviri.core.translate.status import STATUS_LABELS, Status
 from nxceviri.core.translate.uppercase import UppercaseRules
 from nxceviri.gui.changes_dialog import HtmlDelegate, diff_html
 from nxceviri.gui.editor_pane import EditorPane
+from nxceviri.gui.find_replace import (
+    FIELD_SOURCE,
+    FIND_SPANS_ROLE,
+    SCOPE_ALL,
+    SCOPE_VISIBLE,
+    FindBar,
+    FindCell,
+    FindMarks,
+)
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.marked_delegate import ROW_ROLE, MarkedDelegate, kind_of_row
 from nxceviri.gui.theme import current_tokens
-from nxceviri.gui.view_actions import PANE_OFF, PANE_RIGHT, ViewActions
+from nxceviri.gui.view_actions import PANE_RIGHT, ViewActions
 from nxceviri.gui.widgets import Banner, Card, EmptyState, button, format_int, label, tip_html, title_row
 
 COL_SOURCE, COL_TRANSLATION, COL_STATUS, COL_FILE, COL_KEY, COL_PREVIOUS = range(6)
 _COLUMNS = ("Orijinal", "Çeviri", "Durum", "Dosya", "Anahtar", "Önceki çeviri")
+#: "Elle sınır" (çeviri panelinin karakter sayacı) uygulama ayarı anahtarı; 0 = kapalı.
+KEY_MANUAL_LIMIT = "translate/manual_limit"
 #: Durum süzgecinde "son işte değişen satırlar" seçeneğinin değeri.
 CHANGED_FILTER = "@changed"
 #: Durum süzgecinde yalnızca renkle işaretli (sorunlu) satırlar.
@@ -114,11 +126,18 @@ _UPPERCASE_MARK = "⇧ "
 _ROW_MARGIN = 8
 
 _Index = QModelIndex | QPersistentModelIndex
-#: Bu genişliğin altında "sağda" panel altta gösterilir; panelin en küçük ölçüleri.
-NARROW_WIDTH = 1000
+#: Panel sağdayken en az bu genişlikte (px) gösterilir.
 PANE_MIN_WIDTH = 280
 #: Değişiklikleri kaydeder ve güncellenmiş satırları döndürür; hata olursa NxError fırlatır.
 CommitFn = Callable[[list[tuple[int, str]]], list[TranslationRow]]
+
+
+def _int_setting(settings: QSettings, key: str) -> int:
+    """Tam sayı ayarı; yoksa ya da bozuksa 0."""
+    try:
+        return max(int(str(settings.value(key, "0"))), 0)
+    except ValueError:
+        return 0
 
 
 def clipboard_text(rows: list[TranslationRow], what: str) -> str:
@@ -156,6 +175,10 @@ class TranslationModel(QAbstractTableModel):
         self.rows: list[TranslationRow] = []  # görüntülenen sıra
         self._pos: dict[int, int] = {}  # satır kimliği → görüntülenen sıra
         self._original: list[int] = []  # özgün (veritabanı) sırasındaki satır kimlikleri
+        self._number: dict[
+            int, int
+        ] = {}  # satır kimliği → aktarım sırası numarası (1'den başlar, sıralamadan bağımsız)
+        self.find_marks = FindMarks()  # Bul ve Değiştir çubuğunun tabloya bildirdiği eşleşmeler ve önizleme
         self.sort_column = -1
         self.sort_order = Qt.SortOrder.AscendingOrder
         self.commit: CommitFn | None = None
@@ -212,6 +235,7 @@ class TranslationModel(QAbstractTableModel):
         self.beginResetModel()
         self._checked.clear()
         self._original = [r.id for r in rows]
+        self._number = {row_id: n for n, row_id in enumerate(self._original, start=1)}
         self.rows = list(rows)
         self._reorder()
         self.endResetModel()
@@ -226,6 +250,17 @@ class TranslationModel(QAbstractTableModel):
 
     def position(self, row_id: int) -> int | None:
         return self._pos.get(row_id)
+
+    def row_number(self, row_id: int) -> int | None:
+        """Satırın aktarım sırası numarası (No); sıralama ve süzgeçten etkilenmez."""
+        return self._number.get(row_id)
+
+    def set_find_marks(self, marks: FindMarks) -> None:
+        """Bul çubuğunun eşleşme aralıklarını ve (açıksa) yazılmamış önizleme metinlerini tabloya bildirir."""
+        old = self.find_marks
+        self.find_marks = marks
+        changed = {*old.spans, *old.preview, *marks.spans, *marks.preview, old.current, marks.current}
+        self._ids_changed([i for i in changed if i is not None])
 
     def row_by_id(self, row_id: int) -> TranslationRow | None:
         i = self._pos.get(row_id)
@@ -330,12 +365,15 @@ class TranslationModel(QAbstractTableModel):
         r = self.rows[index.row()]
         col = index.column()
         if role == ROW_ROLE:
-            return r
+            preview = self.find_marks.preview.get(r.id)
+            # Bul çubuğu önizlemesi: hücre çizimi satırın çevirisini ROW_ROLE'dan okur; önizlenen satır yeni
+            # metinle verilir (yazılmaz; EditRole ve `rows` gerçek metni korur).
+            return r if preview is None else dataclasses.replace(r, translation=preview)
         if role == Qt.ItemDataRole.DisplayRole:
             if col == COL_SOURCE:
                 return self._cell_text(r.source)
             if col == COL_TRANSLATION:
-                return self._cell_text(r.translation)
+                return self._cell_text(self.find_marks.preview.get(r.id, r.translation))
             if col == COL_STATUS:
                 mark = self.marks.get(r.id, "") if r.status in _MARKED_STATUSES else ""
                 text = "● " + STATUS_LABELS[Status(r.status)] + (f" · {mark}" if mark else "")
@@ -353,6 +391,12 @@ class TranslationModel(QAbstractTableModel):
             return marker + (r.context or r.key)
         if role == Qt.ItemDataRole.EditRole:
             return r.translation if col == COL_TRANSLATION else None
+        if role == FIND_SPANS_ROLE:
+            marks = self.find_marks
+            found = COL_SOURCE if marks.field == FIELD_SOURCE else COL_TRANSLATION
+            if col != found or r.id not in marks.spans or r.id in marks.preview:
+                return None  # önizlenen satırın aralıkları eski metne ait olduğundan boyanmaz
+            return FindCell(marks.spans[r.id], r.id == marks.current)
         if role == Qt.ItemDataRole.ForegroundRole and col == COL_STATUS:
             return QColor(current_tokens()[_STATUS_COLORS[Status(r.status)]])
         if role == Qt.ItemDataRole.ForegroundRole and col == COL_TRANSLATION and self.issue_colors:
@@ -360,6 +404,10 @@ class TranslationModel(QAbstractTableModel):
             return None if issue is None else QColor(current_tokens()[ISSUE_COLORS[issue.kind]])
         if role == Qt.ItemDataRole.BackgroundRole and r.id in self._flash:
             return QColor(current_tokens()["warning_bg"])
+        if role == Qt.ItemDataRole.BackgroundRole and r.id in self.find_marks.spans:
+            found = COL_SOURCE if self.find_marks.field == FIELD_SOURCE else COL_TRANSLATION
+            if col == found:
+                return QColor(current_tokens()["selection"])
         if role == Qt.ItemDataRole.ToolTipRole:
             tip = self._tooltip(r, col)
             if col == COL_KEY and self.uppercase.applies(r.file, r.key, row_group(r)):
@@ -523,7 +571,6 @@ class TranslatePage(QWidget):
     reflow_requested = Signal(list)  # satır sonları yeniden bölünecek satır kimlikleri
     glossary_requested = Signal()
     cancel_machine = Signal()
-    find_replace_requested = Signal()
     csv_export_requested = Signal()
     csv_import_requested = Signal()
     translation_export_requested = Signal()
@@ -624,15 +671,19 @@ class TranslatePage(QWidget):
         self._last_commit_error: str | None = None
         self._syncing = False
         self._pane_layout: str | None = "?"  # henüz uygulanmadı
+        self._pane_room = True  # seçili konumda panele yer var mı (yerleşim oturdukça `_check_pane_room` günceller)
         self._pane_timer = QTimer(self)
         self._pane_timer.setSingleShot(True)
         self._pane_timer.setInterval(0)
-        self._pane_timer.timeout.connect(self._recheck_pane)
-        self._fits = True  # yükseklik kuralı yerleşim oturunca `_recheck_pane` ile güncellenir
+        self._pane_timer.timeout.connect(self._check_pane_room)
+        #: Bul ve Değiştir'in yazma yolu (iş kimliği, geçmiş ve durum kuralları ana pencerede); satırları ya da hata
+        #: olursa None döndürür.
+        self.replace_fn: Callable[[list[tuple[int, str]]], list[TranslationRow] | None] | None = None
         self.view_actions = ViewActions(self)
         self.view_actions.symbols_changed.connect(lambda _on: self._apply_view())
         self.view_actions.align_changed.connect(lambda _align: self._apply_view())
         self.view_actions.pane_changed.connect(lambda _pane: self._apply_pane())
+        self.view_actions.pane_visible_changed.connect(lambda _visible: self._apply_pane())
         self.card = Card("Çeviri tablosu")
         filters = QHBoxLayout()
         self.search = QLineEdit()
@@ -677,6 +728,12 @@ class TranslatePage(QWidget):
         self.view_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
         self.view_button.setMenu(view_menu)
         filters.addWidget(self.view_button)
+        # Panel göster/gizle: tablonun sağ üstünde küçük simge düğmesi (Ctrl+J ve Görünüm menüsüyle aynı eylem).
+        self.pane_button = QToolButton()
+        self.pane_button.setDefaultAction(self.view_actions.pane_toggle)
+        self.pane_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        self.pane_button.setAutoRaise(True)
+        filters.addWidget(self.pane_button)
         self.card.body.addLayout(filters)
 
         self.model = TranslationModel()
@@ -723,6 +780,9 @@ class TranslatePage(QWidget):
         h.setSortIndicatorClearable(True)
         h.setSortIndicator(-1, Qt.SortOrder.AscendingOrder)
         h.sortIndicatorChanged.connect(self._sort_changed)
+        self.find_bar = FindBar(self)
+        self.find_bar.closed.connect(self.table.setFocus)
+        self.card.body.addWidget(self.find_bar)
         self.card.body.addWidget(self.table, 1)
         self.settings: QSettings | None = None
         self._machine_running = False
@@ -747,9 +807,11 @@ class TranslatePage(QWidget):
             lambda on: self.settings.setValue("translate/follow", "1" if on else "0") if self.settings else None
         )
         for keys, slot in (
-            (QKeySequence.StandardKey.Find, self.focus_search),
-            (QKeySequence.StandardKey.Replace, self.find_replace_requested.emit),
-            (QKeySequence("F3"), self.next_open),
+            (QKeySequence("Ctrl+F"), lambda: self.open_find(False)),
+            (QKeySequence("Ctrl+H"), lambda: self.open_find(True)),
+            (QKeySequence("Ctrl+Shift+F"), self.focus_search),
+            (QKeySequence("F3"), self._f3),
+            (QKeySequence("Shift+F3"), self._shift_f3),
         ):
             shortcut = QShortcut(QKeySequence(keys), self)
             shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
@@ -779,6 +841,8 @@ class TranslatePage(QWidget):
         self.status_filter.currentIndexChanged.connect(self._refilter)
         self.group_filter.currentIndexChanged.connect(self._refilter)
         self.model.dataChanged.connect(self._update_progress)
+        self.model.dataChanged.connect(lambda *_args: self.find_bar.rows_changed())
+        self.model.modelReset.connect(self.find_bar.rows_changed)
         self.model.commit_failed.connect(lambda text: self.banner.show_message("danger", text))
         self.model.commit_failed.connect(self._remember_commit_error)
         selection = self.table.selectionModel()
@@ -813,6 +877,8 @@ class TranslatePage(QWidget):
         self.view_actions.bind_settings(settings)
         self._apply_view()
         self._apply_pane()
+        self.pane.set_manual_limit(_int_setting(settings, KEY_MANUAL_LIMIT))
+        self.pane.manual_limit_changed.connect(lambda limit: settings.setValue(KEY_MANUAL_LIMIT, str(limit)))
 
     def _fit_columns(self) -> None:
         """Kullanıcı elle ayarlamadıysa sütunları pencere genişliğine göre dağıtır."""
@@ -886,42 +952,43 @@ class TranslatePage(QWidget):
         """Panelde kaydedilmemiş metin varsa kaydettirir (pencere kapanırken, proje değişirken)."""
         self.pane.flush()
 
-    def _fits_below(self) -> bool:
-        """Panel tablonun altına, tablo kartını en küçük ölçüsünün altına sıkıştırmadan sığıyor mu?"""
-        if self.isVisible():
-            self._relayout()  # sayfa az önce yeniden boyutlandıysa bölme yüksekliği güncel olsun
-        height = self.splitter.height()
-        needed = (
-            self.card.minimumSizeHint().height() + self.pane.minimumSizeHint().height() + self.splitter.handleWidth()
-        )
-        return height <= 0 or height >= needed  # henüz yerleşmediyse (0) sığıyor say; yerleşince yeniden bakılır
+    def _pane_has_room(self) -> bool:
+        """Seçili konumda panel, tablo kartını en küçük ölçüsünün altına sıkıştırmadan sığıyor mu?"""
+        self._relayout()  # bölme ölçüsü güncel olsun
+        handle = self.splitter.handleWidth()
+        if self.view_actions.pane == PANE_RIGHT:
+            return self.splitter.width() >= self.card.minimumSizeHint().width() + PANE_MIN_WIDTH + handle
+        needed = self.card.minimumSizeHint().height() + self.pane.minimumSizeHint().height() + handle
+        return self.splitter.height() >= needed
 
     def _wanted_pane_layout(self) -> str | None:
-        """Panelin şu an gösterileceği yer: `"bottom"`, `"right"` ya da `None` (gizli).
+        """Panelin gösterileceği yer: kullanıcının seçtiği konum (`"bottom"`, `"right"`) ya da `None`.
 
-        Seçim (`view_actions.pane`) tercihtir, bu işlev o anda uygulananı bulur: dar pencerede "sağda" yerine altta;
-        altta sığmıyorsa ve genişlik yeterliyse sağda; ikisi de yetmiyorsa (en küçük pencere) gizli.
+        Konum hiçbir zaman kendiliğinden değişmez (altta seçiliyken sağa geçmez). Panel kapalıysa ya da seçili
+        konumda yer yoksa gizlenir: tablo ezilmez; yer açılınca panel kendiliğinden döner. Kullanıcının açık/kapalı
+        seçimi (`view_actions.pane_visible`) bundan etkilenmez.
         """
-        mode = self.view_actions.pane
-        if mode == PANE_OFF:
+        if not self.view_actions.pane_visible or not self._pane_room:
             return None
-        wide = self.width() >= NARROW_WIDTH
-        if mode == PANE_RIGHT and wide:
-            return "right"
-        if self._fits:
-            return "bottom"
-        return "right" if wide else None
+        return self.view_actions.pane
+
+    def _check_pane_room(self) -> None:
+        """Yerleşim oturduktan sonra (zamanlayıcıyla) panele yer olup olmadığına bakar."""
+        if not self.isVisible() or self.splitter.height() <= 0:
+            return
+        room = self._pane_has_room()
+        if room == self._pane_room:
+            return
+        self._pane_room = room
+        # Bildirim şeridi yer kaplayıp tabloyu daha da sıkıştırırdı; neden gizli olduğu düğmenin ipucunda yazar.
+        self.view_actions.set_pane_room(room)
+        self._apply_pane()
 
     def _relayout(self) -> None:
         """Panel görünür/gizli olunca yerleşimi hemen yeniler (bir olay turu bayat geometri kalmasın)."""
         layout = self.layout()
         if layout is not None:
             layout.activate()
-
-    def _recheck_pane(self) -> None:
-        """Yerleşim oturduktan sonra (zamanlayıcıyla) yüksekliğe bakar; ilk yerleşimde bayat ölçü kullanılmaz."""
-        self._fits = self._fits_below()
-        self._apply_pane()
 
     def _apply_pane(self) -> None:
         layout = self._wanted_pane_layout()
@@ -963,10 +1030,7 @@ class TranslatePage(QWidget):
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
-        if self.isVisible():
-            self._recheck_pane()  # görünürken hem genişlik hem yükseklik kuralı hemen uygulanır
-        else:
-            self._apply_pane()  # ilk yerleşimde ölçü bayat olabilir: yükseklik kuralı zamanlayıcıyla
+        self._check_pane_room()  # görünürken hemen; ilk yerleşimde ölçü bayat olabilir, zamanlayıcı yeniden bakar
         self._pane_timer.start()
 
     def _sync_pane(self, force: bool = False) -> None:
@@ -997,7 +1061,13 @@ class TranslatePage(QWidget):
         if row is None:
             self.pane.set_row(None, lambda _n: "other", None)
             return
-        self.pane.set_row(row, kind_of_row(row, self._kinds), self._fit.rules_for_row(row), count)
+        self.pane.set_row(
+            row,
+            kind_of_row(row, self._kinds),
+            self._fit.rules_for_row(row),
+            count,
+            number=self.model.row_number(row.id),
+        )
 
     def _refresh_idle_pane(self) -> None:
         """Satır dışarıdan değiştiyse (satır içi düzenleme, geri alma, toplu işlem) panel bayat metin göstermesin."""
@@ -1208,6 +1278,56 @@ class TranslatePage(QWidget):
     def focus_search(self) -> None:
         self.search.setFocus()
         self.search.selectAll()
+
+    # --- Bul ve Değiştir çubuğu ----------------------------------------------------------------
+
+    def open_find(self, replace: bool) -> None:
+        """Tablonun üstünde Bul çubuğunu açar (`replace`: değiştir alanıyla)."""
+        if self.model.rows:
+            self.find_bar.open_bar(replace)
+
+    def _f3(self) -> None:
+        """Bul çubuğu açıkken sonraki eşleşme; değilse sonraki bakılacak satır."""
+        if self.find_bar.isVisible():
+            self.find_bar.next()
+        else:
+            self.next_open()
+
+    def _shift_f3(self) -> None:
+        if self.find_bar.isVisible():
+            self.find_bar.previous()
+
+    def find_rows(self, scope: int) -> list[TranslationRow]:
+        if scope == SCOPE_VISIBLE:
+            return self.filtered_rows()
+        if scope == SCOPE_ALL:
+            return list(self.model.rows)
+        return self.selected_rows()
+
+    def find_current_id(self) -> int | None:
+        row = self.current_row()
+        return None if row is None else row.id
+
+    def find_goto(self, row_id: int) -> None:
+        """Eşleşen satırı odağı çalmadan seçer ve görünür yapar (gizleyen süzgeçler temizlenir)."""
+        source = self.model.position(row_id)
+        if source is None:
+            return
+        index = self.proxy.mapFromSource(self.model.index(source, 0))
+        if not index.isValid():
+            self._clear_filters()
+            index = self.proxy.mapFromSource(self.model.index(source, 0))
+        if index.isValid():
+            self._select_proxy_row(index.row())
+
+    def find_apply(self, changes: list[tuple[int, str]]) -> list[TranslationRow] | None:
+        return None if self.replace_fn is None else self.replace_fn(changes)
+
+    def find_set_marks(self, marks: FindMarks) -> None:
+        had_preview = bool(self.model.find_marks.preview)
+        self.model.set_find_marks(marks)
+        if had_preview or marks.preview:
+            self._schedule_fit_rows()  # önizleme metni satır yüksekliğini değiştirir
 
     def current_row(self) -> TranslationRow | None:
         index = self.table.currentIndex()
@@ -1476,6 +1596,7 @@ class TranslatePage(QWidget):
         if running:
             self.pane.flush()
         self.pane.set_read_only(running)
+        self.find_bar.set_busy(running)
         self._machine_running = running
         self.run_panel.setVisible(running)
         self.machine_button.setEnabled(not running)

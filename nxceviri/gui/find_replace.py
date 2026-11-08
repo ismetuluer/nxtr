@@ -1,271 +1,464 @@
-"""Çevirilerde bul ve değiştir penceresi (Ctrl+H).
+"""Çeviri tablosunun üstünde açılan ince “Bul ve Değiştir” çubuğu (Ctrl+F bul, Ctrl+H değiştir).
 
-Satır satır çalışılabilir: “Sonrakini Bul” (F3) eşleşmeler arasında gezer, “Sonrakini Değiştir” yalnızca
-gösterilen eşleşmeyi yazar. “Tümünü Değiştir” kalan eşleşmelerin hepsini yazar. Kapsam seçilebilir: tüm
-satırlar, tabloda görünenler veya seçili satırlar.
+Pencere gibi tabloyu kilitlemez: yazdıkça eşleşen satırlar tabloda boyanır, sayaç “3 / 41” gösterir, Sonraki
+(F3 / Enter) ve Önceki (Shift+F3) satırı seçip yerinde gösterir; tablo süzülmez, kullanıcı gezinip elle
+düzenleyebilir.
 
-Yazarken `plan` yeniden hesaplanır (projeye yazmaz). Tek tek değiştirme, ana pencerenin verdiği `apply`
-geri çağrısıyla hemen yazılır; aynı iş kimliği kullanıldığı için Ctrl+Z hepsini tek işlem olarak geri alır.
+Çubuk tabloyu ve projeyi doğrudan tanımaz; sayfa `FindHost` sözleşmesini uygular. Tabloya boyama bilgisi
+`FindMarks` ile gider (modelde `FIND_SPANS_ROLE` olarak okunur; hücre çizimi bunu kullanır). Önizleme açıkken
+eşleşen satırların çevirisi yeni metinle gösterilir ama yazılmaz. “Değiştir” ve “Tümünü Değiştir” sayfanın
+`find_apply` yoluyla yazar; her eylem tek iştir, Ctrl+Z hepsini geri alır.
 """
 
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Callable, Sequence
+import re
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from typing import Protocol
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QKeySequence, QShortcut, QStandardItemModel
-from PySide6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QDialog,
-    QFormLayout,
-    QHBoxLayout,
-    QLineEdit,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QShortcut
+from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLineEdit, QMenu, QToolButton, QVBoxLayout, QWidget
 
 from nxceviri.core.project import TranslationRow
-from nxceviri.core.translate.replace import ReplacePlan, plan_replace
-from nxceviri.gui.widgets import button, format_int, label, title_row
+from nxceviri.core.translate.replace import ReplacePlan, find_pattern, plan_replace
+from nxceviri.gui.icons import bind_icon
+from nxceviri.gui.widgets import button, format_int, label
 
 SCOPE_ALL = 0
 SCOPE_VISIBLE = 1
 SCOPE_SELECTED = 2
+_SCOPE_NAMES = {SCOPE_ALL: "Tümü", SCOPE_VISIBLE: "Görünenler", SCOPE_SELECTED: "Seçili"}
 
-_PREVIEW_ROWS = 3
+FIELD_TRANSLATION = "translation"
+FIELD_SOURCE = "source"
+_FIELD_NAMES = {FIELD_TRANSLATION: "Çeviri", FIELD_SOURCE: "Orijinal"}
 
-Apply = Callable[[list[tuple[int, str]]], list[TranslationRow] | None]
+#: Modelin hücre için verdiği bul-vurgusu: `FindCell`. Hücre çizimi eşleşen aralıkları bununla boyar.
+FIND_SPANS_ROLE = Qt.ItemDataRole.UserRole + 20
 
 
-class FindReplaceDialog(QDialog):
-    """Eşleşmeleri tek tek veya toplu değiştirir; `applied` yazılan değişiklikleri tutar."""
+@dataclass(frozen=True)
+class FindCell:
+    """Bir hücredeki eşleşmeler: `spans` gösterilen metindeki [başlangıç, bitiş) aralıkları; `current` o anki
+    satır mı (daha belirgin boyanır)."""
 
-    def __init__(
-        self,
-        parent: QWidget | None,
-        all_rows: Sequence[TranslationRow],
-        visible_rows: Sequence[TranslationRow],
-        selected_rows: Sequence[TranslationRow] = (),
-        find: str = "",
-        *,
-        apply: Apply | None = None,
-    ) -> None:
+    spans: tuple[tuple[int, int], ...]
+    current: bool
+
+
+@dataclass(frozen=True)
+class FindMarks:
+    """Tabloya iletilen bul durumu. `field` hangi sütunda arandığı; `spans` satır kimliği → aralıklar;
+    `preview` satır kimliği → çeviri sütununda yazılmadan gösterilecek yeni metin."""
+
+    field: str = FIELD_TRANSLATION
+    spans: Mapping[int, tuple[tuple[int, int], ...]] = dataclasses.field(default_factory=dict)
+    current: int | None = None
+    preview: Mapping[int, str] = dataclasses.field(default_factory=dict)
+
+
+class FindHost(Protocol):
+    """Çubuğun bağlı olduğu sayfanın sağlaması gerekenler."""
+
+    def find_rows(self, scope: int) -> Sequence[TranslationRow]: ...
+
+    def find_current_id(self) -> int | None: ...
+
+    def find_goto(self, row_id: int) -> None: ...
+
+    def find_apply(self, changes: list[tuple[int, str]]) -> list[TranslationRow] | None: ...
+
+    def find_set_marks(self, marks: FindMarks) -> None: ...
+
+
+def match_spans(pattern: re.Pattern[str], text: str) -> tuple[tuple[int, int], ...]:
+    """Metindeki boş olmayan eşleşme aralıkları."""
+    return tuple((m.start(), m.end()) for m in pattern.finditer(text) if m.end() > m.start())
+
+
+class FindBar(QWidget):
+    closed = Signal()
+
+    def __init__(self, host: FindHost, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Bul ve Değiştir")
-        self.setMinimumWidth(600)
-        self._all = list(all_rows)
-        self._visible = list(visible_rows)
-        self._selected = list(selected_rows)
-        self._apply = apply
-        self._matches: list[tuple[TranslationRow, str]] = []
+        self.setObjectName("findBar")
+        self._host = host
+        self._matches: list[int] = []
+        self._spans: dict[int, tuple[tuple[int, int], ...]] = {}
+        self._order: dict[int, int] = {}
         self._cursor = 0
-        self.plan = ReplacePlan()
-        self.applied: list[tuple[int, str]] = []  # gerçekten yazılan (satır kimliği, yeni çeviri)
-        lay = QVBoxLayout(self)
-        lay.addWidget(
-            title_row(
-                "Çevirilerde bul ve değiştir",
-                "Yalnızca çeviri metni değişir; kontrol kodunu bozacak değişiklikler yapılmaz, onaylı satırlar "
-                "onaylı kalır. Ctrl+Z ile geri alabilirsiniz.",
-                "cardTitle",
-            )
+        self._current_id: int | None = None
+        self._selected_ids: frozenset[int] = frozenset()
+        self._updating = False
+        self._busy = False
+        self.error = ""
+        self.scope = SCOPE_ALL
+        self.field = FIELD_TRANSLATION
+
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(6)
+
+        top = QHBoxLayout()
+        top.setSpacing(4)
+        self.replace_toggle = self._tool("replace", "Değiştir alanını aç/kapat (Ctrl+H)", checkable=True)
+        self.find_edit = QLineEdit()
+        self.find_edit.setPlaceholderText("Bul…")
+        self.find_edit.setClearButtonEnabled(True)
+        self.find_edit.setMinimumWidth(140)
+        self.count_label = label("", "muted")
+        self.prev_button = self._tool("chevron-up", "Önceki eşleşme (Shift+F3)")
+        self.next_button = self._tool("chevron-down", "Sonraki eşleşme (F3)")
+        self.case_button = self._tool("case-sensitive", "Büyük/küçük harfe duyarlı", checkable=True)
+        self.word_button = self._tool("whole-word", "Tam sözcük", checkable=True)
+        self.regex_button = self._tool(
+            "regex", "Düzenli ifade. Grup kullanabilirsiniz: (\\w+) ve yerine \\1.", checkable=True
         )
-        form = QFormLayout()
-        self.find_edit = QLineEdit(find)
-        self.find_edit.setPlaceholderText("Aranacak metin (Ctrl+F buraya gelir)")
+        self.scope_button, self._scope_actions = self._choice_button("Kapsam", _SCOPE_NAMES, self.set_scope)
+        self.field_button, self._field_actions = self._choice_button("Alan", _FIELD_NAMES, self.set_field)
+        self.scope_button.setText(_SCOPE_NAMES[SCOPE_ALL])
+        self.field_button.setText(_FIELD_NAMES[FIELD_TRANSLATION])
+        self.close_button = self._tool("x", "Kapat (Esc)")
+        top.addWidget(self.replace_toggle)
+        top.addWidget(self.find_edit, 1)
+        top.addWidget(self.count_label)
+        for widget in (self.prev_button, self.next_button, self.case_button, self.word_button, self.regex_button):
+            top.addWidget(widget)
+        top.addWidget(self.scope_button)
+        top.addWidget(self.field_button)
+        top.addWidget(self.close_button)
+        outer.addLayout(top)
+
+        self.replace_row = QWidget()
+        bottom = QHBoxLayout(self.replace_row)
+        bottom.setContentsMargins(0, 0, 0, 0)
+        bottom.setSpacing(4)
         self.replace_edit = QLineEdit()
-        form.addRow("Aranan:", self.find_edit)
-        form.addRow("Yerine:", self.replace_edit)
-        self.scope = QComboBox()
-        self.scope.addItem(f"Tüm satırlar ({format_int(len(self._all))})", SCOPE_ALL)
-        self.scope.addItem(f"Tabloda görünenler ({format_int(len(self._visible))})", SCOPE_VISIBLE)
-        self.scope.addItem(f"Seçili satırlar ({format_int(len(self._selected))})", SCOPE_SELECTED)
-        if len(self._visible) >= len(self._all):
-            self._disable_scope(SCOPE_VISIBLE)
-        if not self._selected:
-            self._disable_scope(SCOPE_SELECTED)
-        form.addRow("Kapsam:", self.scope)
-        lay.addLayout(form)
-        self.case = QCheckBox("Büyük/küçük harfe duyarlı")
-        self.whole = QCheckBox("Tam sözcük")
-        self.regex = QCheckBox("Düzenli ifade (regex)")
-        self.regex.setToolTip(
-            "Aranan metni düzenli ifade olarak yorumlar. Grup kullanabilirsiniz: (\\w+) ve yerine \\1. "
-            "Örnek: Kap[ıi] → Kapı"
-        )
-        for box in (self.case, self.whole, self.regex):
-            lay.addWidget(box)
-        self.summary = label("", "muted", wrap=True)
-        lay.addWidget(self.summary)
-        self.match_label = label("", "muted", wrap=True)
-        lay.addWidget(self.match_label)
-        self.preview = label("", "muted", wrap=True)
-        lay.addWidget(self.preview)
-        buttons = QHBoxLayout()
-        self.next_button = button("Sonrakini Bul", icon="search")
-        self.next_button.setToolTip("Sonraki eşleşmeye geçer (F3).")
-        self.next_button.clicked.connect(self._next_match)
-        self.replace_button = button("Sonrakini Değiştir", "primary")
-        self.replace_button.setToolTip("Gösterilen eşleşmeyi yazar ve sonrakine geçer.")
-        self.replace_button.clicked.connect(self._replace_next)
-        self.apply_button = button("Tümünü Değiştir")
-        self.apply_button.setToolTip("Kalan eşleşmelerin hepsini yazar.")
-        self.apply_button.clicked.connect(self._replace_all)
-        close = button("Kapat")
-        close.clicked.connect(self.reject)
-        buttons.addWidget(self.next_button)
-        buttons.addWidget(self.replace_button)
-        buttons.addStretch(1)
-        buttons.addWidget(self.apply_button)
-        buttons.addWidget(close)
-        lay.addLayout(buttons)
-        for edit in (self.find_edit, self.replace_edit):
-            edit.textChanged.connect(self._update)
-        self.find_edit.returnPressed.connect(self._next_match)
-        self.replace_edit.returnPressed.connect(self._replace_next)
-        for box in (self.case, self.whole, self.regex):
-            box.toggled.connect(self._update)
-        self.scope.currentIndexChanged.connect(self._update)
-        for keys, slot in (
-            (QKeySequence.StandardKey.Find, self._focus_find),
-            (QKeySequence("F3"), self._next_match),
-        ):
-            shortcut = QShortcut(QKeySequence(keys), self)
-            shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-            shortcut.activated.connect(slot)
-        self._update()
+        self.replace_edit.setPlaceholderText("Yerine…")
+        self.replace_edit.setMinimumWidth(140)
+        self.preview_box = QCheckBox("Önizle")
+        self.preview_box.setToolTip("Değişikliği tabloda yazmadan gösterir.")
+        self.replace_button = button("Değiştir", icon="replace")
+        self.replace_button.setToolTip("Gösterilen satırdaki eşleşmeleri değiştirir ve sonrakine geçer.")
+        self.replace_all_button = button("Tümünü Değiştir", icon="replace-all")
+        self.replace_all_button.setToolTip("Kapsamdaki bütün eşleşmeleri değiştirir. Ctrl+Z hepsini geri alır.")
+        self.status_label = label("", "muted")
+        bottom.addWidget(self.replace_edit, 1)
+        bottom.addWidget(self.preview_box)
+        bottom.addWidget(self.replace_button)
+        bottom.addWidget(self.replace_all_button)
+        bottom.addWidget(self.status_label)
+        self.replace_row.hide()
+        outer.addWidget(self.replace_row)
 
-    def _disable_scope(self, scope: int) -> None:
-        index = self.scope.findData(scope)
-        model = self.scope.model()
-        if index >= 0 and isinstance(model, QStandardItemModel):
-            item = model.item(index)
-            if item is not None:
-                item.setEnabled(False)
+        self.find_edit.textChanged.connect(self._criteria_changed)
+        self.replace_edit.textChanged.connect(self._replacement_changed)
+        self.find_edit.returnPressed.connect(self.next)
+        self.replace_edit.returnPressed.connect(self.replace_current)
+        for toggle in (self.case_button, self.word_button, self.regex_button):
+            toggle.toggled.connect(self._criteria_changed)
+        self.preview_box.toggled.connect(self._refresh_marks)
+        self.replace_toggle.toggled.connect(self._set_replace_visible)
+        self.prev_button.clicked.connect(self.previous)
+        self.next_button.clicked.connect(self.next)
+        self.replace_button.clicked.connect(self.replace_current)
+        self.replace_all_button.clicked.connect(self.replace_all)
+        self.close_button.clicked.connect(self.close_bar)
+        escape = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        escape.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        escape.activated.connect(self.close_bar)
+        # Tablo değişince (düzenleme, geri alma, yeni satırlar) eşleşmeler bir olay turu sonra yenilenir.
+        self._refresh_timer = QTimer(self)
+        self._refresh_timer.setSingleShot(True)
+        self._refresh_timer.setInterval(0)
+        self._refresh_timer.timeout.connect(self._recompute_keep)
+        self.hide()
+        self._update_state()
 
-    def _focus_find(self) -> None:
+    # --- kurulum yardımcıları ------------------------------------------------------------
+
+    @staticmethod
+    def _tool(icon_name: str, tip: str, *, checkable: bool = False) -> QToolButton:
+        tool = QToolButton()
+        tool.setProperty("role", "viewTool")
+        tool.setToolTip(tip)
+        tool.setCheckable(checkable)
+        tool.setCursor(Qt.CursorShape.PointingHandCursor)
+        bind_icon(tool, icon_name)
+        return tool
+
+    @staticmethod
+    def _choice_button[K](
+        title: str, names: Mapping[K, str], choose: Callable[[K], None]
+    ) -> tuple[QToolButton, dict[K, QAction]]:
+        """Açılır seçim düğmesi: seçilen seçenek düğme metni olur (metni `choose` sonrası çağıran ayarlar)."""
+        tool = QToolButton()
+        tool.setObjectName("viewButton")
+        tool.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        tool.setToolTip(title)
+        menu = QMenu(tool)
+        group = QActionGroup(menu)
+        actions: dict[K, QAction] = {}
+        for key, name in names.items():
+            action = QAction(name, menu, checkable=True)
+            group.addAction(action)
+            menu.addAction(action)
+            action.triggered.connect(lambda _checked=False, k=key: choose(k))
+            actions[key] = action
+        next(iter(actions.values())).setChecked(True)
+        tool.setMenu(menu)
+        return tool, actions
+
+    # --- açma / kapama ---------------------------------------------------------------------
+
+    def open_bar(self, replace: bool = False) -> None:
+        """Çubuğu açar (zaten açıksa bul alanına döner); `replace` değiştir alanını da açar."""
+        self.show()
+        if replace:
+            self.replace_toggle.setChecked(True)
         self.find_edit.setFocus()
         self.find_edit.selectAll()
+        self._recompute_from_start()
 
-    def _rows(self) -> list[TranslationRow]:
-        scope = self.scope.currentData()
-        if scope == SCOPE_VISIBLE:
-            return self._visible
-        if scope == SCOPE_SELECTED:
-            return self._selected
-        return self._all
+    def close_bar(self) -> None:
+        if self.isHidden():
+            return
+        self.hide()
+        self._matches = []
+        self._spans = {}
+        self._set_marks(FindMarks())
+        self.closed.emit()
 
-    def _update(self) -> None:
-        """Arama ölçütü değişti: eşleşmeleri baştan hesaplar, ilk eşleşmeye döner."""
-        self._cursor = 0
-        self._recompute()
+    def set_busy(self, busy: bool) -> None:
+        """Makine çevirisi sürerken yazma eylemleri kapanır."""
+        self._busy = busy
+        self._update_state()
+
+    # --- seçenekler ------------------------------------------------------------------------
+
+    def set_scope(self, scope: int) -> None:
+        self.scope = scope
+        self._scope_actions[scope].setChecked(True)
+        self.scope_button.setText(_SCOPE_NAMES[scope])
+        if scope == SCOPE_SELECTED:  # gezinirken seçim değişir; kapsam seçildiği andaki satırlarda kalır
+            self._selected_ids = frozenset(r.id for r in self._host.find_rows(SCOPE_SELECTED))
+        self._recompute_from_start()
+
+    def set_field(self, field_name: str) -> None:
+        self.field = field_name
+        self._field_actions[field_name].setChecked(True)
+        self.field_button.setText(_FIELD_NAMES[field_name])
+        self._recompute_from_start()
+
+    @property
+    def replace_visible(self) -> bool:
+        return not self.replace_row.isHidden()
+
+    def _set_replace_visible(self, on: bool) -> None:
+        self.replace_row.setVisible(on)
+        self._refresh_marks()
+
+    def _can_replace(self) -> bool:
+        return self.field == FIELD_TRANSLATION and not self._busy
+
+    # --- eşleşmeleri hesaplama ---------------------------------------------------------------
+
+    def _scope_rows(self) -> list[TranslationRow]:
+        if self.scope == SCOPE_SELECTED:
+            return [r for r in self._host.find_rows(SCOPE_ALL) if r.id in self._selected_ids]
+        return list(self._host.find_rows(self.scope))
+
+    def _text_of(self, row: TranslationRow) -> str:
+        return row.source if self.field == FIELD_SOURCE else row.translation
+
+    def _pattern(self) -> re.Pattern[str] | None:
+        self.error = ""
+        try:
+            return find_pattern(
+                self.find_edit.text(),
+                case=self.case_button.isChecked(),
+                whole_word=self.word_button.isChecked(),
+                regex=self.regex_button.isChecked(),
+            )
+        except re.error as exc:
+            self.error = f"Düzenli ifade geçersiz: {exc}"
+            return None
 
     def _recompute(self) -> None:
-        """Geçerli satır listesine göre `plan` ve `_matches` yenilenir; imleç korunur."""
-        rows = self._rows()
-        self.plan = plan_replace(
+        pattern = self._pattern()
+        self._matches = []
+        self._spans = {}
+        self._order = {r.id: i for i, r in enumerate(self._host.find_rows(SCOPE_ALL))}
+        if pattern is not None:
+            for row in self._scope_rows():
+                spans = match_spans(pattern, self._text_of(row))
+                if spans:
+                    self._matches.append(row.id)
+                    self._spans[row.id] = spans
+
+    def _recompute_from_start(self) -> None:
+        """Ölçüt değişti: eşleşmeler yenilenir, imleç tablodaki geçerli satırdan sonraki ilk eşleşmeye gider."""
+        if self.isHidden():
+            return
+        self._recompute()
+        self._cursor = self._start_index()
+        self._show_current(goto=True)
+
+    def _recompute_keep(self) -> None:
+        """Tablo değişti: imleç aynı satırda kalır (satır artık eşleşmiyorsa sıradaki eşleşmede)."""
+        if self.isHidden() or self._updating:
+            return
+        self._recompute()
+        if self._current_id in self._matches:
+            self._cursor = self._matches.index(self._current_id)
+        self._show_current(goto=False)
+
+    def rows_changed(self) -> None:
+        """Sayfa satırların değiştiğini bildirir (düzenleme, geri alma, yeni satırlar)."""
+        if not self.isHidden() and not self._updating:
+            self._refresh_timer.start()
+
+    def _start_index(self) -> int:
+        if not self._matches:
+            return 0
+        current = self._host.find_current_id()
+        start = self._order.get(current, 0) if current is not None else 0
+        return next((i for i, rid in enumerate(self._matches) if self._order.get(rid, 0) >= start), 0)
+
+    def _criteria_changed(self) -> None:
+        self.status_label.setText("")
+        self._recompute_from_start()
+
+    def _replacement_changed(self) -> None:
+        self.status_label.setText("")
+        self._refresh_marks()
+
+    # --- gezinme -----------------------------------------------------------------------------
+
+    def next(self) -> None:
+        self._step(1)
+
+    def previous(self) -> None:
+        self._step(-1)
+
+    def _step(self, delta: int) -> None:
+        if not self._matches:
+            return
+        self._cursor = (self._cursor + delta) % len(self._matches)
+        self._show_current(goto=True)
+
+    def _show_current(self, *, goto: bool) -> None:
+        count = len(self._matches)
+        if count:
+            self._cursor = min(self._cursor, count - 1)
+            self._current_id = self._matches[self._cursor]
+        else:
+            self._cursor = 0
+            self._current_id = None
+        self._update_state()
+        self._refresh_marks()
+        if goto and self._current_id is not None:
+            self._updating = True
+            try:
+                self._host.find_goto(self._current_id)
+            finally:
+                self._updating = False
+
+    @property
+    def match_count(self) -> int:
+        return len(self._matches)
+
+    @property
+    def current_id(self) -> int | None:
+        return self._current_id
+
+    # --- görünüm -----------------------------------------------------------------------------
+
+    def _update_state(self) -> None:
+        count = len(self._matches)
+        self.count_label.setToolTip(self.error)
+        if self.error:
+            self.count_label.setText("Geçersiz")
+        elif not self.find_edit.text():
+            self.count_label.setText("")
+        else:
+            self.count_label.setText(
+                f"{format_int(self._cursor + 1)} / {format_int(count)}" if count else "Eşleşme yok"
+            )
+        for tool in (self.prev_button, self.next_button):
+            tool.setEnabled(count > 0)
+        can = count > 0 and self._can_replace() and not self.error
+        self.replace_button.setEnabled(can)
+        self.replace_all_button.setEnabled(can)
+        self.replace_edit.setEnabled(self._can_replace())
+        self.preview_box.setEnabled(self._can_replace())
+        self.replace_edit.setToolTip("" if self._can_replace() else "Orijinal metinde yalnızca bulunur.")
+
+    def _refresh_marks(self) -> None:
+        preview: dict[int, str] = {}
+        if self.preview_box.isChecked() and self.replace_visible and self._can_replace() and self._matches:
+            preview = dict(self._plan(self._rows_by_id(self._matches)).changes)
+        self._set_marks(FindMarks(self.field, dict(self._spans), self._current_id, preview))
+
+    def _set_marks(self, marks: FindMarks) -> None:
+        self._updating = True
+        try:
+            self._host.find_set_marks(marks)
+        finally:
+            self._updating = False
+
+    # --- değiştirme --------------------------------------------------------------------------
+
+    def _rows_by_id(self, ids: Sequence[int]) -> list[TranslationRow]:
+        wanted = set(ids)
+        return [r for r in self._scope_rows() if r.id in wanted]
+
+    def _plan(self, rows: Sequence[TranslationRow]) -> ReplacePlan:
+        return plan_replace(
             rows,
             self.find_edit.text(),
             self.replace_edit.text(),
-            case=self.case.isChecked(),
-            whole_word=self.whole.isChecked(),
-            regex=self.regex.isChecked(),
-        )
-        by_id = {r.id: r for r in rows}
-        self._matches = [(by_id[rid], new) for rid, new in self.plan.changes if rid in by_id]
-        if self._matches:
-            self._cursor = min(self._cursor, len(self._matches) - 1)
-        else:
-            self._cursor = 0
-        self._refresh()
-
-    def _refresh(self) -> None:
-        has_matches = bool(self._matches)
-        self.next_button.setEnabled(has_matches)
-        self.replace_button.setEnabled(has_matches)
-        self.apply_button.setEnabled(has_matches)
-        self.match_label.setText(self._match_text())
-        self.preview.setText(self._preview_text())
-        if self.plan.error:
-            self.summary.setText(self.plan.error)
-            return
-        if not self.find_edit.text():
-            self.summary.setText("Aranacak metni yazın.")
-            return
-        if not has_matches and not self.plan.skipped:
-            self.summary.setText("Eşleşme yok.")
-            return
-        text = f"{format_int(len(self._matches))} satırda {format_int(self.plan.matches)} eşleşme bulundu."
-        if self.plan.skipped:
-            text += f" {format_int(self.plan.skipped)} satır kontrol kodunu bozacağı için atlanacak."
-        self.summary.setText(text)
-
-    def _match_text(self) -> str:
-        if not self._matches:
-            return ""
-        row, new = self._matches[self._cursor]
-        return "\n".join(
-            (
-                f"Eşleşme {format_int(self._cursor + 1)} / {format_int(len(self._matches))} — {row.file} · {row.key}",
-                f"Orijinal: {_short(row.source)}",
-                f"Şu an:  {_short(row.translation)}",
-                f"Yeni:   {_short(new)}",
-            )
+            case=self.case_button.isChecked(),
+            whole_word=self.word_button.isChecked(),
+            regex=self.regex_button.isChecked(),
         )
 
-    def _preview_text(self) -> str:
-        lines = [f"{_short(row.translation)} → {_short(new)}" for row, new in self._matches[:_PREVIEW_ROWS]]
-        if len(self._matches) > _PREVIEW_ROWS:
-            lines.append(f"… ve {format_int(len(self._matches) - _PREVIEW_ROWS)} satır daha")
-        return "Örnek:\n" + "\n".join(lines) if lines else ""
-
-    def _next_match(self) -> None:
-        if not self._matches:
+    def replace_current(self) -> None:
+        """Gösterilen satırdaki eşleşmeleri değiştirir ve sonraki eşleşmeye geçer."""
+        if not self._matches or not self._can_replace() or self.error or self._current_id is None:
             return
-        self._cursor = (self._cursor + 1) % len(self._matches)
-        self._refresh()
-
-    def _replace_next(self) -> None:
-        if not self._matches or self.plan.error:
+        replaced_id = self._current_id
+        if not self._write(self._plan(self._rows_by_id([replaced_id]))):
             return
-        self._replace_rows(self._matches[self._cursor : self._cursor + 1])
-
-    def _replace_all(self) -> None:
-        if not self._matches or self.plan.error:
-            return
-        if self._replace_rows(list(self._matches)):
-            self.accept()
-
-    def _replace_rows(self, matches: Sequence[tuple[TranslationRow, str]]) -> bool:
-        """Verilen eşleşmeleri yazar; başarılıysa True. Yazılanlar `applied` içinde birikir."""
-        changes = [(row.id, new) for row, new in matches]
-        if not changes:
-            return False
-        if self._apply is not None:
-            updated = self._apply(changes)
-            if updated is None:
-                self._recompute()
-                self.summary.setText("Değiştirilemedi; ayrıntı için ana penceredeki uyarıya bakın.")
-                return False
-            self._update_rows(updated)
-        else:
-            self._update_rows([dataclasses.replace(row, translation=new) for row, new in matches])
-        self.applied.extend(changes)
         self._recompute()
-        return True
+        if replaced_id in self._matches:  # yerine yazılan metin aranan metni içeriyor: sonrakine geç
+            self._cursor = (self._matches.index(replaced_id) + 1) % len(self._matches)
+        self._show_current(goto=True)
 
-    def _update_rows(self, updated: Sequence[TranslationRow]) -> None:
-        """Yazılan satırların yeni hâllerini kapsam listelerine işler (sonraki hesap güncel olsun)."""
-        by_id = {r.id: r for r in updated}
-        if not by_id:
+    def replace_all(self) -> None:
+        """Kapsamdaki bütün eşleşmeleri tek iş olarak değiştirir."""
+        if not self._matches or not self._can_replace() or self.error:
             return
-        self._all = [by_id.get(r.id, r) for r in self._all]
-        self._visible = [by_id.get(r.id, r) for r in self._visible]
-        self._selected = [by_id.get(r.id, r) for r in self._selected]
+        if self._write(self._plan(self._rows_by_id(self._matches))):
+            self._recompute()
+            self._show_current(goto=False)
 
-
-def _short(text: str, limit: int = 60) -> str:
-    line = text.replace("\n", " ")
-    return line if len(line) <= limit else line[: limit - 3] + "…"
+    def _write(self, plan: ReplacePlan) -> bool:
+        """Planı yazar ve sonucu çubukta bildirir; yazılamazsa False (ayrıntıyı sayfa bildirir)."""
+        if plan.changes:
+            self._updating = True
+            try:
+                written = self._host.find_apply(list(plan.changes))
+            finally:
+                self._updating = False
+            if written is None:
+                self.status_label.setText("Değiştirilemedi.")
+                return False
+        text = f"{format_int(len(plan.changes))} satır değiştirildi"
+        if plan.skipped:
+            text += f" · {format_int(plan.skipped)} satır atlandı (kontrol kodunu bozardı)"
+        self.status_label.setText(text)
+        return True

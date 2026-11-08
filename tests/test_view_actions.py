@@ -14,7 +14,6 @@ from nxceviri.gui.view_actions import (
     ALIGN_LEFT,
     ALIGN_RIGHT,
     PANE_BOTTOM,
-    PANE_OFF,
     PANE_RIGHT,
     ViewActions,
 )
@@ -48,20 +47,26 @@ def test_align_is_exclusive_and_emits_once(qtbot: QtBot) -> None:
     assert seen == [ALIGN_CENTER, ALIGN_RIGHT]
 
 
-def test_pane_toggle_semantics(qtbot: QtBot) -> None:
+def test_pane_position_choice_and_toggle(qtbot: QtBot) -> None:
     actions = ViewActions()
     seen: list[str] = []
+    shown: list[bool] = []
     actions.pane_changed.connect(seen.append)
+    actions.pane_visible_changed.connect(shown.append)
     actions.pane_actions[PANE_RIGHT].trigger()  # altta → sağda
     assert seen == [PANE_RIGHT]
     assert actions.pane_actions[PANE_RIGHT].isChecked()
     assert not actions.pane_actions[PANE_BOTTOM].isChecked()
-    actions.pane_actions[PANE_RIGHT].trigger()  # etkine tıklamak kapatır
-    assert seen == [PANE_RIGHT, PANE_OFF]
-    assert actions.pane == PANE_OFF
-    assert not actions.pane_actions[PANE_RIGHT].isChecked()
-    actions.pane_actions[PANE_BOTTOM].trigger()
-    assert seen[-1] == PANE_BOTTOM
+    actions.pane_actions[PANE_RIGHT].trigger()  # etkine tıklamak konumu bozmaz, paneli kapatmaz
+    assert actions.pane == PANE_RIGHT
+    assert actions.pane_visible
+    assert shown == []
+    actions.pane_toggle.trigger()  # Ctrl+J: kapat
+    assert shown == [False]
+    assert actions.pane == PANE_RIGHT  # konum korunur
+    actions.pane_actions[PANE_BOTTOM].trigger()  # konum seçimi paneli de açar
+    assert actions.pane_visible
+    assert shown == [False, True]
     assert actions.pane_actions[PANE_BOTTOM].isChecked()
 
 
@@ -93,14 +98,25 @@ def test_settings_roundtrip(qtbot: QtBot, tmp_path: Path) -> None:
     assert not second.pane_actions[PANE_BOTTOM].isChecked()
 
 
-def test_pane_off_is_persisted(qtbot: QtBot, tmp_path: Path) -> None:
+def test_pane_visibility_is_persisted(qtbot: QtBot, tmp_path: Path) -> None:
     settings = make_settings(tmp_path)
     first = ViewActions()
     first.bind_settings(settings)
-    first.pane_actions[PANE_BOTTOM].trigger()  # varsayılan açık → kapat
+    first.pane_toggle.trigger()  # varsayılan açık → kapat
     second = ViewActions()
     second.bind_settings(make_settings(tmp_path))
-    assert second.pane == PANE_OFF
+    assert not second.pane_visible
+    assert not second.pane_toggle.isChecked()
+    assert second.pane == PANE_BOTTOM
+
+
+def test_legacy_off_value_means_closed_bottom(qtbot: QtBot, tmp_path: Path) -> None:
+    settings = make_settings(tmp_path)
+    settings.setValue("translate/pane", "off")
+    actions = ViewActions()
+    actions.bind_settings(settings)
+    assert actions.pane == PANE_BOTTOM
+    assert not actions.pane_visible
 
 
 def test_bad_settings_fall_back(qtbot: QtBot, tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
@@ -128,7 +144,8 @@ def test_shortcuts_and_icons(qtbot: QtBot) -> None:
     ]
     assert actions.pane_actions[PANE_BOTTOM].shortcut().toString() == "Ctrl+Alt+B"
     assert actions.pane_actions[PANE_RIGHT].shortcut().toString() == "Ctrl+Alt+R"
-    every = [actions.symbols, *actions.align_actions.values(), *actions.pane_actions.values()]
+    assert actions.pane_toggle.shortcut().toString() == "Ctrl+J"
+    every = [actions.symbols, actions.pane_toggle, *actions.align_actions.values(), *actions.pane_actions.values()]
     for action in every:
         assert not action.icon().isNull(), action.text()
         assert action.toolTip()

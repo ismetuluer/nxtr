@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import dataclasses
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QSettings, Qt
-from PySide6.QtGui import QShortcut
 from PySide6.QtWidgets import QMenu, QTableWidget, QTableWidgetItem
 from pytestqt.qtbot import QtBot
 
@@ -19,7 +17,6 @@ from nxceviri.core.translate.replace import plan_replace
 from nxceviri.core.translate.status import Status
 from nxceviri.gui import main_window as main_window_module
 from nxceviri.gui.changes_dialog import NEW_TEXT_ROLE, ChangesDialog
-from nxceviri.gui.find_replace import SCOPE_ALL, SCOPE_SELECTED, FindReplaceDialog
 from nxceviri.gui.main_window import STEP_TRANSLATE, MainWindow
 
 LB = ControlCode(b"\\n", "Satır sonu")
@@ -108,127 +105,6 @@ def test_plan_replace_regex() -> None:
     assert (guarded.changes, guarded.skipped) == ([], 1)
 
 
-def test_find_replace_scopes_and_regex(qtbot: QtBot, window: MainWindow) -> None:
-    page = window.translate_page
-    page.table.selectRow(0)  # s01
-    selected = page.selected_rows()
-    assert len(selected) == 1
-    dialog = FindReplaceDialog(window, page.model.rows, page.filtered_rows(), selected)
-    qtbot.addWidget(dialog)
-    dialog.find_edit.setText("içki")
-    dialog.replace_edit.setText("şey")
-    assert dialog.scope.currentData() == SCOPE_ALL
-    assert dialog.plan.changes == [(selected[0].id, "Benimle bir şey iç.")]
-    assert "1 satırda 1 eşleşme" in dialog.summary.text()
-    assert "Örnek:" in dialog.preview.text()
-
-    dialog.scope.setCurrentIndex(dialog.scope.findData(SCOPE_SELECTED))
-    assert dialog.plan.changes == [(selected[0].id, "Benimle bir şey iç.")]
-
-    dialog.regex.setChecked(True)
-    dialog.find_edit.setText("içk(i)")
-    assert dialog.plan.error == ""
-    assert dialog.plan.changes == [(selected[0].id, "Benimle bir şey iç.")]
-    assert dialog.apply_button.isEnabled()
-
-    dialog.find_edit.setText("içk(")
-    assert dialog.plan.error.startswith("Düzenli ifade geçersiz")
-    assert not dialog.apply_button.isEnabled()
-    dialog.close()
-
-
-def test_find_replace_one_by_one(qtbot: QtBot, window: MainWindow) -> None:
-    page = window.translate_page
-    rows = {r.id: r for r in page.model.rows}
-    written: list[tuple[int, str]] = []
-
-    def apply(changes: list[tuple[int, str]]) -> list[TranslationRow]:
-        updated: list[TranslationRow] = []
-        for row_id, new in changes:
-            row = dataclasses.replace(rows[row_id], translation=new, status=Status.MACHINE)
-            rows[row_id] = row
-            updated.append(row)
-        written.extend(changes)
-        return updated
-
-    dialog = FindReplaceDialog(window, list(rows.values()), list(rows.values()), (), "i", apply=apply)
-    qtbot.addWidget(dialog)
-    dialog.replace_edit.setText("ı")
-    assert len(dialog._matches) == 3  # s01, s02, s04
-    assert "Eşleşme 1 / 3" in dialog.match_label.text()
-    assert dialog.replace_button.isEnabled()
-    assert dialog.next_button.isEnabled()
-
-    dialog._next_match()
-    assert "Eşleşme 2 / 3" in dialog.match_label.text()
-    dialog._next_match()
-    dialog._next_match()  # sonraki yok: başa döner
-    assert "Eşleşme 1 / 3" in dialog.match_label.text()
-
-    dialog._replace_next()
-    assert len(dialog.applied) == 1
-    assert written == dialog.applied
-    assert len(dialog._matches) == 2  # yazılan satır artık eşleşmiyor, imleç sonrakine kaydı
-    assert "Eşleşme 1 / 2" in dialog.match_label.text()
-
-    dialog._replace_all()  # kalan iki satır
-    assert len(written) == 3
-    assert dialog._matches == []
-    assert not dialog.replace_button.isEnabled()
-    assert not dialog.apply_button.isEnabled()
-    dialog.close()
-
-
-def test_find_replace_one_by_one_is_undoable(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
-    class Stepping(FindReplaceDialog):
-        def exec(self) -> int:
-            self.find_edit.setText("i")
-            self.replace_edit.setText("ı")
-            assert len(self._matches) == 3
-            self._replace_next()
-            self._replace_next()
-            return FindReplaceDialog.DialogCode.Rejected
-
-    monkeypatch.setattr(main_window_module, "FindReplaceDialog", Stepping)
-    window.find_replace()
-    rows = _rows(window)
-    assert rows["s01"].translation == "Benımle bır ıçkı ıç."
-    assert rows["s02"].translation == "Bu lımıt!"
-    assert rows["s04"].translation == "Ben içmem."  # üçüncü eşleşmeye dokunulmadı
-    assert window.translate_page.changes_button.text() == "Son İşin Değişiklikleri (2)…"
-    # Tek tek yazımlar aynı iş kimliğinde birleşir: Ctrl+Z ikisini birden geri alır.
-    window.undo_last()
-    rows = _rows(window)
-    assert rows["s01"].translation == "Benimle bir içki iç."
-    assert rows["s02"].translation == "Bu limit!"
-
-
-def test_ctrl_f_focuses_search_box(window: MainWindow) -> None:
-    from PySide6.QtTest import QTest
-
-    page = window.translate_page
-    page.table.setFocus()
-    QTest.keyClick(page.table, Qt.Key.Key_F, Qt.KeyboardModifier.ControlModifier)
-    assert page.search.hasFocus()
-
-
-def test_dialog_ctrl_f_and_f3(qtbot: QtBot, window: MainWindow) -> None:
-    page = window.translate_page
-    rows = list(page.model.rows)
-    dialog = FindReplaceDialog(window, rows, rows)
-    qtbot.addWidget(dialog)
-    dialog.find_edit.setText("i")
-    dialog.replace_edit.setText("ı")
-    shortcuts = {s.key().toString(): s for s in dialog.findChildren(QShortcut)}
-    assert {"Ctrl+F", "F3"} <= set(shortcuts)
-    assert "Eşleşme 1 / 3" in dialog.match_label.text()
-    shortcuts["Ctrl+F"].activated.emit()  # "Aranan" alanına gelir ve metni seçer
-    assert dialog.find_edit.selectedText() == "i"
-    shortcuts["F3"].activated.emit()  # sonraki eşleşme
-    assert "Eşleşme 2 / 3" in dialog.match_label.text()
-    dialog.close()
-
-
 def test_next_open_skips_approved_and_wraps(window: MainWindow) -> None:
     page = window.translate_page
     page._select_proxy_row(3)  # s04 onaylı, son satır
@@ -293,27 +169,6 @@ def test_show_row_in_place_needs_a_single_row(window: MainWindow) -> None:
     reveal = next(a for a in _more(menu).actions() if a.text() == "Satırı yerinde göster")
     assert not reveal.isEnabled()
     menu.close()
-
-
-def test_find_replace_is_undoable(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
-    from nxceviri.gui.find_replace import FindReplaceDialog
-
-    class Accepting(FindReplaceDialog):
-        def exec(self) -> int:
-            self.find_edit.setText("içki")
-            self.replace_edit.setText("şey")
-            assert "1 satırda 1 eşleşme" in self.summary.text()
-            return FindReplaceDialog.DialogCode.Accepted
-
-    monkeypatch.setattr(main_window_module, "FindReplaceDialog", Accepting)
-    window.find_replace()
-    assert _rows(window)["s01"].translation == "Benimle bir şey iç."
-    assert _rows(window)["s01"].status == Status.MACHINE  # durum korunur
-    page = window.translate_page
-    assert page.changes_button.text() == "Son İşin Değişiklikleri (1)…"
-    (change,) = window.project.job_changes(window._last_job or "")
-    window._revert([change])
-    assert _rows(window)["s01"].translation == "Benimle bir içki iç."
 
 
 def test_banner_can_be_closed(window: MainWindow) -> None:

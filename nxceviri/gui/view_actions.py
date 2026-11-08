@@ -1,8 +1,9 @@
-"""Çeviri sayfasının görünüm durumu: semboller, metin hizası ve düzenleme paneli konumu.
+"""Çeviri sayfasının görünüm durumu: semboller, metin hizası ve çeviri panelinin konumu ile açık/kapalı durumu.
 
-Üç durum da `QAction`dır ve **tek bir nesnede** yaşar; araç çubuğu düğmeleri, Görünüm menüsü ve durum çubuğundaki ¶
-düğmesi aynı eylemleri paylaşır (biri değişince hepsi değişir). Değerler `QSettings`te saklanır; bozuk bir değer
-varsayılana döner ve günlüğe uyarı yazılır.
+Durumların hepsi `QAction`dır ve **tek bir nesnede** yaşar; araç çubuğu düğmeleri, Görünüm menüsü ve durum
+çubuğundaki ¶ düğmesi aynı eylemleri paylaşır (biri değişince hepsi değişir). Panelin konumu (altta/sağda) ile
+açık/kapalı olması ayrı durumlardır: `Ctrl+J` açıp kapatır, konum seçimi paneli de açar. Değerler `QSettings`te
+(uygulama ayarı, proje başına değil) saklanır; bozuk bir değer varsayılana döner ve günlüğe uyarı yazılır.
 """
 
 from __future__ import annotations
@@ -21,14 +22,16 @@ ALIGN_CENTER = "center"
 ALIGN_RIGHT = "right"
 ALIGNMENTS = (ALIGN_LEFT, ALIGN_CENTER, ALIGN_RIGHT)
 
-PANE_OFF = "off"
 PANE_BOTTOM = "bottom"
 PANE_RIGHT = "right"
-PANES = (PANE_OFF, PANE_BOTTOM, PANE_RIGHT)
+PANES = (PANE_BOTTOM, PANE_RIGHT)
+#: Eski sürümlerde "kapalı" konum değeriydi; artık ayrı `pane_visible` ayarıdır.
+_LEGACY_PANE_OFF = "off"
 
 KEY_SYMBOLS = "translate/symbols"
 KEY_ALIGN = "translate/align"
 KEY_PANE = "translate/pane"
+KEY_PANE_VISIBLE = "translate/pane_visible"
 
 _ALIGN_SPECS = {
     ALIGN_LEFT: ("Sola Hizala", "align-left", "Ctrl+L", "Metni sola hizala (yalnızca görünüm)"),
@@ -45,12 +48,14 @@ class ViewActions(QObject):
     symbols_changed = Signal(bool)
     align_changed = Signal(str)
     pane_changed = Signal(str)
+    pane_visible_changed = Signal(bool)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._settings: QSettings | None = None
         self._align = ALIGN_LEFT
         self._pane = PANE_BOTTOM
+        self._pane_visible = True
 
         self.symbols = QAction("Sembolleri Göster/Gizle", self)
         self.symbols.setCheckable(True)
@@ -73,6 +78,16 @@ class ViewActions(QObject):
             self.align_actions[key] = action
         self.align_actions[ALIGN_LEFT].setChecked(True)
 
+        self.pane_toggle = QAction("Çeviri Paneli", self)
+        self.pane_toggle.setCheckable(True)
+        self.pane_toggle.setChecked(True)
+        self.pane_toggle.setShortcut(QKeySequence("Ctrl+J"))
+        self.pane_toggle.setToolTip("Çeviri panelini aç/kapat (Ctrl+J)")
+        bind_icon(self.pane_toggle, "panel-bottom")
+        self.pane_toggle.toggled.connect(self._on_pane_visible)
+
+        pane_group = QActionGroup(self)
+        pane_group.setExclusive(True)
         self.pane_actions: dict[str, QAction] = {}
         for key, (text, icon_name, shortcut, tip) in _PANE_SPECS.items():
             action = QAction(text, self)
@@ -80,7 +95,8 @@ class ViewActions(QObject):
             action.setShortcut(QKeySequence(shortcut))
             action.setToolTip(f"{tip} ({shortcut})")
             bind_icon(action, icon_name)
-            action.triggered.connect(lambda checked=False, k=key: self._on_pane(k, checked))
+            pane_group.addAction(action)
+            action.triggered.connect(lambda _checked=False, k=key: self._on_pane(k))
             self.pane_actions[key] = action
         self.pane_actions[PANE_BOTTOM].setChecked(True)
 
@@ -96,7 +112,21 @@ class ViewActions(QObject):
 
     @property
     def pane(self) -> str:
+        """Panelin konumu (`PANE_BOTTOM` ya da `PANE_RIGHT`); panel kapalıyken de seçili konumdur."""
         return self._pane
+
+    @property
+    def pane_visible(self) -> bool:
+        return self._pane_visible
+
+    def set_pane_visible(self, visible: bool) -> None:
+        """Paneli açar/kapatır (kısayol ve menüyle aynı yol: durum kaydedilir, sinyal yayılır)."""
+        self.pane_toggle.setChecked(visible)
+
+    def set_pane_room(self, room: bool) -> None:
+        """Panele yer yoksa ipucu bunu söyler (panel gizlenir, seçim değişmez)."""
+        tip = "Çeviri panelini aç/kapat (Ctrl+J)"
+        self.pane_toggle.setToolTip(tip if room else f"{tip}. Pencere küçük olduğu için panele yer yok.")
 
     # --- kullanıcı eylemleri -------------------------------------------------------------
 
@@ -115,11 +145,17 @@ class ViewActions(QObject):
         self._save(KEY_ALIGN, key)
         self.align_changed.emit(key)
 
-    def _on_pane(self, key: str, checked: bool) -> None:
-        new = key if checked else PANE_OFF  # etkin olana tekrar tıklamak paneli kapatır
-        self._set_pane(new)
-        self._save(KEY_PANE, new)
-        self.pane_changed.emit(new)
+    def _on_pane(self, key: str) -> None:
+        """Konum seçimi paneli de açar."""
+        self._set_pane(key)
+        self._save(KEY_PANE, key)
+        self.pane_changed.emit(key)
+        self.set_pane_visible(True)
+
+    def _on_pane_visible(self, visible: bool) -> None:
+        self._pane_visible = visible
+        self._save(KEY_PANE_VISIBLE, "1" if visible else "0")
+        self.pane_visible_changed.emit(visible)
 
     def _set_pane(self, pane: str) -> None:
         self._pane = pane
@@ -140,9 +176,15 @@ class ViewActions(QObject):
             log.warning("Hiza ayarı geçersiz (%r); sola hizalı kullanılıyor", raw_align)
             raw_align = ALIGN_LEFT
         raw_pane = str(settings.value(KEY_PANE, PANE_BOTTOM))
+        raw_visible = str(settings.value(KEY_PANE_VISIBLE, "0" if raw_pane == _LEGACY_PANE_OFF else "1"))
+        if raw_pane == _LEGACY_PANE_OFF:
+            raw_pane = PANE_BOTTOM
         if raw_pane not in PANES:
             log.warning("Panel ayarı geçersiz (%r); altta kullanılıyor", raw_pane)
             raw_pane = PANE_BOTTOM
+        if raw_visible not in ("0", "1"):
+            log.warning("Panel açık/kapalı ayarı geçersiz (%r); açık kullanılıyor", raw_visible)
+            raw_visible = "1"
         self.symbols.blockSignals(True)
         self.symbols.setChecked(raw_symbols == "1")
         self.symbols.blockSignals(False)
@@ -152,6 +194,10 @@ class ViewActions(QObject):
             action.setChecked(key == raw_align)
             action.blockSignals(False)
         self._set_pane(raw_pane)
+        self._pane_visible = raw_visible == "1"
+        self.pane_toggle.blockSignals(True)
+        self.pane_toggle.setChecked(self._pane_visible)
+        self.pane_toggle.blockSignals(False)
 
     def bind_settings(self, settings: QSettings) -> None:
         """Ayarları yükler ve bundan sonraki her değişikliği yazar."""
