@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import html
+import re
 from collections.abc import Callable
 from typing import Any
 
@@ -11,7 +13,6 @@ from PySide6.QtCore import (
     QAbstractTableModel,
     QEvent,
     QModelIndex,
-    QObject,
     QPersistentModelIndex,
     QPoint,
     QSettings,
@@ -37,14 +38,13 @@ from PySide6.QtWidgets import (
     QStackedWidget,
     QStyledItemDelegate,
     QStyleOptionViewItem,
-    QTableView,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 from nxceviri.core.errors import NxError
-from nxceviri.core.languages import sort_key
+from nxceviri.core.languages import natural_sort_key
 from nxceviri.core.project import TranslationRow, row_group
 from nxceviri.core.qa.checks import (
     KIND_LABELS,
@@ -63,12 +63,17 @@ from nxceviri.gui.changes_dialog import HtmlDelegate, diff_html
 from nxceviri.gui.editor_pane import EditorPane
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.marked_delegate import ROW_ROLE, MarkedDelegate, kind_of_row
+from nxceviri.gui.status_cell import STATUS_ICONS, STATUS_ROLE, StatusDelegate, cell_width, issue_icon, status_icon
+from nxceviri.gui.table_columns import ColumnFitter, FitTableView, HeaderColumnMenu
 from nxceviri.gui.theme import current_tokens
+from nxceviri.gui.value_filter import FilterHeader, FilterPopup, ValueFilter
 from nxceviri.gui.view_actions import PANE_OFF, PANE_RIGHT, ViewActions
 from nxceviri.gui.widgets import Banner, Card, EmptyState, button, format_int, label, tip_html, title_row
 
-COL_SOURCE, COL_TRANSLATION, COL_STATUS, COL_FILE, COL_KEY, COL_PREVIOUS = range(6)
-_COLUMNS = ("Orijinal", "Çeviri", "Durum", "Dosya", "Anahtar", "Önceki çeviri")
+COL_SOURCE, COL_TRANSLATION, COL_STATUS, COL_FILE, COL_KEY, COL_PREVIOUS, COL_NO = range(7)
+_COLUMNS = ("Orijinal", "Çeviri", "Durum", "Dosya", "Anahtar", "Önceki çeviri", "No")
+#: Arama kutusuna "#120" yazılınca 120 numaralı satıra gidilir.
+_NUMBER_QUERY = re.compile(r"#\s*(\d+)")
 #: Durum süzgecinde "son işte değişen satırlar" seçeneğinin değeri.
 CHANGED_FILTER = "@changed"
 #: Durum süzgecinde yalnızca renkle işaretli (sorunlu) satırlar.
@@ -84,14 +89,6 @@ ISSUE_COLORS = {
 }
 #: Canlı izlemede yeni yazılan satırların vurgulu kaldığı süre (ms).
 _FLASH_MS = 2500
-_STATUS_COLORS = {
-    Status.UNTRANSLATED: "muted",
-    Status.MACHINE: "accent",
-    Status.REDACTED: "redacted",
-    Status.APPROVED: "success",
-    Status.ERROR: "danger",
-}
-
 #: Durum sütunu sıralanırken kullanılan sıra: sorunlu satırlar önce gelir.
 _STATUS_RANK = {
     Status.ERROR: 0,
@@ -102,11 +99,22 @@ _STATUS_RANK = {
 }
 #: Durum sütununda son işi ("· redaksiyon") gösterilen durumlar.
 _MARKED_STATUSES = (Status.MACHINE, Status.REDACTED, Status.ERROR)
-#: Başlık genişlikleri: durum, dosya, anahtar sütunlarının varsayılanı; kalan alan orijinal/çeviriye bölünür.
-_FIXED_WIDTHS = {COL_STATUS: 190, COL_FILE: 150, COL_KEY: 150}
-_MIN_COLUMN_WIDTH = 60
+#: Dar sütunların (varsayılan, en az) genişliği; kalan alan Orijinal/Çeviri (ve açıksa Önceki çeviri) arasında bölünür.
+_NARROW_COLUMNS = {
+    COL_NO: (52, 40),
+    COL_STATUS: (cell_width(), cell_width() - 8),
+    COL_FILE: (130, 60),
+    COL_KEY: (140, 60),
+}
+#: Esnek sütunlar: (ağırlık, en az genişlik). "Önceki çeviri" yalnızca açıkken esnektir.
+_FLEX_COLUMNS = {COL_SOURCE: (0.45, 120), COL_TRANSLATION: (0.55, 120)}
+_PREVIOUS_FLEX = (0.55, 120)
+_MIN_COLUMN_WIDTH = 40
 #: "Önceki çeviri" sütunu açılınca en az bu genişlikte gösterilir.
 _MIN_PREVIOUS_WIDTH = 200
+#: Başlık menüsünde gizlenebilen sütunlar; Orijinal ve Çeviri her zaman görünür.
+_MENU_COLUMNS = {COL_NO: "No", COL_SOURCE: "Orijinal", COL_TRANSLATION: "Çeviri", COL_STATUS: "Durum"}
+_MENU_COLUMNS_EXTRA = {COL_FILE: "Dosya", COL_KEY: "Anahtar"}
 _RESIZE_DELAY_MS = 60
 #: Büyük harfle gösterilen satırların anahtar sütunundaki işareti.
 _UPPERCASE_MARK = "⇧ "
@@ -146,6 +154,25 @@ def issue_legend_html() -> str:
     return f"<b>Çeviri metninin rengi sorunu gösterir:</b><table>{rows}</table>Ayrıntı satırın ipucunda."
 
 
+def status_legend_html() -> str:
+    """Durum simgelerinin açıklaması (Durum başlığının ipucu)."""
+    t = current_tokens()
+    names = {
+        Status.UNTRANSLATED: "Çevrilmedi (gri boş daire)",
+        Status.MACHINE: "Makine çevirisi (mavi bilgisayar)",
+        Status.REDACTED: "Redakte edildi (yeşil bilgisayar)",
+        Status.APPROVED: "Onaylandı (yeşil kişi)",
+        Status.ERROR: "Hatalı, dışa aktarılmaz (kırmızı üçgen)",
+    }
+    rows = "".join(
+        f"<tr><td style='color:{t[STATUS_ICONS[s][1]]}'>■</td><td>{html.escape(v)}</td></tr>" for s, v in names.items()
+    )
+    return (
+        f"<b>Durum simgeleri:</b><table>{rows}"
+        f"<tr><td style='color:{t['warning']}'>■</td><td>Uyarısı olan satır (sarı üçgen)</td></tr></table>"
+    )
+
+
 class TranslationModel(QAbstractTableModel):
     """Binlerce satırda akıcı çalışan sanal model. Düzenlemeler `commit` ile hemen kaydedilir."""
 
@@ -156,6 +183,9 @@ class TranslationModel(QAbstractTableModel):
         self.rows: list[TranslationRow] = []  # görüntülenen sıra
         self._pos: dict[int, int] = {}  # satır kimliği → görüntülenen sıra
         self._original: list[int] = []  # özgün (veritabanı) sırasındaki satır kimlikleri
+        self._number: dict[
+            int, int
+        ] = {}  # satır kimliği → No (özgün sıradaki yeri, 1'den başlar; sıralamadan etkilenmez)
         self.sort_column = -1
         self.sort_order = Qt.SortOrder.AscendingOrder
         self.commit: CommitFn | None = None
@@ -208,10 +238,18 @@ class TranslationModel(QAbstractTableModel):
         parts = ([f"✖ {errors} hata"] if errors else []) + ([f"⚠ {warnings} uyarı"] if warnings else [])
         return " · ".join(parts)
 
+    def _issue_severity(self, r: TranslationRow) -> str | None:
+        """Durum hücresindeki üçgenin türü: "error", "warning" ya da sorun yoksa None."""
+        found = self.issues(r)
+        if not found:
+            return None
+        return "error" if any(i.severity == SEVERITY_ERROR for i in found) else "warning"
+
     def set_rows(self, rows: list[TranslationRow]) -> None:
         self.beginResetModel()
         self._checked.clear()
         self._original = [r.id for r in rows]
+        self._number = {row_id: n for n, row_id in enumerate(self._original, start=1)}
         self.rows = list(rows)
         self._reorder()
         self.endResetModel()
@@ -226,6 +264,15 @@ class TranslationModel(QAbstractTableModel):
 
     def position(self, row_id: int) -> int | None:
         return self._pos.get(row_id)
+
+    def number(self, row_id: int) -> int:
+        """Satırın No'su: projeye aktarım sırası (1'den başlar); sıralama ve süzgeçle değişmez."""
+        return self._number.get(row_id, 0)
+
+    def row_by_number(self, number: int) -> TranslationRow | None:
+        if not 1 <= number <= len(self._original):
+            return None
+        return self.row_by_id(self._original[number - 1])
 
     def row_by_id(self, row_id: int) -> TranslationRow | None:
         i = self._pos.get(row_id)
@@ -257,22 +304,21 @@ class TranslationModel(QAbstractTableModel):
             self._flash.difference_update(ids)
         self._ids_changed(ids)
 
-    @staticmethod
-    def _sort_key(r: TranslationRow, col: int) -> Any:
+    def _sort_key(self, r: TranslationRow, col: int) -> Any:
+        """Sütun sıralama anahtarı: metinlerde doğal sıralama (1, 2, 10), Türkçe harf sırasıyla; No ve durum sayısal."""
+        if col == COL_NO:
+            return self._number.get(r.id, 0)
         if col == COL_SOURCE:
-            return sort_key(r.source)
+            return natural_sort_key(r.source)
         if col == COL_TRANSLATION:
-            return sort_key(r.translation)
+            return natural_sort_key(r.translation)
         if col == COL_STATUS:
             return _STATUS_RANK[Status(r.status)]
         if col == COL_FILE:
-            return sort_key(r.file.rsplit(">", 1)[-1].rsplit("/", 1)[-1])
-        return sort_key(r.context or r.key)
-
-    def _sort_key_for(self, r: TranslationRow, col: int) -> Any:
+            return natural_sort_key(r.file.rsplit(">", 1)[-1].rsplit("/", 1)[-1])
         if col == COL_PREVIOUS:
-            return sort_key(self.previous.get(r.id, ""))
-        return self._sort_key(r, col)
+            return natural_sort_key(self.previous.get(r.id, ""))
+        return natural_sort_key(r.context or r.key)
 
     def _reorder(self) -> None:
         """`rows` listesini geçerli sıralamaya göre dizer (eşit olanlar özgün sırayı korur)."""
@@ -280,9 +326,7 @@ class TranslationModel(QAbstractTableModel):
         ordered = [by_id[i] for i in self._original if i in by_id]
         if self.sort_column >= 0:
             col = self.sort_column
-            ordered.sort(
-                key=lambda r: self._sort_key_for(r, col), reverse=self.sort_order == Qt.SortOrder.DescendingOrder
-            )
+            ordered.sort(key=lambda r: self._sort_key(r, col), reverse=self.sort_order == Qt.SortOrder.DescendingOrder)
         self.rows = ordered
         self._pos = {r.id: i for i, r in enumerate(ordered)}
 
@@ -303,6 +347,8 @@ class TranslationModel(QAbstractTableModel):
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             return _COLUMNS[section]
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.ToolTipRole and section == COL_STATUS:
+            return status_legend_html()
         return None
 
     def flags(self, index: _Index) -> Qt.ItemFlag:
@@ -331,7 +377,15 @@ class TranslationModel(QAbstractTableModel):
         col = index.column()
         if role == ROW_ROLE:
             return r
+        if role == STATUS_ROLE and col == COL_STATUS:
+            return Status(r.status), self._issue_severity(r)
+        if role == Qt.ItemDataRole.TextAlignmentRole and col == COL_NO:
+            return int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        if role == Qt.ItemDataRole.ForegroundRole and col == COL_NO:
+            return QColor(current_tokens()["muted"])
         if role == Qt.ItemDataRole.DisplayRole:
+            if col == COL_NO:
+                return str(self._number.get(r.id, 0))
             if col == COL_SOURCE:
                 return self._cell_text(r.source)
             if col == COL_TRANSLATION:
@@ -353,8 +407,6 @@ class TranslationModel(QAbstractTableModel):
             return marker + (r.context or r.key)
         if role == Qt.ItemDataRole.EditRole:
             return r.translation if col == COL_TRANSLATION else None
-        if role == Qt.ItemDataRole.ForegroundRole and col == COL_STATUS:
-            return QColor(current_tokens()[_STATUS_COLORS[Status(r.status)]])
         if role == Qt.ItemDataRole.ForegroundRole and col == COL_TRANSLATION and self.issue_colors:
             issue = self.flag(r)
             return None if issue is None else QColor(current_tokens()[ISSUE_COLORS[issue.kind]])
@@ -368,9 +420,14 @@ class TranslationModel(QAbstractTableModel):
         return None
 
     def _tooltip(self, r: TranslationRow, col: int) -> str | None:
+        if col == COL_NO:
+            n = self._number.get(r.id, 0)
+            return f"Satır {n}: projeye aktarım sırası. Arama kutusuna #{n} yazarak bu satıra gidilir."
         if col == COL_STATUS:
             mark = self.marks.get(r.id, "")
-            parts = [r.note] if r.note else []
+            parts = [STATUS_LABELS[Status(r.status)]]
+            if r.note:
+                parts.append(r.note)
             found = self.issues(r)
             if found:
                 parts.append("\n".join(f"{'✖' if i.severity == SEVERITY_ERROR else '⚠'} {i.message}" for i in found))
@@ -424,15 +481,18 @@ class TranslationFilter(QSortFilterProxyModel):
     def __init__(self) -> None:
         super().__init__()
         self.status = ""
-        self.group = ""
+        self.groups: frozenset[str] | None = None  # None: grup süzgeci yok
+        self.keys: frozenset[str] | None = None  # None: anahtar süzgeci yok
         self.text = ""
         # Düzenleme sırasında satırlar süzgeçten çıkıp yer değiştirmesin: süzgeç yalnızca süzgeç
         # değişince yeniden uygulanır. Sıralama proxy'de değil modelde yapılır (bkz. TranslationModel.sort_by).
         self.setDynamicSortFilter(False)
 
-    def update(self, status: str, group: str, text: str) -> None:
+    def update(self, status: str, groups: frozenset[str] | None, keys: frozenset[str] | None, text: str) -> None:
         self.beginFilterChange()
-        self.status, self.group, self.text = status, group, text.casefold()
+        self.status, self.groups, self.keys = status, groups, keys
+        # "#120" satıra gitmek içindir, metin araması değildir.
+        self.text = "" if _NUMBER_QUERY.fullmatch(text.strip()) else text.casefold()
         self.endFilterChange()
 
     def filterAcceptsRow(self, source_row: int, source_parent: _Index) -> bool:
@@ -447,7 +507,9 @@ class TranslationFilter(QSortFilterProxyModel):
                 return False
         elif self.status and r.status != self.status:
             return False
-        if self.group and row_group(r) != self.group:
+        if self.groups is not None and row_group(r) not in self.groups:
+            return False
+        if self.keys is not None and (r.context or r.key) not in self.keys:
             return False
         if not self.text:
             return True
@@ -641,12 +703,12 @@ class TranslatePage(QWidget):
         self.search.setClearButtonEnabled(True)
         self.search.setMinimumWidth(110)  # dar pencerede arama kutusu süzgeçlerden önce ezilmesin
         self.status_filter = QComboBox()
-        self.group_filter = QComboBox()
-        self.group_filter.setMinimumContentsLength(10)
-        self.group_filter.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        # Dosya/grup ve anahtar süzgeçleri sütun başlığındaki huniyle açılır (Excel tarzı, çoklu seçim).
+        self.group_filter = ValueFilter("Dosya ve grup")
+        self.key_filter = ValueFilter("Anahtar")
         filters.addWidget(self.search, 2)
         filters.addWidget(self.status_filter)
-        filters.addWidget(self.group_filter, 1)
+        filters.addStretch(1)
         # Görünüm seçenekleri tek menüde: dar pencerede filtre satırı sığsın.
         self.wrap_box = QAction("Metni kaydır", self, checkable=True)
         self.wrap_box.setChecked(True)
@@ -683,16 +745,23 @@ class TranslatePage(QWidget):
         self.model.setParent(self)  # model sayfayla birlikte yok olsun (geç kalan sinyaller ölü tabloya gitmesin)
         self.proxy = TranslationFilter()
         self.proxy.setSourceModel(self.model)
-        self.table = QTableView()
+        self.table = FitTableView()
+        self.filter_header = FilterHeader(self.table)
+        self.table.setHorizontalHeader(self.filter_header)
         self.table.setModel(self.proxy)
         self.source_delegate = MarkedDelegate(self.table, "source")
         self.translation_delegate = TranslationDelegate(self.table)
         self.table.setItemDelegateForColumn(COL_SOURCE, self.source_delegate)
         self.table.setItemDelegateForColumn(COL_TRANSLATION, self.translation_delegate)
         self.table.setItemDelegateForColumn(COL_PREVIOUS, HtmlDelegate(self.table))
+        self.table.setItemDelegateForColumn(COL_STATUS, StatusDelegate(self.table))
         self.table.setColumnHidden(COL_PREVIOUS, True)
-        # Önceki çeviri, karşılaştırması kolay olsun diye Çeviri sütununun hemen yanında görünür.
-        self.table.horizontalHeader().moveSection(COL_PREVIOUS, COL_TRANSLATION + 1)
+        # No en solda; Önceki çeviri, karşılaştırması kolay olsun diye Çeviri sütununun hemen yanında görünür.
+        self.table.horizontalHeader().moveSection(self.table.horizontalHeader().visualIndex(COL_NO), 0)
+        self.table.horizontalHeader().moveSection(
+            self.table.horizontalHeader().visualIndex(COL_PREVIOUS),
+            self.table.horizontalHeader().visualIndex(COL_TRANSLATION) + 1,
+        )
         for col in (COL_FILE, COL_KEY):
             self.table.setItemDelegateForColumn(col, _ElideLeftDelegate(self.table))
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -717,6 +786,7 @@ class TranslatePage(QWidget):
         h = self.table.horizontalHeader()
         h.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)  # her sütun sürüklenerek ayarlanır
         h.setStretchLastSection(False)
+        h.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         h.setMinimumSectionSize(_MIN_COLUMN_WIDTH)
         h.setSectionsClickable(True)
         h.setSortIndicatorShown(True)
@@ -726,9 +796,20 @@ class TranslatePage(QWidget):
         self.card.body.addWidget(self.table, 1)
         self.settings: QSettings | None = None
         self._machine_running = False
-        self._user_sized = False
-        self._fitting = False
-        self.table.viewport().installEventFilter(self)
+        self.fitter = ColumnFitter(self.table, _NARROW_COLUMNS, {**_FLEX_COLUMNS, COL_PREVIOUS: _PREVIOUS_FLEX})
+        self.fitter.resized.connect(self._schedule_fit_rows)
+        self.column_menu = HeaderColumnMenu(
+            self.table,
+            {**_MENU_COLUMNS, **_MENU_COLUMNS_EXTRA},
+            frozenset({COL_SOURCE, COL_TRANSLATION}),
+            self.fitter,
+        )
+        self.column_menu.toggled.connect(self._column_toggled)
+        self.filter_header.set_filter(COL_FILE, self.group_filter)
+        self.filter_header.set_filter(COL_KEY, self.key_filter)
+        self.filter_header.filter_clicked.connect(self._open_filter)
+        self._project_key: str | None = None
+        self._pending_filters: tuple[str, str] | None = None
         self._resize_timer = QTimer(self)
         self._resize_timer.setSingleShot(True)
         self._resize_timer.timeout.connect(self._fit_rows)
@@ -738,7 +819,6 @@ class TranslatePage(QWidget):
         self._scroll_timer.setSingleShot(True)
         self._scroll_timer.setInterval(0)
         self._scroll_timer.timeout.connect(self._scroll_row_into_view)
-        h.sectionResized.connect(self._section_resized)
         self.table.verticalScrollBar().valueChanged.connect(lambda _v: self._schedule_fit_rows())
         self.wrap_box.toggled.connect(self._set_wrap)
         self.colors_box.toggled.connect(self._set_issue_colors)
@@ -777,7 +857,8 @@ class TranslatePage(QWidget):
 
         self.search.textChanged.connect(self._refilter)
         self.status_filter.currentIndexChanged.connect(self._refilter)
-        self.group_filter.currentIndexChanged.connect(self._refilter)
+        self.group_filter.changed.connect(self._filters_edited)
+        self.key_filter.changed.connect(self._filters_edited)
         self.model.dataChanged.connect(self._update_progress)
         self.model.commit_failed.connect(lambda text: self.banner.show_message("danger", text))
         self.model.commit_failed.connect(self._remember_commit_error)
@@ -796,17 +877,8 @@ class TranslatePage(QWidget):
     def bind_settings(self, settings: QSettings) -> None:
         """Kayıtlı sütun genişliklerini ve kaydırma tercihini geri yükler."""
         self.settings = settings
-        saved = str(settings.value("translate/column_widths", ""))
-        try:
-            widths = [int(x) for x in saved.split(",")] if saved else []
-        except ValueError:
-            widths = []
-        if len(widths) >= COL_KEY + 1:  # eski sürümlerde "Önceki çeviri" sütunu yoktu
-            self._fitting = True
-            for col, w in enumerate(widths[: len(_COLUMNS)]):
-                self.table.horizontalHeader().resizeSection(col, max(_MIN_COLUMN_WIDTH, w))
-            self._fitting = False
-            self._user_sized = True
+        self.fitter.bind_settings(settings, "translate/column_widths")
+        self.column_menu.bind_settings(settings, "translate/hidden_columns")
         self.wrap_box.setChecked(str(settings.value("translate/wrap", "1")) != "0")
         self.colors_box.setChecked(str(settings.value("translate/issue_colors", "1")) != "0")
         self.follow_box.setChecked(str(settings.value("translate/follow", "1")) != "0")
@@ -814,34 +886,9 @@ class TranslatePage(QWidget):
         self._apply_view()
         self._apply_pane()
 
-    def _fit_columns(self) -> None:
-        """Kullanıcı elle ayarlamadıysa sütunları pencere genişliğine göre dağıtır."""
-        if self._user_sized:
-            return
-        h = self.table.horizontalHeader()
-        free = max(self.table.viewport().width() - sum(_FIXED_WIDTHS.values()), 2 * 160)
-        self._fitting = True
-        if self.table.isColumnHidden(COL_PREVIOUS):
-            h.resizeSection(COL_SOURCE, int(free * 0.45))
-            h.resizeSection(COL_TRANSLATION, int(free * 0.55))
-        else:
-            h.resizeSection(COL_SOURCE, int(free * 0.3))
-            h.resizeSection(COL_TRANSLATION, int(free * 0.35))
-            h.resizeSection(COL_PREVIOUS, int(free * 0.35))
-        for col, w in _FIXED_WIDTHS.items():
-            h.resizeSection(col, w)
-        self._fitting = False
-        self._schedule_fit_rows()
-
-    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        """Tablo alanı yeniden boyutlanınca sütunlar, düzenleme alanı daralınca panelin düğmeleri uyarlanır."""
-        if watched is self.table.viewport() and event.type() == QEvent.Type.Resize:
-            self._fit_columns()
-        return super().eventFilter(watched, event)
-
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
-        self._fit_columns()
+        self.fitter.fit()
         self._schedule_fit_rows()
         self._pane_timer.start()
 
@@ -854,17 +901,6 @@ class TranslatePage(QWidget):
         self.model.sort_by(column, order)
         self.table.scrollToTop()
         self._refilter()
-
-    def _section_resized(self, _col: int, _old: int, _new: int) -> None:
-        if self._fitting:
-            return
-        self._user_sized = True
-        self._schedule_fit_rows()
-        if self.settings is not None:
-            h = self.table.horizontalHeader()
-            self.settings.setValue(
-                "translate/column_widths", ",".join(str(h.sectionSize(c)) for c in range(len(_COLUMNS)))
-            )
 
     def _refresh_legend(self) -> None:
         self.colors_box.setToolTip(issue_legend_html())
@@ -1126,24 +1162,25 @@ class TranslatePage(QWidget):
         self.status_filter.addItem("Tüm durumlar", "")
         for s in Status:
             if s not in (Status.MACHINE, Status.REDACTED) or s in present:
-                self.status_filter.addItem(STATUS_LABELS[s], s.value)
-        self.status_filter.addItem("Hata veya uyarısı olan satırlar", ISSUES_FILTER)
+                self.status_filter.addItem(status_icon(s), STATUS_LABELS[s], s.value)
+        self.status_filter.addItem(issue_icon("warning"), "Hata veya uyarısı olan satırlar", ISSUES_FILTER)
         if self.model.previous:
             self.status_filter.addItem(f"Son işte değişenler ({format_int(len(self.model.previous))})", CHANGED_FILTER)
         self.status_filter.setCurrentIndex(max(self.status_filter.findData(current_status), 0))
         self.status_filter.blockSignals(False)
         groups: dict[str, int] = {}
+        keys: dict[str, int] = {}
         for r in rows:
             g = row_group(r)
             groups[g] = groups.get(g, 0) + 1
-        current = self.group_filter.currentData()
-        self.group_filter.blockSignals(True)
-        self.group_filter.clear()
-        self.group_filter.addItem(f"Tüm gruplar ({format_int(len(groups))})", "")
-        for g in sorted(groups, key=str.casefold):
-            self.group_filter.addItem(f"{g} ({format_int(groups[g])})", g)
-        self.group_filter.setCurrentIndex(max(self.group_filter.findData(current), 0))
-        self.group_filter.blockSignals(False)
+            k = r.context or r.key
+            keys[k] = keys.get(k, 0) + 1
+        self.group_filter.set_values(groups)
+        self.key_filter.set_values(keys)
+        if self._pending_filters is not None:  # proje değişti: kayıtlı süzgeçler artık değerler bilindiği için yüklenir
+            self.group_filter.load_json(self._pending_filters[0])
+            self.key_filter.load_json(self._pending_filters[1])
+            self._pending_filters = None
         self.stack.setCurrentWidget(self.content if rows else self.empty)
         self.banner.show_message("danger", "")
         self._refilter()
@@ -1157,7 +1194,10 @@ class TranslatePage(QWidget):
         # Süzgeç gevşeyince görünüm başa dönmesin: seçili (geçerli) satır görünür kalırsa oraya dönülür.
         current = self.current_row()
         self.proxy.update(
-            str(self.status_filter.currentData()), str(self.group_filter.currentData() or ""), self.search.text()
+            str(self.status_filter.currentData()),
+            self.group_filter.selected,
+            self.key_filter.selected,
+            self.search.text(),
         )
         shown, total = self.proxy.rowCount(), self.model.rowCount()
         self.count_label.setText(f"{format_int(shown)} / {format_int(total)} satır gösteriliyor")
@@ -1165,6 +1205,78 @@ class TranslatePage(QWidget):
         if current is not None:
             self._scroll_row_id = current.id
             self._scroll_timer.start()
+        number = _NUMBER_QUERY.fullmatch(self.search.text().strip())
+        if number is not None:
+            self.go_to_number(int(number.group(1)))
+
+    def go_to_number(self, number: int) -> bool:
+        """No'su verilen satırı seçer ve ortalar (arama kutusuna "#120" yazılınca). Satır yoksa ya da süzgeçle
+        gizliyse False döner."""
+        row = self.model.row_by_number(number)
+        source = None if row is None else self.model.position(row.id)
+        if source is None:
+            return False
+        index = self.proxy.mapFromSource(self.model.index(source, 0))
+        if not index.isValid():
+            return False
+        self._select_proxy_row(index.row(), center=True)
+        return True
+
+    # --- Dosya/grup ve Anahtar süzgeçleri (başlıktaki huni) ----------------------------------
+
+    def open_filter(self, col: int) -> FilterPopup:
+        """Sütunun süzgeç panelini başlığın altında açar (huniye tıklayınca)."""
+        vf = self.group_filter if col == COL_FILE else self.key_filter
+        popup = FilterPopup(vf, self.table)
+        popup.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        header = self.table.horizontalHeader()
+        corner = QPoint(header.sectionViewportPosition(col), header.height())
+        popup.popup_below(header.mapToGlobal(corner))
+        return popup
+
+    def _open_filter(self, col: int) -> None:
+        self.open_filter(col)
+
+    def _filters_edited(self) -> None:
+        self._save_filters()
+        self._refilter()
+
+    def _column_toggled(self, col: int, hidden: bool) -> None:
+        """Gizlenen sütunun süzgeci kaldırılır: görünmeyen bir süzgeç satırları sessizce gizlemesin."""
+        if hidden and col == COL_FILE:
+            self.group_filter.clear()
+        elif hidden and col == COL_KEY:
+            self.key_filter.clear()
+        self._schedule_fit_rows()
+
+    def set_project_key(self, key: str | None) -> None:
+        """Süzgeç seçimlerinin hatırlanacağı proje kimliği (ör. dosya yolu); `set_rows`tan önce çağrılır."""
+        self._project_key = key
+        self.group_filter.selected = None
+        self.key_filter.selected = None
+        self._pending_filters = None
+        if key is None or self.settings is None:
+            return
+        base = self._filters_setting(key)
+        self._pending_filters = (
+            str(self.settings.value(f"{base}/groups", "")),
+            str(self.settings.value(f"{base}/keys", "")),
+        )
+
+    @staticmethod
+    def _filters_setting(key: str) -> str:
+        return "translate/filters/" + hashlib.sha1(key.encode("utf-8")).hexdigest()[:16]
+
+    def _save_filters(self) -> None:
+        if self.settings is None or self._project_key is None:
+            return
+        base = self._filters_setting(self._project_key)
+        for name, vf in (("groups", self.group_filter), ("keys", self.key_filter)):
+            text = vf.to_json()
+            if text:
+                self.settings.setValue(f"{base}/{name}", text)
+            else:
+                self.settings.remove(f"{base}/{name}")
 
     def _scroll_row_into_view(self) -> None:
         """Bekleyen satırı görünür alanda tutar; satır süzgeçten çıktıysa bir şey yapmaz."""
@@ -1260,24 +1372,27 @@ class TranslatePage(QWidget):
             self.show_notice("success", "Arama ve süzgeçler temizlendi; satır kendi yerinde gösteriliyor.")
 
     def _clear_filters(self) -> bool:
-        """Arama metnini, durum ve grup süzgeçlerini birlikte temizler; bir şey değiştiyse True döner."""
+        """Arama metnini, durum, grup ve anahtar süzgeçlerini birlikte temizler; bir şey değiştiyse True döner."""
         changed = (
             bool(self.search.text())
             or bool(str(self.status_filter.currentData() or ""))
-            or bool(str(self.group_filter.currentData() or ""))
+            or self.group_filter.active
+            or self.key_filter.active
         )
         if not changed:
             return False
-        widgets = (self.search, self.status_filter, self.group_filter)
+        widgets = (self.search, self.status_filter, self.group_filter, self.key_filter)
         for widget in widgets:
             widget.blockSignals(True)
         try:
             self.search.clear()
             self.status_filter.setCurrentIndex(0)
-            self.group_filter.setCurrentIndex(0)
+            self.group_filter.clear()
+            self.key_filter.clear()
         finally:
             for widget in widgets:
                 widget.blockSignals(False)
+        self._save_filters()
         self._refilter()
         return True
 
@@ -1447,16 +1562,12 @@ class TranslatePage(QWidget):
             self._refilter()
 
     def _show_previous(self, on: bool) -> None:
-        self._fitting = True  # gizleme/gösterme genişlik değişikliği sayılır; kullanıcı ayarı sanılmasın
-        self.table.setColumnHidden(COL_PREVIOUS, not on)
-        self._fitting = False
-        if on and self.table.columnWidth(COL_PREVIOUS) < _MIN_PREVIOUS_WIDTH:  # elle ayarlanmış düzende de okunur olsun
-            self._fitting = True
+        self.fitter.set_hidden(COL_PREVIOUS, not on)
+        if on and self.fitter.user_sized and self.table.columnWidth(COL_PREVIOUS) < _MIN_PREVIOUS_WIDTH:
+            # Elle ayarlanmış düzende de okunur olsun.
             self.table.horizontalHeader().resizeSection(
                 COL_PREVIOUS, max(_MIN_PREVIOUS_WIDTH, self.table.columnWidth(COL_TRANSLATION))
             )
-            self._fitting = False
-        self._fit_columns()
         self._schedule_fit_rows()
 
     def show_live(self, ids: list[int]) -> None:

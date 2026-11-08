@@ -263,7 +263,7 @@ def test_show_row_in_place_clears_filters(window: MainWindow) -> None:
     page = window.translate_page
     s03 = _rows(window)["s03"]
     page.status_filter.setCurrentIndex(page.status_filter.findData(Status.UNTRANSLATED.value))
-    page.group_filter.setCurrentIndex(page.group_filter.findData(row_group(s03)))
+    page.group_filter.set_selected([row_group(s03)])
     page.search.setText("goal")
     assert page.proxy.rowCount() == 1
     page._show_context_menu(page.table.visualRect(page.proxy.index(0, 0)).center())
@@ -275,7 +275,7 @@ def test_show_row_in_place_clears_filters(window: MainWindow) -> None:
     menu.close()
     assert page.search.text() == ""
     assert page.status_filter.currentIndex() == 0
-    assert page.group_filter.currentIndex() == 0
+    assert not page.group_filter.active
     assert page.proxy.rowCount() == page.model.rowCount()
     current = page.current_row()
     assert current is not None
