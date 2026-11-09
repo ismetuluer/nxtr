@@ -176,9 +176,9 @@ def test_context_menu_reflow_action(window: MainWindow) -> None:
     page._show_context_menu(page.table.visualRect(page.proxy.index(0, 0)).center())
     menu = page.table.findChild(QMenu)
     assert menu is not None
-    more = next(a.menu() for a in menu.actions() if a.text() == "Daha fazla")
-    assert isinstance(more, QMenu)
-    reflow = next(a for a in more.actions() if a.text() == "Satırları yeniden böl")
+    edit = next(a.menu() for a in menu.actions() if a.text() == "Düzenle")
+    assert isinstance(edit, QMenu)
+    reflow = next(a for a in edit.actions() if a.text().startswith("Satırları yeniden böl"))
     assert reflow.isEnabled()
     reflow.trigger()
     menu.close()

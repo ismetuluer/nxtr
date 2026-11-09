@@ -23,7 +23,7 @@ from PySide6.QtCore import (
     QTimer,
     Signal,
 )
-from PySide6.QtGui import QAction, QColor, QKeyEvent, QKeySequence, QResizeEvent, QShortcut, QShowEvent
+from PySide6.QtGui import QAction, QColor, QHideEvent, QKeyEvent, QKeySequence, QResizeEvent, QShortcut, QShowEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -71,9 +71,11 @@ from nxceviri.gui.find_replace import (
     FindBar,
     FindCell,
     FindMarks,
+    FindWindow,
 )
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.marked_delegate import ROW_ROLE, MarkedDelegate, kind_of_row
+from nxceviri.gui.shortcuts import ShortcutRegistry, display_text
 from nxceviri.gui.status_cell import STATUS_ICONS, STATUS_ROLE, StatusDelegate, cell_width, issue_icon, status_icon
 from nxceviri.gui.table_columns import ColumnFitter, FitTableView, HeaderColumnMenu
 from nxceviri.gui.theme import current_tokens
@@ -98,6 +100,13 @@ ISSUE_COLORS = {
     "newlines": "issue_lines",
     "overflow": "warning",
 }
+#: Son işte değişiklik yokken "Önceki Çeviri Sütunu" ve "Son İşin Değişiklikleri" öğelerinin ipucu.
+NO_CHANGES_TIP = "Son işte değişiklik yok"
+_PREVIOUS_TIP = (
+    "Son yeniden çeviri, düzeltme veya otomatik düzeltmede değişen satırların önceki çevirisini ayrı "
+    "sütunda gösterir. Yalnızca değişenleri görmek için durum süzgecinden “Son işte değişenler”i seçin."
+)
+_MACHINE_TIP = "Ollama veya DeepL ile toplu çeviri, yeniden çeviri ve redaksiyon."
 #: Canlı izlemede yeni yazılan satırların vurgulu kaldığı süre (ms).
 _FLASH_MS = 2500
 #: Durum sütunu sıralanırken kullanılan sıra: sorunlu satırlar önce gelir.
@@ -135,6 +144,21 @@ _ROW_MARGIN = 8
 _VIEW_ROWS_CAP = 200
 
 _Index = QModelIndex | QPersistentModelIndex
+
+
+@dataclasses.dataclass(frozen=True)
+class SelectionCounts:
+    """Seçili satırların menülerde gösterilen sayıları."""
+
+    selected: int
+    translate: int
+    retranslate: int
+    revise: int
+    approvable: int
+    approved: int
+    with_translation: int
+
+
 #: Panel sağdayken en az bu genişlikte (px) gösterilir.
 PANE_MIN_WIDTH = 280
 #: Değişiklikleri kaydeder ve güncellenmiş satırları döndürür; hata olursa NxError fırlatır.
@@ -207,6 +231,7 @@ class TranslationModel(QAbstractTableModel):
         self.previous: dict[int, str] = {}  # son işte değişen satırların önceki çevirisi
         self._flash: set[int] = set()  # canlı izlemede az önce yazılan satırlar
         self.issue_colors = True  # çeviri metni sorun türüne göre renklendirilir
+        self.error_rows = False  # hatalı satırın bütün hücreleri hata rengine boyanır (isteğe bağlı)
         self.wrap = True  # tabloda metin kaydırma açık mı (satır sonları gerçek satır olarak gösterilir)
         self._checked: dict[int, tuple[TranslationRow, list[QaIssue]]] = {}  # satır → (denetlenen hâli, sorunları)
         #: Son "Kontrol Et" sonucu: satır → (denetlenen çeviri, sorunları). Çeviri değişince geçersiz sayılır.
@@ -242,7 +267,10 @@ class TranslationModel(QAbstractTableModel):
             by_row.setdefault(i.row_id, []).append(i)
         self._qa = {r.id: (r.translation, by_row[r.id]) for r in checked if r.id in by_row}
         if self.rows:
-            self.dataChanged.emit(self.index(0, COL_STATUS), self.index(len(self.rows) - 1, COL_STATUS))
+            # "Hatalı satırları vurgula" açıkken satırın bütün hücreleri hata rengine boyanır.
+            first = 0 if self.error_rows else COL_STATUS
+            last = self.columnCount() - 1 if self.error_rows else COL_STATUS
+            self.dataChanged.emit(self.index(0, first), self.index(len(self.rows) - 1, last))
 
     def _issue_summary(self, r: TranslationRow) -> str:
         found = self.issues(r)
@@ -446,8 +474,12 @@ class TranslationModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.ForegroundRole and col == COL_TRANSLATION and self.issue_colors:
             issue = self.flag(r)
             return None if issue is None else QColor(current_tokens()[ISSUE_COLORS[issue.kind]])
-        if role == Qt.ItemDataRole.BackgroundRole and r.id in self._flash:
-            return QColor(current_tokens()["warning_bg"])
+        if role == Qt.ItemDataRole.BackgroundRole:
+            if r.id in self._flash:
+                return QColor(current_tokens()["warning_bg"])
+            if self.error_rows and self._issue_severity(r) == "error":
+                return QColor(current_tokens()["danger_bg"])
+            return None
         if role == Qt.ItemDataRole.ToolTipRole:
             tip = self._tooltip(r, col)
             if col == COL_KEY and self.uppercase.applies(r.file, r.key, row_group(r)):
@@ -625,16 +657,20 @@ class TranslatePage(QWidget):
     history_requested = Signal(int)  # bir satırın çeviri geçmişi (satır kimliği)
     unapprove_requested = Signal(list)  # onayı kaldırılacak satır kimlikleri
     reflow_requested = Signal(list)  # satır sonları yeniden bölünecek satır kimlikleri
-    glossary_requested = Signal()
     cancel_machine = Signal()
     csv_export_requested = Signal()
     csv_import_requested = Signal()
     translation_export_requested = Signal()
     translation_import_requested = Signal()
 
-    def __init__(self) -> None:
+    #: Seçim (ya da seçili satırların durumu) değişti; menü çubuğu seçime bağlı öğeleri günceller.
+    selection_changed = Signal()
+
+    def __init__(self, shortcuts: ShortcutRegistry | None = None) -> None:
         super().__init__()
         self.setObjectName("page")
+        #: Tuşların tek kaynağı; verilmezse sayfa varsayılan tuşlarla tek başına çalışır (ana pencere kaydını verir).
+        self.shortcuts = shortcuts if shortcuts is not None else ShortcutRegistry(self)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(24, 22, 24, 22)
         lay.setSpacing(14)
@@ -664,33 +700,16 @@ class TranslatePage(QWidget):
         cl.setSpacing(12)
         self.banner = Banner(closable=True)
         cl.addWidget(self.banner)
-        action_row = QHBoxLayout()
-        action_row.addStretch(1)
-        self.machine_button = button("Makine Çevirisi…", "primary", icon="sparkles")
-        self.machine_button.setToolTip(tip_html("Ollama veya DeepL ile toplu çeviri, yeniden çeviri ve redaksiyon."))
+        # Birincil eylem süzgeç satırının sağındadır; gerisi menü çubuğundadır.
+        self.machine_button = button("Otomatik Çeviri", "primary", icon="sparkles")
         self.machine_button.clicked.connect(self.machine_requested)
-        # İkincil eylemler tek menüde: sık yol (Makine Çevirisi) önde, gerisi bir seviye altta.
-        more_menu = QMenu(self)
-        self.glossary_button = more_menu.addAction("Sözlük…")
-        self.glossary_button.triggered.connect(self.glossary_requested)
-        self.changes_button = more_menu.addAction("Son İşin Değişiklikleri…")
+        self.changes_button = QAction("Son İşin Değişiklikleri…", self)
         self.changes_button.triggered.connect(self.changes_requested)
-        self.changes_button.setVisible(False)
-        more_menu.addSeparator()
-        more_menu.addAction("Dış redaksiyon dosyası oluştur…").triggered.connect(self.csv_export_requested)
-        more_menu.addAction("Dış redaksiyondan içe aktar…").triggered.connect(self.csv_import_requested)
-        more_menu.addAction("Dış çeviri dosyası oluştur…").triggered.connect(self.translation_export_requested)
-        more_menu.addAction("Dış çeviriden içe aktar…").triggered.connect(self.translation_import_requested)
-        self.more_button = QToolButton()
-        self.more_button.setObjectName("viewButton")
-        self.more_button.setText("Daha Fazla")
-        self.more_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        bind_icon(self.more_button, "ellipsis")
-        self.more_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.more_button.setMenu(more_menu)
-        action_row.addWidget(self.more_button)
-        action_row.addWidget(self.machine_button)
-        cl.addLayout(action_row)
+        self.changes_button.setEnabled(False)
+        self.changes_button.setToolTip(NO_CHANGES_TIP)
+        self.shortcuts.bind("translate.changes", self.changes_button)
+        self.shortcuts.changed.connect(self._shortcut_changed)
+        self._refresh_machine_tip()
 
         # Makine çevirisi sürerken görünen şerit.
         self.run_panel = QWidget()
@@ -729,7 +748,7 @@ class TranslatePage(QWidget):
         #: Bul ve Değiştir'in yazma yolu (iş kimliği, geçmiş ve durum kuralları ana pencerede); satırları ya da hata
         #: olursa None döndürür.
         self.replace_fn: Callable[[list[tuple[int, str]]], list[TranslationRow] | None] | None = None
-        self.view_actions = ViewActions(self)
+        self.view_actions = ViewActions(self, self.shortcuts)
         self.view_actions.symbols_changed.connect(lambda _on: self._apply_view())
         self.view_actions.align_changed.connect(lambda _align: self._apply_view())
         self.view_actions.pane_changed.connect(lambda _pane: self._apply_pane())
@@ -757,37 +776,28 @@ class TranslatePage(QWidget):
         self.filter_chip.hide()
         filters.addWidget(self.filter_chip)
         filters.addStretch(1)
-        # Görünüm seçenekleri tek menüde: dar pencerede filtre satırı sığsın.
-        self.wrap_box = QAction("Metni kaydır", self, checkable=True)
+        # Görünüm seçenekleri menü çubuğundadır (Görünüm menüsü); eylemler burada yaşar, tablo durumu bunlara bağlıdır.
+        self.wrap_box = QAction("Metni Kaydır", self, checkable=True)
         self.wrap_box.setChecked(True)
         self.wrap_box.setToolTip(
             "Açıkken uzun metinler ve satır sonları hücre içinde gerçek satırlara kaydırılır, tamamı görünür. "
             "Kapalıyken her satır tek satır yüksekliğinde kalır."
         )
-        self.previous_box = QAction("Önceki çeviri sütunu", self, checkable=True)
-        self.previous_box.setToolTip(
-            "Son yeniden çeviri, düzeltme veya otomatik düzeltmede değişen satırların önceki çevirisini ayrı "
-            "sütunda gösterir. Yalnızca değişenleri görmek için durum süzgecinden “Son işte değişenler”i seçin."
-        )
+        self.previous_box = QAction("Önceki Çeviri Sütunu", self, checkable=True)
+        self.previous_box.setToolTip(NO_CHANGES_TIP)
         self.previous_box.setEnabled(False)
-        self.colors_box = QAction("Sorunları renkle göster", self, checkable=True)
+        self.colors_box = QAction("Sorunları Renkle Göster", self, checkable=True)
         self.colors_box.setChecked(True)
         self.colors_box.setToolTip(issue_legend_html())
-        view_menu = QMenu(self)
-        view_menu.setToolTipsVisible(True)
-        view_menu.aboutToShow.connect(self._refresh_legend)  # tema değişmiş olabilir
-        for act in (self.previous_box, self.wrap_box, self.colors_box):
-            view_menu.addAction(act)
-        self.view_button = QToolButton()
-        self.view_button.setObjectName("viewButton")
-        self.view_button.setText("Görünüm")
-        self.view_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        bind_icon(self.view_button, "settings")  # menü oku zaten sağda; ikinci bir ok olmasın
-        self.view_button.setToolTip(tip_html("Önceki çeviri sütunu, metin kaydırma ve sorun renkleri."))
-        self.view_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.view_button.setMenu(view_menu)
-        filters.addWidget(self.view_button)
-        # Panel göster/gizle: tablonun sağ üstünde küçük simge düğmesi (Ctrl+J ve Görünüm menüsüyle aynı eylem).
+        self.shortcuts.bind("view.wrap", self.wrap_box)
+        self.shortcuts.bind("view.previous", self.previous_box)
+        self.shortcuts.bind("view.issue_colors", self.colors_box)
+        self.error_rows_box = QAction("Hatalı Satırları Vurgula", self, checkable=True)
+        self.error_rows_box.setToolTip("Hatası olan satırların arka planı hata rengine boyanır (dışa aktarılmazlar).")
+        self.shortcuts.bind("view.error_rows", self.error_rows_box)
+        # Birincil eylem: tablonun sağ üstünde, panel düğmesinin solunda.
+        filters.addWidget(self.machine_button)
+        # Panel göster/gizle: tablonun sağ üstünde küçük simge düğmesi (Görünüm menüsüyle aynı eylem).
         self.pane_button = QToolButton()
         self.pane_button.setDefaultAction(self.view_actions.pane_toggle)
         self.pane_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
@@ -847,9 +857,9 @@ class TranslatePage(QWidget):
         h.setSortIndicatorClearable(True)
         h.setSortIndicator(-1, Qt.SortOrder.AscendingOrder)
         h.sortIndicatorChanged.connect(self._sort_changed)
-        self.find_bar = FindBar(self)
+        self.find_bar = FindBar(self, shortcuts=self.shortcuts)
         self.find_bar.closed.connect(self.table.setFocus)
-        self.card.body.addWidget(self.find_bar)
+        self.find_window = FindWindow(self.find_bar, self.table, self)
         self.card.body.addWidget(self.table, 1)
         self.settings: QSettings | None = None
         self._machine_running = False
@@ -880,20 +890,11 @@ class TranslatePage(QWidget):
         self.table.verticalScrollBar().valueChanged.connect(lambda _v: self.find_bar.view_scrolled())
         self.wrap_box.toggled.connect(self._set_wrap)
         self.colors_box.toggled.connect(self._set_issue_colors)
+        self.error_rows_box.toggled.connect(self._set_error_rows)
         self.previous_box.toggled.connect(self._show_previous)
         self.follow_box.toggled.connect(
             lambda on: self.settings.setValue("translate/follow", "1" if on else "0") if self.settings else None
         )
-        for keys, slot in (
-            (QKeySequence("Ctrl+F"), lambda: self.open_find(False)),
-            (QKeySequence("Ctrl+H"), lambda: self.open_find(True)),
-            (QKeySequence("Ctrl+Shift+F"), self.focus_search),
-            (QKeySequence("F3"), self._f3),
-            (QKeySequence("Shift+F3"), self._shift_f3),
-        ):
-            shortcut = QShortcut(QKeySequence(keys), self)
-            shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-            shortcut.activated.connect(slot)
         self._fit_rows()
 
         self.pane = EditorPane()
@@ -922,6 +923,7 @@ class TranslatePage(QWidget):
         self.model.commit_failed.connect(self._remember_commit_error)
         selection = self.table.selectionModel()
         selection.selectionChanged.connect(lambda *_args: self._sync_pane())
+        selection.selectionChanged.connect(lambda *_args: self.selection_changed.emit())
         selection.currentChanged.connect(lambda *_args: self._sync_pane())
         self.proxy.rowsRemoved.connect(lambda *_args: self._sync_pane())
         self.proxy.layoutChanged.connect(lambda *_args: self._sync_pane())
@@ -939,8 +941,10 @@ class TranslatePage(QWidget):
         self.column_menu.bind_settings(settings, "translate/hidden_columns")
         self.wrap_box.setChecked(str(settings.value("translate/wrap", "1")) != "0")
         self.colors_box.setChecked(str(settings.value("translate/issue_colors", "1")) != "0")
+        self.error_rows_box.setChecked(str(settings.value("translate/error_rows", "0")) == "1")
         self.follow_box.setChecked(str(settings.value("translate/follow", "1")) != "0")
         self.view_actions.bind_settings(settings)
+        self.find_window.bind_settings(settings)
         self._apply_view()
         self._apply_pane()
 
@@ -948,8 +952,13 @@ class TranslatePage(QWidget):
         """Projenin kayıtlı "Elle sınır"ını panele yükler (0: kapalı); sinyal yaymaz."""
         self.pane.set_manual_limit(limit)
 
+    def hideEvent(self, event: QHideEvent) -> None:
+        super().hideEvent(event)
+        self.find_window.suspend()  # sayfa görünmezken gizli tabloda arama/değiştirme yapılmasın
+
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
+        self.find_window.resume()
         self.fitter.fit()
         self._schedule_fit_rows()
         self._pane_timer.start()
@@ -964,8 +973,23 @@ class TranslatePage(QWidget):
         self.table.scrollToTop()
         self._refilter()
 
-    def _refresh_legend(self) -> None:
+    def _refresh_machine_tip(self) -> None:
+        key = self.shortcuts.text("translate.auto")
+        self.machine_button.setToolTip(tip_html(f"{_MACHINE_TIP} ({key})" if key else _MACHINE_TIP))
+
+    def _shortcut_changed(self, command_id: str) -> None:
+        if command_id == "translate.auto":
+            self._refresh_machine_tip()
+
+    def refresh_legend(self) -> None:
+        """Sorun renk açıklamasını geçerli temayla yeniler (Görünüm menüsü açılırken; tema değişmiş olabilir)."""
         self.colors_box.setToolTip(issue_legend_html())
+
+    def _set_error_rows(self, on: bool) -> None:
+        self.model.error_rows = on
+        self.table.viewport().update()
+        if self.settings is not None:
+            self.settings.setValue("translate/error_rows", "1" if on else "0")
 
     def _set_issue_colors(self, on: bool) -> None:
         self.model.issue_colors = on
@@ -1230,6 +1254,7 @@ class TranslatePage(QWidget):
     # --- veri --------------------------------------------------------------------------
 
     def set_rows(self, rows: list[TranslationRow]) -> None:
+        self.find_bar.close_bar()  # eski satırlardaki arama yeni proje/satırlarda anlamsızdır
         self.pane.flush()  # kaydedilmemiş panel metni satırlar yenilenmeden önce kaydedilir (kimlikle)
         # Satırlar yeniden kurulurken önceki süzgeçten kalan "seçili satıra dön" isteği geçersizdir.
         self._scroll_row_id = None
@@ -1385,8 +1410,14 @@ class TranslatePage(QWidget):
             self.table.scrollTo(index, QAbstractItemView.ScrollHint.EnsureVisible)
 
     def selected_rows(self) -> list[TranslationRow]:
-        indexes = self.table.selectionModel().selectedRows()
-        return [self.model.rows[self.proxy.mapToSource(i).row()] for i in indexes]
+        """Seçili satırlar (tablodaki sırayla). Tüm satır seçimi olduğundan seçim aralıkları gezilir;
+        `selectedRows()` her satırı sütun sütun sorguladığından 50.000 satırda saniyelerce sürer."""
+        rows = self.model.rows
+        proxy = self.proxy
+        picked: set[int] = set()
+        for part in self.table.selectionModel().selection():  # type: ignore[attr-defined]
+            picked.update(range(part.top(), part.bottom() + 1))
+        return [rows[proxy.mapToSource(proxy.index(r, 0)).row()] for r in sorted(picked)]
 
     def filtered_rows(self) -> list[TranslationRow]:
         """Arama ve filtrelere uyan (tabloda görünen) satırlar."""
@@ -1407,16 +1438,19 @@ class TranslatePage(QWidget):
         if self.model.rows:
             self.find_bar.open_bar(replace)
 
-    def _f3(self) -> None:
+    def find_next(self) -> None:
         """Bul çubuğu açıkken sonraki eşleşme; değilse sonraki bakılacak satır."""
-        if self.find_bar.isVisible():
+        if not self.find_bar.isHidden():
             self.find_bar.next()
         else:
             self.next_open()
 
-    def _shift_f3(self) -> None:
-        if self.find_bar.isVisible():
+    def find_previous(self) -> None:
+        """Bul çubuğu açıkken önceki eşleşme; değilse önceki bakılacak satır."""
+        if not self.find_bar.isHidden():
             self.find_bar.previous()
+        else:
+            self.next_open(-1)
 
     def find_rows(self, scope: int) -> list[TranslationRow]:
         if scope == SCOPE_VISIBLE:
@@ -1480,12 +1514,13 @@ class TranslatePage(QWidget):
             return None
         return self.model.rows[self.proxy.mapToSource(index).row()]
 
-    def next_open(self) -> None:
-        """Sonraki bakılacak satır: onaylanmamış (çevrilmemiş, makine, redakte, hatalı), sona gelince başa döner."""
+    def next_open(self, step: int = 1) -> None:
+        """Sonraki (`step` = -1: önceki) bakılacak satır: onaylanmamış (çevrilmemiş, makine, redakte, hatalı),
+        uca gelince öbür uca döner."""
         total = self.proxy.rowCount()
         start = self.table.currentIndex().row()
-        for step in range(1, total + 1):
-            i = (start + step) % total
+        for offset in range(1, total + 1):
+            i = (start + step * offset) % total
             r = self.model.rows[self.proxy.mapToSource(self.proxy.index(i, 0)).row()]
             if r.status != Status.APPROVED and r.source.strip():
                 self._select_proxy_row(i)
@@ -1572,73 +1607,95 @@ class TranslatePage(QWidget):
             self.table.selectRow(index.row())
         if not selection.selectedRows():
             return
-        rows = self.selected_rows()
+        self.build_context_menu(self.selected_rows()).popup(self.table.viewport().mapToGlobal(pos))
+
+    def _menu_action(self, menu: QMenu, text: str, icon_name: str | None, command: str | None = None) -> QAction:
+        """Bağlam menüsü satırı; kısayolu varsa kayıt defterindeki güncel tuş sağ sütunda görünür."""
+        key = display_text(self.shortcuts.sequence(command)) if command else ""
+        action = menu.addAction(f"{text}\t{key}" if key else text)
+        if icon_name is not None:
+            bind_icon(action, icon_name)
+        return action
+
+    @staticmethod
+    def _submenu(menu: QMenu, title: str, icon_name: str) -> QMenu:
+        sub = menu.addMenu(title)
+        sub.setToolTipsVisible(True)
+        bind_icon(sub.menuAction(), icon_name)
+        return sub
+
+    def build_context_menu(self, rows: list[TranslationRow]) -> QMenu:
+        """Satırların sağ tık menüsü: gruplu ve kısa; sayılar parantez içinde, kısayollar sağ sütunda."""
         menu = QMenu(self.table)
         menu.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         menu.setToolTipsVisible(True)
-        for action, text in (
-            (ACTION_TRANSLATE, "Seçili satırları çevir…"),
-            (ACTION_RETRANSLATE, "Seçili satırları yeniden çevir…"),
-            (ACTION_REVISE, "Seçili satırları talimatla düzelt…"),
+        counts = self._counts(rows)
+        translate = self._submenu(menu, "Çevir", "languages")
+        for action, text, command, n, icon_name in (
+            (ACTION_TRANSLATE, "Çevir", "translate.selected", counts.translate, "languages"),
+            (ACTION_RETRANSLATE, "Yeniden çevir", "translate.retranslate", counts.retranslate, "refresh-cw"),
+            (ACTION_REVISE, "Redaksiyon", "translate.revise", counts.revise, "pen-line"),
         ):
             # Onaylı satırlar da sayılır: yeniden çeviri ve düzeltme penceresinde "onaylananlara da uygula"
             # kendiliğinden işaretlenir.
-            n = len(target_rows(rows, action, include_approved=action != ACTION_TRANSLATE))
-            act = menu.addAction(f"{text} ({format_int(n)})")
+            act = self._menu_action(translate, f"{text} ({format_int(n)})", icon_name, command)
             act.setEnabled(n > 0 and not self._machine_running)
             act.triggered.connect(lambda _=False, a=action: self.machine_action_requested.emit(a))
-        menu.addSeparator()
-        approvable = [r for r in rows if r.status in (Status.MACHINE, Status.REDACTED)]
-        approve = menu.addAction(f"Onayla ({format_int(len(approvable))})")
+        approve = self._menu_action(
+            menu, f"Onayla ({format_int(counts.approvable)})", "circle-check", "translate.approve"
+        )
         approve.setToolTip("Makine çevirisini veya dış redaksiyonu değiştirmeden onaylar.")
-        approve.setEnabled(bool(approvable))
-        approve.triggered.connect(lambda: self.approve(approvable))
-        approved = [r for r in rows if r.status == Status.APPROVED]
-        unapprove = menu.addAction(f"Onayı kaldır ({format_int(len(approved))})")
+        approve.setEnabled(counts.approvable > 0)
+        approve.triggered.connect(self.approve_selected)
+        unapprove = self._menu_action(
+            menu, f"Onayı kaldır ({format_int(counts.approved)})", "circle-x", "translate.unapprove"
+        )
         unapprove.setToolTip("Metni değiştirmeden durumu “Makine”ye döndürür (yanlışlıkla onaylanan satırlar için).")
-        unapprove.setEnabled(bool(approved))
-        unapprove.triggered.connect(lambda: self.unapprove_requested.emit([r.id for r in approved]))
-        source = menu.addAction("Orijinali çeviri olarak yaz")
-        source.setToolTip("Çevrilmeyecek metinler (özel adlar, sayılar) için.")
-        source.triggered.connect(self._copy_source)
-        # Sık işler üstte; dosya dışa aktarma, kopyalama ve görünüm kuralları bir seviye altta.
+        unapprove.setEnabled(counts.approved > 0)
+        unapprove.triggered.connect(self.unapprove_selected)
         menu.addSeparator()
-        more = menu.addMenu("Daha fazla")
-        more.setToolTipsVisible(True)
-        more.addAction(
-            f"Seçili satırlarla dış redaksiyon dosyası oluştur… ({format_int(len(rows))})"
-        ).triggered.connect(self.csv_export_requested)
-        more.addAction(f"Seçili satırlarla dış çeviri dosyası oluştur… ({format_int(len(rows))})").triggered.connect(
-            self.translation_export_requested
-        )
-        more.addSeparator()
-        reveal = more.addAction("Satırı yerinde göster")
-        reveal.setToolTip(
-            "Arama metnini ve süzgeçleri temizleyip satırı tablodaki gerçek yerinde, komşu satırlarla birlikte "
-            "gösterir. Tek satır seçiliyken kullanılabilir."
-        )
-        reveal.setEnabled(len(rows) == 1)
-        if len(rows) == 1:
-            reveal.triggered.connect(lambda: self.reveal_in_place(rows[0].id))
-        history = more.addAction("Çeviri geçmişi…")
-        history.setEnabled(len(rows) == 1)
-        history.triggered.connect(lambda: self.history_requested.emit(rows[0].id))
-        copy_menu = more.addMenu("Panoya kopyala")
-        copy_menu.addAction("Orijinal ve çeviri\tCtrl+C").triggered.connect(lambda: self.copy_to_clipboard("both"))
-        copy_menu.addAction("Yalnızca orijinal").triggered.connect(lambda: self.copy_to_clipboard("source"))
-        copy_menu.addAction("Yalnızca çeviri").triggered.connect(lambda: self.copy_to_clipboard("translation"))
-        reflow = more.addAction("Satırları yeniden böl")
+
+        edit = self._submenu(menu, "Düzenle", "pen-line")
+        reflow = self._menu_action(edit, "Satırları yeniden böl", "wrap-text", "edit.reflow")
         reflow.setToolTip(
             "Çevirideki satır sonlarını kaldırıp satırı sınıra ya da orijinale göre dengeli yeniden böler."
         )
-        reflow.setEnabled(any(r.translation for r in rows))
-        reflow.triggered.connect(lambda: self.reflow_requested.emit([r.id for r in rows]))
-        clear = more.addAction("Çevirisini temizle")
-        clear.setEnabled(any(r.translation for r in rows))
-        clear.triggered.connect(self._clear)
-        more.addSeparator()
+        reflow.setEnabled(counts.with_translation > 0 and not self._machine_running)
+        reflow.triggered.connect(self.reflow_selected)
+        source = self._menu_action(edit, "Orijinali yaz", "copy", "edit.copy_source")
+        source.setToolTip("Orijinal metni çeviri olarak yazar. Çevrilmeyecek metinler (özel adlar, sayılar) için.")
+        source.setEnabled(not self._machine_running)
+        source.triggered.connect(self.copy_source_selected)
+        clear = self._menu_action(edit, "Temizle", "eraser", "edit.clear")
+        clear.setToolTip("Seçili satırların çevirisini siler.")
+        clear.setEnabled(counts.with_translation > 0 and not self._machine_running)
+        clear.triggered.connect(self.clear_selected)
+
+        copy_menu = self._submenu(menu, "Kopyala", "copy")
+        copy_both = copy_menu.addAction(
+            f"Orijinal ve çeviri\t{display_text(QKeySequence(QKeySequence.StandardKey.Copy))}"
+        )
+        bind_icon(copy_both, "copy")
+        copy_both.triggered.connect(lambda: self.copy_to_clipboard("both"))
+        self._menu_action(copy_menu, "Yalnızca orijinal", "file-text").triggered.connect(
+            lambda: self.copy_to_clipboard("source")
+        )
+        self._menu_action(copy_menu, "Yalnızca çeviri", "languages").triggered.connect(
+            lambda: self.copy_to_clipboard("translation")
+        )
+
+        export = self._submenu(menu, "Dışa aktar", "file-up")
+        count = format_int(len(rows))
+        self._menu_action(export, f"Dış redaksiyon dosyası ({count})…", "user-check").triggered.connect(
+            self.csv_export_requested
+        )
+        self._menu_action(export, f"Dış çeviri dosyası ({count})…", "languages").triggered.connect(
+            self.translation_export_requested
+        )
+
+        upper = self._submenu(menu, "Büyük harf", "case-sensitive")
         rules = self.model.uppercase
-        marked = more.addAction("Büyük harfle gösterilir (i → İ)")
+        marked = upper.addAction("Seçili satırlar (i → İ)")
         marked.setCheckable(True)
         marked.setChecked(all(rules.applies(r.file, r.key, row_group(r)) for r in rows))
         marked.setToolTip(
@@ -1647,11 +1704,65 @@ class TranslatePage(QWidget):
         )
         marked.triggered.connect(lambda on: self._set_uppercase_rows(rows, on))
         for group in sorted({row_group(r) for r in rows}):
-            whole = more.addAction(f"“{group}” tablosunun tamamı büyük harfle gösterilir")
+            whole = upper.addAction(f"“{group}” tablosunun tamamı")
             whole.setCheckable(True)
             whole.setChecked(group in rules.groups)
+            whole.setToolTip("Bu tablodaki bütün metinlerde i harfi İ yazılır.")
             whole.triggered.connect(lambda on, g=group: self._set_uppercase_group(g, on))
-        menu.popup(self.table.viewport().mapToGlobal(pos))
+
+        menu.addSeparator()
+        history = self._menu_action(menu, "Geçmiş…", "history", "translate.history")
+        history.setEnabled(len(rows) == 1)
+        history.triggered.connect(self.history_selected)
+        reveal = self._menu_action(menu, "Yerinde göster", "scan-search")
+        reveal.setToolTip(
+            "Arama metnini ve süzgeçleri temizleyip satırı tablodaki gerçek yerinde, komşu satırlarla birlikte "
+            "gösterir. Tek satır seçiliyken kullanılabilir."
+        )
+        reveal.setEnabled(len(rows) == 1)
+        reveal.triggered.connect(self.reveal_selected)
+        return menu
+
+    # --- seçili satırlara iş (menü çubuğu, bağlam menüsü ve kısayollar aynı yolu kullanır) --------
+
+    @staticmethod
+    def _counts(rows: list[TranslationRow]) -> SelectionCounts:
+        return SelectionCounts(
+            selected=len(rows),
+            translate=len(target_rows(rows, ACTION_TRANSLATE, include_approved=False)),
+            retranslate=len(target_rows(rows, ACTION_RETRANSLATE, include_approved=True)),
+            revise=len(target_rows(rows, ACTION_REVISE, include_approved=True)),
+            approvable=sum(1 for r in rows if r.status in (Status.MACHINE, Status.REDACTED)),
+            approved=sum(1 for r in rows if r.status == Status.APPROVED),
+            with_translation=sum(1 for r in rows if r.translation),
+        )
+
+    def selection_counts(self) -> SelectionCounts:
+        """Seçili satırların sayıları (menü öğelerinin etkinliği buradan hesaplanır)."""
+        return self._counts(self.selected_rows())
+
+    def approve_selected(self) -> None:
+        self.approve([r for r in self.selected_rows() if r.status in (Status.MACHINE, Status.REDACTED)])
+
+    def unapprove_selected(self) -> None:
+        ids = [r.id for r in self.selected_rows() if r.status == Status.APPROVED]
+        if ids:
+            self.unapprove_requested.emit(ids)
+
+    def reflow_selected(self) -> None:
+        rows = self.selected_rows()
+        if any(r.translation for r in rows):
+            self.reflow_requested.emit([r.id for r in rows])
+
+    def history_selected(self) -> None:
+        rows = self.selected_rows()
+        if len(rows) == 1:
+            self.history_requested.emit(rows[0].id)
+
+    def reveal_selected(self) -> None:
+        rows = self.selected_rows()
+        if len(rows) == 1:
+            self.reveal_in_place(rows[0].id)
 
     def set_uppercase(self, rules: UppercaseRules) -> None:
         self.model.uppercase = rules
@@ -1685,10 +1796,12 @@ class TranslatePage(QWidget):
         QApplication.clipboard().setText(clipboard_text(rows, what))
         self.show_notice("success", f"{format_int(len(rows))} satırın metni panoya kopyalandı.")
 
-    def _copy_source(self) -> None:
+    def copy_source_selected(self) -> None:
+        """Seçili satırlarda orijinal metni çeviri olarak yazar."""
         self.model.apply([(r.id, r.source) for r in self.selected_rows()])
 
-    def _clear(self) -> None:
+    def clear_selected(self) -> None:
+        """Seçili satırların çevirisini siler."""
         self.model.apply([(r.id, "") for r in self.selected_rows() if r.translation])
 
     # --- makine çevirisi şeridi -----------------------------------------------------------
@@ -1696,10 +1809,14 @@ class TranslatePage(QWidget):
     def set_last_changes(self, previous: dict[int, str]) -> None:
         """Son işte değişen satırlar (kimlik → önceki çeviri): düğme, "Önceki çeviri" sütunu ve süzgeç güncellenir."""
         count = len(previous)
-        self.changes_button.setText(f"Son İşin Değişiklikleri ({format_int(count)})…")
-        self.changes_button.setVisible(count > 0)
+        self.changes_button.setText(
+            f"Son İşin Değişiklikleri ({format_int(count)})…" if count else "Son İşin Değişiklikleri…"
+        )
+        self.changes_button.setEnabled(count > 0)
+        self.changes_button.setToolTip("" if count else NO_CHANGES_TIP)
         self.model.set_previous(previous)
         self.previous_box.setEnabled(count > 0)
+        self.previous_box.setToolTip(_PREVIOUS_TIP if count else NO_CHANGES_TIP)
         if not count and self.previous_box.isChecked():
             self.previous_box.setChecked(False)
         current = self.status_filter.currentData()
@@ -1744,7 +1861,6 @@ class TranslatePage(QWidget):
         self._machine_running = running
         self.run_panel.setVisible(running)
         self.machine_button.setEnabled(not running)
-        self.more_button.setEnabled(not running)
         if running:
             self.run_cancel.setEnabled(True)
             self.run_cancel.setText("İptal")

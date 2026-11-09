@@ -146,10 +146,10 @@ def window(tmp_path: Path) -> Iterator[MainWindow]:
     w.deleteLater()
 
 
-def test_help_menu_has_plugins_entry(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
-    help_menu = next(a.menu() for a in window.menuBar().actions() if a.text() == "&Yardım")
-    assert isinstance(help_menu, QMenu)
-    action = next(a for a in help_menu.actions() if a.text() == "Eklentiler…")
+def test_tools_menu_has_plugins_entry(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    tools_menu = next(a.menu() for a in window.menuBar().actions() if a.text() == "&Araçlar")
+    assert isinstance(tools_menu, QMenu)
+    action = next(a for a in tools_menu.actions() if a.text() == "Eklentiler…")
     shown: list[str] = []
 
     def fake_exec(self: PluginsDialog) -> int:

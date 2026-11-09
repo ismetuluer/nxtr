@@ -10,12 +10,13 @@ from pathlib import Path
 
 import httpx
 from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, QUrl, QVariantAnimation
-from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QGuiApplication, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QGuiApplication
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
     QHBoxLayout,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QStackedWidget,
     QVBoxLayout,
@@ -130,10 +131,10 @@ from nxceviri.gui.machine_dialogs import (
     GlossaryDialog,
     MachineDialog,
     MachineSettings,
-    ProviderSettingsDialog,
     TermSuggestionsDialog,
     make_provider,
 )
+from nxceviri.gui.menus import Menus
 from nxceviri.gui.motion import animations_enabled
 from nxceviri.gui.plugins_dialog import PluginsDialog
 from nxceviri.gui.provider_probe import ProviderProbe
@@ -141,6 +142,8 @@ from nxceviri.gui.qa_page import QaPage
 from nxceviri.gui.recent import RecentProjects
 from nxceviri.gui.recovery import RecoveryFile, RecoveryKeeper, default_recovery_dir, discard, leftover_files
 from nxceviri.gui.scan_page import ScanPage
+from nxceviri.gui.settings_dialog import PAGE_VIEW, SettingsDialog
+from nxceviri.gui.shortcuts import ShortcutRegistry
 from nxceviri.gui.spell_dialogs import AddSpellWordsDialog, UserDictionaryDialog
 from nxceviri.gui.statusbar import StatusSegments
 from nxceviri.gui.step_nav import COLLAPSED_WIDTH, ProjectHeader, StepNav
@@ -148,7 +151,6 @@ from nxceviri.gui.tasks import Task
 from nxceviri.gui.theme import (
     DEFAULT_FONT_SIZE,
     FONT_SIZES,
-    THEME_LABELS,
     ThemeMode,
     apply_theme,
     clamp_font_size,
@@ -188,9 +190,24 @@ def log_dir() -> Path:
 
 
 class MainWindow(QMainWindow):
+    # Menü çubuğunun (`menus.Menus`) kurduğu eylemler.
+    recent_menu: QMenu
+    save_action: QAction
+    keys_action: QAction
+    title_keys_clear_action: QAction
+    cache_action: QAction
+    nav_action: QAction
+    size_group: QActionGroup
+    theme_group: QActionGroup
+    undo_action: QAction
+    update_action: QAction
+
     def __init__(self, settings: QSettings) -> None:
         super().__init__()
         self.settings = settings
+        #: Kısayolların tek kaynağı (komut kataloğu + kullanıcının değiştirdiği tuşlar).
+        self.shortcuts = ShortcutRegistry(self)
+        self.shortcuts.bind_settings(settings)
         self.keys: KeySet | None = None
         self.title_keys: dict[bytes, bytes] | None = None
         self.title_keys_path: Path | None = None
@@ -260,7 +277,7 @@ class MainWindow(QMainWindow):
         self.pages = QStackedWidget()
         self.add_page = AddGamePage()
         self.scan_page = ScanPage()
-        self.translate_page = TranslatePage()
+        self.translate_page = TranslatePage(self.shortcuts)
         self.translate_page.model.commit = self._commit_translations
         self.translate_page.replace_fn = self._replace_translations
         self.translate_page.bind_settings(self.settings)
@@ -302,6 +319,11 @@ class MainWindow(QMainWindow):
         self._derived_timer.setSingleShot(True)
         self._derived_timer.setInterval(0)
         self._derived_timer.timeout.connect(self._refresh_derived)
+        self._menu_timer = QTimer(self)
+        self._menu_timer.setSingleShot(True)
+        self._menu_timer.setInterval(0)
+        self._menu_timer.timeout.connect(self.update_menu_state)
+        self.translate_page.selection_changed.connect(self._menu_timer.start)
         self.translate_page.view_changed.connect(self._refresh_status)
         self.translate_page.manual_limit_changed.connect(self._save_manual_limit)
         self.translate_page.hint.connect(lambda text: self.statusBar().showMessage(text, 6000))
@@ -317,15 +339,12 @@ class MainWindow(QMainWindow):
         self.scan_page.start_scan.connect(self.start_scan)
         self.scan_page.cancel.connect(self._cancel_task)
         self.scan_page.go_back.connect(lambda: self.nav.setCurrentRow(STEP_ADD))
-        self.scan_page.report.extract_requested.connect(self._extract)
-        self.scan_page.report.diagnosis_requested.connect(self._diagnosis_report)
         self.scan_page.report.rescan_requested.connect(self.start_scan)
         self.scan_page.report.import_requested.connect(self.import_texts)
         self.translate_page.go_to_scan.connect(lambda: self.nav.setCurrentRow(STEP_SCAN))
         self.translate_page.machine_requested.connect(self.start_machine_translation)
         self.translate_page.uppercase_changed.connect(self._save_uppercase)
         self.translate_page.machine_action_requested.connect(lambda a: self.start_machine_translation(a, True))
-        self.translate_page.glossary_requested.connect(self.edit_glossary)
         self.translate_page.pane.spell_word_requested.connect(lambda w: self.add_spell_words([w]))
         self.qa_page.add_spelling_requested.connect(self.add_spelling_from_qa)
         self.qa_page.user_dictionary_requested.connect(self.edit_user_dictionary)
@@ -425,117 +444,17 @@ class MainWindow(QMainWindow):
     # --- menüler -------------------------------------------------------------------------
 
     def _build_menus(self) -> None:
-        file_menu = self.menuBar().addMenu("&Dosya")
-        self._action(file_menu, "Yeni Proje", self.new_project, QKeySequence.StandardKey.New)
-        self._action(file_menu, "Proje Aç…", self._open_project_dialog, QKeySequence.StandardKey.Open)
-        self.recent_menu = file_menu.addMenu("Son Projeler")
-        self.recent_menu.aboutToShow.connect(self._fill_recent_menu)
-        file_menu.addSeparator()
-        self.save_action = self._action(file_menu, "Kaydet", self.save_project, QKeySequence.StandardKey.Save)
-        self._action(file_menu, "Farklı Kaydet…", self.save_project_as, QKeySequence.StandardKey.SaveAs)
-        file_menu.addSeparator()
-        keys_menu = file_menu.addMenu("Anahtarlar")
-        self.keys_action = self._action(keys_menu, "prod.keys Seç…", self._choose_keys)
-        self._action(keys_menu, "title.keys Seç…", self._choose_title_keys)
-        self.title_keys_clear_action = self._action(keys_menu, "title.keys Dosyasını Kaldır", self._clear_title_keys)
-        self.title_keys_clear_action.setEnabled(False)
-        file_menu.addSeparator()
-        self.cache_action = self._action(file_menu, "Önbelleği Temizle…", self._clear_cache)
-        file_menu.addSeparator()
-        self._action(file_menu, "Çıkış", self.close, QKeySequence.StandardKey.Quit)
+        self.menus = Menus(self)
+        self.menus.build()
 
-        view_menu = self.menuBar().addMenu("&Görünüm")
-        self.nav_action = QAction("Kenar Çubuğu", self, checkable=True)
-        self.nav_action.setChecked(not self._nav_collapsed)
-        self.nav_action.setShortcut(QKeySequence("Ctrl+Alt+S"))
-        self.nav_action.triggered.connect(lambda checked: self.set_nav_collapsed(not checked))
-        view_menu.addAction(self.nav_action)
-        view_menu.addSeparator()
-        theme_menu = view_menu.addMenu("Tema")
-        group = QActionGroup(self)
-        current = self._theme_mode()
-        for mode in ThemeMode:
-            act = QAction(THEME_LABELS[mode], self, checkable=True)
-            act.setChecked(mode == current)
-            act.triggered.connect(lambda _=False, m=mode: self._set_theme(m))
-            group.addAction(act)
-            theme_menu.addAction(act)
+    @property
+    def menu_actions(self) -> dict[str, QAction]:
+        """Komut kimliği → menüdeki eylem (kısayolu kayıt defterine bağlı olanlar)."""
+        return self.menus.actions
 
-        view_menu.addSeparator()
-        size_menu = view_menu.addMenu("Yazı boyutu")
-        self.size_group = QActionGroup(self)
-        current_size = self._font_size()
-        for size in FONT_SIZES:
-            act = QAction(
-                f"{size} punto" + ("  (varsayılan)" if size == DEFAULT_FONT_SIZE else ""), self, checkable=True
-            )
-            act.setChecked(size == current_size)
-            act.triggered.connect(lambda _=False, n=size: self._set_font_size(n))
-            self.size_group.addAction(act)
-            size_menu.addAction(act)
-        size_menu.addSeparator()
-        for text, shortcut, step in (("Büyüt", "Ctrl+=", 1), ("Küçült", "Ctrl+-", -1)):
-            act = QAction(text, self)
-            act.setShortcut(QKeySequence(shortcut))
-            act.triggered.connect(lambda _=False, d=step: self._step_font_size(d))
-            size_menu.addAction(act)
-            self.addAction(act)  # menü kapalıyken de kısayol çalışsın
-        reset = QAction("Varsayılan boyut", self)
-        reset.setShortcut(QKeySequence("Ctrl+0"))
-        reset.triggered.connect(lambda: self._set_font_size(DEFAULT_FONT_SIZE))
-        size_menu.addAction(reset)
-        self.addAction(reset)
-
-        view_menu.addSeparator()
-        view = self.translate_page.view_actions
-        view_menu.addAction(view.symbols)
-        align_menu = view_menu.addMenu("Hizala")
-        for action in view.align_actions.values():
-            align_menu.addAction(action)
-        view_menu.addAction(view.pane_toggle)
-        pane_menu = view_menu.addMenu("Panel Konumu")
-        for action in view.pane_actions.values():
-            pane_menu.addAction(action)
-
-        edit_menu = self.menuBar().addMenu("Dü&zen")
-        self.undo_action = self._action(edit_menu, "Geri Al", self.undo_last, QKeySequence.StandardKey.Undo)
-        edit_menu.aboutToShow.connect(self._update_undo_action)
-        edit_menu.addSeparator()
-        for text, slot in (
-            ("Bul…\tCtrl+F", self._menu_find),
-            ("Değiştir…\tCtrl+H", self._menu_find_replace),
-            ("Tabloyu Süz…\tCtrl+Shift+F", self._menu_search),
-            ("Sonraki Bakılacak Satır\tF3", self._menu_next_open),
-        ):
-            self._action(edit_menu, text, slot)
-
-        tools_menu = self.menuBar().addMenu("&Araçlar")
-        self._action(tools_menu, "Çeviri Ayarları…", self.edit_provider_settings)
-        self._action(tools_menu, "Hazır Çeviriyi İçe Aktar…", self.import_ready_translation)
-        tools_menu.addSeparator()
-        self._action(tools_menu, "Dış Redaksiyon Dosyası Oluştur (TXT/XLSX)…", self.export_csv)
-        self._action(tools_menu, "Dış Redaksiyondan İçe Aktar…", self.import_csv)
-        self._action(tools_menu, "Dış Çeviri Dosyası Oluştur (TXT/XLSX)…", self.export_translation)
-        self._action(tools_menu, "Dış Çeviriden İçe Aktar…", self.import_translation)
-
-        help_menu = self.menuBar().addMenu("&Yardım")
-        self.update_action = self._action(help_menu, "Güncellemeleri Denetle…", self.open_updates)
-        self.update_action.setEnabled(self.app_root is not None or self.packaged)
-        if self.app_root is None and not self.packaged:
-            self.update_action.setToolTip("Bu kurulum kaynak koduyla çalışmadığı için uygulama içinden güncellenemez.")
-        self._action(help_menu, "Eklentiler…", self.open_plugins)
-        self._action(help_menu, "Log Klasörünü Aç", self._open_logs)
-        self._action(help_menu, "Hakkında", self._about)
-
-    def _action(
-        self, menu: QWidget, text: str, slot: Callable[[], object], shortcut: QKeySequence.StandardKey | None = None
-    ) -> QAction:
-        act = QAction(text, self)
-        if shortcut is not None:
-            act.setShortcut(QKeySequence(shortcut))
-        act.triggered.connect(slot)
-        menu.addAction(act)
-        return act
+    def update_menu_state(self) -> None:
+        """Menü öğelerinin etkinliğini projenin, açık sayfanın, seçimin ve süren işin durumuna göre günceller."""
+        self.menus.refresh()
 
     def _theme_mode(self) -> ThemeMode:
         try:
@@ -554,6 +473,8 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if isinstance(app, QApplication):
             apply_theme(app, mode, self._font_size())
+        for act in self.theme_group.actions():
+            act.setChecked(act.data() == mode.value)
 
     def _set_font_size(self, size: int) -> None:
         size = clamp_font_size(size)
@@ -736,10 +657,9 @@ class MainWindow(QMainWindow):
             else:
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
         self.nav.setEnabled(not self.busy)
-        for act in (self.save_action, self.cache_action):
-            act.setEnabled(not self.busy)
         self._refresh_nav()
         self._refresh_status()
+        self.update_menu_state()
 
     def _pane_focus_changed(self, focused: bool) -> None:
         self._pane_focused = focused
@@ -752,9 +672,11 @@ class MainWindow(QMainWindow):
             self.status_segments.set_cursor(line, column)
 
     def _refresh_derived(self) -> None:
-        """Tablodaki satırlardan türetilen göstergeler: kenar çubuğu rozetleri ve durum çubuğu."""
+        """Tablodaki satırlardan türetilen göstergeler: kenar çubuğu rozetleri, durum çubuğu ve menü öğeleri."""
         self._refresh_nav()
         self._refresh_status()
+        self._update_undo_action()
+        self.update_menu_state()
 
     def _open_qa_from_status(self) -> None:
         """Durum çubuğundaki "N hatalı" tıklaması; iş sürerken kenar çubuğu kilidi aşılmaz."""
@@ -854,6 +776,7 @@ class MainWindow(QMainWindow):
         if row < 0:
             return
         self.pages.setCurrentIndex(row)
+        self.update_menu_state()
         if row == STEP_SCAN and not self.busy:
             if self.report is not None:
                 self.scan_page.show_report(self.report)
@@ -1170,7 +1093,7 @@ class MainWindow(QMainWindow):
         )
 
     def _diagnosis_report(self) -> None:
-        """Metinleri Tara > Daha Fazla > Teşhis Raporu Oluştur: oyunun yapısını inceleyen bir rapor yazar."""
+        """Araçlar > Teşhis Raporu: oyunun yapısını inceleyen bir rapor yazar."""
         if self.busy or self.report is None or self.keys is None:
             return
         problems = check_sources(self.sources)
@@ -1829,7 +1752,7 @@ class MainWindow(QMainWindow):
         if str(self.settings.value("translate/provider", PROVIDER_OLLAMA)) != PROVIDER_OLLAMA or not model:
             page.show_notice(
                 "warning",
-                "Terim önerisi için Ollama gerekli. Önce “Makine Çevirisi…” penceresinde sağlayıcı olarak Ollama'yı "
+                "Terim önerisi için Ollama gerekli. Önce “Otomatik Çeviri” penceresinde sağlayıcı olarak Ollama'yı "
                 "ve bir model seçip bir iş başlatın (ayarlar kaydedilir); sonra Sözlük → Terim Öner'i yeniden deneyin.",
             )
             return
@@ -1904,8 +1827,27 @@ class MainWindow(QMainWindow):
             on_cancel=lambda: finish("warning", "Sözlük önerisi durduruldu; sözlük değişmedi."),
         )
 
-    def edit_provider_settings(self) -> None:
-        ProviderSettingsDialog(self, self.secrets).exec()
+    def open_settings(self, page: str | None = None) -> None:
+        """Ayarlar penceresini açar (`page`: açılacak sayfa, ör. `PAGE_PROVIDERS`)."""
+        dialog = SettingsDialog(
+            self,
+            self.settings,
+            self.shortcuts,
+            self.translate_page.view_actions,
+            self.secrets,
+            theme=self._theme_mode(),
+            font_size=self._font_size(),
+            wrap=self.translate_page.wrap_box,
+            issue_colors=self.translate_page.colors_box,
+            error_rows=self.translate_page.error_rows_box,
+            updates_available=self.update_action.isEnabled(),
+            page=page or PAGE_VIEW,
+        )
+        dialog.theme_changed.connect(self._set_theme)
+        dialog.font_size_changed.connect(self._set_font_size)
+        dialog.check_updates_requested.connect(self.open_updates)
+        dialog.exec()
+        dialog.deleteLater()
 
     def ask_machine_settings(
         self,
@@ -1968,6 +1910,9 @@ class MainWindow(QMainWindow):
         if self.busy:
             return
         page = self.translate_page
+        if from_selection and not page.table.selectionModel().hasSelection():
+            page.show_notice("warning", "Önce çevirmek istediğiniz satırları seçin.")
+            return
         scopes = self._machine_scopes()
         chosen = self.ask_machine_settings(scopes, action, SCOPE_SELECTED if from_selection else SCOPE_ALL)
         if chosen is None or not self._remember_machine_settings(chosen):
@@ -2093,9 +2038,17 @@ class MainWindow(QMainWindow):
         if self._to_translate_step():
             self.translate_page.open_find(True)
 
-    def _menu_next_open(self) -> None:
+    def _menu_find_next(self) -> None:
         if self._to_translate_step():
-            self.translate_page.next_open()
+            self.translate_page.find_next()
+
+    def _menu_find_previous(self) -> None:
+        if self._to_translate_step():
+            self.translate_page.find_previous()
+
+    def _menu_machine(self) -> None:
+        if self._to_translate_step():
+            self.start_machine_translation()
 
     def _replace_translations(self, changes: list[tuple[int, str]]) -> list[TranslationRow] | None:
         """Bul ve Değiştir çubuğunun yazma yolu: her eylem tek iştir, Ctrl+Z hepsini geri alır.
@@ -2372,7 +2325,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, title, "Yazılacak bir değişiklik yok.\n\n" + "\n".join(lines))
             return
         lines.append(
-            f"Değişiklikler “{status_name}” durumuyla yazılır; “Son İşin Değişiklikleri” veya Ctrl+Z ile geri "
+            f"Değişiklikler “{status_name}” durumuyla yazılır; “Son İşin Değişiklikleri” veya Geri Al ile geri "
             "alabilirsiniz."
         )
         changed = dict(plan.changes)
@@ -2621,6 +2574,7 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard():
             event.ignore()
             return
+        self.translate_page.find_window.close()  # açık Bul penceresinin konumu kaybolmasın
         self._recovery_timer.stop()
         self.provider_probe.close()
         self.recovery.clear()

@@ -138,9 +138,9 @@ def test_shortcuts_and_icons(qtbot: QtBot) -> None:
     actions = ViewActions()
     assert actions.symbols.shortcut().toString() == "Ctrl+Shift+8"
     assert [actions.align_actions[k].shortcut().toString() for k in (ALIGN_LEFT, ALIGN_CENTER, ALIGN_RIGHT)] == [
-        "Ctrl+L",
-        "Ctrl+E",
-        "Ctrl+R",
+        "Ctrl+Shift+L",
+        "Ctrl+Shift+E",
+        "Ctrl+Shift+R",
     ]
     assert actions.pane_actions[PANE_BOTTOM].shortcut().toString() == "Ctrl+Alt+B"
     assert actions.pane_actions[PANE_RIGHT].shortcut().toString() == "Ctrl+Alt+R"

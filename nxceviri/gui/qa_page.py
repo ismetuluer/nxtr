@@ -791,7 +791,7 @@ class QaPage(QWidget):
                 "Düzeltmeler",
                 "cardTitle",
                 tip="İşaretlediğiniz türlerdeki sorunlar düzeltilir; yanındaki sayı o türden bulgu sayısıdır. "
-                "Onaylı satırlara dokunulmaz. Düzeltme tek işlemdir: Ctrl+Z hepsini geri alır.",
+                "Onaylı satırlara dokunulmaz. Düzeltme tek işlemdir: Geri Al hepsini geri alır.",
             )
         )
         head.addStretch(1)

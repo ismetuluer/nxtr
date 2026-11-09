@@ -128,7 +128,7 @@ def test_approve_from_context_menu(window: MainWindow) -> None:
     menu = page.table.findChild(QMenu)
     assert menu is not None
     approve = next(a for a in menu.actions() if a.text().startswith("Onayla ("))
-    assert approve.text() == "Onayla (1)"
+    assert approve.text() == "Onayla (1)" + chr(9) + "Ctrl+Shift+A"  # kısayol sağ sütunda görünür
     approve.trigger()
     menu.close()
     assert _rows(window)["s01"].status == Status.APPROVED
@@ -145,7 +145,7 @@ def test_show_row_in_place_clears_filters(window: MainWindow) -> None:
     page._show_context_menu(page.table.visualRect(page.proxy.index(0, 0)).center())
     menu = page.table.findChild(QMenu)
     assert menu is not None
-    reveal = next(a for a in _more(menu).actions() if a.text() == "Satırı yerinde göster")
+    reveal = next(a for a in menu.actions() if a.text() == "Yerinde göster")
     assert reveal.isEnabled()
     reveal.trigger()
     menu.close()
@@ -166,7 +166,7 @@ def test_show_row_in_place_needs_a_single_row(window: MainWindow) -> None:
     page._show_context_menu(page.table.visualRect(page.proxy.index(0, 0)).center())
     menu = page.table.findChild(QMenu)
     assert menu is not None
-    reveal = next(a for a in _more(menu).actions() if a.text() == "Satırı yerinde göster")
+    reveal = next(a for a in menu.actions() if a.text() == "Yerinde göster")
     assert not reveal.isEnabled()
     menu.close()
 
@@ -240,7 +240,9 @@ def test_approved_rows_can_be_revised_and_unapproved(window: MainWindow) -> None
     menu = page.table.findChild(QMenu)
     assert menu is not None
     texts = {a.text(): a for a in menu.actions()}
-    revise = texts["Seçili satırları talimatla düzelt… (1)"]
+    translate = menu.actions()[0].menu()
+    assert isinstance(translate, QMenu)
+    revise = next(a for a in translate.actions() if a.text().startswith("Redaksiyon (1)"))
     assert revise.isEnabled()  # eskiden onaylı satır sayılmadığı için (0) ve pasifti
 
     dialog = MachineDialog(
@@ -591,10 +593,3 @@ def test_status_cell_shows_row_problems_under_status(qtbot: QtBot, window: MainW
     window.project.set_translations([(rows["s01"].id, "Benimle bir kadeh iç.")], machine=True)
     page.model.update_rows([r for r in window.project.translation_rows() if r.id == rows["s01"].id])
     assert "uyarı" not in cell("s01")
-
-
-def _more(menu: QMenu) -> QMenu:
-    """Sağ tık menüsünün “Daha fazla” alt menüsü."""
-    sub = next(a.menu() for a in menu.actions() if a.text() == "Daha fazla")
-    assert isinstance(sub, QMenu)
-    return sub

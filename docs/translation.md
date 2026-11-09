@@ -17,12 +17,12 @@ Kod: `nxceviri/core/translate/` — `providers/base.py` (sözleşme), `providers
 
    Öneriler Ekim 2026 araştırmasına dayanır; Türkçe çeviriye özel bir karşılaştırma yoktur.
    Silver Pines'tan 20–30 satırla iki modeli yan yana deneyip seçmeniz önerilir.
-3. Uygulamada "Çevir" → **Makine Çevirisi…** → **Modelleri Listele** → model seçin →
+3. Uygulamada "Çevir" → **Otomatik Çeviri…** (`Ctrl+T`) → **Modelleri Listele** → model seçin →
    **Çeviriyi Başlat**.
 
 ## Nasıl çalışır
 
-- Üç iş türü vardır (Makine Çevirisi penceresi veya tablonun sağ tık menüsü):
+- Üç iş türü vardır (Otomatik Çeviri penceresi, Çeviri menüsü veya tablonun sağ tık menüsü):
   - **Çevir:** çevrilmemiş ve hatalı satırlar. Satırlar kaynak metne göre gruplanır; **aynı cümle bir kez**
     gönderilir, bellekte karşılığı olan cümle gönderilmez.
   - **Yeniden çevir:** seçili satırlar / seçili grubun tamamı / tabloda filtrelenen satırlar / tüm proje,
@@ -35,7 +35,7 @@ Kod: `nxceviri/core/translate/` — `providers/base.py` (sözleşme), `providers
 - **Çeviri belleği** (proje içinde): elle girilen ve makinenin ürettiği geçerli çeviriler
   kaydedilir. Bellekte karşılığı olan metin sağlayıcıya hiç gönderilmez. İnsan çevirisi
   makine çevirisinden önceliklidir; makine çevirisi bellekteki insan çevirisinin üzerine yazmaz.
-- **Çeviri talimatı** (Ollama; Makine Çevirisi penceresi): çevir ve yeniden çevir işlerinde isteğe bağlı bir talimat
+- **Çeviri talimatı** (Ollama; Otomatik Çeviri penceresi): çevir ve yeniden çevir işlerinde isteğe bağlı bir talimat
   kutusu vardır ("Bu satırlar menü metni: kısa yaz, sona nokta koyma"). Hazır talimatlar: arayüz ve menü, diyalog ve
   altyazı, eşya/yetenek açıklamaları, eğitim ve ipucu, resmî/eski dil; seçilince kutuya yazılır, düzenlenebilir.
   Talimat oyun notlarının ardından **sistem istemine** eklenir (kontrol kodu ve JSON kuralları her zaman üstündür) ve
@@ -288,9 +288,9 @@ DeepL'e bağlam satırlarının özgün metni `context` alanıyla gider (çevril
 
 ## DeepL
 
-- **Araçlar → Çeviri Ayarları…** penceresinden API anahtarını kaydedin (Windows Kimlik Bilgisi
+- **Dosya → Ayarlar… → Çeviri** sayfasından API anahtarını kaydedin (Windows Kimlik Bilgisi
   Yöneticisi'nde saklanır). Free anahtarlar ":fx" ile biter; uç nokta otomatik seçilir.
-- Makine Çevirisi penceresinde sağlayıcı olarak DeepL'i seçin; **Bağlantıyı Test Et** kalan kotayı
+- Otomatik Çeviri penceresinde sağlayıcı olarak DeepL'i seçin; **Bağlantıyı Test Et** kalan kotayı
   ve bu işin yaklaşık karakter kullanımını gösterir.
 - Kontrol kodları `<x id="n"/>` etiketleri olarak gönderilir (`tag_handling=xml`,
   `preserve_formatting`, `split_sentences=nonewlines`); oyun notları `context` alanıyla (ücretsiz)

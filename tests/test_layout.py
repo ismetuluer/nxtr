@@ -85,8 +85,8 @@ def test_long_keys_do_not_make_rows_tall(page: TranslatePage) -> None:
     assert KEY in tip
 
 
-def test_view_button_text_is_not_covered(page: TranslatePage) -> None:
-    assert page.view_button.width() >= page.view_button.sizeHint().width()
+def test_machine_button_text_is_not_covered(page: TranslatePage) -> None:
+    assert page.machine_button.width() >= page.machine_button.sizeHint().width()
 
 
 def test_changes_dialog_keeps_text_columns_wide_with_long_row_names(qtbot: QtBot) -> None:

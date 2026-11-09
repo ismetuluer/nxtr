@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QSettings, Qt
-from PySide6.QtGui import QShortcut
 from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
@@ -89,9 +88,15 @@ def spans_of(page: TranslatePage, row_id: int, column: int = COL_TRANSLATION) ->
 
 
 def fire(page: TranslatePage, keys: str) -> None:
-    """Sayfanın kısayolunu çalıştırır (gerçek tuş vuruşu Qt'nin tuş durumunu bozup başka testleri etkiler)."""
-    shortcut = next(s for s in page.findChildren(QShortcut) if s.key().toString() == keys)
-    shortcut.activated.emit()
+    """Kısayolun çalıştırdığı sayfa yöntemini çağırır. Tuşlar ana pencerenin menü eylemlerindedir ve kayıt
+    defterinden gelir (tests/test_menus.py); gerçek tuş vuruşu Qt'nin tuş durumunu bozup başka testleri etkiler."""
+    {
+        "Ctrl+F": lambda: page.open_find(False),
+        "Ctrl+H": lambda: page.open_find(True),
+        "Ctrl+Shift+F": page.focus_search,
+        "F3": page.find_next,
+        "Shift+F3": page.find_previous,
+    }[keys]()
 
 
 def activate(qtbot: QtBot, page: TranslatePage) -> None:
@@ -107,13 +112,15 @@ def test_ctrl_f_and_ctrl_h_open_the_bar_and_esc_closes(qtbot: QtBot) -> None:
     assert not bar.isVisibleTo(page)
     fire(page, "Ctrl+F")
     assert bar.isVisibleTo(page)
-    assert bar.find_edit.hasFocus()
+    assert page.find_window.isWindow()  # tablonun üstünde yer kaplamaz: ayrı, taşınabilir pencere
+    qtbot.waitUntil(bar.find_edit.hasFocus, timeout=3000)
     assert not bar.replace_row.isVisibleTo(page)
     fire(page, "Ctrl+H")
     assert bar.replace_row.isVisibleTo(page)  # Ctrl+H değiştir alanını da açar
     qtbot.keyClick(bar.find_edit, Qt.Key.Key_Escape)
     assert not bar.isVisibleTo(page)
-    assert page.table.hasFocus()
+    assert not page.find_window.isVisible()
+    qtbot.waitUntil(page.table.hasFocus, timeout=3000)
 
 
 def test_ctrl_shift_f_still_reaches_the_table_filter(qtbot: QtBot) -> None:

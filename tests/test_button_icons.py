@@ -6,8 +6,7 @@ import re
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QPushButton, QToolButton, QWidget
+from PySide6.QtWidgets import QLabel, QPushButton, QWidget
 from pytestqt.qtbot import QtBot
 
 from nxceviri.gui import icons
@@ -82,11 +81,4 @@ def test_translate_page_title_and_icons(qtbot: QtBot) -> None:
     assert [lbl for lbl in page.findChildren(QLabel) if lbl.objectName() == "titleIcon"]
     for name in ("machine_button", "run_cancel"):
         assert not getattr(page, name).icon().isNull(), name
-    assert page.machine_button.text() == "Makine Çevirisi…"
-    for name in ("more_button", "view_button"):
-        tool = getattr(page, name)
-        assert isinstance(tool, QToolButton)
-        assert not tool.icon().isNull(), name
-        assert tool.toolButtonStyle() == Qt.ToolButtonStyle.ToolButtonTextBesideIcon
-    assert page.more_button.text() == "Daha Fazla"
-    assert page.view_button.text() == "Görünüm"
+    assert page.machine_button.text() == "Otomatik Çeviri"

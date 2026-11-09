@@ -34,12 +34,13 @@ from nxceviri.core.errors import NxError
 from nxceviri.core.project import TranslationRow, row_group
 from nxceviri.core.secrets import DEEPL_API_KEY, SecretStore
 from nxceviri.core.translate.glossary_io import export_glossary_xlsx, merge_terms, read_glossary_xlsx
-from nxceviri.core.translate.providers.base import GlossaryTerm, ProviderError, ProviderStatus, TranslationProvider
+from nxceviri.core.translate.providers.base import GlossaryTerm, ProviderError, TranslationProvider
 from nxceviri.core.translate.providers.deepl import DeepLProvider, plan_label
 from nxceviri.core.translate.providers.ollama import DEFAULT_URL, RECOMMENDED_MODELS, OllamaProvider
 from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_REVISE, ACTION_TRANSLATE, target_rows
 from nxceviri.core.translate.terms import TermSuggestion
 from nxceviri.gui.icons import bind_icon
+from nxceviri.gui.settings_dialog import check_with_wait_cursor, valid_ollama_url
 from nxceviri.gui.widgets import Banner, button, format_int, format_size, label, tip_html, title_row
 
 SCOPE_SELECTED = "selected"
@@ -203,15 +204,6 @@ def _recommendation_text() -> str:
     )
 
 
-def _test_with_wait_cursor(provider: TranslationProvider) -> ProviderStatus:
-    QGuiApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-    try:
-        return provider.test_connection()
-    finally:
-        QGuiApplication.restoreOverrideCursor()
-        provider.close()
-
-
 class MachineDialog(QDialog):
     """Makine çevirisi, yeniden çeviri ve redaksiyon: sağlayıcı, model, oyun notları, iş türü ve kapsam.
 
@@ -239,7 +231,7 @@ class MachineDialog(QDialog):
         #: İş türüne göre talimat metni: redaksiyonun ve çevirinin (çevir + yeniden çevir) ayrı talimatı var.
         self._texts = {ACTION_REVISE: instruction, ACTION_TRANSLATE: translate_instruction}
         self._shown_kind: str | None = None
-        self.setWindowTitle("Makine Çevirisi")
+        self.setWindowTitle("Otomatik Çeviri")
         self.setMinimumWidth(620)
         self._secrets = secrets
         self._scopes = scopes
@@ -282,7 +274,7 @@ class MachineDialog(QDialog):
         df.setContentsMargins(0, 0, 0, 0)
         key = secrets.get(DEEPL_API_KEY)
         self.deepl_key_label = label(
-            f"Kayıtlı ({plan_label(key)})" if key else "Kayıtlı anahtar yok — Araçlar → Çeviri Ayarları'ndan girin.",
+            f"Kayıtlı ({plan_label(key)})" if key else "Anahtar yok — Dosya → Ayarlar → Çeviri sayfasından girin.",
             None if key else "muted",
         )
         df.addRow("DeepL API anahtarı:", self.deepl_key_label)
@@ -518,8 +510,18 @@ class MachineDialog(QDialog):
             self.status.show_message("success", "")
         self.presets.setCurrentIndex(0)
 
+    def _ollama_url(self) -> str | None:
+        """Alandaki Ollama adresi (boşsa varsayılan); geçersizse durumu bildirir ve None döndürür."""
+        url = valid_ollama_url(self.url.text() or DEFAULT_URL)
+        if url is None:
+            self.status.show_message("danger", f"Geçerli bir Ollama adresi yazın, örneğin {DEFAULT_URL}.")
+            self.help.hide()
+        return url
+
     def refresh_models(self) -> None:
-        url = self.url.text().strip() or DEFAULT_URL
+        url = self._ollama_url()
+        if url is None:
+            return
         provider = OllamaProvider(self.model.currentText().strip(), url, timeout_s=15)
         QGuiApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
@@ -549,12 +551,14 @@ class MachineDialog(QDialog):
             self.help.show()
 
     def test_connection(self) -> bool:
+        if self.provider_name == PROVIDER_OLLAMA and self._ollama_url() is None:
+            return False
         try:
             provider = make_provider(self.settings(), self._secrets)
         except NxError as exc:
             self.status.show_message("danger", exc.user_text())
             return False
-        status = _test_with_wait_cursor(provider)
+        status = check_with_wait_cursor(provider)
         message = status.message
         if status.ok and self.provider_name == PROVIDER_DEEPL:
             chars = sum(len(r.source) for r in self.target())
@@ -586,96 +590,6 @@ class MachineDialog(QDialog):
             instruction=self.instruction.toPlainText().strip() if self._instruction_enabled() else "",
             include_approved=self.include_approved.isChecked() and self.action != ACTION_TRANSLATE,
         )
-
-
-class ProviderSettingsDialog(QDialog):
-    """Çeviri sağlayıcısı ayarları: DeepL API anahtarı (Windows Kimlik Bilgisi Yöneticisi'nde)."""
-
-    def __init__(self, parent: QWidget | None, secrets: SecretStore) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("Çeviri Ayarları")
-        self.setMinimumWidth(520)
-        self._secrets = secrets
-        lay = QVBoxLayout(self)
-        lay.addWidget(label("DeepL", "cardTitle"))
-        lay.addWidget(
-            label(
-                "DeepL hesabınızdan kopyaladığınız API anahtarı.",
-                "muted",
-                wrap=True,
-                tip="Anahtarı DeepL hesabınızdan (Hesap → API Anahtarları) kopyalayın. Windows Kimlik Bilgisi "
-                "Yöneticisi'nde saklanır. Free anahtarlar “:fx” ile biter; Free/Pro adresi otomatik seçilir.",
-            )
-        )
-        self.key = QLineEdit()
-        self.key.setEchoMode(QLineEdit.EchoMode.Password)
-        self.key.setPlaceholderText("Yeni anahtarı buraya yapıştırın")
-        lay.addWidget(self.key)
-        self.state = label("")
-        lay.addWidget(self.state)
-        row = QHBoxLayout()
-        self.save = button("Anahtarı Kaydet", "primary")
-        self.save.clicked.connect(self.save_key)
-        self.remove = button("Kayıtlı Anahtarı Sil")
-        self.remove.clicked.connect(self.delete_key)
-        self.test = button("Bağlantıyı Test Et")
-        self.test.clicked.connect(self.test_key)
-        row.addWidget(self.save)
-        row.addWidget(self.remove)
-        row.addWidget(self.test)
-        row.addStretch(1)
-        lay.addLayout(row)
-        self.status = Banner()
-        lay.addWidget(self.status)
-        lay.addStretch(1)
-        close = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        close.button(QDialogButtonBox.StandardButton.Close).setText("Kapat")
-        close.rejected.connect(self.reject)
-        lay.addWidget(close)
-        self._refresh()
-
-    def _stored(self) -> str | None:
-        try:
-            return self._secrets.get(DEEPL_API_KEY)
-        except NxError as exc:
-            self.status.show_message("danger", exc.user_text())
-            return None
-
-    def _refresh(self) -> None:
-        stored = self._stored()
-        self.state.setText(f"Kayıtlı anahtar: var ({plan_label(stored)})" if stored else "Kayıtlı anahtar: yok")
-        self.remove.setEnabled(bool(stored))
-        self.test.setEnabled(bool(stored))
-
-    def save_key(self) -> None:
-        value = self.key.text().strip()
-        if not value:
-            self.status.show_message("warning", "Önce anahtarı alana yapıştırın.")
-            return
-        try:
-            self._secrets.set(DEEPL_API_KEY, value)
-        except NxError as exc:
-            self.status.show_message("danger", exc.user_text())
-            return
-        self.key.clear()
-        self._refresh()
-        self.test_key()
-
-    def delete_key(self) -> None:
-        try:
-            self._secrets.delete(DEEPL_API_KEY)
-        except NxError as exc:
-            self.status.show_message("danger", exc.user_text())
-            return
-        self.status.show_message("success", "Kayıtlı DeepL anahtarı silindi.")
-        self._refresh()
-
-    def test_key(self) -> None:
-        stored = self._stored()
-        if not stored:
-            return
-        status = _test_with_wait_cursor(DeepLProvider(stored))
-        self.status.show_message("success" if status.ok else "danger", status.message)
 
 
 class GlossaryDialog(QDialog):
