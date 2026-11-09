@@ -955,6 +955,7 @@ class QaPage(QWidget):
                 continue
             stored = self._font_overrides.get(str(item.data(Qt.ItemDataRole.UserRole)))
             item.setText(f"İçe alındı: {Path(stored).name}" if stored else str(item.data(_ADVICE_ROLE)))
+
     def selected_font(self) -> str | None:
         items = self.font_table.selectedItems()
         return str(items[0].data(Qt.ItemDataRole.UserRole)) if items else None
