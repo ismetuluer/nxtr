@@ -53,8 +53,8 @@ from nxceviri.core.qa.checks import (
     SEVERITY_ERROR,
     SEVERITY_WARNING,
     QaIssue,
-    check_row,
 )
+from nxceviri.core.qa.live import LiveChecker, LiveContext
 from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.translate.codekinds import CodeKinds
 from nxceviri.core.translate.fitconfig import FitConfig
@@ -233,32 +233,33 @@ class TranslationModel(QAbstractTableModel):
         self.issue_colors = True  # çeviri metni sorun türüne göre renklendirilir
         self.error_rows = False  # hatalı satırın bütün hücreleri hata rengine boyanır (isteğe bağlı)
         self.wrap = True  # tabloda metin kaydırma açık mı (satır sonları gerçek satır olarak gösterilir)
-        self._checked: dict[int, tuple[TranslationRow, list[QaIssue]]] = {}  # satır → (denetlenen hâli, sorunları)
+        self.live = LiveChecker()  # anlık denetim: görünen satırlar için, önbellekli
         #: Son "Kontrol Et" sonucu: satır → (denetlenen çeviri, sorunları). Çeviri değişince geçersiz sayılır.
         self._qa: dict[int, tuple[str, list[QaIssue]]] = {}
 
-    def _quick_issues(self, r: TranslationRow) -> list[QaIssue]:
-        """Fonttan ve sözlükten bağımsız hızlı denetim; satır değişmedikçe yeniden yapılmaz."""
-        cached = self._checked.get(r.id)
-        if cached is not None and cached[0] is r:
-            return cached[1]
-        found = check_row(r, "", "") if r.translation else []
-        self._checked[r.id] = (r, found)
-        return found
+    def set_live_context(self, context: LiveContext) -> None:
+        """Anlık denetimin bağlamını (font, sözlük, sığdırma, yazım, seçili türler) değiştirir; hücreler yenilenir."""
+        self.live.set_context(context)
+        if self.rows:
+            self.dataChanged.emit(self.index(0, 0), self.index(len(self.rows) - 1, len(_COLUMNS) - 1))
 
     def flag(self, r: TranslationRow) -> QaIssue | None:
         """Çeviri metnini renklendiren en önemli sorun (yoksa None)."""
-        found = {i.kind: i for i in self._quick_issues(r)}
+        found = {i.kind: i for i in self.live.check(r)}
         return next((found[k] for k in ROW_FLAG_KINDS if k in found), None)
 
-    def issues(self, r: TranslationRow) -> list[QaIssue]:
-        """Satırın hata ve uyarıları: hızlı denetim + çeviri değişmediyse son Kontrol Et sonucu (yinelenmeden)."""
-        out = {(i.kind, i.message): i for i in self._quick_issues(r)}
+    def _all_issues(self, r: TranslationRow) -> list[QaIssue]:
+        """Anlık denetim + çeviri değişmediyse son Kontrol Et sonucu (yinelenmeden), bilgi düzeyi dahil."""
+        out = {(i.kind, i.message): i for i in self.live.check(r)}
         qa = self._qa.get(r.id)
         if qa is not None and qa[0] == r.translation:
             for i in qa[1]:
                 out.setdefault((i.kind, i.message), i)
-        return [i for i in out.values() if i.severity in (SEVERITY_ERROR, SEVERITY_WARNING)]
+        return list(out.values())
+
+    def issues(self, r: TranslationRow) -> list[QaIssue]:
+        """Satırın hata ve uyarıları (bilgi düzeyi sayılmaz)."""
+        return [i for i in self._all_issues(r) if i.severity in (SEVERITY_ERROR, SEVERITY_WARNING)]
 
     def set_qa_issues(self, issues: list[QaIssue], checked: list[TranslationRow]) -> None:
         """Kontrol Et sonuçlarını (`checked` satırlarının o anki çevirisiyle) durum hücresine bağlar."""
@@ -288,7 +289,7 @@ class TranslationModel(QAbstractTableModel):
 
     def set_rows(self, rows: list[TranslationRow]) -> None:
         self.beginResetModel()
-        self._checked.clear()
+        self.live.set_rows(rows)
         self._original = [r.id for r in rows]
         self._number = {row_id: n for n, row_id in enumerate(self._original, start=1)}
         self.rows = list(rows)
@@ -296,12 +297,16 @@ class TranslationModel(QAbstractTableModel):
         self.endResetModel()
 
     def update_rows(self, rows: list[TranslationRow]) -> None:
+        peers: set[int] = set()
         for r in rows:
             i = self._pos.get(r.id)
             if i is None:
                 continue
             self.rows[i] = r
+            peers |= self.live.update_row(r)
             self._row_changed(i)
+        # Aynı kaynaklı öteki satırların "tutarsız" durumu değişmiş olabilir.
+        self._ids_changed(peers)
 
     def position(self, row_id: int) -> int | None:
         return self._pos.get(row_id)
@@ -1202,6 +1207,11 @@ class TranslatePage(QWidget):
             delegate.configure(symbols=symbols, align=align, wrap=wrap)
         self.pane.set_view(symbols, align)
         self.model.refresh_display()
+        self._schedule_fit_rows()
+
+    def set_live_context(self, context: LiveContext) -> None:
+        """Anlık denetimin bağlamı: durum simgesi, ipucu ve renkler bundan beslenir."""
+        self.model.set_live_context(context)
         self._schedule_fit_rows()
 
     def set_spell(self, spell: SpellChecker | None, extra: frozenset[str]) -> None:
