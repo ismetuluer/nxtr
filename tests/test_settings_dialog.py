@@ -95,6 +95,7 @@ def test_window_title_pages_and_close_button(qtbot: QtBot, env: Env) -> None:
     assert [dialog.pages.item(i).text() for i in range(dialog.pages.count())] == [
         "Görünüm",
         "Kısayollar",
+        "Anlık Denetimler",
         "Çeviri",
         "Güncelleme",
     ]
@@ -113,7 +114,7 @@ def test_page_switching_and_show_page(qtbot: QtBot, env: Env) -> None:
     assert dialog.stack.currentIndex() == 1
     dialog.show_page(PAGE_UPDATES)
     assert dialog.current_page == PAGE_UPDATES
-    assert dialog.pages.currentRow() == 3
+    assert dialog.pages.currentRow() == 4
     dialog.show_page(PAGE_PROVIDERS)
     assert dialog.stack.currentWidget() is dialog.providers_page
 

@@ -63,6 +63,8 @@ from nxceviri.core.qa.checks import KIND_LABELS, SEVERITY_ERROR, SEVERITY_WARNIN
 from nxceviri.core.qa.checks import run_checks as run_qa_checks
 from nxceviri.core.qa.fonts import FontReport
 from nxceviri.core.qa.fonts import scan_fonts as scan_font_files
+from nxceviri.core.qa.live import SETTING_KEY as LIVE_KINDS_KEY
+from nxceviri.core.qa.live import LiveContext, format_live_kinds, parse_live_kinds
 from nxceviri.core.secrets import DEEPL_API_KEY, GITHUB_UPDATE_KEY, KeyringStore, SecretStore
 from nxceviri.core.selfupdate import PreparedInstall, current_install, discard_prepared, launch_installer
 from nxceviri.core.spell.checker import SpellChecker
@@ -225,6 +227,7 @@ class MainWindow(QMainWindow):
         #: Kalıcı kullanıcı sözlüğü ve Türkçe yazım denetleyicisi (paketlenen süzgeç eksikse None: denetim kapalı).
         self.user_dictionary = UserDictionary(default_user_dictionary_path())
         self.spell: SpellChecker | None = load_spell_checker(self.user_dictionary)
+        self._live_kinds = self._load_live_kinds()
         #: Testlerde sahte sağlayıcı verebilmek için değiştirilebilir.
         self.secrets: SecretStore = KeyringStore()
         self.provider_factory: Callable[[MachineSettings], TranslationProvider] = lambda s: make_provider(
@@ -1171,6 +1174,7 @@ class MainWindow(QMainWindow):
         files = sorted({r.file for r in rows})
         labels = sorted({code for r in rows for code in r.code_labels})
         self.qa_page.set_fit(self._fit_config(), files, labels, separate_groups(rows))
+        self._sync_live()
 
     def _reload_rows(self) -> None:
         """Tabloyu projeden yeniler; panelde bekleyen metin önce kaydedilir ki yenilenen satırlar bayat kalmasın."""
@@ -1181,6 +1185,29 @@ class MainWindow(QMainWindow):
         """Çeviri sayfasına sığdırma ayarını ve kod türlerini verir (panel sayacı ve çipler)."""
         self.translate_page.set_fit_config(self._fit_config())
         self.translate_page.set_manual_limit(self._manual_limit())
+        self._sync_live()
+
+    def _load_live_kinds(self) -> frozenset[str]:
+        """Ayarlardaki anlık denetim türleri (bozuk ya da yoksa hepsi)."""
+        return parse_live_kinds(self.settings.value(LIVE_KINDS_KEY, None))
+
+    def _sync_live(self) -> None:
+        """Anlık denetimin bağlamını proje, font, sözlük, sığdırma, yazım denetleyicisi ve seçili türlerle kurar."""
+        self.translate_page.set_live_context(
+            LiveContext(
+                missing_letters=self._missing_letters(),
+                transliterated=self._transliterate_letters(),
+                glossary=tuple(self.project.glossary()),
+                fit=self._fit_config(),
+                spell=self.spell,
+                kinds=self._live_kinds,
+            )
+        )
+
+    def _set_live_kinds(self, kinds: list[str]) -> None:
+        self._live_kinds = frozenset(kinds)
+        self.settings.setValue(LIVE_KINDS_KEY, format_live_kinds(kinds))
+        self._sync_live()
 
     def _manual_limit(self) -> int:
         """Projenin kayıtlı "Elle sınır"ı (0: kapalı)."""
@@ -1278,6 +1305,7 @@ class MainWindow(QMainWindow):
             return
         self._mark_changed()
         self.qa_page.set_mode(mode, self._missing_letters(), self._font_patch_on())
+        self._sync_live()
 
     def _set_font_patch(self, enabled: bool) -> None:
         try:
@@ -1308,6 +1336,7 @@ class MainWindow(QMainWindow):
     def _sync_spell(self) -> None:
         """Editördeki yazım işaretlerini güncel denetleyici ve oyun sözlüğüyle yeniler."""
         self.translate_page.set_spell(self.spell, glossary_words(self.project.glossary()))
+        self._sync_live()
 
     def add_spell_words(self, words: list[str]) -> None:
         """Sözcükleri kalıcı kullanıcı sözlüğüne ekler; editör ve (yapıldıysa) denetim sonucu yenilenir."""
@@ -1841,8 +1870,10 @@ class MainWindow(QMainWindow):
             issue_colors=self.translate_page.colors_box,
             error_rows=self.translate_page.error_rows_box,
             updates_available=self.update_action.isEnabled(),
+            live_kinds=self._live_kinds,
             page=page or PAGE_VIEW,
         )
+        dialog.live_kinds_changed.connect(self._set_live_kinds)
         dialog.theme_changed.connect(self._set_theme)
         dialog.font_size_changed.connect(self._set_font_size)
         dialog.check_updates_requested.connect(self.open_updates)
@@ -2463,6 +2494,7 @@ class MainWindow(QMainWindow):
         self.translate_page.set_rows(project.translation_rows())
         self._sync_spell()
         self.font_report = None
+        self._sync_live()  # font raporu sıfırlandı: eksik harf bağlamı projenin kayıtlı değerinden gelir
         self.last_export = None
         self.dirty = False
         self.add_page.set_files_message("warning", "")
