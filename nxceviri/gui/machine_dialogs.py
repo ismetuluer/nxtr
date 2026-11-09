@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import fnmatch
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMenu,
     QPlainTextEdit,
-    QRadioButton,
     QTableWidget,
     QTableWidgetItem,
     QToolButton,
@@ -37,6 +36,7 @@ from nxceviri.core.project import TranslationRow, row_group
 from nxceviri.core.secrets import DEEPL_API_KEY, SecretStore
 from nxceviri.core.translate.glossary_io import export_glossary_xlsx, merge_terms, read_glossary_xlsx
 from nxceviri.core.translate.instructions import (
+    KIND_NOTES,
     KIND_REVISE,
     KIND_TRANSLATE,
     SavedInstruction,
@@ -237,6 +237,84 @@ def _recommendation_text() -> str:
     )
 
 
+class LibraryButton(QToolButton):
+    """ "Kitaplık" düğmesi: kayıtlı metinleri (talimat ya da oyun notu) menüde listeler; seçilen kutuya yazılır.
+
+    Kayıtlar kullanıcıya aittir ve bütün projelerde ortaktır (`core/translate/instructions.py`). `kind`: o anki
+    kayıt türünü veren işlev (iş türü değişince talimat türü de değişir); `report(durum, metin)`: sonucu bildirir.
+    """
+
+    def __init__(
+        self,
+        kind: Callable[[], str],
+        editor: QPlainTextEdit,
+        report: Callable[[str, str], None],
+        save_text: str,
+    ) -> None:
+        super().__init__()
+        self._kind = kind
+        self._editor = editor
+        self._report = report
+        self._save_text = save_text
+        self.setText("Kitaplık")
+        self.setToolTip("Kaydedin; başka projelerde de seçebilirsiniz.")
+        self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        bind_icon(self, "book-open")
+        self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.menu_widget = QMenu(self)
+        self.menu_widget.aboutToShow.connect(self.fill)
+        self.setMenu(self.menu_widget)
+
+    def fill(self) -> None:
+        menu = self.menu_widget
+        menu.clear()
+        kind = self._kind()
+        saved = [i for i in load_library() if i.kind == kind]
+        for item in saved:
+            action = menu.addAction(item.name)
+            action.setToolTip(item.text)
+            action.triggered.connect(lambda _c=False, n=item.name: self.use(n))
+        if not saved:
+            empty = menu.addAction("Kayıtlı yok")
+            empty.setEnabled(False)
+        menu.addSeparator()
+        menu.addAction(self._save_text).triggered.connect(self.save)
+        if saved:
+            remove = menu.addMenu("Sil")
+            for item in saved:
+                remove.addAction(item.name).triggered.connect(lambda _c=False, n=item.name: self._delete(n))
+
+    def use(self, name: str) -> None:
+        kind = self._kind()
+        found = next((i for i in load_library() if i.kind == kind and i.name == name), None)
+        if found is not None:
+            self._editor.setPlainText(found.text)
+
+    def save(self) -> None:
+        text = self._editor.toPlainText().strip()
+        if not text:
+            self._report("warning", "Kaydetmek için önce metni yazın.")
+            return
+        name, ok = QInputDialog.getText(self, "Kitaplığa kaydet", "Adı:")
+        if not ok or not name.strip():
+            return
+        try:
+            save_instruction(SavedInstruction(name.strip(), self._kind(), text))
+        except OSError as exc:
+            self._report("danger", f"Kaydedilemedi: {exc}")
+            return
+        self._report("success", f"“{name.strip()}” kitaplığa kaydedildi.")
+        self.fill()
+
+    def _delete(self, name: str) -> None:
+        try:
+            delete_instruction(name, self._kind())
+        except OSError as exc:
+            self._report("danger", f"Silinemedi: {exc}")
+            return
+        self.fill()
+
+
 class MachineDialog(QDialog):
     """Makine çevirisi, yeniden çeviri ve redaksiyon: sağlayıcı, model, oyun notları, iş türü ve kapsam.
 
@@ -284,7 +362,13 @@ class MachineDialog(QDialog):
         self.provider.setToolTip(
             tip_html("Ollama metinleri bilgisayarınızdan çıkarmaz. DeepL metinleri buluta gönderir ve kota kullanır.")
         )
-        form.addRow("Sağlayıcı:", self.provider)
+        provider_row = QHBoxLayout()
+        provider_row.addWidget(self.provider, 1)
+        # Bağlantı testi her zaman görünür (eskiden Gelişmiş altındaydı).
+        self.test_button = button("Bağlantıyı Test Et", icon="activity")
+        self.test_button.clicked.connect(self.test_connection)
+        provider_row.addWidget(self.test_button)
+        form.addRow("Sağlayıcı:", provider_row)
 
         self.ollama_box = QWidget()
         of = QFormLayout(self.ollama_box)
@@ -331,10 +415,17 @@ class MachineDialog(QDialog):
         jl = QVBoxLayout(self.job_box)
         jl.setContentsMargins(0, 0, 0, 0)
         action_row = QHBoxLayout()
+        action_row.setSpacing(6)
+        action_row.addWidget(label("İş:"))
         self.action_group = QButtonGroup(self)
-        self.action_buttons: dict[str, QRadioButton] = {}
+        self.action_group.setExclusive(True)
+        self.action_buttons: dict[str, QToolButton] = {}
         for value, text, tip in _ACTIONS:
-            rb = QRadioButton(text)
+            rb = QToolButton()
+            rb.setText(text)
+            rb.setCheckable(True)
+            rb.setProperty("role", "chip")  # yan yana, seçili olan vurgulu (Sorunlar panosundaki çiplerle aynı)
+            rb.setCursor(Qt.CursorShape.PointingHandCursor)
             rb.setToolTip(tip_html(tip))
             self.action_group.addButton(rb)
             self.action_buttons[value] = rb
@@ -389,7 +480,16 @@ class MachineDialog(QDialog):
             tip_html("Ollama: tür, ton ve hitap isteklerini Türkçe yazın. DeepL: kaynak dilde 1-2 cümle bağlam yazın.")
         )
         self.notes.setFixedHeight(64)
-        af.addRow("Oyun notları:", self.notes)
+        self.notes_label = label(
+            "Oyun hakkında:",
+            tip="Bu projede kalıcıdır ve her işte modele gider: oyunun türü, dönemi, karakterleri, istenen ton.",
+        )
+        notes_box = QVBoxLayout()
+        notes_box.setSpacing(4)
+        notes_box.addWidget(self.notes)
+        self.notes_library = LibraryButton(lambda: KIND_NOTES, self.notes, self._report, "Bu Notu Kaydet…")
+        notes_box.addWidget(self.notes_library, alignment=Qt.AlignmentFlag.AlignRight)
+        af.addRow(self.notes_label, notes_box)
         al.addLayout(af)
         self.advanced_instruction_host = QVBoxLayout()
         self.advanced_instruction_host.setContentsMargins(0, 0, 0, 0)
@@ -397,23 +497,18 @@ class MachineDialog(QDialog):
         self.instruction_box = QWidget()
         il = QVBoxLayout(self.instruction_box)
         il.setContentsMargins(0, 0, 0, 0)
+        self.instruction_label = label("Bu iş için talimat (isteğe bağlı)", "cardTitle")
+        il.addWidget(self.instruction_label)
         preset_row = QHBoxLayout()
         self.presets = QComboBox()
         self.presets.activated.connect(self._use_preset)
         preset_row.addWidget(self.presets, 1)
         # Talimat kitaplığı: kullanıcının kaydettiği talimatlar (bütün projelerde ortak).
-        self.library_menu = QMenu(self)
-        self.library_menu.aboutToShow.connect(self._fill_library_menu)
-        self.library_button = QToolButton()
-        self.library_button.setText("Kitaplık")
-        self.library_button.setToolTip("Kendi talimatlarınızı kaydedin; başka projelerde de seçebilirsiniz.")
-        self.library_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        bind_icon(self.library_button, "book-open")
-        self.library_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.library_button.setMenu(self.library_menu)
+        self.instruction = QPlainTextEdit()
+        self.library_button = LibraryButton(self._library_kind, self.instruction, self._report, "Bu Talimatı Kaydet…")
+        self.library_menu = self.library_button.menu_widget
         preset_row.addWidget(self.library_button)
         il.addLayout(preset_row)
-        self.instruction = QPlainTextEdit()
         self.instruction.setFixedHeight(120)
         il.addWidget(self.instruction)
         self.advanced_instruction_host.addWidget(self.instruction_box)
@@ -422,9 +517,6 @@ class MachineDialog(QDialog):
             tip_html("Açıksa onaylanmış satırlar da yeniden çevrilir veya düzeltilir; durumları “Makine” olur.")
         )
         al.addWidget(self.include_approved)
-        self.test_button = button("Bağlantıyı Test Et")
-        self.test_button.clicked.connect(self.test_connection)
-        al.addWidget(self.test_button, alignment=Qt.AlignmentFlag.AlignLeft)
         lay.addWidget(self.advanced_box)
         self.advanced_box.hide()
 
@@ -597,54 +689,14 @@ class MachineDialog(QDialog):
     def _library_kind(self) -> str:
         return KIND_REVISE if self.action == ACTION_REVISE else KIND_TRANSLATE
 
-    def _fill_library_menu(self) -> None:
-        menu = self.library_menu
-        menu.clear()
-        kind = self._library_kind()
-        saved = [i for i in load_library() if i.kind == kind]
-        for item in saved:
-            action = menu.addAction(item.name)
-            action.setToolTip(item.text)
-            action.triggered.connect(lambda _c=False, n=item.name: self.use_saved(n))
-        if not saved:
-            empty = menu.addAction("Kayıtlı talimat yok")
-            empty.setEnabled(False)
-        menu.addSeparator()
-        menu.addAction("Bu Talimatı Kaydet…").triggered.connect(self.save_to_library)
-        if saved:
-            remove = menu.addMenu("Sil")
-            for item in saved:
-                remove.addAction(item.name).triggered.connect(lambda _c=False, n=item.name: self._delete_saved(n))
+    def _report(self, state: str, text: str) -> None:
+        self.status.show_message(state, text)
 
     def use_saved(self, name: str) -> None:
-        kind = self._library_kind()
-        found = next((i for i in load_library() if i.kind == kind and i.name == name), None)
-        if found is not None:
-            self.instruction.setPlainText(found.text)
+        self.library_button.use(name)
 
     def save_to_library(self) -> None:
-        text = self.instruction.toPlainText().strip()
-        if not text:
-            self.status.show_message("warning", "Kaydetmek için önce talimatı yazın.")
-            return
-        name, ok = QInputDialog.getText(self, "Talimatı kaydet", "Talimatın adı:")
-        if not ok or not name.strip():
-            return
-        try:
-            save_instruction(SavedInstruction(name.strip(), self._library_kind(), text))
-        except OSError as exc:
-            self.status.show_message("danger", f"Talimat kaydedilemedi: {exc}")
-            return
-        self.status.show_message("success", f"“{name.strip()}” kitaplığa kaydedildi.")
-        self._fill_library_menu()
-
-    def _delete_saved(self, name: str) -> None:
-        try:
-            delete_instruction(name, self._library_kind())
-        except OSError as exc:
-            self.status.show_message("danger", f"Talimat silinemedi: {exc}")
-            return
-        self._fill_library_menu()
+        self.library_button.save()
 
     def _update_template_note(self) -> None:
         self.template_note.setVisible(self.model.currentText().strip() in self._template_ignores_system)

@@ -837,6 +837,13 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
 154. **Yarım yanıt bölünür:** `ProviderError(splittable=True)` (Ollama `done_reason == "length"`) partiyi ikiye
     böler; tek maddede yine anlaşılır hata.
 
+### 4.39 0.52.1 kararları
+
+155. **Kullanıcının başlattığı denetim arka plandadır** (`start_checks`); `run_checks` eşzamanlı kalır (düzeltmenin
+    ardından ve testler). Sayfaların iş *sonucu* bildirimdir; *durum* bantları (anahtar yok, tarama hatası) yerinde kalır.
+156. **Kod türü şüphesi** (`codekinds.suspected_line_breaks`): tahmini "diğer" olan, en az 3 kez görülen ve
+    görülmelerinin %70'inde sözcük arasına boşluksuz giren kod; kullanıcı türünü elle verdiyse sorulmaz.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

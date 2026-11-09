@@ -49,6 +49,7 @@ def window(qtbot: QtBot, tmp_path: Path) -> Iterator[MainWindow]:
     w.show()
     w.nav.setCurrentRow(STEP_QA)
     w.qa_page.check_button.click()
+    qtbot.waitUntil(lambda: not w.busy, timeout=10000)  # Denetle arka planda çalışır
     yield w
     w.dirty = False
     w.close()
@@ -96,13 +97,15 @@ def test_fix_selected_kinds_report_and_second_round(window: MainWindow) -> None:
     assert rows["a"].translation == "Oyunu Başlat"
     assert rows["b"].translation == "Merhaba"  # seçilmeyen tür uygulanmadı
     assert rows["c"].translation == "Devam et ve ve bitir"
-    assert page.fix_banner.text.text() == "1 satır düzeltildi."
-    assert page.fix_banner.action_button.text() == "Raporu Gör"
+    assert page.last_fix_text == "1 satır düzeltildi."
+    notice = window.notifier.history[0]  # sayfada kutu değil, bildirim
+    assert notice.title == "1 satır düzeltildi"
+    assert [a.label for a in notice.actions] == ["Raporu Gör"]
     assert page.fix_counts["end_punctuation"] == 0  # denetim kendiliğinden yeniden çalıştı
     assert not page.fix_boxes["end_punctuation"].isVisibleTo(page.fix_body)
     assert page.fix_counts["spaces"] == 2
 
-    page.fix_banner.action_button.click()
+    notice.actions[0].callback()
     dialog = window.changes_dialog
     assert dialog is not None
     assert dialog.table.rowCount() == 1
@@ -119,8 +122,8 @@ def test_fix_selected_kinds_report_and_second_round(window: MainWindow) -> None:
     assert rows["b"].translation == "Merhaba "
     assert rows["d"].translation == "Selam"
     assert rows["d"].status == Status.APPROVED
-    assert "1 satır düzeltildi." in page.fix_banner.text.text()
-    assert "1 satıra dokunulmadı" in page.fix_banner.text.text()
+    assert "1 satır düzeltildi." in page.last_fix_text
+    assert "1 satıra dokunulmadı" in page.last_fix_text
 
 
 def test_fix_is_one_undoable_job(window: MainWindow) -> None:
@@ -143,7 +146,7 @@ def test_selected_rows_scope(window: MainWindow) -> None:
     assert rows["c"].translation == "Devam et ve bitir"
     assert rows["a"].translation == "Oyunu Başlat."  # seçili olmayan satırlara dokunulmadı
     assert rows["b"].translation == "Merhaba"
-    assert page.fix_banner.text.text() == "1 satır düzeltildi."
+    assert page.last_fix_text == "1 satır düzeltildi."
 
 
 def test_no_kind_selected_disables_button(window: MainWindow) -> None:

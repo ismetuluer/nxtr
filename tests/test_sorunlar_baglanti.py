@@ -54,3 +54,20 @@ def test_limits_table_edit_is_saved_with_key_patterns(window: MainWindow) -> Non
     assert saved.per_key == {"m*": FitRules(12, 1)}
     assert saved.per_group.get("Dialogue") == FitRules(30, 2)
     assert window.qa_page.fit_config().per_key == {"m*": FitRules(12, 1)}  # kart desenleri düşürmez
+
+
+def test_suspicious_code_kind_is_flagged_on_fit_tab(window: MainWindow) -> None:
+    from nxceviri.core.formats.base import ControlCode, TextEntry
+    from nxceviri.core.project import ImportedFile
+
+    code = ControlCode(b"\x05", "Kod 0x05")
+    entries = tuple(TextEntry(f"k{i}", i, f"Bir⟦1⟧iki {i}", (code,)) for i in range(3))
+    window.project.import_texts([ImportedFile("Kod.bin", "0100", "msbt", "base", entries)])
+    window._reload_rows()
+    window.nav.setCurrentRow(3)  # Kontrol Et
+    window.qa_page.tabs.setCurrentIndex(1)  # Sığdırma
+    window._refresh_limits()
+    assert window.qa_page.fit_kind_warning.isVisibleTo(window.qa_page)
+    assert "Kod 0x05" in window.qa_page.fit_kind_warning.text()
+    window.qa_page.fit_kind_warning.click()
+    assert window.qa_page.fit_advanced.body.isVisibleTo(window.qa_page)  # Gelişmiş açıldı

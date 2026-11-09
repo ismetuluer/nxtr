@@ -82,6 +82,7 @@ from nxceviri.core.spell.checker import SpellChecker, turkish_lower
 from nxceviri.core.spell.loader import load_spell_checker
 from nxceviri.core.spell.report import UnknownWordCache, replace_unknown
 from nxceviri.core.spell.userdict import UserDictionary, default_user_dictionary_path
+from nxceviri.core.translate.codekinds import suspected_line_breaks
 from nxceviri.core.translate.csvio import (
     CsvError,
     export_translation_txt,
@@ -445,7 +446,7 @@ class MainWindow(QMainWindow):
         self.translate_page.translation_import_requested.connect(self.import_translation)
         self.translate_page.cancel_machine.connect(self._cancel_task)
         self.qa_page.scan_fonts.connect(self.scan_fonts)
-        self.qa_page.run_checks.connect(self.run_checks)
+        self.qa_page.run_checks.connect(self.start_checks)
         self.qa_page.transliterate_changed.connect(self._set_transliterate)
         self.qa_page.font_patch_changed.connect(self._set_font_patch)
         self.qa_page.open_row.connect(self._open_row)
@@ -453,6 +454,7 @@ class MainWindow(QMainWindow):
         self.qa_page.translation_edited.connect(self._edit_from_issues)
         self.qa_page.fix_kinds_changed.connect(self._save_fix_kinds)
         self.qa_page.report_requested.connect(self.show_job_changes)
+        self.qa_page.fix_notice.connect(self._fix_notice)
         self.qa_page.fit_changed.connect(self._save_fit)
         self.qa_page.learn_rules_requested.connect(self._learn_rules)
         self.qa_page.fit_tab_shown.connect(self._refresh_limits)
@@ -762,6 +764,7 @@ class MainWindow(QMainWindow):
             else:
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
         self.nav.setEnabled(not self.busy)
+        self.qa_page.check_button.setEnabled(not self.busy)
         self._refresh_nav()
         self._refresh_status()
         self.update_menu_state()
@@ -967,6 +970,12 @@ class MainWindow(QMainWindow):
             self.notify(level, title, text, actions)
         self._outcome_loud = None
         self._outcome_noticed = False
+
+    def _fix_notice(self, state: str, text: str, action: str) -> None:
+        level = {"success": LEVEL_SUCCESS, "warning": LEVEL_WARNING, "danger": LEVEL_ERROR}.get(state, LEVEL_INFO)
+        title, rest = split_notice(text)
+        actions = (NoticeAction(action, self.show_job_changes),) if action else ()
+        self.notify(level, title, rest, actions)
 
     def _page_notice(self, state: str, text: str) -> None:
         """Sayfaların kısa sonuç mesajları: uzun metin kartta başlık + özet olur, tamamı geçmişte ve ipucunda."""
@@ -1365,6 +1374,7 @@ class MainWindow(QMainWindow):
             return
         rows = self.translate_page.model.rows
         limits.set_data(rows, config, learn_group_rules(rows, config))
+        self.qa_page.show_kind_warnings(suspected_line_breaks(((r.source, r.code_labels) for r in rows), config.kinds))
         self._limits_key = key
 
     def _reload_rows(self) -> None:
@@ -1537,8 +1547,45 @@ class MainWindow(QMainWindow):
         return job
 
     def run_checks(self) -> None:
+        """Denetimi hemen (bu iş parçacığında) yapar; düzeltmenin ardından ve testlerde kullanılır."""
         rows = self.project.translation_rows()
         self._show_check_results(self._checks_job(rows)(), rows)
+
+    def start_checks(self) -> None:
+        """Kontrol Et → Denetle: denetim arka plan işinde çalışır (büyük projede arayüz donmaz), bitince bildirilir."""
+        if self.busy:
+            return
+        rows = self.project.translation_rows()
+        project = self.project
+        job = self._checks_job(rows)
+
+        def work(_ctx: TaskContext) -> object:
+            return job()
+
+        def done(result: object) -> None:
+            if self.project is not project:
+                return
+            assert isinstance(result, list)
+            self._show_check_results(result, rows)
+            errors = sum(1 for i in result if i.severity == SEVERITY_ERROR)
+            warnings = sum(1 for i in result if i.severity == SEVERITY_WARNING)
+            if errors or warnings:
+                self.notify(
+                    LEVEL_ERROR if errors else LEVEL_WARNING,
+                    "Denetim bitti",
+                    f"{format_int(errors)} hata · {format_int(warnings)} uyarı",
+                    (NoticeAction("Sorunları Gör", lambda: self.nav.setCurrentRow(STEP_QA)),),
+                )
+            else:
+                self.notify(LEVEL_SUCCESS, "Denetim bitti", "Sorun bulunmadı.")
+
+        self.qa_page.summary.setText("Denetleniyor…")
+        self._run(
+            work,
+            "Denetim",
+            on_success=done,
+            on_failure=lambda text: self.qa_page.show_fix_result("danger", text),
+        )
 
     def _show_check_results(self, issues: list[QaIssue], rows: list[TranslationRow]) -> None:
         self._sync_live()  # Çevir'deki anlık denetim bağlamı Kontrol Et'in kullandığı güncel ayarlarla aynı olsun
@@ -2014,7 +2061,7 @@ class MainWindow(QMainWindow):
             else:
                 where = f"'{info.title_id}' klasörünü emülatörün mod klasörüne kopyalayın."
             message = (
-                f"Mod oluşturuldu: {result.dest}\n{format_int(len(result.files))} dosya, "
+                f"{result.dest}\n{format_int(len(result.files))} dosya, "
                 f"{format_int(result.rows_written)} çeviri satırı. {where} Ayrıntılı kurulum bilgisi "
                 f"klasördeki “{INFO_FILE}” dosyasında."
             )
@@ -2028,8 +2075,15 @@ class MainWindow(QMainWindow):
                 message += f"\n\nFont yaması: {format_int(len(result.font_patches))} fonta Türkçe harf eklendi."
             if result.warnings:
                 message += "\n\nDikkat: " + " ".join(result.warnings)
-            page.result.show_message("warning" if result.warnings else "success", message)
+            # Sayfada kısa durum; ayrıntılar (kurulum, hatalı satırlar, uyarılar) bildirimin "Ayrıntılar"ında.
+            page.result.show_message("warning" if result.warnings else "success", f"Mod oluşturuldu: {result.dest}")
             page.open_button.show()
+            self.notify(
+                LEVEL_WARNING if result.warnings else LEVEL_SUCCESS,
+                "Mod oluşturuldu",
+                message,
+                (NoticeAction("Klasörü Aç", page.open_folder.emit),),
+            )
 
         def failed(text: str) -> None:
             page.show_form()

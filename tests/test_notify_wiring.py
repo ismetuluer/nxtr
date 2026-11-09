@@ -135,3 +135,17 @@ def test_job_changes_dialog_edits_and_shows_context(window: MainWindow) -> None:
     assert "Hello there" in tip  # önceki satır
     assert "▶ bu satır" in tip
     dialog.close()
+
+
+def test_check_button_runs_in_background_and_notifies(qtbot: QtBot, window: MainWindow) -> None:
+    """Kontrol Et → Denetle arayüzü dondurmaz: arka plan işinde çalışır, bitince sonuç ve bildirim gelir."""
+    seen_busy: list[bool] = []
+    window.qa_page.summary.setText("")
+    window.qa_page.run_checks.connect(lambda: seen_busy.append(window.busy))
+    window.qa_page.check_button.click()
+    assert seen_busy == [True]  # düğmeye basınca iş başladı (eşzamanlı değil)
+    assert not window.qa_page.check_button.isEnabled()  # iş sürerken ikinci kez basılamaz
+    _wait_idle(qtbot, window)
+    assert window.qa_page.summary.text() not in ("", "Denetleniyor…")  # sonuç özeti yazıldı
+    assert window.notifier.history[0].title.startswith("Denetim")
+    assert window.qa_page.check_button.isEnabled()

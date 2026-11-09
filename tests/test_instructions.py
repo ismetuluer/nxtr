@@ -108,3 +108,33 @@ def test_library_menu_saves_and_uses_instruction(qtbot: QtBot, monkeypatch: pyte
     assert dialog.instruction.toPlainText() == "Eski Türkçe karşılıklar kullan."
     names = [a.text() for a in dialog.library_menu.actions() if a.text()]
     assert "Eski dil" in names
+
+
+def test_dialog_is_simplified(qtbot: QtBot) -> None:
+    """Sade düzen: iş türü yan yana düğmeler, bağlantı testi modelin yanında, adlar açık."""
+    from PySide6.QtWidgets import QToolButton
+
+    dialog = _dialog(qtbot, [_row(1, "a.tsv", "k")])
+    dialog.show()
+    assert all(isinstance(b, QToolButton) and b.isCheckable() for b in dialog.action_buttons.values())
+    assert [b.text() for b in dialog.action_buttons.values()] == ["Çevir", "Yeniden çevir", "Redaksiyon"]
+    assert dialog.test_button.isVisibleTo(dialog)  # Gelişmiş kapalıyken de görünür
+    assert not dialog.advanced_box.isVisibleTo(dialog)
+    assert dialog.notes_label.text() == "Oyun hakkında:"
+    assert "kalıcı" in dialog.notes_label.toolTip()
+    assert dialog.instruction_label.text() == "Bu iş için talimat (isteğe bağlı)"
+
+
+def test_notes_can_be_saved_to_and_used_from_library(qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
+    from PySide6.QtWidgets import QInputDialog
+
+    from nxceviri.core.translate.instructions import KIND_NOTES
+
+    dialog = _dialog(qtbot, [_row(1, "a.tsv", "k")])
+    dialog.notes.setPlainText("1990'lar, Quito; çocuklar samimi konuşur.")
+    monkeypatch.setattr(QInputDialog, "getText", lambda *_a, **_k: ("Despelote", True))
+    dialog.notes_library.save()
+    assert [(i.name, i.kind) for i in load_library()] == [("Despelote", KIND_NOTES)]
+    dialog.notes.setPlainText("")
+    dialog.notes_library.use("Despelote")
+    assert dialog.notes.toPlainText().startswith("1990'lar")
