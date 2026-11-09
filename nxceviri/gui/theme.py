@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import tempfile
 from enum import StrEnum
+from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QGuiApplication, QPalette
@@ -84,11 +86,35 @@ def clamp_font_size(value: float) -> int:
     return int(min(FONT_SIZES, key=lambda size: abs(size - value)))
 
 
+_CHECK_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="3.2" '
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+)
+
+
+def _check_mark(color: str) -> str:
+    """İşaretli onay kutusunun tik simgesi (QSS `image:` için dosya yolu; renk başına bir kez yazılır)."""
+    folder = Path(tempfile.gettempdir()) / "nxtr-tema"
+    path = folder / f"tik-{color.lstrip('#').lower()}.svg"
+    if not path.is_file():
+        folder.mkdir(parents=True, exist_ok=True)
+        path.write_text(_CHECK_SVG.format(color=color), encoding="utf-8")
+    return path.as_posix()
+
+
 def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     def size(factor: float) -> str:
         return f"{round(pt * factor, 1)}pt"
 
+    check = _check_mark(t["accent_text"])
     return f"""
+    QCheckBox::indicator, QAbstractItemView::indicator {{
+        width: 14px; height: 14px; border: 1px solid {t["muted"]}; border-radius: 3px; background: {t["surface"]};
+    }}
+    QCheckBox::indicator:checked, QAbstractItemView::indicator:checked {{
+        background: {t["accent"]}; border-color: {t["accent"]}; image: url({check});
+    }}
+    QCheckBox::indicator:disabled, QAbstractItemView::indicator:disabled {{ border-color: {t["border"]}; }}
     QWidget {{ color: {t["text"]}; font-size: {pt}pt; }}
     QMainWindow, QWidget#page, QScrollArea, QScrollArea > QWidget > QWidget {{ background: {t["bg"]}; }}
     QFrame#card {{ background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: 10px; }}

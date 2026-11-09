@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPlainTextEdit,
+    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QToolButton,
@@ -242,7 +243,7 @@ def _recommendation_text() -> str:
     )
 
 
-class LibraryButton(QToolButton):
+class LibraryButton(QPushButton):
     """ "Kitaplık" düğmesi: kayıtlı metinleri (talimat ya da oyun notu) menüde listeler; seçilen kutuya yazılır.
 
     Kayıtlar kullanıcıya aittir ve bütün projelerde ortaktır (`core/translate/instructions.py`). `kind`: o anki
@@ -263,9 +264,8 @@ class LibraryButton(QToolButton):
         self._save_text = save_text
         self.setText("Kitaplık")
         self.setToolTip("Kaydedin; başka projelerde de seçebilirsiniz.")
-        self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         bind_icon(self, "book-open")
-        self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.menu_widget = QMenu(self)
         self.menu_widget.aboutToShow.connect(self.fill)
         self.setMenu(self.menu_widget)
@@ -790,7 +790,7 @@ class MachineDialog(QDialog):
         )
 
 
-class TermLibraryButton(QToolButton):
+class TermLibraryButton(QPushButton):
     """Terminoloji penceresinin "Kitaplık" düğmesi: listeyi kitaplığa kaydet, kitaplıktaki listeleri ekle ya da sil.
 
     Kitaplık bütün projelerde ortaktır; eklerken projede olan terimin karşılığı korunur (`termlib.add_missing`).
@@ -801,9 +801,8 @@ class TermLibraryButton(QToolButton):
         self._dialog = dialog
         self.setText("Kitaplık")
         self.setToolTip("Terimleri adlandırılmış liste olarak saklayın; aynı serinin başka oyununda ekleyin.")
-        self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         bind_icon(self, "book-open")
-        self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.menu_widget = QMenu(self)
         self.menu_widget.aboutToShow.connect(self.fill)
         self.setMenu(self.menu_widget)

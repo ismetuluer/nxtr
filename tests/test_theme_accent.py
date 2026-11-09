@@ -100,3 +100,19 @@ def test_apply_theme_refreshes_bound_icons() -> None:
     apply_theme(app, ThemeMode.DARK)  # refresh_icons'u elle çağırmadan simge yeni renge geçmeli
     dark = _first_opaque(button)
     assert light.lightness() < 128 < dark.lightness()
+
+
+def test_check_indicators_are_visible_in_both_themes() -> None:
+    """Onay kutusu ve liste/tablo işaret kutuları koyu temada da görünür: kenarlık + işaretliyken tik simgesi."""
+    from pathlib import Path
+
+    from nxceviri.gui.theme import TOKENS, _qss
+
+    for tokens in TOKENS.values():
+        qss = _qss(tokens)
+        assert "QAbstractItemView::indicator" in qss
+        assert "QCheckBox::indicator" in qss
+        start = qss.index("image: url(") + len("image: url(")
+        path = Path(qss[start : qss.index(")", start)])
+        assert path.is_file()
+        assert tokens["accent_text"].lower() in path.read_text(encoding="utf-8").lower()
