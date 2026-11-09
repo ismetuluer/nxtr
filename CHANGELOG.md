@@ -2,6 +2,35 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.52.0] — 2026-11-09 — Bildirimler, değişiklikler penceresi, talimat kitaplığı
+
+### Eklendi
+- **Bildirim merkezi:** bir iş bittiğinde, durduğunda ya da hata olduğunda program haber verir — çeviri, redaksiyon,
+  tarama, metin aktarma, font tarama, denetim, düzeltme, içe/dışa aktarma, sözlük önerisi, güncelleme. Pencerenin sağ
+  altında kısa bir **kart** (tek satır başlık, kısa özet, bağlama göre düğmeler: Değişiklikleri Gör, Tekrar Dene,
+  Ayrıntılar, Şimdi Güncelle …). Uygulama arkadayken ya da iş uzun sürdüyse ayrıca **Windows bildirimi**, **ses**
+  (başarı/uyarı/hata farklı) ve **görev çubuğunda yanıp sönme**. Durum çubuğundaki **zil**: son bildirimler.
+- **Ayarlar → Bildirimler:** Windows bildirimi, ses ve yanıp sönme ayrı ayrı açılıp kapatılır; **Deneme Bildirimi
+  Gönder**.
+- **Güncelleme bildirimi:** yeni sürüm bulununca kart ve Windows bildirimi ([Şimdi Güncelle] [Sonra]); güncelleme
+  kurulamadıysa açılışta hata bildirimi ve Tekrar Dene.
+- **Talimat kitaplığı** (Otomatik Çeviri → Kitaplık): kendi talimatlarınızı adlandırıp kaydedin, başka projelerde de
+  seçin (`%LOCALAPPDATA%\NXCeviri\talimatlar.json`).
+- Otomatik Çeviri kapsamında **grup ya da anahtar deseni** (`menu_*`, `*Chapter1*`).
+- Değişiklikler penceresinde **"Yeni" hücresi yerinde düzenlenir** (yazılır, Geri Al ile geri alınır) ve isteğe bağlı
+  **"Bağlamı göster"**: satırın üzerinde bekleyince önceki ve sonraki satırların orijinali ve çevirisi (hatırlanır).
+
+### Değişti
+- İş sonunda Çevir sayfasında çıkan **uzun sarı bilgi kutusu kalktı**; yerine kısa özet kartı ("Yeniden çeviri bitti ·
+  3.938 satır yenilendi · 6 satır denetimden geçmedi"), ayrıntılar "Ayrıntılar" düğmesinde. İş sonunda değişiklikler
+  penceresi kendiliğinden açılmaz; karttaki **Değişiklikleri Gör** ile açılır.
+- Ana penceredeki uyarı/bilgi pencereleri (kaydetme hatası, içe aktarma özeti …) bildirime dönüştü; karar isteyen
+  sorular soru olarak kaldı.
+- Değişiklikler penceresinde metin **binlerce satırda da** sözcük sınırında satıra kayar (eskiden 1.500 satırdan sonra
+  tek satırda kalıyordu).
+- Ollama'nın yanıtı uzunluk sınırında **yarım kalırsa** parti ikiye bölünüp yeniden istenir (satır kaybolmaz).
+- Ad birliği: "Makine çevirisi" → **Otomatik çeviri**, "Talimatla düzeltme" → **Redaksiyon**.
+
 ## [0.51.0] — 2026-11-10 — Anlık denetim, Sorunlar panosu, Yazım Denetimi
 
 ### Düzeltildi

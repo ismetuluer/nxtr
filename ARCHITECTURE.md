@@ -823,6 +823,20 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     düşer → sistem metni kullanıcı mesajına eklenir ve uyarı verilir. `num_ctx` iş başında `prepare_job` ile en uzun
     partiden hesaplanır (karakter/3 + yanıt + %15, 8192'nin katı, ≤ modelin sınırı ve 32768).
 
+### 4.38 0.52.0 kararları (bildirimler, değişiklikler, Otomatik Çeviri)
+
+150. **Tek bildirim yolu `gui/notify.py` `NotificationCenter`:** kart + geçmiş her zaman; "gürültülü" kanallar
+    (Windows bildirimi `QSystemTrayIcon`, `winsound.MessageBeep`, `QApplication.alert`) pencere etkin değilken ya da iş
+    ≥ 2 sn sürdüyse ve yalnızca Ayarlar'da açıksa (`notify/sound|system|flash`).
+151. **`MainWindow._run` her işin sonucunu bildirir:** işleyici kendi bildirimini verdiyse genel bildirim verilmez;
+    hata kartında "Tekrar Dene" aynı işi yeniden kurar. Sayfa mesajları (`TranslatePage.show_notice`) sinyalle karta
+    gider; sayfada kalıcı kutu yoktur. Uzun ya da çok satırlı metin kartta kısalır, tamamı "Ayrıntılar"da.
+152. **Değişiklikler penceresi satırları tembel ölçer** (görünen aralık, kaydırma/sütun değişiminde); yerinde düzenleme
+    `edit_fn` ile ana pencerenin kayıt yolundan, bağlam `context_fn` ile aktarım sırasındaki komşulardan gelir.
+153. **Talimat kitaplığı kullanıcıya aittir** (`core/translate/instructions.py`, AppData JSON, atomik yazım).
+154. **Yarım yanıt bölünür:** `ProviderError(splittable=True)` (Ollama `done_reason == "length"`) partiyi ikiye
+    böler; tek maddede yine anlaşılır hata.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.
