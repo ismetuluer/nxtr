@@ -24,12 +24,14 @@ Denetimler satır başınadır ve yalnızca bulguları döndürür; satırları 
 | repeated_word | uyarı | Art arda aynı sözcük, "ve ve" (otomatik düzeltilir) |
 | extra_dots | uyarı | 4+ nokta veya orijinalde olmayan ".." (otomatik düzeltilir) |
 | inconsistent | uyarı | Aynı kaynak metin projede farklı biçimlerde çevrilmiş (hepsi onaylı değilse) |
+| term | uyarı | Kaynakta geçen terimin (özel ad) kanonik çevirisi çeviride yok; projede farklı çevrilmiş |
 | untranslated | bilgi | Çevrilmemiş satır (oyunda orijinal metin kalır) |
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Collection
 from dataclasses import dataclass
 
 from nxceviri.core.project import TranslationRow
@@ -81,6 +83,7 @@ KIND_LABELS = {
     "double_space": "Çift boşluk",
     "repeated_word": "Tekrarlı sözcük",
     "extra_dots": "Fazla nokta",
+    "term": "Terim tutarsızlığı",
 }
 
 #: Çeviri orijinalin bu katından uzunsa (ve yeterince uzunsa) taşma uyarısı verilir.
@@ -251,13 +254,20 @@ def run_checks(
     fit: FitConfig | None = None,
     *,
     spell: SpellChecker | None = None,
+    ignored_terms: Collection[str] = (),
 ) -> list[QaIssue]:
+    from nxceviri.core.qa.terms import canonical_terms, term_issues  # noqa: PLC0415 - terms bu modülden QaIssue alır (döngüsel içe aktarma)
+
     patterns = glossary_patterns(glossary)
     extra = glossary_words(glossary) if spell is not None else frozenset()
     out: list[QaIssue] = []
     for row in rows:
         out.extend(check_row(row, missing_letters, transliterated, patterns, fit, spell=spell, spell_extra=extra))
     out.extend(consistency_issues(rows))
+    # Sözlük terimlerini "glossary" denetimi zaten bildirir; burada yalnızca satırlardan çıkan terimler aranır.
+    listed = {turkish_lower(" ".join(t.term.split())) for t in glossary or ()}
+    canon = canonical_terms(rows, glossary or (), ignored_terms)
+    out.extend(term_issues(rows, {k: v for k, v in canon.items() if turkish_lower(" ".join(k.split())) not in listed}))
     return out
 
 
