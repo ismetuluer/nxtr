@@ -9,7 +9,7 @@ import pytest
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.translate.fit import FitRules
-from nxceviri.core.translate.fitconfig import FitConfig, load_config
+from nxceviri.core.translate.fitconfig import load_config
 from nxceviri.gui.main_window import MainWindow
 from tests.test_statusbar import _make_window, _project
 
@@ -47,8 +47,9 @@ def test_inline_edit_on_issues_board_saves_and_rechecks(window: MainWindow) -> N
 
 def test_limits_table_edit_is_saved_with_key_patterns(window: MainWindow) -> None:
     window._refresh_qa()
-    edited = FitConfig(per_group={"Dialogue": FitRules(30, 2)}, per_key={"m*": FitRules(12, 1)})
-    window.qa_page.limits.config_edited.emit(edited)
+    limits = window.qa_page.limits
+    limits.rule_edited.emit("group:Dialogue", FitRules(30, 2))
+    limits.rule_edited.emit("key:m*", FitRules(12, 1))
     saved = load_config(window.project)
     assert saved.per_key == {"m*": FitRules(12, 1)}
     assert saved.per_group.get("Dialogue") == FitRules(30, 2)

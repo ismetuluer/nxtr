@@ -104,7 +104,7 @@ def test_phrase_needs_word_boundary_in_source_and_untranslated_rows_skipped() ->
         _row(1, "The Millennium", "Binyıl"),  # sözcük sınırı yok
         _row(2, "Old Mill.", ""),  # çevrilmemiş
         _row(3, "Old Mill.", "Eski değirmen."),
-        _row(4, "Old. Mill", "Eski Mill"),
+        _row(4, "Old. See Mill", "Eski Mill"),
     ]
     assert [i.row_id for i in term_issues(rows, canon)] == [4]
 
@@ -122,6 +122,7 @@ def test_multi_word_phrase_needs_whitespace_between_words_in_source() -> None:
 def test_run_checks_includes_term_issues_and_respects_ignored() -> None:
     rows = [
         _row(1, "Silver Pines", "Gümüş Çamlar"),
+        _row(3, "Silver Pines", "Gümüş Çamlar"),
         _row(2, "Welcome to Silver Pines.", "Gümüş Çam'a hoş geldin."),
     ]
     kinds = [i.kind for i in run_checks(rows, "", "")]
@@ -141,3 +142,69 @@ def test_term_issues_is_fast_on_50k_rows_and_2k_terms() -> None:
     found = term_issues(rows, canon)
     assert time.perf_counter() - start < 2.0
     assert found == []
+
+
+# --- Ö4: yanlış pozitifleri azaltan kurallar ---------------------------------------------------------
+
+
+def test_o4_tek_satirda_gecen_ifade_kanonik_sayilmaz() -> None:
+    rows = [_row(1, "Spear", "Mızrak"), _row(2, "Iron Sword", "Demir Kılıç"), _row(3, "Iron Sword", "Demir Kılıç")]
+    assert canonical_terms(rows, []) == {"Iron Sword": "Demir Kılıç"}
+
+
+def test_o4_ortak_arayuz_sozcukleri_cumle_icinde_uyari_uretmez() -> None:
+    rows = [
+        _row(1, "No", "Hayır"),
+        _row(2, "No", "Hayır"),
+        _row(3, "Yes", "Evet"),
+        _row(4, "Yes", "Evet"),
+        _row(5, "Back", "Geri"),
+        _row(6, "Back", "Geri"),
+        _row(7, "There is no way back.", "Çıkış yok."),
+        _row(8, "Go back to the town.", "Kasabaya dön."),
+        _row(9, "Yes, I know.", "Biliyorum."),
+        _row(10, "Say Yes to the king.", "Krala olur de."),
+    ]
+    canon = canonical_terms(rows, [])
+    assert canon == {"No": "Hayır", "Yes": "Evet", "Back": "Geri"}
+    # küçük harfli "no/back", cümle başındaki "Yes" sayılmaz; yalnızca cümle ortasında büyük harfli geçiş denetlenir
+    assert [i.row_id for i in term_issues(rows, canon)] == [10]
+
+
+def test_o4_cumle_basi_eslesme_tek_sozcukte_sayilmaz_cok_sozcukte_sayilir() -> None:
+    canon = {"Silver Pines": "Gümüş Çamlar", "Mara": "Mara"}
+    rows = [
+        _row(1, "Silver Pines is quiet.", "Sessiz bir yer."),
+        _row(2, "Hi. Mara is here.", "Merhaba. Orada biri var."),
+        _row(3, "Hi Mara is here.", "Merhaba. Orada biri var."),
+    ]
+    assert [i.row_id for i in term_issues(rows, canon)] == [1, 3]
+
+
+def test_o4_kaynakta_kucuk_harfli_gecis_buyuk_harfli_ifadeyle_eslesmez() -> None:
+    canon = {"Open": "Aç"}
+    rows = [_row(1, "Please open the door.", "Kapıyı lütfen."), _row(2, "Please Open the door.", "Kapıyı lütfen.")]
+    assert [i.row_id for i in term_issues(rows, canon)] == [2]
+
+
+def test_o4_unsuz_yumusamasi_kabul_edilir() -> None:
+    canon = {"Iron Sword": "Demir Kılıç", "Spear": "Mızrak"}
+    ok = [
+        _row(1, "You found an Iron Sword!", "Bir Demir Kılıcı buldun!"),
+        _row(2, "Take the Spear.", "Mızrağı al."),
+        _row(3, "Use the Spear well.", "Mızrağa dikkat et."),
+    ]
+    assert term_issues(ok, canon) == []
+    # kök bozuksa yine uyarı verilir
+    assert [i.row_id for i in term_issues([_row(4, "Take the Spear.", "Mızrabı al.")], canon)] == [4]
+
+
+def test_o4_nk_ng_yumusamasi() -> None:
+    canon = {"Bank": "Denk"}
+    ok = [_row(1, "See the Bank now.", "Dengi gör.")]
+    assert term_issues(ok, canon) == []
+
+
+def test_o4_yumusama_ek_yoksa_gecerli_degildir() -> None:
+    canon = {"Spear": "Mızrak"}
+    assert [i.row_id for i in term_issues([_row(1, "Take the Spear.", "Mızrağ al.")], canon)] == [1]

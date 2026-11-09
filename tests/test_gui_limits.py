@@ -53,23 +53,21 @@ def test_lists_groups_with_counts(qtbot: QtBot) -> None:
 def test_edit_manual_group_limit_emits_config(qtbot: QtBot) -> None:
     table = _table(qtbot)
     r = _find(table, "group:Story")
-    with qtbot.waitSignal(table.config_edited) as sig:
+    with qtbot.waitSignal(table.rule_edited) as sig:
         assert table.edit_cell(r, 4, "30 × 2")
-    config = sig.args[0]
-    assert isinstance(config, FitConfig)
-    assert config.per_group == {"Story": FitRules(30, 2)}
+    assert sig.args == ["group:Story", FitRules(30, 2)]
     assert table.cell_text(r, 4) == "30 × 2"
 
 
 def test_edit_manual_limit_accepts_comma_and_single_number(qtbot: QtBot) -> None:
     table = _table(qtbot, FitConfig(per_group={"Dialogue": FitRules(20, 3)}))
     r = _find(table, "group:Dialogue")
-    with qtbot.waitSignal(table.config_edited) as sig:
+    with qtbot.waitSignal(table.rule_edited) as sig:
         table.edit_cell(r, 4, "25")
-    assert sig.args[0].per_group["Dialogue"] == FitRules(25, 3)  # satır sayısı eskisi kalır
-    with qtbot.waitSignal(table.config_edited) as sig:
+    assert sig.args == ["group:Dialogue", FitRules(25, 3)]  # satır sayısı eskisi kalır
+    with qtbot.waitSignal(table.rule_edited) as sig:
         table.edit_cell(r, 4, "18, 4")
-    assert sig.args[0].per_group["Dialogue"] == FitRules(18, 4)
+    assert sig.args == ["group:Dialogue", FitRules(18, 4)]
 
 
 def test_clearing_manual_limit_removes_it(qtbot: QtBot) -> None:
@@ -77,15 +75,15 @@ def test_clearing_manual_limit_removes_it(qtbot: QtBot) -> None:
     r = _find(table, "group:Story")
     for text in ("0", ""):
         table.set_data(ROWS, FitConfig(per_group={"Story": FitRules(30, 2)}), {})
-        with qtbot.waitSignal(table.config_edited) as sig:
+        with qtbot.waitSignal(table.rule_edited) as sig:
             assert table.edit_cell(r, 4, text)
-        assert sig.args[0].per_group == {}
+        assert sig.args == ["group:Story", None]
 
 
 def test_invalid_manual_limit_rejected(qtbot: QtBot) -> None:
     table = _table(qtbot)
     r = _find(table, "group:Story")
-    with qtbot.assertNotEmitted(table.config_edited):
+    with qtbot.assertNotEmitted(table.rule_edited):
         assert not table.edit_cell(r, 4, "abc")
         assert not table.edit_cell(r, 4, "-3 × 2")
     assert table.cell_text(r, 4) == ""
@@ -113,13 +111,13 @@ def test_manual_limit_on_key_pattern_and_remove(qtbot: QtBot) -> None:
     table = _table(qtbot)
     table.add_pattern("menu_*")
     r = _find(table, "key:menu_*")
-    with qtbot.waitSignal(table.config_edited) as sig:
+    with qtbot.waitSignal(table.rule_edited) as sig:
         table.edit_cell(r, 4, "12 × 1")
-    assert sig.args[0].per_key == {"menu_*": FitRules(12, 1)}
+    assert sig.args == ["key:menu_*", FitRules(12, 1)]
     table.select_row(r)
-    with qtbot.waitSignal(table.config_edited) as sig:
+    with qtbot.waitSignal(table.rule_edited) as sig:
         table.remove_selected_pattern()
-    assert sig.args[0].per_key == {}
+    assert sig.args == ["key:menu_*", None]
     assert all(not table.scope_at(i).startswith("key:") for i in range(table.model_row_count()))
 
 

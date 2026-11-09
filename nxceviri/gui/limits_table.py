@@ -98,6 +98,12 @@ class _Model(QAbstractTableModel):
     def entry(self, row: int) -> _Entry:
         return self._entries[row]
 
+    def entries(self) -> list[_Entry]:
+        return self._entries
+
+    def manual_map(self) -> dict[str, FitRules]:
+        return self._manual
+
     def rowCount(self, parent: _Index = QModelIndex()) -> int:  # noqa: B008
         return 0 if parent.isValid() else len(self._entries)
 
@@ -157,9 +163,13 @@ class _Model(QAbstractTableModel):
 
 
 class LimitsTable(QWidget):
-    """Grup ve anahtar deseni sınırları. Elle sınır düzenlenince `config_edited(FitConfig)` gelir."""
+    """Grup ve anahtar deseni sınırları.
 
-    config_edited = Signal(object)
+    Tablo ayarın sahibi değildir: elle sınır düzenlenince yalnızca değişen girdiyi `rule_edited(kapsam, kural)`
+    olarak bildirir (kural `None`: kaldırıldı); ayarı sayfa birleştirir ve güncel halini `set_config` ile geri verir.
+    """
+
+    rule_edited = Signal(str, object)
     learn_all_requested = Signal()
 
     def __init__(self) -> None:
@@ -168,6 +178,11 @@ class LimitsTable(QWidget):
         self._config = FitConfig()
         self._learned: Mapping[str, FitRules] = {}
         self._patterns: list[str] = []  # ayarlardakiler ve oturumda eklenen, henüz sınırı olmayan desenler
+        # İstatistikler satırların taranmasını gerektirir (50.000 satırda saniyeler): yalnızca `set_data`da
+        # ve desen eklenince hesaplanır, ayar değişince önbellekten kurulur.
+        self._group_stats: list[LimitStat] = []
+        self._key_stats: dict[str, LimitStat] = {}
+        self._stats_kinds: dict[str, str] = {}
 
         self.search = QLineEdit()
         self.search.setPlaceholderText("Ara…")
@@ -228,21 +243,61 @@ class LimitsTable(QWidget):
     def set_data(self, rows: Sequence[TranslationRow], config: FitConfig, learned: Mapping[str, FitRules]) -> None:
         """Tabloyu satırlardan, ayarlardan ve öğrenilen grup kurallarından (grup adı → kural) yeniden kurar."""
         self._rows, self._config, self._learned = rows, config, learned
+        # Oturumda eklenen desenler projeye aittir: başka projenin satırlarına sızmasın.
+        self._patterns = list(config.per_key)
+        self._compute_stats()
+        self._rebuild()
+
+    def set_config(self, config: FitConfig) -> None:
+        """Ayarın güncel halini gösterir (sayfa, kartta ya da tabloda yapılan değişikliği birleştirdikten sonra)."""
+        self._config = config
         known = {p.casefold() for p in self._patterns}
         self._patterns += [p for p in config.per_key if p.casefold() not in known]
+        if config.kinds.mapping != self._stats_kinds:
+            self._compute_stats()
+        elif self._manual_map(config) == self._model.manual_map() and self._group_names() == self._shown_groups():
+            return  # tablo zaten bu halde (düzenleme tablodan geldi); yeniden kurup düzenleyiciyi bozma
         self._rebuild()
+
+    def set_learned(self, learned: Mapping[str, FitRules]) -> None:
+        """Öğrenilen sınırlar sütununu günceller."""
+        self._learned = learned
+        self._rebuild()
+
+    def _compute_stats(self) -> None:
+        kinds = self._config.kinds
+        self._stats_kinds = dict(kinds.mapping)
+        self._group_stats = group_stats(self._rows, kinds)
+        self._key_stats = {s.label: s for s in key_stats(self._rows, self._patterns, kinds)}
+
+    @staticmethod
+    def _manual_map(config: FitConfig) -> dict[str, FitRules]:
+        manual = {SCOPE_GROUP + g: r for g, r in config.per_group.items()}
+        manual |= {SCOPE_KEY + p: r for p, r in config.per_key.items()}
+        return manual
+
+    def _group_names(self) -> set[str]:
+        return {s.label for s in self._group_stats} | set(self._config.per_group)
+
+    def _shown_groups(self) -> set[str]:
+        return {e.stat.label for e in self._model.entries() if e.stat.scope.startswith(SCOPE_GROUP)}
 
     def _rebuild(self) -> None:
         config = self._config
-        stats = {s.scope: s for s in group_stats(self._rows, config.kinds)}
+        stats = {s.scope: s for s in self._group_stats}
         for group in config.per_group:
             stats.setdefault(SCOPE_GROUP + group, LimitStat(SCOPE_GROUP + group, group, 0, 0, 0))
         entries = [_Entry(s, self._learned.get(s.label)) for s in stats.values()]
-        entries += [_Entry(s, None) for s in key_stats(self._rows, self._patterns, config.kinds)]
-        manual = {SCOPE_GROUP + g: r for g, r in config.per_group.items()}
-        manual |= {SCOPE_KEY + p: r for p, r in config.per_key.items()}
-        self._model.reset(entries, manual)
+        entries += [_Entry(self._key_stat(p), None) for p in self._patterns]
+        self._model.reset(entries, self._manual_map(config))
         self._update_remove()
+
+    def _key_stat(self, pattern: str) -> LimitStat:
+        found = self._key_stats.get(pattern)
+        if found is None:
+            found = key_stats(self._rows, [pattern], self._config.kinds)[0]
+            self._key_stats[pattern] = found
+        return found
 
     # --- eylemler ---
 
@@ -256,8 +311,8 @@ class LimitsTable(QWidget):
             self._status.setText(f"‘{pattern}’ deseni zaten listede.")
             return False
         self._patterns.append(pattern)
+        count = self._key_stat(pattern).rows
         self._rebuild()
-        count = key_stats(self._rows, [pattern], self._config.kinds)[0].rows
         self._status.setText(f"‘{pattern}’ deseni {format_int(count)} satıra uyuyor. Elle sınır sütununa sınır yazın.")
         self.pattern_input.clear()
         return True
@@ -268,13 +323,14 @@ class LimitsTable(QWidget):
             return
         pattern = scope[len(SCOPE_KEY) :]
         self._patterns = [p for p in self._patterns if p != pattern]
+        self._key_stats.pop(pattern, None)
         per_key = {p: r for p, r in self._config.per_key.items() if p != pattern}
         had_rule = len(per_key) != len(self._config.per_key)
         self._config = replace(self._config, per_key=per_key)
         self._rebuild()
         self._status.setText(f"‘{pattern}’ deseni kaldırıldı.")
         if had_rule:
-            self.config_edited.emit(self._config)
+            self.rule_edited.emit(scope, None)
 
     def _on_manual_edited(self, scope: str, text: str) -> bool:
         parsed = _parse_manual(text)
@@ -293,13 +349,23 @@ class LimitsTable(QWidget):
             rules = FitRules(width, lines, variable)
         self._model.set_manual(scope, rules)
         self._apply_manual(scope, rules)
+        self.rule_edited.emit(scope, rules)
         self._status.setText("Elle sınır kaldırıldı." if rules is None else "Elle sınır kaydedilecek.")
         return True
 
     def _fallback_lines(self, scope: str) -> int:
-        """Yalnızca genişlik yazıldığında satır sayısı: grubun öğrenilen değeri, yoksa 1."""
-        learned = self._learned.get(scope[len(SCOPE_GROUP) :]) if scope.startswith(SCOPE_GROUP) else None
-        return learned.max_lines if learned else 1
+        """Yalnızca genişlik yazıldığında satır sayısı: grubun öğrenilen değeri, anahtar deseninde desene uyan
+        satırların en çok satırı, yoksa proje sınırının satır sayısı ya da 1."""
+        if scope.startswith(SCOPE_GROUP):
+            learned = self._learned.get(scope[len(SCOPE_GROUP) :])
+            if learned:
+                return learned.max_lines
+        else:
+            measured = self._key_stat(scope[len(SCOPE_KEY) :]).max_source_lines
+            if measured:
+                return measured
+        default = self._config.default
+        return default.max_lines if default else 1
 
     def _variable_width(self) -> int:
         return self._config.default.variable_width if self._config.default else DEFAULT_VARIABLE_WIDTH
@@ -317,7 +383,6 @@ class LimitsTable(QWidget):
             self._config = replace(self._config, per_group=target)
         else:
             self._config = replace(self._config, per_key=target)
-        self.config_edited.emit(self._config)
 
     def _update_remove(self) -> None:
         self.remove_button.setEnabled(self.selected_scope().startswith(SCOPE_KEY))

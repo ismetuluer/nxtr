@@ -27,6 +27,8 @@ from nxceviri.core.languages import sort_key
 from nxceviri.core.spell.report import WordUse
 from nxceviri.gui.widgets import button, format_int, label, title_row
 
+_EMPTY_TEXT = "Bilinmeyen sözcük yok"
+_SCANNING_TEXT = "Sözcükler taranıyor…"
 _WORD_COLUMN = 0
 _COUNT_COLUMN = 1
 
@@ -66,7 +68,7 @@ class SpellWindow(QDialog):
         self.search.textChanged.connect(self._filter)
         lay.addWidget(self.search)
 
-        self.empty_label: QLabel = label("Bilinmeyen sözcük yok", "emptyTitle")
+        self.empty_label: QLabel = label(_EMPTY_TEXT, "emptyTitle")
         self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(self.empty_label, 1)
         self.table = QTableWidget(0, 2)
@@ -113,6 +115,14 @@ class SpellWindow(QDialog):
         lay.addLayout(replace)
         self.set_words([])
 
+    def set_scanning(self, scanning: bool) -> None:
+        """Büyük projede tarama arka planda sürerken boş durum yerine "taranıyor" gösterilir."""
+        self.empty_label.setText(_SCANNING_TEXT if scanning else _EMPTY_TEXT)
+        if scanning:
+            self.empty_label.setVisible(True)
+            self.table.setVisible(False)
+            self.search.setEnabled(False)
+
     def set_words(self, words: list[WordUse], previews: Mapping[int, str] | None = None) -> None:
         """Tabloyu tazeler; seçili sözcükler hâlâ varsa seçim korunur. `previews`: satır kimliği → kısa metin."""
         keep = set(self.selected_words())
@@ -131,6 +141,7 @@ class SpellWindow(QDialog):
             if use.word in keep:
                 word_item.setSelected(True)
         self.table.blockSignals(False)
+        self.empty_label.setText(_EMPTY_TEXT)
         empty = not words
         self.empty_label.setVisible(empty)
         self.table.setVisible(not empty)
@@ -174,3 +185,4 @@ class SpellWindow(QDialog):
         new = self.replace_edit.text().strip()
         if len(selected) == 1 and new:
             self.replace_requested.emit(selected[0], new)
+            self.replace_edit.clear()
