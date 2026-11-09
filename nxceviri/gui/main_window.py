@@ -141,12 +141,14 @@ from nxceviri.gui.machine_dialogs import (
     SCOPE_ALL,
     SCOPE_FILTERED,
     SCOPE_GROUPS,
+    SCOPE_PATTERN,
     SCOPE_SELECTED,
     GlossaryDialog,
     MachineDialog,
     MachineSettings,
     TermSuggestionsDialog,
     make_provider,
+    rows_matching,
 )
 from nxceviri.gui.menus import Menus
 from nxceviri.gui.motion import animations_enabled
@@ -2385,7 +2387,12 @@ class MainWindow(QMainWindow):
         chosen = self.ask_machine_settings(scopes, action, SCOPE_SELECTED if from_selection else SCOPE_ALL)
         if chosen is None or not self._remember_machine_settings(chosen):
             return
-        target = target_rows(scopes.get(chosen.scope, []), chosen.action, chosen.include_approved)
+        scope_rows = (
+            rows_matching(scopes.get(SCOPE_ALL, []), chosen.pattern)
+            if chosen.scope == SCOPE_PATTERN
+            else scopes.get(chosen.scope, [])
+        )
+        target = target_rows(scope_rows, chosen.action, chosen.include_approved)
         job = MachineJob(
             rows=target,
             source_lang=self.project.setting("source_language", "en"),

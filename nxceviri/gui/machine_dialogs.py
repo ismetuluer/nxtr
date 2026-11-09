@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fnmatch
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
     QHeaderView,
+    QInputDialog,
     QLineEdit,
     QMenu,
     QPlainTextEdit,
@@ -34,6 +36,14 @@ from nxceviri.core.errors import NxError
 from nxceviri.core.project import TranslationRow, row_group
 from nxceviri.core.secrets import DEEPL_API_KEY, SecretStore
 from nxceviri.core.translate.glossary_io import export_glossary_xlsx, merge_terms, read_glossary_xlsx
+from nxceviri.core.translate.instructions import (
+    KIND_REVISE,
+    KIND_TRANSLATE,
+    SavedInstruction,
+    delete_instruction,
+    load_library,
+    save_instruction,
+)
 from nxceviri.core.translate.providers.base import GlossaryTerm, ProviderError, TranslationProvider
 from nxceviri.core.translate.providers.deepl import DeepLProvider, plan_label
 from nxceviri.core.translate.providers.ollama import (
@@ -52,6 +62,7 @@ SCOPE_SELECTED = "selected"
 SCOPE_GROUPS = "groups"
 SCOPE_FILTERED = "filtered"
 SCOPE_ALL = "all"
+SCOPE_PATTERN = "pattern"
 PROVIDER_OLLAMA = "ollama"
 PROVIDER_DEEPL = "deepl"
 
@@ -78,7 +89,22 @@ _SCOPE_LABELS = {
     SCOPE_GROUPS: "Seçili satırların grubu",
     SCOPE_FILTERED: "Tabloda görünen satırlar",
     SCOPE_ALL: "Projedeki tüm satırlar",
+    SCOPE_PATTERN: "Grup ya da anahtar deseni",
 }
+
+
+def rows_matching(rows: Sequence[TranslationRow], pattern: str) -> list[TranslationRow]:
+    """Grubu, anahtarı ya da bağlamın son parçası desene uyan satırlar (`menu_*`, `*Chapter1*`; büyük/küçük
+    harf duyarsız). Boş desen hiçbir satır seçmez."""
+    pattern = pattern.strip().casefold()
+    if not pattern:
+        return []
+
+    def names(r: TranslationRow) -> tuple[str, ...]:
+        return (row_group(r), r.key, r.context.rsplit("/", 1)[-1])
+
+    return [r for r in rows if any(fnmatch.fnmatchcase(n.casefold(), pattern) for n in names(r) if n)]
+
 
 _START_LABELS = {
     ACTION_TRANSLATE: "Çeviriyi Başlat",
@@ -191,6 +217,8 @@ class MachineSettings:
     action: str = ACTION_TRANSLATE
     instruction: str = ""
     include_approved: bool = False
+    #: Kapsam "Grup ya da anahtar deseni" ise desen.
+    pattern: str = ""
 
 
 def make_provider(settings: MachineSettings, secrets: SecretStore) -> TranslationProvider:
@@ -244,7 +272,7 @@ class MachineDialog(QDialog):
         lay.setSpacing(12)
         lay.addWidget(
             title_row(
-                "Makine çevirisi",
+                "Otomatik Çeviri",
                 "Onaylı satırlara dokunulmaz. İşlem her partide kaydedilir; yarıda kalırsa kaldığı yerden devam eder.",
                 "cardTitle",
             )
@@ -323,6 +351,14 @@ class MachineDialog(QDialog):
         self.scope = QComboBox()
         scope_row.addWidget(self.scope, 1)
         jl.addLayout(scope_row)
+        self.pattern = QLineEdit()
+        self.pattern.setPlaceholderText("Örn. menu_* ya da *Chapter1*")
+        self.pattern.setToolTip(
+            tip_html("Grubu ya da anahtarı desene uyan satırlar. * herhangi bir metin, ? tek harf demektir.")
+        )
+        self.pattern.setClearButtonEnabled(True)
+        self.pattern.hide()
+        jl.addWidget(self.pattern)
         self.count = label("", "muted", wrap=True)
         jl.addWidget(self.count)
         lay.addWidget(self.job_box)
@@ -361,9 +397,22 @@ class MachineDialog(QDialog):
         self.instruction_box = QWidget()
         il = QVBoxLayout(self.instruction_box)
         il.setContentsMargins(0, 0, 0, 0)
+        preset_row = QHBoxLayout()
         self.presets = QComboBox()
         self.presets.activated.connect(self._use_preset)
-        il.addWidget(self.presets)
+        preset_row.addWidget(self.presets, 1)
+        # Talimat kitaplığı: kullanıcının kaydettiği talimatlar (bütün projelerde ortak).
+        self.library_menu = QMenu(self)
+        self.library_menu.aboutToShow.connect(self._fill_library_menu)
+        self.library_button = QToolButton()
+        self.library_button.setText("Kitaplık")
+        self.library_button.setToolTip("Kendi talimatlarınızı kaydedin; başka projelerde de seçebilirsiniz.")
+        self.library_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        bind_icon(self.library_button, "book-open")
+        self.library_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.library_button.setMenu(self.library_menu)
+        preset_row.addWidget(self.library_button)
+        il.addLayout(preset_row)
         self.instruction = QPlainTextEdit()
         self.instruction.setFixedHeight(120)
         il.addWidget(self.instruction)
@@ -399,7 +448,8 @@ class MachineDialog(QDialog):
         self.include_approved.toggled.connect(self._update)
         self.notes.textChanged.connect(self._update_advanced_title)
         self.instruction.textChanged.connect(self._update_advanced_title)
-        self.scope.currentIndexChanged.connect(self._update_count)
+        self.scope.currentIndexChanged.connect(self._scope_changed)
+        self.pattern.textChanged.connect(self._update_count)
         # Seçilen satırların hepsi onaylıysa (ör. yanlışlıkla düzenlenip onaylanmış) iş onlara uygulanabilsin.
         initial = self._scopes.get(scope, ())
         if (
@@ -421,9 +471,21 @@ class MachineDialog(QDialog):
     def _scope(self) -> str:
         return str(self.scope.currentData() or SCOPE_ALL)
 
+    def _scope_rows(self, scope: str) -> Sequence[TranslationRow]:
+        if scope == SCOPE_PATTERN:
+            return rows_matching(self._scopes.get(SCOPE_ALL, ()), self.pattern.text())
+        return self._scopes.get(scope, ())
+
     def target(self) -> list[TranslationRow]:
         """İşin uygulanacağı satırlar (seçili kapsam, iş türü ve onay seçeneğine göre)."""
-        return target_rows(self._scopes.get(self._scope(), ()), self.action, self.include_approved.isChecked())
+        return target_rows(self._scope_rows(self._scope()), self.action, self.include_approved.isChecked())
+
+    def _scope_changed(self) -> None:
+        pattern = self._scope() == SCOPE_PATTERN
+        self.pattern.setVisible(pattern)
+        if pattern:
+            self.pattern.setFocus()
+        self._update_count()
 
     def _scope_label(self, scope: str) -> str:
         text = _SCOPE_LABELS[scope]
@@ -460,8 +522,11 @@ class MachineDialog(QDialog):
                 continue
             n = len(target_rows(rows, action, include))
             self.scope.addItem(f"{self._scope_label(scope)} — {format_int(n)} satır", scope)
+        if self._scopes.get(SCOPE_ALL):
+            self.scope.addItem(_SCOPE_LABELS[SCOPE_PATTERN], SCOPE_PATTERN)
         self.scope.setCurrentIndex(max(self.scope.findData(current), 0))
         self.scope.blockSignals(False)
+        self.pattern.setVisible(self._scope() == SCOPE_PATTERN)
         self.start.setText(_START_LABELS[action])
         self._update_count()
         self._update_advanced_title()
@@ -490,11 +555,13 @@ class MachineDialog(QDialog):
         deepl = self.provider_name == PROVIDER_DEEPL
         no_key = deepl and not self._secrets.get(DEEPL_API_KEY)
         revise_on_deepl = deepl and self.action == ACTION_REVISE
-        self.count.setText(
-            f"Bu iş {format_int(len(rows))} satıra uygulanacak (yaklaşık {format_int(chars)} karakter)."
-            if rows
-            else "Bu kapsamda bu işe uygun satır yok."
-        )
+        if rows:
+            text = f"Bu iş {format_int(len(rows))} satıra uygulanacak (yaklaşık {format_int(chars)} karakter)."
+        elif self._scope() == SCOPE_PATTERN and not self.pattern.text().strip():
+            text = "Grup ya da anahtar deseni yazın."
+        else:
+            text = "Bu kapsamda bu işe uygun satır yok."
+        self.count.setText(text)
         if revise_on_deepl:
             self.status.show_message(
                 "warning", "DeepL talimat izleyemez; talimatla düzeltme için sağlayıcı olarak Ollama'yı seçin."
@@ -526,6 +593,58 @@ class MachineDialog(QDialog):
             self.instruction.setPlainText(text)
             self.status.show_message("success", "")
         self.presets.setCurrentIndex(0)
+
+    def _library_kind(self) -> str:
+        return KIND_REVISE if self.action == ACTION_REVISE else KIND_TRANSLATE
+
+    def _fill_library_menu(self) -> None:
+        menu = self.library_menu
+        menu.clear()
+        kind = self._library_kind()
+        saved = [i for i in load_library() if i.kind == kind]
+        for item in saved:
+            action = menu.addAction(item.name)
+            action.setToolTip(item.text)
+            action.triggered.connect(lambda _c=False, n=item.name: self.use_saved(n))
+        if not saved:
+            empty = menu.addAction("Kayıtlı talimat yok")
+            empty.setEnabled(False)
+        menu.addSeparator()
+        menu.addAction("Bu Talimatı Kaydet…").triggered.connect(self.save_to_library)
+        if saved:
+            remove = menu.addMenu("Sil")
+            for item in saved:
+                remove.addAction(item.name).triggered.connect(lambda _c=False, n=item.name: self._delete_saved(n))
+
+    def use_saved(self, name: str) -> None:
+        kind = self._library_kind()
+        found = next((i for i in load_library() if i.kind == kind and i.name == name), None)
+        if found is not None:
+            self.instruction.setPlainText(found.text)
+
+    def save_to_library(self) -> None:
+        text = self.instruction.toPlainText().strip()
+        if not text:
+            self.status.show_message("warning", "Kaydetmek için önce talimatı yazın.")
+            return
+        name, ok = QInputDialog.getText(self, "Talimatı kaydet", "Talimatın adı:")
+        if not ok or not name.strip():
+            return
+        try:
+            save_instruction(SavedInstruction(name.strip(), self._library_kind(), text))
+        except OSError as exc:
+            self.status.show_message("danger", f"Talimat kaydedilemedi: {exc}")
+            return
+        self.status.show_message("success", f"“{name.strip()}” kitaplığa kaydedildi.")
+        self._fill_library_menu()
+
+    def _delete_saved(self, name: str) -> None:
+        try:
+            delete_instruction(name, self._library_kind())
+        except OSError as exc:
+            self.status.show_message("danger", f"Talimat silinemedi: {exc}")
+            return
+        self._fill_library_menu()
 
     def _update_template_note(self) -> None:
         self.template_note.setVisible(self.model.currentText().strip() in self._template_ignores_system)
@@ -610,6 +729,7 @@ class MachineDialog(QDialog):
             action=self.action,
             instruction=self.instruction.toPlainText().strip() if self._instruction_enabled() else "",
             include_approved=self.include_approved.isChecked() and self.action != ACTION_TRANSLATE,
+            pattern=self.pattern.text().strip() if self._scope() == SCOPE_PATTERN else "",
         )
 
 
