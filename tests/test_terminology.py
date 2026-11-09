@@ -8,7 +8,9 @@ from pathlib import Path
 import pytest
 from pytestqt.qtbot import QtBot
 
+from nxceviri.core.project import TranslationRow
 from nxceviri.core.translate.providers.base import GlossaryTerm
+from nxceviri.core.translate.status import Status
 from nxceviri.core.translate.terms import TermCandidate
 from nxceviri.gui.main_window import MainWindow
 from nxceviri.gui.notify import LEVEL_ERROR
@@ -144,3 +146,41 @@ def test_add_terms_without_selection_says_so(window: MainWindow) -> None:
     window.translate_page.table.clearSelection()
     window.add_rows_to_terminology()
     assert window.notifier.history[0].title == "Önce satır seçin"
+
+
+def _trow(i: int, src: str, tr: str) -> TranslationRow:
+    return TranslationRow(i, "a", f"k{i}", src, tr, Status.MACHINE, "", (), None)
+
+
+def test_implicit_terms_come_from_short_standalone_rows() -> None:
+    from nxceviri.core.qa.terms import implicit_terms
+
+    rows = [
+        _trow(1, "Silver Pines", "Gümüş Çamlar"),
+        _trow(2, "Silver Pines", "Gümüş Çamlar"),
+        _trow(3, "Welcome to Silver Pines, stranger.", "Hoş geldin yabancı."),
+        _trow(4, "Link", "Link"),
+        _trow(5, "Link", "Link"),
+    ]
+    glossary = [GlossaryTerm("Link", "Link", "ad")]
+    found = implicit_terms(rows, glossary)
+    assert found == [GlossaryTerm("Silver Pines", "Gümüş Çamlar", "oyunda böyle çevrildi")]  # terminolojide olan yok
+    assert implicit_terms(rows, glossary, ignored=["Silver Pines"]) == []
+
+
+def test_machine_job_gets_implicit_terms(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    from nxceviri.gui.machine_dialogs import SCOPE_ALL, MachineSettings
+
+    rows = {r.key: r for r in window.project.translation_rows()}
+    window.project.set_translations([(rows["m01"].id, "Başla")])
+    window._reload_rows()
+    jobs: list[object] = []
+    window.ask_machine_settings = lambda *_a, **_k: MachineSettings(  # type: ignore[method-assign]
+        "ollama", "", "gemma4:12b", "", SCOPE_ALL, "retranslate"
+    )
+    monkeypatch.setattr(window, "_launch_machine", lambda _c, job, **_k: jobs.append(job))
+    monkeypatch.setattr(
+        "nxceviri.gui.main_window.implicit_terms", lambda *_a, **_k: [GlossaryTerm("Start", "Başla", "x")]
+    )
+    window.start_machine_translation("retranslate")
+    assert GlossaryTerm("Start", "Başla", "x") in jobs[0].glossary  # type: ignore[attr-defined]

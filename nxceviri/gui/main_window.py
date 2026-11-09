@@ -75,7 +75,7 @@ from nxceviri.core.qa.fonts import FontReport
 from nxceviri.core.qa.fonts import scan_fonts as scan_font_files
 from nxceviri.core.qa.live import SETTING_KEY as LIVE_KINDS_KEY
 from nxceviri.core.qa.live import LiveContext, format_live_kinds, parse_live_kinds
-from nxceviri.core.qa.terms import project_terms
+from nxceviri.core.qa.terms import implicit_terms, project_terms
 from nxceviri.core.secrets import DEEPL_API_KEY, GITHUB_UPDATE_KEY, KeyringStore, SecretStore
 from nxceviri.core.selfupdate import PreparedInstall, current_install, discard_prepared, launch_installer
 from nxceviri.core.spell.checker import SpellChecker, turkish_lower
@@ -2498,7 +2498,11 @@ class MainWindow(QMainWindow):
             rows=target,
             source_lang=self.project.setting("source_language", "en"),
             notes=chosen.notes,
-            glossary=self.project.glossary(),
+            # Terminoloji + örtük terimler (menüde/başlıkta nasıl çevrildiyse cümlede de öyle; partide geçenler gider).
+            glossary=[
+                *self.project.glossary(),
+                *implicit_terms(self.project.translation_rows(), self.project.glossary(), self._terms_ignored()),
+            ],
             memory=self.project.memory_lookup(r.source for r in target) if chosen.action == ACTION_TRANSLATE else {},
             action=chosen.action,
             instruction=chosen.instruction,
