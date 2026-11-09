@@ -870,6 +870,21 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     klasör oyun dosyalarının yanında `<folder_name>/orijinal|temiz`; hazır resimler mevcut `derived_files` yoluyla
     moda girer. İlk destek Ys Origin; DMC1 ve RHG doku dönüştürücüleri henüz bu arayüze bağlanmadı (TECH_DEBT 89).
 
+### 4.42 0.55.0 kararları (maskot, Yardım, katkı)
+
+165. **Maskot QPainter ile çizilir** (`gui/mascot.py`; dosya ya da SVG yok): 256 birimlik kutuda logodaki küçük
+    simgenin ölçüleri; her boyutta net. Hâl geçişi yüz kurulan/bozulan hâller arasındaysa gözler `bounce_point` ile
+    duvardan seker (sol yer, sağ tavan; ilk %45 düşüş, kalan geri sekme). Kareler yalnızca hareket varken ve maskot
+    görünürken çizilir (33 ms); `animations_enabled()` kapalıysa anında geçer.
+166. **Tek açma/kapama** (`appearance/mascot`, `set_mascot_enabled`): canlı maskotlar zayıf kümede; kapalıyken yeni
+    oluşanlar da gizli doğar. Bildirim kartı maskotu yalnızca başarı/uyarı/hatada; bilgi kartında simge kalır.
+167. **Maskotun hâlini ana pencere yönetir:** `_run` başında çalışıyor; `notify` düzeyiyle bitti/hata (süreli), iş
+    bitince çalışıyorsa boşa; uygulama düzeyinde olay süzgeci (`_ActivityWatcher`, tuş/fare) uyku sayacını sıfırlar
+    ve uyandırır. Süzgeç pencere kapanınca kaldırılır.
+168. **Yardım konuları paket verisi** (`gui/help/NN-ad.md`, PyInstaller `collect_data_files` ile gelir); "Kısayollar"
+    dosya değildir, `ShortcutRegistry`den üretilir ve tuş değişince yenilenir (`help.contents`, F1, yeni kategori
+    "Yardım"). Arama `turkish_lower` ile; vurgu `ExtraSelection`.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

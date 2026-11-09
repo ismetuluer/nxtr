@@ -32,5 +32,5 @@ def calistir(args: argparse.Namespace) -> int:
         return 1
     print(f"Eklenti iskeleti oluşturuldu: {folder}")
     print(f'Testleri çalıştırmak için: python -m pytest "{folder / "tests"}"')
-    print("Uygulama açılışta eklentiyi yükler; Yardım → Eklentiler'de görünür.")
+    print("Uygulama açılışta eklentiyi yükler; Araçlar → Eklentiler'de görünür.")
     return 0

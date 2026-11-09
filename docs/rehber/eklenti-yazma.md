@@ -16,7 +16,7 @@ Kullanıcı eklentisi bir klasördür:
 
 Konum: `%LOCALAPPDATA%\NXCeviri\eklentiler\<ad>\` (her çalıştırma biçiminde; güncelleme dokunmaz) ve kaynak kurulumda
 depo içi `eklentiler/<ad>/` (git'e girmez). İskelet için `python -m nxceviri.arac eklenti-olustur <ad>`; yüklü eklentiler
-ve yükleme hataları için `python -m nxceviri.arac eklentiler`. Uygulamada **Yardım → Eklentiler** (başka bir yerden
+ve yükleme hataları için `python -m nxceviri.arac eklentiler`. Uygulamada **Araçlar → Eklentiler** (başka bir yerden
 getirilen eklenti için "Eklenti Ekle…"). Kullanıcı eklentisi yerleşikten önce denenir; hatalı eklenti uygulamayı
 durdurmaz, nedeniyle listelenir. `api` uyumsuzsa atlanır. `oyunlar` doluysa eklenti yalnızca o oyunlarda tanıma,
 çıkarma ve dışa aktarmada kullanılır; adı yerleşik bir biçimle aynıysa (ör. `msbt`) diğer oyunlarda yerleşik olan

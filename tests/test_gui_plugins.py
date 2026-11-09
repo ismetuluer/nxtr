@@ -1,4 +1,4 @@
-"""Yardım → Eklentiler penceresi ve projenin eklenti uyarısı."""
+"""Araçlar → Eklentiler penceresi ve projenin eklenti uyarısı."""
 
 from __future__ import annotations
 

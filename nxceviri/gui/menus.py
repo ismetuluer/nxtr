@@ -362,6 +362,8 @@ class Menus:
     def _help_menu(self) -> None:
         w = self.window
         menu = self._menu("&Yardım")
+        self._add(menu, "Yardım", w.open_help, command="help.contents", icon="book-open")
+        menu.addSeparator()
         w.update_action = self._add(menu, "Güncellemeleri Denetle…", w.open_updates, icon="download")
         w.update_action.setEnabled(w.app_root is not None or w.packaged)
         if w.app_root is None and not w.packaged:

@@ -377,3 +377,7 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     dönüştürücüsü (`switchtex`) arayüze bağlı değil; ikisi de `GraphicsSupport` uygulayınca Dışa Aktar'da kart çıkar.
     Paket içindeki fontlar (Unity bundle, SARC/BFFNT) dışa/içe aktarılamaz; yalnızca serbest TTF/OTF. Gerçek oyunda
     Görseller kartı ve font içe alma elle denenmedi. *Ne zaman:* ilgili oyun yeniden çevrilirken.
+90. **Kart ve panel açılış animasyonları yok (0.55.0).** İnceleme §2.10'daki "kısa, amaçlı animasyonlar"dan yalnızca
+    maskotunkiler ve kenar çubuğu daralması var; bildirim kartı ve panel kayarak açılmıyor. Maskot animasyonu ekransız
+    testte ve kare dökümüyle denendi; gerçek pencerede ve yüksek DPI'da elle izlenmedi. *Ne zaman:* kullanıcı geri
+    bildirimiyle.

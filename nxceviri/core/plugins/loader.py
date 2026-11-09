@@ -127,7 +127,7 @@ class GuardedPlugin:
             log.warning("Eklenti hatası (%s)", self._ad, exc_info=True)
             raise FormatError(
                 f"“{self._ad}” eklentisi hata verdi ({type(exc).__name__}: {exc}).",
-                "Eklentinin yazarına bildirin ya da Yardım → Eklentiler'den kaldırıp yerleşik desteği kullanın.",
+                "Eklentinin yazarına bildirin ya da Araçlar → Eklentiler'den kaldırıp yerleşik desteği kullanın.",
             ) from exc
 
     def detect(self, path: str, head: bytes) -> bool:

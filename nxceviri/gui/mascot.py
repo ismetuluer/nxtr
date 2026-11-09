@@ -16,7 +16,7 @@ import weakref
 from dataclasses import dataclass
 
 from PySide6.QtCore import QElapsedTimer, QPointF, QRandomGenerator, QRectF, QSettings, QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPaintEvent, QPen
+from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPaintEvent, QPen, QShowEvent
 from PySide6.QtWidgets import QWidget
 from shiboken6 import isValid
 
@@ -337,6 +337,12 @@ class MascotWidget(QWidget):
     def _tick(self) -> None:
         now = self._clock.elapsed()
         target = rest_pose(self.mood)
+        if not self.isVisible():  # görünmeyen maskot için kare çizilmez; görününce son hâlinden başlar
+            self._frame.stop()
+            self._travel = False
+            self._hop_started = self._blink_started = None
+            self._pose = target
+            return
         left, right, expression = target.left, target.right, 1.0
         busy = False
         if self._travel:
@@ -377,6 +383,11 @@ class MascotWidget(QWidget):
         if not busy:
             self._frame.stop()
         self.update()
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        if self.mood in (MOOD_WORKING, MOOD_SLEEP) and animations_enabled():
+            self._frame.start()  # gizliyken duran sürekli hâl (bakınma, uyku) yeniden canlanır
 
     def paintEvent(self, _event: QPaintEvent) -> None:
         p = QPainter(self)

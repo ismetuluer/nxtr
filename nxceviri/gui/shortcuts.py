@@ -27,7 +27,16 @@ CATEGORY_VIEW = "Görünüm"
 CATEGORY_TRANSLATE = "Çeviri"
 CATEGORY_GO = "Git"
 CATEGORY_TOOLS = "Araçlar"
-CATEGORIES = (CATEGORY_FILE, CATEGORY_EDIT, CATEGORY_VIEW, CATEGORY_TRANSLATE, CATEGORY_GO, CATEGORY_TOOLS)
+CATEGORY_HELP = "Yardım"
+CATEGORIES = (
+    CATEGORY_FILE,
+    CATEGORY_EDIT,
+    CATEGORY_VIEW,
+    CATEGORY_TRANSLATE,
+    CATEGORY_GO,
+    CATEGORY_TOOLS,
+    CATEGORY_HELP,
+)
 
 
 @dataclass(frozen=True)
@@ -96,6 +105,8 @@ COMMANDS: tuple[Command, ...] = (
     Command("tools.spell_dictionary", "Yazım Sözlüğü", CATEGORY_TOOLS),
     Command("tools.plugins", "Eklentiler", CATEGORY_TOOLS),
     Command("tools.diagnosis", "Teşhis Raporu", CATEGORY_TOOLS),
+    # Yardım
+    Command("help.contents", "Yardım", CATEGORY_HELP, "F1"),
 )
 
 COMMANDS_BY_ID: dict[str, Command] = {c.id: c for c in COMMANDS}
@@ -126,6 +137,13 @@ _RESERVED_NAMES = {
     "F2": "hücreyi düzenler",
     "Space": "metin yazar",
 }
+
+
+def fixed_keys() -> dict[str, str]:
+    """Değiştirilemeyen tuşlar ve ne yaptıkları (Yardım → Kısayollar listesi için)."""
+    return dict(_RESERVED_NAMES)
+
+
 _PLAIN_REASON = "yazı yazmak ve gezinmek için kullanılıyor; Ctrl ya da Alt ile birlikte seçin"
 _FUNCTION_KEYS = tuple(getattr(Qt.Key, f"Key_F{n}") for n in range(1, 13))
 _MODIFIER_MASK = ~Qt.KeyboardModifier.KeypadModifier

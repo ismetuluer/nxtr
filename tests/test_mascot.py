@@ -96,6 +96,7 @@ def test_working_looks_around_and_stays_animated(qtbot: QtBot, monkeypatch: pyte
     monkeypatch.setattr(mascot, "animations_enabled", lambda: False)
     widget = MascotWidget(24)
     qtbot.addWidget(widget)
+    widget.show()
     widget.set_mood(MOOD_WORKING)
     monkeypatch.setattr(mascot, "animations_enabled", lambda: True)
     widget.set_mood(MOOD_DONE)
@@ -107,6 +108,10 @@ def test_working_looks_around_and_stays_animated(qtbot: QtBot, monkeypatch: pyte
         return len(looks) > 3
 
     qtbot.waitUntil(looked_around, timeout=3000)
+    widget.hide()
+    qtbot.waitUntil(lambda: not widget.animating, timeout=1000)  # gizliyken kare çizmez
+    widget.show()
+    assert widget.animating  # görününce bakınmaya devam eder
     assert widget.animating
 
 

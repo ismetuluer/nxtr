@@ -57,7 +57,7 @@ def plugin_warnings(store: SettingsStore) -> list[str]:
         if info is None:
             notes.append(
                 f"Bu projenin metinleri “{ad}” eklentisiyle (sürüm {surum}) çıkarılmış, ama eklenti yüklü değil. "
-                "Yardım → Eklentiler'den ekleyip uygulamayı yeniden başlatın; yoksa bu dosyalar dışa aktarılamaz."
+                "Araçlar → Eklentiler'den ekleyip uygulamayı yeniden başlatın; yoksa bu dosyalar dışa aktarılamaz."
             )
         elif info.surum != surum:
             notes.append(

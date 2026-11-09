@@ -2,6 +2,26 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.55.0] — 2026-11-09 — Maskot, Yardım, katkı rehberi
+
+### Eklendi
+- **Maskot:** logodaki iki Joy-Con; çubukları göz olur. Dururken gözler logodaki yerindedir; bir şey olunca sol göz
+  yerden, sağ göz tavandan sekerek ortada buluşur ve yüz kurarlar. Hâller: **çalışıyor** (bakınır), **bitti** (sevinip
+  hoplar, 4 sn sonra dinlenir), **bir sorun var** (kaşlar endişeyle kalkar), **uyuyor** (5 dk dokunulmazsa; bir tuşla
+  uyanır), boşta arada göz kırpar. Durum çubuğunda (zilin yanında), başarı/uyarı/hata bildirim kartlarında, boş
+  ekranlarda ve Oyunu Ekle'deki dosya kutusunda (dosya sürüklenince bakar). **Ayarlar → Görünüm → Maskotu göster** ile
+  kapanır; Windows'ta animasyonlar kapalıysa zıplamadan geçer.
+- **Yardım (F1):** aranabilir yardım penceresi; 13 Türkçe konu (Başlarken, her ekran, Otomatik Çeviri, Terminoloji,
+  Font ve harfler, Bildirimler ve maskot, Kısayollar, Sorun giderme, Katkı). `F1` açık ekranın konusunu açar; arama
+  Türkçe büyük/küçük harf farkını gözetmez, eşleşmeleri boyar. Kısayollar konusu o anki tuşlardan üretilir.
+- **Katkı rehberi** (`docs/rehber/katki.md`): fork → dal → eklenti → `dogrula` → çekme isteği adımları komutlarıyla;
+  birden çok yerel kopya (`git worktree`) ve farklı ajanlarla çalışma; aynı oyun için iki eklenti olduğunda uygulamanın
+  davranışı ve ne yapılacağı.
+
+### Düzeltildi
+- Eklentiler penceresine yönlendiren mesajlar ve belgeler eski menüyü ("Yardım → Eklentiler") gösteriyordu; artık
+  **Araçlar → Eklentiler**.
+
 ## [0.54.0] — 2026-11-09 — Dışa aktarma, font, görseller
 
 ### Eklendi

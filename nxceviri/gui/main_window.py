@@ -137,6 +137,7 @@ from nxceviri.gui.add_game_page import AddGamePage
 from nxceviri.gui.changes_dialog import ChangesDialog
 from nxceviri.gui.csv_dialog import FORMAT_TXT, MODE_REDACTION, MODE_TRANSLATION, CsvExportDialog
 from nxceviri.gui.export_page import ExportPage
+from nxceviri.gui.help_window import STEP_TOPICS, TOPIC_START, HelpWindow
 from nxceviri.gui.jobs import JOB_TITLES, describe_summary, new_job_id, run_and_close, short_summary
 from nxceviri.gui.machine_dialogs import (
     PROVIDER_DEEPL,
@@ -446,6 +447,7 @@ class MainWindow(QMainWindow):
         #: Bütün işlerin ve hataların sonucu buradan bildirilir (kart, geçmiş; arkadayken Windows bildirimi ve ses).
         self.notifier = NotificationCenter(self, self.settings)
         self.notice_button = HistoryButton(self.notifier)
+        self.help_window: HelpWindow | None = None
         #: Maskot: işin durumunu gösterir (çalışıyor, bitti, hata; uzun boşta uyur). Ayarlar → Görünüm'den kapatılır.
         self.mascot = MascotWidget(20)
         self.statusBar().addPermanentWidget(self.mascot)
@@ -1068,6 +1070,17 @@ class MainWindow(QMainWindow):
             self.notify(level, title, text, actions)
         self._outcome_loud = None
         self._outcome_noticed = False
+
+    # --- yardım ------------------------------------------------------------------------------
+
+    def open_help(self, topic: str | None = None) -> None:
+        """Yardım penceresi (F1): konu verilmezse açık ekranın konusu."""
+        if self.help_window is None:
+            self.help_window = HelpWindow(self.shortcuts, self)
+        self.help_window.show_topic(topic or STEP_TOPICS.get(self.nav.currentRow(), TOPIC_START))
+        self.help_window.show()
+        self.help_window.raise_()
+        self.help_window.activateWindow()
 
     # --- maskot ------------------------------------------------------------------------------
 
@@ -3486,6 +3499,11 @@ class MainWindow(QMainWindow):
             return
         self.translate_page.find_window.close()  # açık Bul penceresinin konumu kaybolmasın
         self._recovery_timer.stop()
+        self._mascot_rest.stop()
+        self._mascot_sleep.stop()
+        app = QApplication.instance()
+        if app is not None:
+            app.removeEventFilter(self._activity)  # kapanan pencere her olayda çağrılmasın
         self.provider_probe.close()
         self.recovery.clear()
         self.project.close()

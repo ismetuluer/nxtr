@@ -1,4 +1,4 @@
-"""Yardım → Eklentiler: yüklü eklentilerin listesi, hataları ve "Eklenti Ekle…"."""
+"""Araçlar → Eklentiler: yüklü eklentilerin listesi, hataları ve "Eklenti Ekle…"."""
 
 from __future__ import annotations
 

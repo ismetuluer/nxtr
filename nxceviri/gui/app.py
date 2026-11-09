@@ -86,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
     app.setStyle("Fusion")
     app.setWindowIcon(app_icon())
     install_qt_translations(app)
-    load_user_plugins()  # hatalı eklenti uygulamayı durdurmaz; nedeni Yardım → Eklentiler'de görünür
+    load_user_plugins()  # hatalı eklenti uygulamayı durdurmaz; nedeni Araçlar → Eklentiler'de görünür
     settings = QSettings()
     try:
         mode = ThemeMode(str(settings.value("ui/theme", ThemeMode.SYSTEM.value)))

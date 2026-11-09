@@ -5,7 +5,7 @@
 Kendi sahip olduğunuz Nintendo Switch oyunlarının (NSP/NSZ) metinlerini bulup Türkçeye
 çevirmek ve LayeredFS mod klasörü üretmek için tek pencereli Windows uygulaması.
 
-Durum: **0.54.0** — Oyunu Ekle → Metinleri Tara → Çevir (elle; Ollama veya DeepL) → Kontrol Et (font, harf dönüştürme, satır denetimi) → Dışa Aktar (Atmosphère / emülatör mod klasörü). Biçimler: MSBT, Unity Localization, Unity I2 Localization, Unreal .locres (.pak içinden) ve Game Freak mesajları (Pokémon), Danganronpa (WAD/LIN) ve Donkey Kong Country Returns HD (Unity SerializeReference) ve Mina the Hollower (yalnızca okuma). Kurallar `AGENTS.md`, mimari
+Durum: **0.55.0** — Oyunu Ekle → Metinleri Tara → Çevir (elle; Ollama veya DeepL) → Kontrol Et (font, harf dönüştürme, satır denetimi) → Dışa Aktar (Atmosphère / emülatör mod klasörü). Biçimler: MSBT, Unity Localization, Unity I2 Localization, Unreal .locres (.pak içinden) ve Game Freak mesajları (Pokémon), Danganronpa (WAD/LIN) ve Donkey Kong Country Returns HD (Unity SerializeReference) ve Mina the Hollower (yalnızca okuma). Kurallar `AGENTS.md`, mimari
 `ARCHITECTURE.md`, bilinen sınırlar `TECH_DEBT.md`, geçmiş `CHANGELOG.md` içindedir.
 
 ## Yapay zekâ ajanıyla kullanım
@@ -18,7 +18,7 @@ Cursor…) destek alabilirsiniz:
    harf, resimdeki yazılar, eklenti paylaşımı, kurulum.
 3. Ajan `docs/rehber/` altındaki rehberi izler ve araçları kullanır (`python -m nxceviri.arac teshis | ara | dogrula |
    eklenti-olustur | eklentiler`). Yazdırdığınız eklenti `eklentiler/` klasöründe kalır; isterseniz paylaşırsınız
-   (`docs/rehber/katki.md`). Hazır paketi kullanan biri eklentiyi Yardım → Eklentiler → Eklenti Ekle… ile kurar.
+   (`docs/rehber/katki.md`). Hazır paketi kullanan biri eklentiyi Araçlar → Eklentiler → Eklenti Ekle… ile kurar.
 
 ## Başka bir bilgisayarda çalıştırma (Windows)
 

@@ -15,7 +15,7 @@ eklentiler/<ad>/
 - İskelet üretmek: `python -m nxceviri.arac eklenti-olustur <ad>`
 - Yüklü eklentileri ve yükleme hatalarını görmek: `python -m nxceviri.arac eklentiler`
 - Gerçek oyun dosyasında doğrulamak: `python -m nxceviri.arac dogrula <ad> <oyun dosyaları>`
-- Uygulamada: **Yardım → Eklentiler**. Hazır `NXTR.exe` paketinde eklentiler
+- Uygulamada: **Araçlar → Eklentiler**. Hazır `NXTR.exe` paketinde eklentiler
   `%LOCALAPPDATA%\NXCeviri\eklentiler\` klasöründen yüklenir; buradaki klasörü oraya kopyalayarak aynı eklentiyi
   pakette de kullanabilirsiniz (yalnızca paketle gelen kütüphaneler kullanılabilir).
 
