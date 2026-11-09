@@ -71,6 +71,7 @@ from nxceviri.gui.find_replace import (
     FindBar,
     FindCell,
     FindMarks,
+    FindWindow,
 )
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.marked_delegate import ROW_ROLE, MarkedDelegate, kind_of_row
@@ -230,6 +231,7 @@ class TranslationModel(QAbstractTableModel):
         self.previous: dict[int, str] = {}  # son işte değişen satırların önceki çevirisi
         self._flash: set[int] = set()  # canlı izlemede az önce yazılan satırlar
         self.issue_colors = True  # çeviri metni sorun türüne göre renklendirilir
+        self.error_rows = False  # hatalı satırın bütün hücreleri hata rengine boyanır (isteğe bağlı)
         self.wrap = True  # tabloda metin kaydırma açık mı (satır sonları gerçek satır olarak gösterilir)
         self._checked: dict[int, tuple[TranslationRow, list[QaIssue]]] = {}  # satır → (denetlenen hâli, sorunları)
         #: Son "Kontrol Et" sonucu: satır → (denetlenen çeviri, sorunları). Çeviri değişince geçersiz sayılır.
@@ -469,8 +471,12 @@ class TranslationModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.ForegroundRole and col == COL_TRANSLATION and self.issue_colors:
             issue = self.flag(r)
             return None if issue is None else QColor(current_tokens()[ISSUE_COLORS[issue.kind]])
-        if role == Qt.ItemDataRole.BackgroundRole and r.id in self._flash:
-            return QColor(current_tokens()["warning_bg"])
+        if role == Qt.ItemDataRole.BackgroundRole:
+            if r.id in self._flash:
+                return QColor(current_tokens()["warning_bg"])
+            if self.error_rows and self._issue_severity(r) == "error":
+                return QColor(current_tokens()["danger_bg"])
+            return None
         if role == Qt.ItemDataRole.ToolTipRole:
             tip = self._tooltip(r, col)
             if col == COL_KEY and self.uppercase.applies(r.file, r.key, row_group(r)):
@@ -783,6 +789,9 @@ class TranslatePage(QWidget):
         self.shortcuts.bind("view.wrap", self.wrap_box)
         self.shortcuts.bind("view.previous", self.previous_box)
         self.shortcuts.bind("view.issue_colors", self.colors_box)
+        self.error_rows_box = QAction("Hatalı Satırları Vurgula", self, checkable=True)
+        self.error_rows_box.setToolTip("Hatası olan satırların arka planı hata rengine boyanır (dışa aktarılmazlar).")
+        self.shortcuts.bind("view.error_rows", self.error_rows_box)
         # Birincil eylem: tablonun sağ üstünde, panel düğmesinin solunda.
         filters.addWidget(self.machine_button)
         # Panel göster/gizle: tablonun sağ üstünde küçük simge düğmesi (Görünüm menüsüyle aynı eylem).
@@ -847,7 +856,7 @@ class TranslatePage(QWidget):
         h.sortIndicatorChanged.connect(self._sort_changed)
         self.find_bar = FindBar(self, shortcuts=self.shortcuts)
         self.find_bar.closed.connect(self.table.setFocus)
-        self.card.body.addWidget(self.find_bar)
+        self.find_window = FindWindow(self.find_bar, self.table, self)
         self.card.body.addWidget(self.table, 1)
         self.settings: QSettings | None = None
         self._machine_running = False
@@ -878,6 +887,7 @@ class TranslatePage(QWidget):
         self.table.verticalScrollBar().valueChanged.connect(lambda _v: self.find_bar.view_scrolled())
         self.wrap_box.toggled.connect(self._set_wrap)
         self.colors_box.toggled.connect(self._set_issue_colors)
+        self.error_rows_box.toggled.connect(self._set_error_rows)
         self.previous_box.toggled.connect(self._show_previous)
         self.follow_box.toggled.connect(
             lambda on: self.settings.setValue("translate/follow", "1" if on else "0") if self.settings else None
@@ -928,8 +938,10 @@ class TranslatePage(QWidget):
         self.column_menu.bind_settings(settings, "translate/hidden_columns")
         self.wrap_box.setChecked(str(settings.value("translate/wrap", "1")) != "0")
         self.colors_box.setChecked(str(settings.value("translate/issue_colors", "1")) != "0")
+        self.error_rows_box.setChecked(str(settings.value("translate/error_rows", "0")) == "1")
         self.follow_box.setChecked(str(settings.value("translate/follow", "1")) != "0")
         self.view_actions.bind_settings(settings)
+        self.find_window.bind_settings(settings)
         self._apply_view()
         self._apply_pane()
 
@@ -964,6 +976,12 @@ class TranslatePage(QWidget):
     def refresh_legend(self) -> None:
         """Sorun renk açıklamasını geçerli temayla yeniler (Görünüm menüsü açılırken; tema değişmiş olabilir)."""
         self.colors_box.setToolTip(issue_legend_html())
+
+    def _set_error_rows(self, on: bool) -> None:
+        self.model.error_rows = on
+        self.table.viewport().update()
+        if self.settings is not None:
+            self.settings.setValue("translate/error_rows", "1" if on else "0")
 
     def _set_issue_colors(self, on: bool) -> None:
         self.model.issue_colors = on

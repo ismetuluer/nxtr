@@ -1839,6 +1839,7 @@ class MainWindow(QMainWindow):
             font_size=self._font_size(),
             wrap=self.translate_page.wrap_box,
             issue_colors=self.translate_page.colors_box,
+            error_rows=self.translate_page.error_rows_box,
             updates_available=self.update_action.isEnabled(),
             page=page or PAGE_VIEW,
         )

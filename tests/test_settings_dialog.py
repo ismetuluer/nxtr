@@ -45,6 +45,8 @@ class Env:
         self.wrap.setCheckable(True)
         self.issue_colors = QAction("Sorunları Renkle Göster")
         self.issue_colors.setCheckable(True)
+        self.error_rows = QAction("Hatalı Satırları Vurgula")
+        self.error_rows.setCheckable(True)
 
     def dialog(self, **kwargs: Any) -> SettingsDialog:
         options: dict[str, Any] = {
@@ -52,6 +54,7 @@ class Env:
             "font_size": DEFAULT_FONT_SIZE,
             "wrap": self.wrap,
             "issue_colors": self.issue_colors,
+            "error_rows": self.error_rows,
             "updates_available": True,
         }
         options.update(kwargs)
@@ -548,3 +551,13 @@ def test_dialog_builds_with_large_font(qtbot: QtBot, env: Env) -> None:
     dialog.resize(dialog.minimumSize())
     dialog.show()
     assert dialog.isVisible()
+
+
+def test_error_rows_check_is_two_way(qtbot: QtBot, env: Env) -> None:
+    dialog = env.dialog()
+    qtbot.addWidget(dialog)
+    assert not dialog.error_rows_check.isChecked()
+    dialog.error_rows_check.setChecked(True)
+    assert env.error_rows.isChecked()
+    env.error_rows.setChecked(False)
+    assert not dialog.error_rows_check.isChecked()

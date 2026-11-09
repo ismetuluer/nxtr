@@ -112,13 +112,15 @@ def test_ctrl_f_and_ctrl_h_open_the_bar_and_esc_closes(qtbot: QtBot) -> None:
     assert not bar.isVisibleTo(page)
     fire(page, "Ctrl+F")
     assert bar.isVisibleTo(page)
-    assert bar.find_edit.hasFocus()
+    assert page.find_window.isWindow()  # tablonun üstünde yer kaplamaz: ayrı, taşınabilir pencere
+    qtbot.waitUntil(bar.find_edit.hasFocus, timeout=3000)
     assert not bar.replace_row.isVisibleTo(page)
     fire(page, "Ctrl+H")
     assert bar.replace_row.isVisibleTo(page)  # Ctrl+H değiştir alanını da açar
     qtbot.keyClick(bar.find_edit, Qt.Key.Key_Escape)
     assert not bar.isVisibleTo(page)
-    assert page.table.hasFocus()
+    assert not page.find_window.isVisible()
+    qtbot.waitUntil(page.table.hasFocus, timeout=3000)
 
 
 def test_ctrl_shift_f_still_reaches_the_table_filter(qtbot: QtBot) -> None:

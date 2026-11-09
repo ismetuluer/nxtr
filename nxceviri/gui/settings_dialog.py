@@ -279,6 +279,7 @@ class SettingsDialog(QDialog):
         font_size: int,
         wrap: QAction,
         issue_colors: QAction,
+        error_rows: QAction,
         updates_available: bool,
         page: str = PAGE_VIEW,
     ) -> None:
@@ -308,7 +309,7 @@ class SettingsDialog(QDialog):
         footer.addWidget(self.close_button)
         outer.addLayout(footer)
 
-        self.view_page = _scrolled(self._build_view_page(theme, font_size, wrap, issue_colors))
+        self.view_page = _scrolled(self._build_view_page(theme, font_size, wrap, issue_colors, error_rows))
         self.shortcuts_page = self._build_shortcuts_page()
         self.providers_page = _scrolled(self._build_providers_page())
         self.updates_page = _scrolled(self._build_updates_page(updates_available))
@@ -349,7 +350,9 @@ class SettingsDialog(QDialog):
 
     # --- görünüm -------------------------------------------------------------------------
 
-    def _build_view_page(self, theme: ThemeMode, font_size: int, wrap: QAction, issue_colors: QAction) -> QWidget:
+    def _build_view_page(
+        self, theme: ThemeMode, font_size: int, wrap: QAction, issue_colors: QAction, error_rows: QAction
+    ) -> QWidget:
         page, lay = _page_layout()
         form = QFormLayout()
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
@@ -388,7 +391,8 @@ class SettingsDialog(QDialog):
         self.symbols_check = self._linked_check("Boşluk ve satır sonu sembollerini göster", self._view.symbols)
         self.wrap_check = self._linked_check("Uzun metni satırlara kaydır", wrap)
         self.issue_check = self._linked_check("Sorunlu satırları renkle göster", issue_colors)
-        for check in (self.symbols_check, self.wrap_check, self.issue_check):
+        self.error_rows_check = self._linked_check("Hatalı satırların arka planını hata rengine boya", error_rows)
+        for check in (self.symbols_check, self.wrap_check, self.issue_check, self.error_rows_check):
             lay.addWidget(check)
         lay.addStretch(1)
         return page

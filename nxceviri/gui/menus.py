@@ -209,6 +209,7 @@ class Menus:
             self.actions[f"view.align_{key}"] = action
         self._share(menu, page.wrap_box, "view.wrap", "wrap-text")
         self._share(menu, page.colors_box, "view.issue_colors", "triangle-alert")
+        self._share(menu, page.error_rows_box, "view.error_rows", "circle-x")
         self._share(menu, page.previous_box, "view.previous", "git-compare")
         menu.addSeparator()
         theme_menu = self._submenu(menu, "Tema", "monitor")

@@ -1,8 +1,9 @@
-"""Çeviri tablosunun üstünde açılan ince “Bul ve Değiştir” çubuğu (Ctrl+F bul, Ctrl+H değiştir).
+"""“Bul ve Değiştir” (Ctrl+F bul, Ctrl+H değiştir): tablonun üstünde yer kaplamayan, taşınabilir küçük pencere.
 
-Pencere gibi tabloyu kilitlemez: yazdıkça eşleşen satırlar tabloda boyanır, sayaç “3 / 41” gösterir, Sonraki
-(F3 / Enter) ve Önceki (Shift+F3) satırı seçip yerinde gösterir; tablo süzülmez, kullanıcı gezinip elle
-düzenleyebilir.
+`FindBar` aramanın kendisidir; `FindWindow` onu ana pencerenin üstünde duran, istenen yere sürüklenebilen bir araç
+penceresine koyar (konumu ve boyutu hatırlanır). Pencere tabloyu kilitlemez: yazdıkça eşleşen satırlar tabloda
+boyanır, sayaç “3 / 41” gösterir, Sonraki (F3 / Enter) ve Önceki (Shift+F3) satırı seçip yerinde gösterir; tablo
+süzülmez, kullanıcı gezinip elle düzenleyebilir.
 
 Çubuk tabloyu ve projeyi doğrudan tanımaz; sayfa `FindHost` sözleşmesini uygular. Tabloya boyama bilgisi
 `FindMarks` ile gider (modelde `FIND_SPANS_ROLE` olarak okunur; hücre çizimi bunu kullanır). Önizleme açıkken
@@ -18,8 +19,8 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
-from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QShortcut
+from PySide6.QtCore import QByteArray, QSettings, Qt, QTimer, Signal
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLineEdit, QMenu, QToolButton, QVBoxLayout, QWidget
 
 from nxceviri.core.project import TranslationRow
@@ -131,6 +132,8 @@ class LazySpans(Mapping[int, tuple[tuple[int, int], ...]]):
 
 
 class FindBar(QWidget):
+    #: Arama açıldı (pencere kendini gösterir) / kapandı.
+    opened = Signal()
     closed = Signal()
 
     def __init__(
@@ -310,8 +313,9 @@ class FindBar(QWidget):
     # --- açma / kapama ---------------------------------------------------------------------
 
     def open_bar(self, replace: bool = False) -> None:
-        """Çubuğu açar (zaten açıksa bul alanına döner); `replace` değiştir alanını da açar."""
+        """Aramayı açar (zaten açıksa bul alanına döner); `replace` değiştir alanını da açar."""
         self.show()
+        self.opened.emit()
         if replace:
             self.replace_toggle.setChecked(True)
         if not self._scope_chosen:  # süzgeç etkinken varsayılan kapsam görünen satırlardır
@@ -648,3 +652,74 @@ class FindBar(QWidget):
             text += f" · {format_int(plan.skipped)} satır atlandı (kontrol kodunu bozardı)"
         self.status_label.setText(text)
         return True
+
+
+#: Bul penceresinin konumu ve boyutu (uygulama ayarı).
+KEY_FIND_GEOMETRY = "translate/find_geometry"
+#: İlk açılışta pencerenin, tablonun sağ üst köşesinden uzaklığı (piksel).
+_FIRST_MARGIN = 24
+
+
+class FindWindow(QWidget):
+    """`FindBar`ı taşıyan araç penceresi: ana pencerenin üstünde durur, tabloyu kapatmadan istenen yere taşınır.
+
+    İlk açılışta `anchor` bileşeninin (tablo) sağ üst köşesine yerleşir; sonra kullanıcının bıraktığı yer ve boyut
+    hatırlanır. Pencerenin kapat düğmesi aramayı kapatır (çubuktaki Esc ile aynı yol).
+    """
+
+    def __init__(self, bar: FindBar, anchor: QWidget, parent: QWidget) -> None:
+        super().__init__(parent, Qt.WindowType.Tool)
+        self.setWindowTitle("Bul ve Değiştir")
+        self.setObjectName("findWindow")
+        self._bar = bar
+        self._anchor = anchor
+        self._settings: QSettings | None = None
+        self._placed = False
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(10, 10, 10, 10)
+        lay.addWidget(bar)
+        bar.close_button.hide()  # pencerenin kendi kapat düğmesi var
+        bar.opened.connect(self._show_window)
+        bar.closed.connect(self._hide_window)
+        bar.replace_toggle.toggled.connect(lambda _on: QTimer.singleShot(0, self._fit_height))
+        self.setMinimumWidth(520)
+
+    def bind_settings(self, settings: QSettings) -> None:
+        self._settings = settings
+        saved = settings.value(KEY_FIND_GEOMETRY)
+        if isinstance(saved, QByteArray | bytes) and self.restoreGeometry(QByteArray(saved)):
+            self._placed = True
+
+    def _show_window(self) -> None:
+        if not self._placed:
+            self._place_first()
+        self.show()
+        self.raise_()
+        self.activateWindow()
+        self._bar.find_edit.setFocus()
+
+    def _place_first(self) -> None:
+        self.adjustSize()
+        corner = self._anchor.mapToGlobal(self._anchor.rect().topRight())
+        self.move(corner.x() - self.width() - _FIRST_MARGIN, corner.y() + _FIRST_MARGIN)
+        self._placed = True
+
+    def _fit_height(self) -> None:
+        self.resize(self.width(), self.sizeHint().height())
+
+    def _hide_window(self) -> None:
+        if self.isVisible():
+            self._remember()
+        self.hide()
+        owner = self.parentWidget()
+        if owner is not None:
+            owner.window().activateWindow()  # odak tabloya dönebilsin
+
+    def _remember(self) -> None:
+        if self._settings is not None:
+            self._settings.setValue(KEY_FIND_GEOMETRY, self.saveGeometry())
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self._remember()
+        super().closeEvent(event)
+        self._bar.close_bar()
