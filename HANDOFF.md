@@ -1,6 +1,7 @@
 # HANDOFF — oturum devri (2026-11-02, 0.47.0)
 
 ## Durum
+- **Sürüm 0.51.0** (2026-11-10): C aşaması — anlık denetim, Sorunlar panosu, Yazım Denetimi (F7), terim tutarsızlığı, grup/anahtar sınırları; güncelleme yardımcısı düzeltildi (0.48–0.50 bir kez elle güncellenmeli); Ollama şablon denetimi ve iş başına `num_ctx`. ARCHITECTURE §4.37. Sıradaki: D (Otomatik Çeviri + bildirimler). Gerçek pencerede ve gerçek Ollama'da elle denenmedi.
 - **Sürüm 0.50.0** (2026-11-09): B aşaması — menü çubuğu, Ayarlar penceresi (`Ctrl+,`), düzenlenebilir kısayollar, gruplu sağ tık menüsü, taşınabilir Bul ve Değiştir penceresi, isteğe bağlı hatalı satır vurgusu; ARCHITECTURE §4.36. Sıradaki: C (anlık denetim + Sorunlar panosu). Gerçek pencerede elle denenmedi.
 - **Sürüm 0.49.0** (2026-11-09): kullanılabilirlik incelemesi A aşaması — Çevir ekranı (`docs/inceleme/2026-11-09-kullanilabilirlik.md`); ARCHITECTURE §4.35. Sıradaki: B (menüler, Ayarlar, kısayollar), C (anlık denetim + Sorunlar panosu).
 - **Sürüm 0.48.0** (2026-11-06): ajan destekli yerelleştirme — AGENTS.md + docs/rehber + skill'ler + istem kartları, araçlar (nxceviri/arac: teshis/ara/dogrula/eklenti-olustur/eklentiler), kullanıcı eklentileri (core/plugins, Yardım → Eklentiler), anahtarsız + kendiliğinden güncelleme (core/selfupdate), MIT LICENSE + THIRD_PARTY_NOTICES, DMC1 metni özetle; ARCHITECTURE §4.34. Depo temiz geçmişle yeni depoya (ismetuluer/nxtr) taşındı. Açık: aşama 3 provası (temiz klasörde istem kartıyla ajan).
