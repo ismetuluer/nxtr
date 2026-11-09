@@ -17,10 +17,29 @@ from nxceviri.core.translate.runner import (
 from nxceviri.gui.widgets import format_int
 
 JOB_TITLES = {
-    ACTION_TRANSLATE: "Makine çevirisi",
+    ACTION_TRANSLATE: "Otomatik çeviri",
     ACTION_RETRANSLATE: "Yeniden çeviri",
-    ACTION_REVISE: "Talimatla düzeltme",
+    ACTION_REVISE: "Redaksiyon",
 }
+_DONE_WORDS = {ACTION_TRANSLATE: "çevrildi", ACTION_RETRANSLATE: "yenilendi", ACTION_REVISE: "düzeltildi"}
+
+
+def short_summary(action: str, r: RunSummary) -> tuple[str, str, str]:
+    """Bildirim kartı için (düzey, başlık, tek satır özet). Ayrıntı (`describe_summary`) ayrı pencerede gösterilir."""
+    parts = [f"{format_int(r.translated)} satır {_DONE_WORDS.get(action, 'yazıldı')}"]
+    if r.from_memory:
+        parts.append(f"{format_int(r.from_memory)} satır bellekten")
+    if r.unchanged:
+        parts.append(f"{format_int(r.unchanged)} satır aynı kaldı")
+    failed = r.broken + r.rejected
+    if failed:
+        parts.append(f"{format_int(failed)} satır denetimden geçmedi")
+    if r.suspicious:
+        parts.append(f"{format_int(r.suspicious)} şüpheli çeviri")
+    if r.missing:
+        parts.append(f"{format_int(r.missing)} satır yanıtsız")
+    level = "warning" if failed or r.missing or r.suspicious else "success"
+    return level, f"{JOB_TITLES.get(action, 'Çeviri')} bitti", " · ".join(parts)
 
 
 def describe_summary(action: str, r: RunSummary) -> tuple[str, str]:

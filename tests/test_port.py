@@ -138,10 +138,8 @@ def window(qtbot: QtBot, tmp_path: Path) -> Iterator[MainWindow]:
 
 @pytest.mark.gui
 def test_gui_import_flow(qtbot: QtBot, window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    infos: list[str] = []
-    monkeypatch.setattr(QMessageBox, "information", lambda *a, **_k: infos.append(str(a[2])))
     window.import_ready_translation()  # proje boş
-    assert "Metinleri Tara" in infos[0]
+    assert "Metinleri Tara" in window.notifier.history[0].text  # bilgi penceresi değil, bildirim
 
     window.project = _project()
     window.translate_page.set_rows(window.project.translation_rows())
@@ -165,13 +163,11 @@ def test_gui_import_flow(qtbot: QtBot, window: MainWindow, tmp_path: Path, monke
     qtbot.waitUntil(lambda: window.dirty and window.task is None, timeout=20_000)
     assert {r.key: r.translation for r in window.project.translation_rows()}["Dialogue_en/1"] == "Merhaba"
     assert window.translate_page.model.rows[0].translation == "Merhaba"
-    assert "aktarıldı" in window.translate_page.banner.text.text()
+    assert "aktarıldı" in window.translate_page.notice_text
 
     empty = tmp_path / "bos"
     empty.mkdir()
-    warnings: list[str] = []
     monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *_a, **_k: str(empty))
-    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **_k: warnings.append(str(a[2])))
     window.import_ready_translation()
-    qtbot.waitUntil(lambda: bool(warnings), timeout=20_000)
-    assert "metin tablosu bulunamadı" in warnings[0]
+    qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
+    assert "metin tablosu bulunamadı" in window.notifier.history[0].text  # uyarı penceresi değil, bildirim

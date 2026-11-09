@@ -192,7 +192,8 @@ def test_retranslate_and_revise_selected_rows(qtbot: QtBot, window: MainWindow) 
     rows = _rows(window)
     assert rows["s03"].translation == "Ben içmem."  # bellek atlandı, çeviri silinmeden yenilendi
     assert rows["s02"].translation == "Bu kadarı da fazla!"  # onaylı satıra dokunulmadı
-    assert "Yeniden çeviri bitti: 1 satırın" in window.translate_page.banner.text.text()
+    assert window.notifier.history[0].title == "Yeniden çeviri bitti"
+    assert "1 satır yenilendi" in window.notifier.history[0].text
 
     _select(window, {"s02", "s03"})
     answers.append(
@@ -204,7 +205,8 @@ def test_retranslate_and_revise_selected_rows(qtbot: QtBot, window: MainWindow) 
     assert rows["s02"].translation == "dz-That'dz-s dz-the dz-limit!"
     assert rows["s02"].status == Status.MACHINE  # kullanıcı onaylılara da uygulamayı seçti
     assert window.project.setting("revise_instruction") == "Doğal yaz."
-    assert "Düzeltme bitti: 2 satır düzeltildi" in window.translate_page.banner.text.text()
+    assert window.notifier.history[0].title == "Redaksiyon bitti"
+    assert "2 satır düzeltildi" in window.notifier.history[0].text
 
 
 def _update_dialog(window: MainWindow, root: Path, server: FakeGitHub, **kwargs: Any) -> UpdateDialog:
@@ -465,10 +467,12 @@ def test_changes_dialog_after_retranslate_and_revert(qtbot: QtBot, window: MainW
     page = window.translate_page
     assert page.changes_button.isEnabled()
     assert page.changes_button.text() == "Son İşin Değişiklikleri (1)…"
-    assert "1 satırın önceki çevirisi değişti" in page.banner.text.text()
+    notice = window.notifier.history[0]
+    show = next(a for a in notice.actions if a.label == "Değişiklikleri Gör")  # bildirim kartından açılır
+    show.callback()
     dialog = window.changes_dialog
     assert dialog is not None
-    assert dialog.isVisible()  # yeniden çeviriden sonra kendiliğinden açılır
+    assert dialog.isVisible()
     assert dialog.table.rowCount() == 1
     old_cell, new_cell = dialog.table.item(0, 3), dialog.table.item(0, 4)
     assert old_cell is not None
@@ -483,7 +487,7 @@ def test_changes_dialog_after_retranslate_and_revert(qtbot: QtBot, window: MainW
     assert _rows(window)["s03"].translation == "Ben değil."
     assert _rows(window)["s03"].status == Status.MACHINE
     assert not page.changes_button.isEnabled()  # geri alınınca değişiklik kalmadı
-    assert "1 satır önceki çevirisine" in page.banner.text.text()
+    assert "1 satır önceki çevirisine" in page.notice_text
 
     # Satır geçmişi: değişiklik seçilip ondan önceki hâle dönülür (geri almayı geri almak).
     window.show_row_history(_rows(window)["s03"].id)

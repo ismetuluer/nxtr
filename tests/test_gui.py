@@ -143,7 +143,7 @@ def test_full_flow_drop_scan_save_reopen(qtbot: QtBot, window: MainWindow, game:
     page = window.translate_page
     assert page.stack.currentWidget() is page.content
     assert page.model.rowCount() == 6
-    assert "Bozuk.msbt" in page.banner.text.text()  # açılamayan dosya bildirildi
+    assert "Bozuk.msbt" in page.notice_text  # açılamayan dosya bildirildi
     hello = next(i for i, r in enumerate(page.model.rows) if r.key == "Menu_Hello")
     idx = page.model.index(hello, COL_TRANSLATION)
     assert page.model.setData(idx, "Merhaba ⟦1⟧Link⟦2⟧!")
@@ -290,7 +290,7 @@ def test_machine_translation_flow(qtbot: QtBot, window: MainWindow, game: GameFi
     assert after["Menu_Hello"].translation == "tr-Hello ⟦1⟧tr-Link⟦2⟧!"
     assert after["Menu_Hello"].status == "machine"
     assert after["Yes"].translation == "Evet"  # onaylanan satıra dokunulmadı
-    assert "Makine çevirisi bitti" in page.banner.text.text()
+    assert window.notifier.history[0].title == "Otomatik çeviri bitti"
     assert page.status_filter.findData("machine") > 0  # makine satırları olunca filtrede görünür
     assert window.project.setting("translation_notes") == "Deneme notu"
 
@@ -298,7 +298,8 @@ def test_machine_translation_flow(qtbot: QtBot, window: MainWindow, game: GameFi
     window.provider_factory = lambda s: FakeOllama(down=True).provider(s.model)
     page.machine_button.click()
     _wait_idle(qtbot, window)
-    assert "bağlanılamadı" in page.banner.text.text()
+    last = window.notifier.history[0]
+    assert "bağlanılamadı" in last.title + last.text
 
     # Sözlük penceresi: boş satırlar kaydedilmez.
     dialog = GlossaryDialog(window, [GlossaryTerm("Link", "Link", "ad")])
@@ -604,10 +605,8 @@ def test_scan_page_diagnosis_report(
 
     hedef = tmp_path / "rapor klasörü"
     hedef.mkdir()
-    mesajlar: list[str] = []
     acilan: list[str] = []
     monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *_a, **_k: str(hedef))
-    monkeypatch.setattr(QMessageBox, "information", lambda _p, _t, metin, *_a: mesajlar.append(metin))
 
     def url_ac(url: QUrl) -> bool:
         acilan.append(url.toLocalFile())
@@ -619,7 +618,7 @@ def test_scan_page_diagnosis_report(
     _wait_idle(qtbot, window)
     assert (hedef / RAPOR_ADI).is_file()
     assert page.stack.currentWidget() is page.report_scroll
-    assert mesajlar
-    assert str(hedef / RAPOR_ADI) in mesajlar[0]
-    assert UYARI in mesajlar[0]
+    bildirim = window.notifier.history[0]  # bilgi penceresi değil, bildirim
+    assert str(hedef / RAPOR_ADI) in bildirim.text
+    assert UYARI in bildirim.text
     assert [Path(a) for a in acilan] == [hedef]

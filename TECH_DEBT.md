@@ -367,3 +367,9 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     *Ne zaman:* kullanıcı geri bildirimiyle.
 86. **Ollama belirteç tahmini kaba (karakter/3, 0.51.0).** Japonca/Çince kaynakta gerçek belirteç sayısı daha yüksek
     olabilir; parti tahminden uzun çıkarsa `num_ctx` bir basamak yükselir (model bir kez yeniden yüklenir).
+87. **Bazı sayfa içi uyarılar yerinde kaldı (0.52.0).** Oyunu Ekle, Metinleri Tara, Kontrol Et ve Dışa Aktar
+    sayfalarının bağlamsal uyarı bantları (ör. anahtar dosyası, tarama hatası) sayfada durur; iş bittiğinde ya da hata
+    olduğunda ayrıca bildirim kartı çıkar. Diyalogların (Ayarlar, Otomatik Çeviri) kendi durum bantları da yerinde.
+    *Ne zaman:* kullanıcı geri bildirimiyle.
+88. **Windows bildirimi yalnızca API düzeyinde denendi (0.52.0).** Gerçek Windows'ta tepsi simgesi kuruluyor ve
+    bildirim isteği hatasız kabul ediliyor; Odak Yardımı/Rahatsız Etmeyin açıkken Windows bildirimi göstermez.

@@ -407,3 +407,22 @@ def test_truncated_answer_is_explained(caplog: pytest.LogCaptureFixture) -> None
 )
 def test_extract_translations_handles_gemma_channels_and_drafts(content: str) -> None:
     assert extract_translations(content) == [{"id": "0", "text": "Merhaba"}]
+
+
+def test_truncated_answer_splits_the_batch_and_retries(project: Project) -> None:
+    """Yarım kalan (uzunluk sınırında kesilen) yanıt: parti ikiye bölünerek yeniden istenir, satır kaybolmaz."""
+    server = FakeOllama(truncate_over=2)
+    summary = run_machine_translation(server.provider(), _job(project), TaskContext(), _write(project))
+    rows = {r.key: r for r in project.translation_rows()}
+    assert rows["Menu_Hello"].translation == "tr-Hello ⟦1⟧tr-Link⟦2⟧!"
+    assert summary.missing == 0
+    assert summary.translated == len(SOURCES) - 1
+    sizes = [len(json.loads(r["messages"][1]["content"])["items"]) for r in server.requests]
+    assert max(sizes) > 2  # ilk parti büyüktü ve kesildi
+    assert summary.split >= 1
+
+
+def test_truncated_single_item_still_fails_clearly(project: Project) -> None:
+    server = FakeOllama(truncate_over=0)
+    with pytest.raises(ProviderError, match="kesildi"):
+        run_machine_translation(server.provider(), _job(project), TaskContext(), _write(project))

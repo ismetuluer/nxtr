@@ -9,7 +9,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QLibraryInfo, QSettings, QTranslator
 from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtWidgets import QApplication
 
 from nxceviri import __version__
 from nxceviri.core.formats.registry import load_user_plugins
@@ -98,18 +98,13 @@ def main(argv: list[str] | None = None) -> int:
         font_size = DEFAULT_FONT_SIZE
     apply_theme(app, mode, font_size)
     window = MainWindow(settings)
-    if update_error:
-        QMessageBox.warning(None, "Güncelleme", update_error)
-    install_failure = take_install_failure()
-    if install_failure:
-        QMessageBox.warning(
-            None,
-            "Güncelleme kurulamadı",
-            "Önceki güncelleme kurulamadı; uygulama eski sürümle açıldı. Projeleriniz etkilenmedi.\n\n"
-            + install_failure,
-        )
     project_args = [Path(a) for a in args[1:] if a.lower().endswith(".nxproj")]
     window.show()
+    if update_error:
+        window.notify_update_failure(update_error)
+    install_failure = take_install_failure()
+    if install_failure:
+        window.notify_update_failure(f"Eski sürümle açıldı; projeleriniz etkilenmedi. Neden: {install_failure}")
     if project_args:
         window.open_project(project_args[0])
     else:

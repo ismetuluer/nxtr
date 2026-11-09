@@ -118,11 +118,11 @@ def test_suggest_terms_end_to_end(qtbot: QtBot, window: MainWindow, monkeypatch:
         GlossaryTerm("Silver Pines", "tr-Silver Pines", "öneri notu"),
         GlossaryTerm("Old Mill", "tr-Old Mill", "öneri notu"),
     ]
-    assert "2 terim eklendi" in window.translate_page.banner.text.text()
+    assert "2 terim eklendi" in window.translate_page.notice_text
 
 
 def test_suggest_terms_needs_ollama_model(window: MainWindow) -> None:
     window.settings.setValue("translate/provider", "deepl")
     window.suggest_glossary_terms()
     assert window.task is None
-    assert "Ollama gerekli" in window.translate_page.banner.text.text()
+    assert "Ollama gerekli" in window.translate_page.notice_text

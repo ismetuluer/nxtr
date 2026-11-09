@@ -14,9 +14,9 @@ from nxceviri.core.project import JOB_MANUAL, JOB_REVERT, JOB_UNAPPROVE, Change
 from nxceviri.core.translate.diff import ADDED, REMOVED, word_diff
 
 _JOB_LABELS = {
-    "translate": "Makine çevirisi",
+    "translate": "Otomatik çeviri",
     "retranslate": "Yeniden çeviri",
-    "revise": "Talimatla düzeltme",
+    "revise": "Redaksiyon",
     "autofix": "Otomatik düzeltme",
     "reflow": "Satırları yeniden bölme",
     "import": "Hazır çeviri aktarma",

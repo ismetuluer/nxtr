@@ -4,15 +4,27 @@ from __future__ import annotations
 
 import html
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import QAbstractItemModel, QModelIndex, QPersistentModelIndex, QRectF, QSize, Qt
-from PySide6.QtGui import QAbstractTextDocumentLayout, QPainter, QPalette, QShowEvent, QTextDocument
+from PySide6.QtCore import (
+    QAbstractItemModel,
+    QEvent,
+    QModelIndex,
+    QObject,
+    QPersistentModelIndex,
+    QRectF,
+    QSettings,
+    QSize,
+    Qt,
+    QTimer,
+)
+from PySide6.QtGui import QAbstractTextDocumentLayout, QHelpEvent, QPainter, QPalette, QShowEvent, QTextDocument
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QCheckBox,
     QDialog,
     QFileDialog,
     QHBoxLayout,
@@ -23,6 +35,7 @@ from PySide6.QtWidgets import (
     QStyleOptionViewItem,
     QTableWidget,
     QTableWidgetItem,
+    QToolTip,
     QVBoxLayout,
     QWidget,
 )
@@ -36,8 +49,10 @@ from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.widgets import Banner, button, format_int, label, title_row
 
 _Index = QModelIndex | QPersistentModelIndex
-#: Satır yüksekliği bu kadar satırdan fazlasında içeriğe göre ölçülmez (büyük işlerde pencere hızlı açılsın).
-_MEASURE_LIMIT = 1500
+#: "Bağlamı göster" seçeneğinin ayar anahtarı (açıkken satırın ipucunda önceki ve sonraki satırlar görünür).
+CONTEXT_KEY = "changes/context"
+#: Görünen satırların yüksekliği kaydırma/boyut değişikliğinden bu kadar sonra ölçülür (art arda olaylar birleşir).
+_FIT_DELAY_MS = 30
 #: Önizlemede düzenlenebilir “Yeni” metninin tutulduğu rol (hücrede çizilen HTML farkından ayrı).
 NEW_TEXT_ROLE = Qt.ItemDataRole.UserRole + 1
 #: Önizlemede “Yeni” sütununun sırası (Yaz, Satır, Orijinal, Önceki, Yeni).
@@ -160,7 +175,13 @@ class ChangesDialog(QDialog):
         preview: bool = False,
         summary: Sequence[str] = (),
         kinds: Mapping[int, str] | None = None,
+        edit_fn: Callable[[int, str], str | None] | None = None,
+        context_fn: Callable[[int], str] | None = None,
+        settings: QSettings | None = None,
     ) -> None:
+        """`edit_fn(satır kimliği, metin)`: verilirse "Yeni" hücresi yerinde düzenlenir ve bu işlevle yazılır; hata
+        metni dönerse hücre eski hâline döner. `context_fn(satır kimliği)`: "Bağlamı göster" açıkken ipucunda
+        gösterilecek önceki/sonraki satırlar (HTML)."""
         super().__init__(parent)
         self.setWindowTitle(title)
         self.resize(1100, 640)
@@ -170,6 +191,9 @@ class ChangesDialog(QDialog):
         self._title = title
         self._texts = [c.new_text for c in changes]  # önizlemede düzenlenmiş “Yeni” metinleri
         self._updating = False
+        self._edit_fn = edit_fn if not (history or preview) else None
+        self._context_fn = context_fn
+        self._settings = settings
         self.to_revert: list[Change] = []
         self._boxes: list[QTableWidgetItem] = []  # “Yaz”/“Geri al” işaret kutuları, değişikliklerle aynı sırada
         lay = QVBoxLayout(self)
@@ -207,7 +231,7 @@ class ChangesDialog(QDialog):
         self.table.setHorizontalHeaderLabels(headers)
         self.table.verticalHeader().hide()
         self.table.setWordWrap(True)
-        if preview:  # yalnızca “Yeni” hücresi düzenlenebilir (aşağıda ItemIsEditable verilir)
+        if preview or self._edit_fn is not None:  # yalnızca “Yeni” hücresi düzenlenebilir (ItemIsEditable)
             self.table.setEditTriggers(
                 QAbstractItemView.EditTrigger.DoubleClicked | QAbstractItemView.EditTrigger.EditKeyPressed
             )
@@ -224,7 +248,7 @@ class ChangesDialog(QDialog):
         name_col = 1
         for col in diff_cols:
             self.table.setItemDelegateForColumn(col, delegate)
-        if preview:
+        if preview or self._edit_fn is not None:
             self.table.setItemDelegateForColumn(_PREVIEW_NEW_COL, EditableDiffDelegate(self.table))
         for row, change in enumerate(changes):
             old_html, new_html = diff_html(change.old_text, change.new_text)
@@ -253,7 +277,7 @@ class ChangesDialog(QDialog):
                             "Bu satırın düzeltmesini yaz. İşareti kaldırırsanız satırın mevcut çevirisi korunur."
                         )
                     self._boxes.append(item)
-                if preview and col == _PREVIEW_NEW_COL:
+                if (preview or self._edit_fn is not None) and col == _PREVIEW_NEW_COL:
                     item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
                     item.setData(NEW_TEXT_ROLE, change.new_text)
                     item.setToolTip(
@@ -287,6 +311,12 @@ class ChangesDialog(QDialog):
                 check_selected = button("Seçili Satırları İşaretle")
                 check_selected.clicked.connect(self._check_selected)
                 buttons.addWidget(check_selected)
+        self.context_box = QCheckBox("Bağlamı göster")
+        self.context_box.setToolTip("Açıkken satırın üzerinde bekleyince önceki ve sonraki satırlar görünür.")
+        self.context_box.setChecked(settings is not None and str(settings.value(CONTEXT_KEY, "0")) == "1")
+        self.context_box.toggled.connect(self._context_toggled)
+        self.context_box.setVisible(context_fn is not None)
+        buttons.addWidget(self.context_box)
         if not preview:
             export = button("Dışa Aktar…")
             export.setToolTip("Değişiklikleri Excel'de açılan CSV veya tarayıcıda açılan renkli HTML olarak kaydeder.")
@@ -311,12 +341,64 @@ class ChangesDialog(QDialog):
         lay.addWidget(self.status)
         self.table.itemChanged.connect(self._on_item_changed)
         self.table.itemSelectionChanged.connect(self._update_button)
+        self.table.viewport().installEventFilter(self)
+        # Uzun listede bütün satırlar baştan ölçülmez; görünenler kaydırdıkça ve sütun genişliği değiştikçe ölçülür.
+        self._fitted: set[int] = set()
+        self._fit_timer = QTimer(self)
+        self._fit_timer.setSingleShot(True)
+        self._fit_timer.setInterval(_FIT_DELAY_MS)
+        self._fit_timer.timeout.connect(self._fit_visible_rows)
+        self.table.verticalScrollBar().valueChanged.connect(lambda _v: self._fit_timer.start())
+        self.table.horizontalHeader().sectionResized.connect(lambda *_a: self._refit_all())
         self._update_button()
+
+    #: "Yeni" hücresinin düzenlenebilir bayrağı (testler ve dışarıdan denetim için).
+    EDITABLE = Qt.ItemFlag.ItemIsEditable
+
+    def _refit_all(self) -> None:
+        self._fitted.clear()
+        self._fit_timer.start()
+
+    def _fit_visible_rows(self) -> None:
+        """Görünen satırların yüksekliğini metne göre ayarlar (binlerce satırda da uzun metin kayar, okunur)."""
+        table = self.table
+        for _ in range(3):  # ölçülen satır uzayınca görünen aralık daralır; birkaç turda oturur
+            first = max(table.rowAt(0), 0)
+            last = table.rowAt(table.viewport().height() - 1)
+            if last < 0:
+                last = table.rowCount() - 1
+            pending = [r for r in range(first, min(last + 3, table.rowCount())) if r not in self._fitted]
+            if not pending:
+                return
+            for row in pending:
+                table.resizeRowToContents(row)
+                self._fitted.add(row)
+
+    def _context_toggled(self, on: bool) -> None:
+        if self._settings is not None:
+            self._settings.setValue(CONTEXT_KEY, "1" if on else "0")
+
+    def context_tip(self, row: int) -> str:
+        """Satırın bağlam ipucu ("Bağlamı göster" kapalıysa ya da bağlam verilmediyse boş)."""
+        if self._context_fn is None or not self.context_box.isChecked() or not 0 <= row < len(self._changes):
+            return ""
+        return self._context_fn(self._changes[row].entry_id)
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if watched is self.table.viewport() and event.type() == QEvent.Type.ToolTip and isinstance(event, QHelpEvent):
+            tip = self.context_tip(self.table.rowAt(event.pos().y()))
+            if tip:
+                QToolTip.showText(event.globalPos(), tip, self.table.viewport())
+                return True
+        return super().eventFilter(watched, event)
 
     def _on_item_changed(self, item: QTableWidgetItem) -> None:
         """Önizlemede düzenlenen “Yeni” metnini saklar ve hücredeki renkli farkı tazeler."""
         if self._updating:
             self._update_button()
+            return
+        if self._edit_fn is not None and item.column() == _PREVIEW_NEW_COL:
+            self._save_edit(item)
             return
         if self._preview:
             if item.column() == _PREVIEW_NEW_COL:
@@ -329,6 +411,25 @@ class ChangesDialog(QDialog):
                 self.table.resizeRowToContents(row)
             self.status.show_message("", "")  # önceki uyarı (boş/kontrol kodu) güncel değil
         self._update_button()
+
+    def _save_edit(self, item: QTableWidgetItem) -> None:
+        """Yerinde düzenlenen "Yeni" metnini yazdırır; yazılamazsa hücre eski metne döner ve nedeni gösterilir."""
+        assert self._edit_fn is not None
+        row = item.row()
+        text = str(item.data(NEW_TEXT_ROLE) or "")
+        if text == self._texts[row]:
+            return
+        error = self._edit_fn(self._changes[row].entry_id, text)
+        self._updating = True
+        if error:
+            item.setData(NEW_TEXT_ROLE, self._texts[row])
+            self.status.show_message("danger", error)
+        else:
+            self._texts[row] = text
+            item.setText(diff_html(self._changes[row].old_text, text)[1])
+            self.status.show_message("success", "Kaydedildi; Geri Al ile geri alınabilir.")
+        self._updating = False
+        self.table.resizeRowToContents(row)
 
     def _choose_export(self) -> None:
         name = re.sub(r"[^\w\- ]+", "", self._title).strip() or "degisiklikler"
@@ -354,8 +455,7 @@ class ChangesDialog(QDialog):
         """Satır yükseklikleri sütunlar son genişliğini aldıktan sonra ölçülür (önce ölçülürse dar sütuna göre
         hesaplanıp gereksiz uzun olur)."""
         super().showEvent(event)
-        if len(self._changes) <= _MEASURE_LIMIT:
-            self.table.resizeRowsToContents()
+        self._refit_all()
 
     def _check_all(self, state: Qt.CheckState) -> None:
         for row in range(self.table.rowCount()):

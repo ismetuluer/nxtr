@@ -183,7 +183,7 @@ def test_context_menu_reflow_action(window: MainWindow) -> None:
     reflow.trigger()
     menu.close()
     assert all(len(line) <= 24 for line in _rows(window)["a1"].translation.split("\n"))
-    assert "yeniden bölündü" in page.banner.text.text()
+    assert "yeniden bölündü" in page.notice_text
 
 
 def test_scope_hides_single_file_basename_groups(window: MainWindow) -> None:

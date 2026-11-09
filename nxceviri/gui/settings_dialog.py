@@ -41,6 +41,7 @@ from nxceviri.core.translate.providers.base import ProviderError, ProviderStatus
 from nxceviri.core.translate.providers.deepl import DeepLProvider, plan_label
 from nxceviri.core.translate.providers.ollama import DEFAULT_URL, RECOMMENDED_MODELS, OllamaProvider
 from nxceviri.gui.icons import icon
+from nxceviri.gui.notify import KEY_FLASH, KEY_SOUND, KEY_SYSTEM
 from nxceviri.gui.shortcuts import (
     CATEGORIES,
     COMMANDS,
@@ -57,6 +58,7 @@ from nxceviri.gui.widgets import Banner, button, label
 PAGE_VIEW = "view"
 PAGE_SHORTCUTS = "shortcuts"
 PAGE_LIVE = "live"
+PAGE_NOTIFY = "notify"
 PAGE_PROVIDERS = "providers"
 PAGE_UPDATES = "updates"
 
@@ -65,6 +67,7 @@ _PAGES = (
     (PAGE_VIEW, "Görünüm", "palette"),
     (PAGE_SHORTCUTS, "Kısayollar", "keyboard"),
     (PAGE_LIVE, "Anlık Denetimler", "shield-check"),
+    (PAGE_NOTIFY, "Bildirimler", "bell"),
     (PAGE_PROVIDERS, "Çeviri", "sparkles"),
     (PAGE_UPDATES, "Güncelleme", "refresh-cw"),
 )
@@ -282,6 +285,9 @@ class SettingsDialog(QDialog):
     theme_changed = Signal(object)  # ThemeMode
     font_size_changed = Signal(int)
     check_updates_requested = Signal()
+    #: Bildirim kanalı açıldı/kapandı (ayar anahtarı, açık mı); yazmak pencereyi açanın işidir.
+    notify_option_changed = Signal(str, bool)
+    test_notification_requested = Signal()
     live_kinds_changed = Signal(list)  # seçili türler, gösterim sırasıyla; yazmak ve uygulamak pencereyi açanın işidir
 
     def __init__(
@@ -330,12 +336,14 @@ class SettingsDialog(QDialog):
         self.view_page = _scrolled(self._build_view_page(theme, font_size, wrap, issue_colors, error_rows))
         self.shortcuts_page = self._build_shortcuts_page()
         self.live_page = _scrolled(self._build_live_page(live_kinds))
+        self.notify_page = _scrolled(self._build_notify_page())
         self.providers_page = _scrolled(self._build_providers_page())
         self.updates_page = _scrolled(self._build_updates_page(updates_available))
         widgets = {
             PAGE_VIEW: self.view_page,
             PAGE_SHORTCUTS: self.shortcuts_page,
             PAGE_LIVE: self.live_page,
+            PAGE_NOTIFY: self.notify_page,
             PAGE_PROVIDERS: self.providers_page,
             PAGE_UPDATES: self.updates_page,
         }
@@ -651,6 +659,43 @@ class SettingsDialog(QDialog):
             box.setChecked(on)
             box.blockSignals(False)
         self._emit_live_kinds()
+
+    # --- bildirimler ----------------------------------------------------------------------
+
+    def _build_notify_page(self) -> QWidget:
+        page, lay = _page_layout()
+        lay.addWidget(
+            label(
+                "Bir iş bittiğinde, durduğunda ya da hata olduğunda nasıl haber verileceği. Uygulama içindeki kart "
+                "ve bildirim geçmişi her zaman açıktır; aşağıdakiler siz başka bir pencerede çalışırken ya da uzun bir "
+                "iş bitince kullanılır.",
+                "muted",
+                wrap=True,
+            )
+        )
+        options = (
+            (KEY_SYSTEM, "Windows bildirimi", "Ekranın köşesinde, başka bir programdayken de görünür."),
+            (KEY_SOUND, "Ses", "Başarı, uyarı ve hata için farklı sesler."),
+            (KEY_FLASH, "Görev çubuğunda yanıp sön", "Uygulama arkadayken simgesi dikkat çeker."),
+        )
+        self.notify_checks: dict[str, QCheckBox] = {}
+        for key, text, hint in options:
+            box = QCheckBox(text)
+            box.setToolTip(hint)
+            box.setChecked(str(self._settings.value(key, "1")) != "0")
+            box.toggled.connect(lambda on, k=key: self.notify_option_changed.emit(k, on))
+            self.notify_checks[key] = box
+            lay.addWidget(box)
+            lay.addWidget(label(hint, "muted", wrap=True))
+        row = QHBoxLayout()
+        self.notify_test_button = button("Deneme Bildirimi Gönder", icon="bell")
+        self.notify_test_button.setToolTip("Seçili kanallarla örnek bir bildirim gösterir.")
+        self.notify_test_button.clicked.connect(self.test_notification_requested)
+        row.addWidget(self.notify_test_button)
+        row.addStretch(1)
+        lay.addLayout(row)
+        lay.addStretch(1)
+        return page
 
     # --- çeviri sağlayıcıları ------------------------------------------------------------
 

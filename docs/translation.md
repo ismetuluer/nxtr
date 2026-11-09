@@ -39,8 +39,11 @@ Kod: `nxceviri/core/translate/` — `providers/base.py` (sözleşme), `providers
   kutusu vardır ("Bu satırlar menü metni: kısa yaz, sona nokta koyma"). Hazır talimatlar: arayüz ve menü, diyalog ve
   altyazı, eşya/yetenek açıklamaları, eğitim ve ipucu, resmî/eski dil; seçilince kutuya yazılır, düzenlenebilir.
   Talimat oyun notlarının ardından **sistem istemine** eklenir (kontrol kodu ve JSON kuralları her zaman üstündür) ve
-  projede saklanır; redaksiyon talimatından ayrıdır. Dosya veya grup başına farklı talimat için kapsam olarak
-  "Seçili satırların grubu"nu seçip işi grup grup çalıştırın. DeepL talimat izleyemez: kutu gizlenir.
+  projede saklanır; redaksiyon talimatından ayrıdır. Dosya, grup ya da anahtar başına farklı talimat için kapsam olarak
+  "Seçili satırların grubu"nu ya da **"Grup ya da anahtar deseni"**ni (`menu_*`, `*Chapter1*`) seçip işi parça parça
+  çalıştırın. **Kitaplık** düğmesiyle talimatı adlandırıp kaydedebilir, başka projelerde de seçebilirsiniz
+  (`%LOCALAPPDATA%\NXCeviri\talimatlar.json`). DeepL talimat izleyemez: kutu gizlenir.
+- **Yarım yanıt**: model yanıtı uzunluk sınırında keserse parti ikiye bölünüp yeniden istenir.
 - **Sözlük**: her partiye yalnızca o partide geçen terimler eklenir.
   - **Bilgi notu (lore):** Türkçe karşılığı boş, notu dolu madde (ör. Elara → "Kahramanın ablası; ona 'siz'
     denir"). Ad partide geçtiğinde not modele bilgi olarak gider; çeviri zorlanmaz, QA sözlük uyarısı vermez,

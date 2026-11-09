@@ -504,7 +504,7 @@ def test_selected_scope_actions_ignore_an_empty_selection(window: MainWindow) ->
     window.translate_page.table.clearSelection()
     window.menu_actions["translate.selected"].trigger()
     assert asked == []
-    assert window.statusBar().currentMessage() or window.translate_page.banner.isVisibleTo(window.translate_page)
+    assert window.statusBar().currentMessage() or window.notifier.history
 
 
 def test_menu_state_updates_stay_fast_with_50k_selected_rows(window: MainWindow) -> None:
