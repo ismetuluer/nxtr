@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import json
 import logging
 import os
@@ -2488,7 +2489,41 @@ class MainWindow(QMainWindow):
         applied = (
             self._fix_report[1] if self._fix_report is not None and self._fix_report[0] == self._last_job else None
         )
-        self._open_changes(ChangesDialog(self, f"{job_label(self._last_job)}: değişiklikler", changes, kinds=applied))
+        self._open_changes(
+            ChangesDialog(
+                self,
+                f"{job_label(self._last_job)}: değişiklikler",
+                changes,
+                kinds=applied,
+                edit_fn=self._edit_from_changes,
+                context_fn=self._context_html,
+                settings=self.settings,
+            )
+        )
+
+    def _edit_from_changes(self, row_id: int, text: str) -> str | None:
+        """Değişiklikler penceresinde "Yeni" hücresinin elle düzeltilmesi: Çevir'deki kayıt yoluyla yazılır."""
+        if self.busy:
+            return "Bir iş sürerken düzenlenemez; iş bitince yeniden deneyin."
+        try:
+            rows = self._commit_translations([(row_id, text)])
+        except NxError as exc:
+            return exc.user_text()
+        self.translate_page.model.update_rows(rows)
+        return None
+
+    def _context_html(self, row_id: int) -> str:
+        """Satırın bağlamı: aynı dosyada önceki ve sonraki iki satırın orijinali ve çevirisi (ipucu için HTML)."""
+        before, after = self.translate_page.model.neighbors(row_id)
+
+        def line(r: TranslationRow) -> str:
+            translation = html.escape(r.translation) if r.translation else "<i>çevrilmedi</i>"
+            return f"{html.escape(r.source)}<br><span style='color:gray'>{translation}</span>"
+
+        parts = [line(r) for r in before]
+        parts.append("<b>▶ bu satır</b>")
+        parts += [line(r) for r in after]
+        return "<br><br>".join(parts) if before or after else ""
 
     def _to_translate_step(self) -> bool:
         if not self.translate_page.model.rows:

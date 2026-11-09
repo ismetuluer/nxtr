@@ -112,3 +112,26 @@ def test_install_failure_is_announced_with_retry(window: MainWindow) -> None:
     assert notice.level == LEVEL_ERROR
     assert notice.title == "Güncelleme kurulamadı"
     assert "Dosya kullanımda." in notice.text
+
+
+def test_job_changes_dialog_edits_and_shows_context(window: MainWindow) -> None:
+    from nxceviri.gui.changes_dialog import NEW_TEXT_ROLE
+
+    rows = {r.key: r for r in window.project.translation_rows()}
+    job = "retranslate-test"
+    window.project.set_translations([(rows["d02"].id, "Hoşça kal")], machine=True, job=job)
+    window._reload_rows()
+    window._set_last_job(job)
+    window.show_job_changes()
+    dialog = window.changes_dialog
+    assert dialog is not None
+    item = dialog.table.item(0, 4)
+    assert item is not None
+    item.setData(NEW_TEXT_ROLE, "Görüşürüz")
+    saved = {r.key: r.translation for r in window.project.translation_rows()}
+    assert saved["d02"] == "Görüşürüz"
+    dialog.context_box.setChecked(True)
+    tip = dialog.context_tip(0)
+    assert "Hello there" in tip  # önceki satır
+    assert "▶ bu satır" in tip
+    dialog.close()

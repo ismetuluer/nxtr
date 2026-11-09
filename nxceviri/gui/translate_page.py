@@ -313,6 +313,23 @@ class TranslationModel(QAbstractTableModel):
         # Aynı kaynaklı öteki satırların "tutarsız" durumu değişmiş olabilir.
         self._ids_changed(peers)
 
+    def neighbors(self, row_id: int, count: int = 2) -> tuple[list[TranslationRow], list[TranslationRow]]:
+        """Aktarım sırasında satırdan önceki ve sonraki en çok `count` satır (aynı dosyadan; sıralamadan bağımsız)."""
+        order = self._original
+        try:
+            at = order.index(row_id)
+        except ValueError:
+            return [], []
+        by_id = {r.id: r for r in self.rows}
+        me = by_id.get(row_id)
+        if me is None:
+            return [], []
+
+        def same_file(ids: list[int]) -> list[TranslationRow]:
+            return [r for i in ids if (r := by_id.get(i)) is not None and r.file == me.file]
+
+        return same_file(order[max(at - count, 0) : at]), same_file(order[at + 1 : at + 1 + count])
+
     def position(self, row_id: int) -> int | None:
         return self._pos.get(row_id)
 
