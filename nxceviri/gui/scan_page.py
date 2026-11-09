@@ -20,11 +20,9 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLineEdit,
-    QMenu,
     QScrollArea,
     QStackedWidget,
     QTableView,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -40,7 +38,6 @@ from nxceviri.core.pipeline import (
     source_label,
     unsupported_text_kinds,
 )
-from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.widgets import (
     Card,
     EmptyState,
@@ -134,8 +131,6 @@ class ScanFilterProxy(QSortFilterProxyModel):
 
 
 class ReportView(QWidget):
-    extract_requested = Signal(str)  # "candidates" | "all"
-    diagnosis_requested = Signal()
     rescan_requested = Signal()
     import_requested = Signal()
     #: Rapor durumu (durum, kısa metin, ayrıntılar): sayfa başlığındaki çipe yazılır.
@@ -234,22 +229,6 @@ class ReportView(QWidget):
         bottom = QHBoxLayout()
         self.count_label = label("", "muted")
         bottom.addWidget(self.count_label, 1)
-        # İkincil eylemler tek menüde: sık yol (aktar, yeniden tara) başlıkta, dosya çıkarma ve rapor bir seviye altta.
-        more_menu = QMenu(self)
-        self.extract_candidates = more_menu.addAction("Metin Adaylarını Klasöre Çıkar…")
-        self.extract_candidates.triggered.connect(lambda: self.extract_requested.emit("candidates"))
-        self.extract_all = more_menu.addAction("Tüm RomFS'i Çıkar…")
-        self.extract_all.triggered.connect(lambda: self.extract_requested.emit("all"))
-        more_menu.addSeparator()
-        more_menu.addAction("Teşhis Raporu Oluştur…").triggered.connect(self.diagnosis_requested)
-        self.more_button = QToolButton()
-        self.more_button.setObjectName("viewButton")
-        self.more_button.setText("Daha Fazla")
-        self.more_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        bind_icon(self.more_button, "ellipsis")
-        self.more_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.more_button.setMenu(more_menu)
-        bottom.addWidget(self.more_button)
         self.files_card.body.addLayout(bottom)
         lay.addWidget(self.files_card, 1)
 
@@ -320,7 +299,6 @@ class ReportView(QWidget):
             )
             self.status_changed.emit("warning", "Desteklenmeyen biçim", [note, *report.warnings])
         self.model.set_entries(report.entries)
-        self.extract_candidates.setEnabled(bool(report.text_candidates))
         self.mode.setCurrentIndex(0 if report.text_candidates else 1)
         self._refilter()
 

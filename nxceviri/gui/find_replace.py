@@ -33,6 +33,7 @@ from nxceviri.core.translate.regexguard import (
 )
 from nxceviri.core.translate.replace import ReplacePlan, find_pattern, plan_replace, replacement_error
 from nxceviri.gui.icons import bind_icon
+from nxceviri.gui.shortcuts import ShortcutRegistry
 from nxceviri.gui.widgets import button, format_int, label
 
 SCOPE_ALL = 0
@@ -132,10 +133,13 @@ class LazySpans(Mapping[int, tuple[tuple[int, int], ...]]):
 class FindBar(QWidget):
     closed = Signal()
 
-    def __init__(self, host: FindHost, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, host: FindHost, parent: QWidget | None = None, shortcuts: ShortcutRegistry | None = None
+    ) -> None:
         super().__init__(parent)
         self.setObjectName("findBar")
         self._host = host
+        self._shortcuts = shortcuts if shortcuts is not None else ShortcutRegistry(self)
         self._matches: list[int] = []
         self._spans: Mapping[int, tuple[tuple[int, int], ...]] = {}
         self._match_rows: dict[int, TranslationRow] = {}
@@ -157,14 +161,14 @@ class FindBar(QWidget):
 
         top = QHBoxLayout()
         top.setSpacing(4)
-        self.replace_toggle = self._tool("replace", "Değiştir alanını aç/kapat (Ctrl+H)", checkable=True)
+        self.replace_toggle = self._tool("replace", "Değiştir alanını aç/kapat", checkable=True)
         self.find_edit = QLineEdit()
         self.find_edit.setPlaceholderText("Bul…")
         self.find_edit.setClearButtonEnabled(True)
         self.find_edit.setMinimumWidth(140)
         self.count_label = label("", "muted")
-        self.prev_button = self._tool("chevron-up", "Önceki eşleşme (Shift+F3)")
-        self.next_button = self._tool("chevron-down", "Sonraki eşleşme (F3)")
+        self.prev_button = self._tool("chevron-up", "Önceki eşleşme")
+        self.next_button = self._tool("chevron-down", "Sonraki eşleşme")
         self.case_button = self._tool("case-sensitive", "Büyük/küçük harfe duyarlı", checkable=True)
         self.word_button = self._tool("whole-word", "Tam sözcük", checkable=True)
         self.regex_button = self._tool(
@@ -175,6 +179,14 @@ class FindBar(QWidget):
         self.scope_button.setText(_SCOPE_NAMES[SCOPE_ALL])
         self.field_button.setText(_FIELD_NAMES[FIELD_TRANSLATION])
         self.close_button = self._tool("x", "Kapat (Esc)")
+        # Tuşlu ipuçları kayıt defterinden üretilir; tuş değişince yenilenir.
+        self._key_tips = (
+            (self.replace_toggle, "Değiştir alanını aç/kapat", "edit.replace"),
+            (self.prev_button, "Önceki eşleşme", "edit.find_prev"),
+            (self.next_button, "Sonraki eşleşme", "edit.find_next"),
+        )
+        self._shortcuts.changed.connect(lambda _command: self._refresh_tips())
+        self._refresh_tips()
         top.addWidget(self.replace_toggle)
         top.addWidget(self.find_edit, 1)
         top.addWidget(self.count_label)
@@ -257,6 +269,11 @@ class FindBar(QWidget):
         self._update_state()
 
     # --- kurulum yardımcıları ------------------------------------------------------------
+
+    def _refresh_tips(self) -> None:
+        for tool, tip, command in self._key_tips:
+            key = self._shortcuts.text(command)
+            tool.setToolTip(f"{tip} ({key})" if key else tip)
 
     @staticmethod
     def _tool(icon_name: str, tip: str, *, checkable: bool = False) -> QToolButton:

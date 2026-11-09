@@ -463,7 +463,7 @@ def test_changes_dialog_after_retranslate_and_revert(qtbot: QtBot, window: MainW
     window.start_machine_translation("retranslate", from_selection=True)
     _wait_idle(qtbot, window)
     page = window.translate_page
-    assert page.changes_button.isVisible()
+    assert page.changes_button.isEnabled()
     assert page.changes_button.text() == "Son İşin Değişiklikleri (1)…"
     assert "1 satırın önceki çevirisi değişti" in page.banner.text.text()
     dialog = window.changes_dialog
@@ -482,7 +482,7 @@ def test_changes_dialog_after_retranslate_and_revert(qtbot: QtBot, window: MainW
     dialog.revert_button.click()
     assert _rows(window)["s03"].translation == "Ben değil."
     assert _rows(window)["s03"].status == Status.MACHINE
-    assert not page.changes_button.isVisible()  # geri alınınca değişiklik kalmadı
+    assert not page.changes_button.isEnabled()  # geri alınınca değişiklik kalmadı
     assert "1 satır önceki çevirisine" in page.banner.text.text()
 
     # Satır geçmişi: değişiklik seçilip ondan önceki hâle dönülür (geri almayı geri almak).
