@@ -82,6 +82,7 @@ from nxceviri.core.spell.checker import SpellChecker, turkish_lower
 from nxceviri.core.spell.loader import load_spell_checker
 from nxceviri.core.spell.report import UnknownWordCache, replace_unknown
 from nxceviri.core.spell.userdict import UserDictionary, default_user_dictionary_path
+from nxceviri.core.translate.codekinds import suspected_line_breaks
 from nxceviri.core.translate.csvio import (
     CsvError,
     export_translation_txt,
@@ -453,6 +454,7 @@ class MainWindow(QMainWindow):
         self.qa_page.translation_edited.connect(self._edit_from_issues)
         self.qa_page.fix_kinds_changed.connect(self._save_fix_kinds)
         self.qa_page.report_requested.connect(self.show_job_changes)
+        self.qa_page.fix_notice.connect(self._fix_notice)
         self.qa_page.fit_changed.connect(self._save_fit)
         self.qa_page.learn_rules_requested.connect(self._learn_rules)
         self.qa_page.fit_tab_shown.connect(self._refresh_limits)
@@ -969,6 +971,12 @@ class MainWindow(QMainWindow):
         self._outcome_loud = None
         self._outcome_noticed = False
 
+    def _fix_notice(self, state: str, text: str, action: str) -> None:
+        level = {"success": LEVEL_SUCCESS, "warning": LEVEL_WARNING, "danger": LEVEL_ERROR}.get(state, LEVEL_INFO)
+        title, rest = split_notice(text)
+        actions = (NoticeAction(action, self.show_job_changes),) if action else ()
+        self.notify(level, title, rest, actions)
+
     def _page_notice(self, state: str, text: str) -> None:
         """Sayfaların kısa sonuç mesajları: uzun metin kartta başlık + özet olur, tamamı geçmişte ve ipucunda."""
         level = {"success": LEVEL_SUCCESS, "warning": LEVEL_WARNING, "danger": LEVEL_ERROR}.get(state, LEVEL_INFO)
@@ -1366,6 +1374,7 @@ class MainWindow(QMainWindow):
             return
         rows = self.translate_page.model.rows
         limits.set_data(rows, config, learn_group_rules(rows, config))
+        self.qa_page.show_kind_warnings(suspected_line_breaks(((r.source, r.code_labels) for r in rows), config.kinds))
         self._limits_key = key
 
     def _reload_rows(self) -> None:
@@ -2052,7 +2061,7 @@ class MainWindow(QMainWindow):
             else:
                 where = f"'{info.title_id}' klasörünü emülatörün mod klasörüne kopyalayın."
             message = (
-                f"Mod oluşturuldu: {result.dest}\n{format_int(len(result.files))} dosya, "
+                f"{result.dest}\n{format_int(len(result.files))} dosya, "
                 f"{format_int(result.rows_written)} çeviri satırı. {where} Ayrıntılı kurulum bilgisi "
                 f"klasördeki “{INFO_FILE}” dosyasında."
             )
@@ -2066,8 +2075,15 @@ class MainWindow(QMainWindow):
                 message += f"\n\nFont yaması: {format_int(len(result.font_patches))} fonta Türkçe harf eklendi."
             if result.warnings:
                 message += "\n\nDikkat: " + " ".join(result.warnings)
-            page.result.show_message("warning" if result.warnings else "success", message)
+            # Sayfada kısa durum; ayrıntılar (kurulum, hatalı satırlar, uyarılar) bildirimin "Ayrıntılar"ında.
+            page.result.show_message("warning" if result.warnings else "success", f"Mod oluşturuldu: {result.dest}")
             page.open_button.show()
+            self.notify(
+                LEVEL_WARNING if result.warnings else LEVEL_SUCCESS,
+                "Mod oluşturuldu",
+                message,
+                (NoticeAction("Klasörü Aç", page.open_folder),),
+            )
 
         def failed(text: str) -> None:
             page.show_form()

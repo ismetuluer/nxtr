@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
@@ -118,3 +118,35 @@ class CodeKinds:
         if len(mapping) != len(data):
             log.warning("Kod türü eşlemesinde metin olmayan girdiler atlandı.")
         return cls(mapping)
+
+
+_TOKEN_RE = re.compile(r"⟦(\d+)⟧")
+#: Şüphe için en az bu kadar satırda görülmeli ve görülmelerin bu oranı boşluksuz satır ortasında olmalı.
+_SUSPECT_MIN_ROWS = 3
+_SUSPECT_RATIO = 0.7
+
+
+def suspected_line_breaks(rows: Iterable[tuple[str, Sequence[str]]], kinds: CodeKinds) -> list[str]:
+    """Türü tahmin edilemeyen ("diğer") ama satır sonu gibi davranan kod etiketleri.
+
+    `rows`: (yer tutuculu orijinal metin, kod etiketleri). Kod sözcüklerin arasına boşluksuz giriyorsa
+    ("Merhaba⟦1⟧dünya") büyük olasılıkla satır sonudur; kullanıcı türünü elle verdiyse sorulmaz.
+    """
+    seen: dict[str, int] = {}
+    tight: dict[str, int] = {}
+    for text, labels in rows:
+        for m in _TOKEN_RE.finditer(text):
+            n = int(m.group(1))
+            if not 0 < n <= len(labels):
+                continue
+            label = labels[n - 1]
+            if label in kinds.mapping or guess_kind(label) != KIND_OTHER:
+                continue
+            seen[label] = seen.get(label, 0) + 1
+            before = text[m.start() - 1] if m.start() > 0 else ""
+            after = text[m.end()] if m.end() < len(text) else ""
+            if before.isalnum() and after.isalnum():
+                tight[label] = tight.get(label, 0) + 1
+    return sorted(
+        label for label, n in seen.items() if n >= _SUSPECT_MIN_ROWS and tight.get(label, 0) / n >= _SUSPECT_RATIO
+    )

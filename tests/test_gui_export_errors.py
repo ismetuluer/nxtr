@@ -105,11 +105,12 @@ def test_export_with_box_reports_error_rows(qtbot: QtBot, window: MainWindow, ga
     export.mod_name.setText("Kapalı")
     export.export_button.click()
     qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
-    assert "Hatalı satırlar:" not in export.result.text.text()  # kapalıyken eski mesaj
+    assert "Hatalı satırlar:" not in window.notifier.history[0].text  # kapalıyken eski mesaj
     export.mod_name.setText("Açık")
     export.include_errors_box.setChecked(True)
     export.export_button.click()
     qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
-    text = export.result.text.text()
-    assert "Mod oluşturuldu" in text
+    assert "Mod oluşturuldu" in export.result.text.text()  # sayfada kısa durum
+    assert window.notifier.history[0].title == "Mod oluşturuldu"
+    text = window.notifier.history[0].text  # ayrıntılar bildirimde
     assert "Hatalı satırlar: 0 tanesi çevirisiyle yazıldı, 1 tanesi orijinal bırakıldı" in text

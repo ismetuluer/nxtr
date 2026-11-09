@@ -87,3 +87,21 @@ def test_page_break_guess_needs_whole_word() -> None:
         "Konuşma süresi / sayfa sonu",
     ):
         assert guess_kind(label) == KIND_PAGE_BREAK
+
+
+def test_suspected_line_breaks_flags_unlabelled_mid_word_codes() -> None:
+    from nxceviri.core.translate.codekinds import CodeKinds, suspected_line_breaks
+
+    rows = [
+        ("Merhaba⟦1⟧dünya", ("Kod 0x05",)),
+        ("İyi⟦1⟧geceler", ("Kod 0x05",)),
+        ("Hadi⟦1⟧gidelim", ("Kod 0x05",)),
+        ("Selam ⟦1⟧!", ("Oyuncu adı",)),  # değişken: boşlukla ayrılmış
+        ("Selam ⟦1⟧, nasılsın", ("Oyuncu adı",)),
+        ("Bak ⟦1⟧ geldi", ("Oyuncu adı",)),
+    ]
+    assert suspected_line_breaks(rows, CodeKinds({})) == ["Kod 0x05"]
+    # Kullanıcı türünü verdiyse (satır sonu ya da bilerek "diğer") uyarı yok.
+    assert suspected_line_breaks(rows, CodeKinds({"Kod 0x05": "line_break"})) == []
+    assert suspected_line_breaks(rows, CodeKinds({"Kod 0x05": "other"})) == []
+    assert suspected_line_breaks(rows[:2], CodeKinds({})) == []  # az örnek: sessiz

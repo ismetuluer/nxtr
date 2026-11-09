@@ -266,6 +266,8 @@ class QaPage(QWidget):
     fix_requested = Signal(list, list)  # düzeltilecek türler, satır kimlikleri (boş: tüm bulgular)
     fix_kinds_changed = Signal(list)  # kullanıcının işaretlediği türler (kalıcı saklanır)
     report_requested = Signal()  # bildirimdeki "Raporu Gör"
+    #: Düzeltme sonucu (durum, metin, düğme adı): ana pencere bildirim olarak gösterir.
+    fix_notice = Signal(str, str, str)
     fit_changed = Signal()  # kullanıcı sığdırma sınırını, kod türünü veya bir seçeneği değiştirdi
     learn_rules_requested = Signal(str)  # kapsam: "" proje, dosya yolu, GROUP_PREFIX+grup ya da EACH_GROUP
     add_spelling_requested = Signal(list)  # seçili yazım bulgularındaki sözcükler
@@ -375,9 +377,8 @@ class QaPage(QWidget):
         row = self.check_bar.layout()
         assert isinstance(row, QHBoxLayout)
         row.insertWidget(0, self.summary_icon)
-        self.fix_banner = Banner()
-        self.fix_banner.action_clicked.connect(self.report_requested)
-        self.check_card.body.addWidget(self.fix_banner)
+        #: Son düzeltme sonucu (bildirim merkezine gönderilen metin).
+        self.last_fix_text = ""
         self.chip_bar = ChipBar()
         self.chip_bar.selection_changed.connect(self._refilter)
         self.check_card.body.addWidget(self.chip_bar)
@@ -536,6 +537,15 @@ class QaPage(QWidget):
         learn_row.addWidget(self.fit_learn_note, 1)
         body.addLayout(learn_row)
 
+        # Kod türü tahmini şüpheliyse (satır sonu gibi davranan "diğer" kod) kullanıcı Gelişmiş'i açmadan görür.
+        self.fit_kind_warning = QToolButton()
+        self.fit_kind_warning.setProperty("role", "link")
+        self.fit_kind_warning.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.fit_kind_warning.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        bind_icon(self.fit_kind_warning, "triangle-alert", size=14, tone="warning")
+        self.fit_kind_warning.clicked.connect(lambda: self.fit_advanced.toggle.setChecked(True))
+        self.fit_kind_warning.hide()
+        body.addWidget(self.fit_kind_warning, alignment=Qt.AlignmentFlag.AlignLeft)
         self.fit_advanced = Disclosure("Gelişmiş")
         body.addWidget(self.fit_advanced)
         adv = self.fit_advanced.body_layout
@@ -559,21 +569,6 @@ class QaPage(QWidget):
         self.fit_kinds_empty = label("Metinlerde kontrol kodu yok.", "muted")
         adv.addWidget(self.fit_kinds_empty)
 
-        body.addWidget(
-            label("Düzeltirken temizle", "cardTitle", tip="Yalnızca orijinalde olmayan kalıplara dokunulur.")
-        )
-        options = QHBoxLayout()
-        self.fit_spaces = QCheckBox("Gereksiz boşluk")
-        self.fit_spaces.setToolTip(tip_html("Sözcükler arasındaki çift boşluk teke indirilir."))
-        self.fit_before_punct = QCheckBox("Noktalama öncesi boşluk")
-        self.fit_before_punct.setToolTip(tip_html("“Merhaba !” → “Merhaba!”"))
-        self.fit_repeated = QCheckBox("Tekrarlı noktalama")
-        self.fit_repeated.setToolTip(tip_html("“!!!!” → “!!!”, “.....” → “...”, “,,” → “,”"))
-        for box in (self.fit_spaces, self.fit_before_punct, self.fit_repeated):
-            box.toggled.connect(self._option_toggled)
-            options.addWidget(box)
-        options.addStretch(1)
-        body.addLayout(options)
         lay.addWidget(self.fit_card)
         # Grup ve anahtar deseni başına sınırlar tek tabloda; elle sınır burada yazılır, "Hepsini Öğren" her grubu
         # ayrı öğrenir.
@@ -590,6 +585,21 @@ class QaPage(QWidget):
         lay.addStretch(1)
         self._apply_fit_widgets([], [], [])
         return scroll
+
+    def show_kind_warnings(self, labels: Sequence[str]) -> None:
+        """Satır sonu olabilecek ama "Diğer" sayılan kodlar: tıklanınca Gelişmiş → Kod türleri açılır."""
+        if not labels:
+            self.fit_kind_warning.hide()
+            return
+        names = ", ".join(f"“{label}”" for label in labels[:3]) + (" …" if len(labels) > 3 else "")
+        self.fit_kind_warning.setText(f"{names} satır sonu olabilir; kod türünü kontrol edin")
+        self.fit_kind_warning.setToolTip(
+            tip_html(
+                "Bu kod sözcüklerin arasına boşluksuz giriyor. Satır sonuysa Gelişmiş → Kod türleri'nden türünü "
+                "“Satır sonu” yapın; sınır hesabı ve satır bölme buna göre yapılır."
+            )
+        )
+        self.fit_kind_warning.show()
 
     def _limits_edited(self, scope: str, rules: FitRules | None) -> None:
         """Sınırlar tablosunda bir grup ya da anahtar deseni sınırı değişti: yalnızca o girdi kartın ayarına işlenir."""
@@ -1059,6 +1069,24 @@ class QaPage(QWidget):
             scope.addWidget(radio)
             radio.toggled.connect(lambda _c: self._update_fix_boxes())
         lay.addWidget(self.fix_scope)
+        # Sığdırma düzeltmesinin yan temizliği: düzeltmelerle aynı yerde (eskiden Sığdırma sekmesindeydi, Çift boşluk /
+        # Fazla nokta düzeltmeleriyle karışıyordu). Proje ayarıdır; yalnızca orijinalde olmayan kalıplara dokunur.
+        lay.addWidget(
+            label(
+                "Satır sığdırırken ayrıca",
+                "muted",
+                tip="Satır uzun, Sayfa uzun ve Kötü bölünme düzeltilirken uygulanır; orijinaldeki kalıba dokunulmaz.",
+            )
+        )
+        self.fit_spaces = QCheckBox("Gereksiz boşluğu sil")
+        self.fit_spaces.setToolTip(tip_html("Sözcükler arasındaki çift boşluk teke indirilir."))
+        self.fit_before_punct = QCheckBox("Noktalama öncesi boşluğu sil")
+        self.fit_before_punct.setToolTip(tip_html("“Merhaba !” → “Merhaba!”"))
+        self.fit_repeated = QCheckBox("Tekrarlı noktalamayı azalt")
+        self.fit_repeated.setToolTip(tip_html("“!!!!” → “!!!”, “.....” → “...”, “,,” → “,”"))
+        for box in (self.fit_spaces, self.fit_before_punct, self.fit_repeated):
+            box.toggled.connect(self._option_toggled)
+            lay.addWidget(box)
         self.fix_button = button("Seçilenleri Düzelt", "primary", icon="refresh-cw")
         self.fix_button.clicked.connect(lambda: self._commit_pending(self._request_fix))
         lay.addWidget(self.fix_button)
@@ -1141,7 +1169,10 @@ class QaPage(QWidget):
         self.fix_button.setEnabled(bool(self.fix_kinds_to_apply()))
 
     def show_fix_result(self, state: str, text: str, action: str = "") -> None:
-        self.fix_banner.show_message(state, text, action)
+        """Düzeltme/denetim sonucunu bildirim merkezine iletir (sayfada kalıcı kutu yok); `action`: düğme adı."""
+        self.last_fix_text = text
+        if text:
+            self.fix_notice.emit(state, text, action)
 
     def _selected_row_ids(self) -> list[int]:
         """Bulgu tablosunda seçili satırların çeviri satırı kimlikleri; seçim yoksa boş (tüm bulgular)."""
