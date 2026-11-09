@@ -605,10 +605,8 @@ def test_scan_page_diagnosis_report(
 
     hedef = tmp_path / "rapor klasörü"
     hedef.mkdir()
-    mesajlar: list[str] = []
     acilan: list[str] = []
     monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *_a, **_k: str(hedef))
-    monkeypatch.setattr(QMessageBox, "information", lambda _p, _t, metin, *_a: mesajlar.append(metin))
 
     def url_ac(url: QUrl) -> bool:
         acilan.append(url.toLocalFile())
@@ -620,7 +618,7 @@ def test_scan_page_diagnosis_report(
     _wait_idle(qtbot, window)
     assert (hedef / RAPOR_ADI).is_file()
     assert page.stack.currentWidget() is page.report_scroll
-    assert mesajlar
-    assert str(hedef / RAPOR_ADI) in mesajlar[0]
-    assert UYARI in mesajlar[0]
+    bildirim = window.notifier.history[0]  # bilgi penceresi değil, bildirim
+    assert str(hedef / RAPOR_ADI) in bildirim.text
+    assert UYARI in bildirim.text
     assert [Path(a) for a in acilan] == [hedef]

@@ -84,7 +84,7 @@ def test_background_task_success_and_failure_notify(qtbot: QtBot, window: MainWi
     notice = window.notifier.history[0]
     assert notice.level == LEVEL_ERROR
     assert notice.title == "Tarama başarısız"
-    assert [a.label for a in notice.actions] == ["Tekrar Dene"]
+    assert notice.actions[0].label == "Tekrar Dene"
 
 
 def test_handler_notice_replaces_generic_one(qtbot: QtBot, window: MainWindow) -> None:

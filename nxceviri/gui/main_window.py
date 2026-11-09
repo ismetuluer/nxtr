@@ -155,6 +155,7 @@ from nxceviri.gui.notify import (
     LEVEL_SUCCESS,
     LEVEL_WARNING,
     LONG_TASK_S,
+    NOTICE_DETAIL_CHARS,
     HistoryButton,
     NoticeAction,
     NotificationCenter,
@@ -630,7 +631,7 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(later, 10000)
             return
         if self.busy:
-            QMessageBox.information(self, "Güncelleme hazır", "Önce süren işlemi bitirin veya iptal edin. " + later)
+            self.notify(LEVEL_INFO, "Güncelleme hazır", "Önce süren işlemi bitirin veya iptal edin. " + later)
             return
         if not self._confirm_discard():
             self.statusBar().showMessage(later, 10000)
@@ -655,7 +656,7 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(retry, 10000)
             return False
         if self.busy:
-            QMessageBox.information(self, "Güncelleme hazır", "Önce süren işlemi bitirin veya iptal edin. " + retry)
+            self.notify(LEVEL_INFO, "Güncelleme hazır", "Önce süren işlemi bitirin veya iptal edin. " + retry)
             return False
         if not self._confirm_discard():
             self.statusBar().showMessage(retry, 10000)
@@ -663,7 +664,7 @@ class MainWindow(QMainWindow):
         try:
             self.installer_launcher(prepared, install_dir)
         except UpdateError as exc:
-            QMessageBox.warning(self, "Güncelleme", exc.user_text())
+            self.notify(LEVEL_ERROR, "Güncelleme", exc.user_text())
             return False
         self.dirty = False  # kullanıcı az önce kaydetti veya değişiklikleri atmayı seçti
         self.close()
@@ -949,6 +950,9 @@ class MainWindow(QMainWindow):
     def notify(self, level: str, title: str, text: str = "", actions: tuple[NoticeAction, ...] = ()) -> None:
         """Kullanıcıya bildirim verir; bir işin sonucu işlenirken iş uzun sürdüyse gürültülüdür."""
         self._outcome_noticed = True
+        if len(text) > NOTICE_DETAIL_CHARS or "\n" in text.strip():
+            # Kart kısa kalır; uzun ya da çok satırlı açıklamanın tamamı ayrı pencerede.
+            actions = (*actions, NoticeAction("Ayrıntılar", lambda: QMessageBox.information(self, title, text)))
         self.notifier.notify(level, title, text, actions, loud=self._outcome_loud)
 
     def _begin_outcome(self, started: float) -> None:
@@ -1153,7 +1157,7 @@ class MainWindow(QMainWindow):
             if self.report is not None:
                 self.project.clear_scan()
         except NxError as exc:
-            QMessageBox.warning(self, "Proje", exc.user_text())
+            self.notify(LEVEL_ERROR, "Proje", exc.user_text())
         self.report = None
         self._mark_changed()
 
@@ -1192,7 +1196,7 @@ class MainWindow(QMainWindow):
             self.project.set_game(result.game_name, result.title_id)
             self.project.save_scan(result)
         except NxError as exc:
-            QMessageBox.warning(self, "Proje", exc.user_text())
+            self.notify(LEVEL_ERROR, "Proje", exc.user_text())
         self._mark_changed()
         self.scan_page.show_report(result)
         self.statusBar().showMessage(f"Tarama {result.duration_s:.1f} saniyede tamamlandı.", 8000)
@@ -1209,7 +1213,7 @@ class MainWindow(QMainWindow):
             return
         problems = check_sources(self.sources)
         if problems:
-            QMessageBox.warning(self, "Dosyalar çıkarılamıyor", " ".join(problems))
+            self.notify(LEVEL_ERROR, "Dosyalar çıkarılamıyor", " ".join(problems))
             return
         folder = QFileDialog.getExistingDirectory(self, "Dosyaların çıkarılacağı boş klasörü seçin", str(Path.home()))
         if not folder:
@@ -1222,12 +1226,12 @@ class MainWindow(QMainWindow):
 
         def done(result: object) -> None:
             self.scan_page.show_report(report)
-            QMessageBox.information(self, "Çıkarma tamamlandı", f"{result} dosya şuraya yazıldı:\n{dest}")
+            self.notify(LEVEL_INFO, "Çıkarma tamamlandı", f"{result} dosya şuraya yazıldı:\n{dest}")
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(dest)))
 
         def failed(text: str) -> None:
             self.scan_page.show_report(report)
-            QMessageBox.warning(self, "Çıkarma tamamlanamadı", text)
+            self.notify(LEVEL_ERROR, "Çıkarma tamamlanamadı", text)
 
         def cancelled() -> None:
             self.scan_page.show_report(report)
@@ -1248,7 +1252,7 @@ class MainWindow(QMainWindow):
             return
         problems = check_sources(self.sources)
         if problems:
-            QMessageBox.warning(self, "Teşhis raporu oluşturulamıyor", " ".join(problems))
+            self.notify(LEVEL_ERROR, "Teşhis raporu oluşturulamıyor", " ".join(problems))
             return
         start = str(self.settings.value("ui/last_dir", str(Path.home())))
         folder = QFileDialog.getExistingDirectory(self, f"{RAPOR_ADI} dosyasının yazılacağı klasörü seçin", start)
@@ -1261,12 +1265,12 @@ class MainWindow(QMainWindow):
 
         def done(result: object) -> None:
             self.scan_page.show_report(report)
-            QMessageBox.information(self, "Teşhis raporu hazır", f"{result}\n\n{UYARI}")
+            self.notify(LEVEL_INFO, "Teşhis raporu hazır", f"{result}\n\n{UYARI}")
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(dest)))
 
         def failed(text: str) -> None:
             self.scan_page.show_report(report)
-            QMessageBox.warning(self, "Teşhis raporu oluşturulamadı", text)
+            self.notify(LEVEL_ERROR, "Teşhis raporu oluşturulamadı", text)
 
         def cancelled() -> None:
             self.scan_page.show_report(report)
@@ -1418,7 +1422,7 @@ class MainWindow(QMainWindow):
         try:
             save_config(self.project, self.qa_page.fit_config())
         except NxError as exc:
-            QMessageBox.warning(self, "Proje", exc.user_text())
+            self.notify(LEVEL_ERROR, "Proje", exc.user_text())
             return
         self._push_fit_to_page()
         self._mark_changed()
@@ -1472,7 +1476,7 @@ class MainWindow(QMainWindow):
                 self.project.set_setting("font_patchable", result.patchable_letters)
                 self.project.set_setting("font_files", json.dumps(list(result.patch_files), ensure_ascii=False))
             except NxError as exc:
-                QMessageBox.warning(self, "Proje", exc.user_text())
+                self.notify(LEVEL_ERROR, "Proje", exc.user_text())
             self._mark_changed()
             self.qa_page.set_font_busy(False)
             self._refresh_qa()
@@ -1494,7 +1498,7 @@ class MainWindow(QMainWindow):
         try:
             self.project.set_setting("transliterate_mode", mode)
         except NxError as exc:
-            QMessageBox.warning(self, "Proje", exc.user_text())
+            self.notify(LEVEL_ERROR, "Proje", exc.user_text())
             return
         self._mark_changed()
         self.qa_page.set_mode(mode, self._missing_letters(), self._font_patch_on())
@@ -1504,7 +1508,7 @@ class MainWindow(QMainWindow):
         try:
             self.project.set_setting("font_patch", "1" if enabled else "")
         except NxError as exc:
-            QMessageBox.warning(self, "Proje", exc.user_text())
+            self.notify(LEVEL_ERROR, "Proje", exc.user_text())
             return
         self._mark_changed()
         self._refresh_qa()
@@ -1767,7 +1771,7 @@ class MainWindow(QMainWindow):
         try:
             added = self.user_dictionary.add(words)
         except OSError as exc:
-            QMessageBox.warning(self, "Yazım sözlüğü", f"Sözlük kaydedilemedi: {exc.strerror or exc}")
+            self.notify(LEVEL_ERROR, "Yazım sözlüğü", f"Sözlük kaydedilemedi: {exc.strerror or exc}")
             return
         if self.spell is not None:
             self.spell.add_user_words(words)
@@ -1948,7 +1952,7 @@ class MainWindow(QMainWindow):
         try:
             self.project.set_setting("export_include_errors", "1" if enabled else "")
         except NxError as exc:
-            QMessageBox.warning(self, "Proje", exc.user_text())
+            self.notify(LEVEL_ERROR, "Proje", exc.user_text())
             return
         self._mark_changed()
         self._refresh_export()
@@ -2052,8 +2056,8 @@ class MainWindow(QMainWindow):
         if self.busy:
             return
         if not self.project.translation_rows():
-            QMessageBox.information(
-                self,
+            self.notify(
+                LEVEL_INFO,
                 "Hazır çeviriyi içe aktar",
                 "Önce “Metinleri Tara” adımından metinleri çeviri tablosuna aktarın.",
             )
@@ -2086,8 +2090,8 @@ class MainWindow(QMainWindow):
                 )
             lines.append("\nÇeviriler “Makine” durumuyla yazılır; gözden geçirebilirsiniz. Devam edilsin mi?")
             if plan.applied == 0:
-                QMessageBox.information(
-                    self, "Hazır çeviriyi içe aktar", "Yazılacak yeni bir çeviri yok.\n\n" + "\n".join(lines[:3])
+                self.notify(
+                    LEVEL_INFO, "Hazır çeviriyi içe aktar", "Yazılacak yeni bir çeviri yok.\n\n" + "\n".join(lines[:3])
                 )
                 return
             answer = QMessageBox.question(self, "Hazır çeviriyi içe aktar", "\n".join(lines))
@@ -2096,7 +2100,7 @@ class MainWindow(QMainWindow):
             try:
                 report = port_translations(self.project, result)
             except NxError as exc:
-                QMessageBox.warning(self, "Hazır çeviriyi içe aktar", exc.user_text())
+                self.notify(LEVEL_ERROR, "Hazır çeviriyi içe aktar", exc.user_text())
                 return
             self._mark_changed()
             self._reload_rows()
@@ -2107,7 +2111,7 @@ class MainWindow(QMainWindow):
             self.translate_page.show_notice("success", text)
 
         def failed(text: str) -> None:
-            QMessageBox.warning(self, "Hazır çeviriyi içe aktar", text)
+            self.notify(LEVEL_ERROR, "Hazır çeviriyi içe aktar", text)
 
         self._run(
             lambda ctx: read_ready_translations(root, ctx),
@@ -2124,7 +2128,7 @@ class MainWindow(QMainWindow):
             return
         problems = check_sources(self.sources)
         if problems:
-            QMessageBox.warning(self, "Metinler aktarılamıyor", " ".join(problems))
+            self.notify(LEVEL_ERROR, "Metinler aktarılamıyor", " ".join(problems))
             return
         inputs = self._inputs()
         report = self.report
@@ -2135,7 +2139,7 @@ class MainWindow(QMainWindow):
 
         def failed(text: str) -> None:
             self.scan_page.show_report(report)
-            QMessageBox.warning(self, "Metinler aktarılamadı", text)
+            self.notify(LEVEL_ERROR, "Metinler aktarılamadı", text)
 
         def cancelled() -> None:
             self.scan_page.show_report(report)
@@ -2159,7 +2163,7 @@ class MainWindow(QMainWindow):
             self.project.set_setting("source_language", self._import_language)
             record_extraction(self.project, (fmt for _path, _tid, fmt in self.project.text_files()))
         except NxError as exc:
-            QMessageBox.warning(self, "Metinler aktarılamadı", exc.user_text())
+            self.notify(LEVEL_ERROR, "Metinler aktarılamadı", exc.user_text())
             return
         self._reload_rows()
         self._mark_changed()
@@ -2194,7 +2198,7 @@ class MainWindow(QMainWindow):
         try:
             self.project.set_glossary(dialog.terms())
         except NxError as exc:
-            QMessageBox.warning(self, "Sözlük kaydedilemedi", exc.user_text())
+            self.notify(LEVEL_ERROR, "Sözlük kaydedilemedi", exc.user_text())
             return
         self._mark_changed()
         self._sync_spell()
@@ -2364,7 +2368,7 @@ class MainWindow(QMainWindow):
                 # Çeviri talimatı isteğe bağlıdır: kutu boşaltılınca saklanan talimat da silinir.
                 self.project.set_setting(TRANSLATE_INSTRUCTION_KEY, chosen.instruction)
         except NxError as exc:
-            QMessageBox.warning(self, "Proje", exc.user_text())
+            self.notify(LEVEL_ERROR, "Proje", exc.user_text())
             return False
         return True
 
@@ -2575,7 +2579,7 @@ class MainWindow(QMainWindow):
         try:
             self.project.set_uppercase_rules(rules)
         except NxError as exc:
-            QMessageBox.warning(self, "Proje", exc.user_text())
+            self.notify(LEVEL_ERROR, "Proje", exc.user_text())
             self.translate_page.set_uppercase(self.project.uppercase_rules())
             return
         self._mark_changed()
@@ -2720,11 +2724,7 @@ class MainWindow(QMainWindow):
         status_name = "Makine" if translation else "Redakte"
         job_kind = "translation" if translation else "csv"
         if not page.model.rows:
-            QMessageBox.information(
-                self,
-                title,
-                "Önce “Metinleri Tara” adımından metinleri çeviri tablosuna aktarın.",
-            )
+            self.notify(LEVEL_INFO, title, "Önce “Metinleri Tara” adımından metinleri çeviri tablosuna aktarın.")
             return
         start = str(self.settings.value("csv/dir", str(Path.home())))
         pick_title = (
@@ -2745,7 +2745,7 @@ class MainWindow(QMainWindow):
         try:
             csv_rows = [r for t in targets for r in read_revision_file(Path(t))]
         except CsvError as exc:
-            QMessageBox.warning(self, title, exc.user_text())
+            self.notify(LEVEL_ERROR, title, exc.user_text())
             return
         rows = self.project.translation_rows()
         plan = plan_import(rows, csv_rows)
@@ -2788,7 +2788,7 @@ class MainWindow(QMainWindow):
                 "\nDosya başka bir projeden dışa aktarılmış veya orijinal/çeviri metinleri değiştirilmiş olabilir."
             )
         if not plan.changes:
-            QMessageBox.information(self, title, "Yazılacak bir değişiklik yok.\n\n" + "\n".join(lines))
+            self.notify(LEVEL_INFO, title, "Yazılacak bir değişiklik yok.\n\n" + "\n".join(lines))
             return
         lines.append(
             f"Değişiklikler “{status_name}” durumuyla yazılır; “Son İşin Değişiklikleri” veya Geri Al ile geri "
@@ -2838,7 +2838,7 @@ class MainWindow(QMainWindow):
             note = "Hiçbir satır yazılmadı: seçilen düzeltmeler değişiklik bırakmadı."
             if edit_problems:
                 note += "\n\n" + "\n".join(edit_problems[:8])
-            QMessageBox.information(self, title, note)
+            self.notify(LEVEL_INFO, title, note)
             return
         job_id = new_job_id(job_kind)
         try:
@@ -2850,7 +2850,7 @@ class MainWindow(QMainWindow):
                 job=job_id,
             )
         except NxError as exc:
-            QMessageBox.warning(self, title, exc.user_text())
+            self.notify(LEVEL_ERROR, title, exc.user_text())
             return
         page.model.update_rows(updated)
         self._mark_changed()
@@ -2952,7 +2952,7 @@ class MainWindow(QMainWindow):
         try:
             project = Project.open(path)
         except NxError as exc:
-            QMessageBox.warning(self, "Proje açılamadı", exc.user_text())
+            self.notify(LEVEL_ERROR, "Proje açılamadı", exc.user_text())
             return False
         self.settings.setValue("ui/project_dir", str(path.parent))
         self._replace_project(project)
@@ -2991,7 +2991,7 @@ class MainWindow(QMainWindow):
         try:
             self.project.save_as(path)
         except NxError as exc:
-            QMessageBox.warning(self, "Proje kaydedilemedi", exc.user_text())
+            self.notify(LEVEL_ERROR, "Proje kaydedilemedi", exc.user_text())
             return False
         assert self.project.path is not None
         self.settings.setValue("ui/project_dir", str(self.project.path.parent))
@@ -3007,7 +3007,7 @@ class MainWindow(QMainWindow):
         cache = self._cache_dir()
         size = dir_size(cache)
         if size == 0:
-            QMessageBox.information(self, "Önbellek", f"Önbellek boş.\n\nKonum: {cache}")
+            self.notify(LEVEL_INFO, "Önbellek", f"Önbellek boş.\n\nKonum: {cache}")
             return
         answer = QMessageBox.question(
             self,
@@ -3020,7 +3020,7 @@ class MainWindow(QMainWindow):
         try:
             clear_cache(cache)
         except NxError as exc:
-            QMessageBox.warning(self, "Önbellek", exc.user_text())
+            self.notify(LEVEL_ERROR, "Önbellek", exc.user_text())
             return
         self.statusBar().showMessage(f"Önbellek temizlendi ({format_size(size)}).", 5000)
 
@@ -3095,7 +3095,7 @@ class MainWindow(QMainWindow):
         try:
             project = Project.open_copy(leftover.path)
         except NxError as exc:
-            QMessageBox.warning(self, "Proje kurtarılamadı", exc.user_text())
+            self.notify(LEVEL_ERROR, "Proje kurtarılamadı", exc.user_text())
             return False
         self._replace_project(project)
         self.dirty = True

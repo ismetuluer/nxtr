@@ -57,8 +57,9 @@ LONG_TASK_S = 2.0
 
 _ICONS = {LEVEL_SUCCESS: "circle-check", LEVEL_WARNING: "triangle-alert", LEVEL_ERROR: "circle-x", LEVEL_INFO: "info"}
 _TONES = {LEVEL_SUCCESS: "success", LEVEL_WARNING: "warning", LEVEL_ERROR: "danger", LEVEL_INFO: "accent"}
-#: Kartın metni en çok bu kadar karakter; fazlası "…" ile kesilir (tamamı geçmişte ve ipucunda).
-_CARD_TEXT_CHARS = 180
+#: Kartın metni en çok bu kadar karakter; fazlası "…" ile kesilir (tamamı geçmişte, ipucunda ve "Ayrıntılar"da).
+NOTICE_DETAIL_CHARS = 180
+_CARD_TEXT_CHARS = NOTICE_DETAIL_CHARS
 
 
 @dataclass(frozen=True)
