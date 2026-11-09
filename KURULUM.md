@@ -35,7 +35,7 @@ adımları çalışmaz; çevirilen projeyi geri getirip kendi bilgisayarınızda
 4. Beğenirseniz tümünü çevirin. Çeviriler "Makine" durumuyla yazılır; onayladığınız satırlara dokunulmaz.
 
 Devil May Cry'da satır sonları ve satır uzunluğu önemlidir (metin kutusu dardır): her satır en çok ~34 karakter,
-`⟦n⟧` işaretleri aynen. Bağlam notu ve sözlük projede hazırdır (Otomatik Çeviri penceresinden görebilir/değiştirebilirsiniz).
+`⟦n⟧` işaretleri aynen. Bağlam notu ve terminoloji projede hazırdır (Otomatik Çeviri penceresinden görebilir/değiştirebilirsiniz).
 
 ## 5. Güncelleme
 **Yardım → Güncellemeleri Denetle…** GitHub'da yayımlanan en yeni sürümü (Releases) gösterir; **Güncelle ve Yeniden Başlat** (veya **İndir ve Yeniden

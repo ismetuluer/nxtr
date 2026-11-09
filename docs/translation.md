@@ -44,19 +44,26 @@ Kod: `nxceviri/core/translate/` — `providers/base.py` (sözleşme), `providers
   çalıştırın. **Kitaplık** düğmesiyle talimatı adlandırıp kaydedebilir, başka projelerde de seçebilirsiniz
   (`%LOCALAPPDATA%\NXCeviri\talimatlar.json`). DeepL talimat izleyemez: kutu gizlenir.
 - **Yarım yanıt**: model yanıtı uzunluk sınırında keserse parti ikiye bölünüp yeniden istenir.
-- **Sözlük**: her partiye yalnızca o partide geçen terimler eklenir.
+- **Terminoloji** (eski adı Sözlük; Çeviri → Terminoloji…, `Ctrl+Alt+G`): her partiye yalnızca o partide geçen
+  terimler eklenir. Terminolojide olmayan **örtük terimler** de gider: oyunda kendi başına satır olan kısa adların
+  (mekân, eşya, bölüm) en sık çevirisi, "oyunda böyle çevrildi" notuyla; "Terim değil" denenler gitmez.
+  - **Seçili satırları ekle** (sağ tık → Terminolojiye ekle…, `Ctrl+Shift+G`): orijinal ve çeviri kontrol kodu,
+    satır sonu, sayı ve sembollerden ayıklanır; onay listesinde işaretlenenler eklenir, başka karşılıkla olanlar
+    işaretsiz gelir (işaretlenirse güncellenir).
+  - **Kitaplık** (`%LOCALAPPDATA%\NXCeviri\terminoloji\`): terminolojiyi adlandırılmış liste olarak kaydedin
+    ("DMC serisi"), başka projede *Kitaplıktan Ekle* ile katın; projede olan terimin karşılığı korunur.
   - **Bilgi notu (lore):** Türkçe karşılığı boş, notu dolu madde (ör. Elara → "Kahramanın ablası; ona 'siz'
-    denir"). Ad partide geçtiğinde not modele bilgi olarak gider; çeviri zorlanmaz, QA sözlük uyarısı vermez,
-    DeepL sözlüğüne girmez.
-  - **XLSX içe/dışa aktarma** (Sözlük penceresi): iki sütun, `terim` ve `çeviri` (çeviri/redaksiyon tablolarıyla
+    denir"). Ad partide geçtiğinde not modele bilgi olarak gider; çeviri zorlanmaz, QA terminoloji uyarısı vermez,
+    DeepL sözlüğüne (glossary) girmez.
+  - **XLSX içe/dışa aktarma** (Terminoloji penceresi): iki sütun, `terim` ve `çeviri` (çeviri/redaksiyon tablolarıyla
     aynı yazıcı). İçe aktarırken başlık yoksa ilk satır da veridir, isteğe bağlı üçüncü sütun not olarak okunur;
     terimler büyük/küçük harf duyarsız birleşir, var olanın yazımı ve notu korunur. Bilgi notları iki sütuna
     sığmadığı için dışa aktarılmaz (pencere kaç tane olduğunu söyler).
   - **Terim Öner (Ollama):** program metinlerde en az iki kez, cümle ortasında büyük harfle geçen adları bulur
-    (`terms.find_candidates`; yalnızca cümle başındaki sözcükler, tamamı büyük harf arayüz sözcükleri, sözlükte
+    (`terms.find_candidates`; yalnızca cümle başındaki sözcükler, tamamı büyük harf arayüz sözcükleri, terminolojide
     olanlar atlanır). Model yalnızca bu adaylara, örnek cümleleriyle, karşılık ve kısa not önerir; listede olmayan
     terimi ve gereksiz bulduğunu (`add: false`) döndüremez. Öneriler onay penceresinde işaretlenip düzeltilir,
-    yalnızca onaylananlar sözlüğe katılır.
+    yalnızca onaylananlar terminolojiye katılır.
 - **Oyun notları**: tür, ton, hitap (sen/siz) gibi notlar projede saklanır. Ollama'da (0.40.0'dan beri)
   **sistem isteminin** sonuna eklenir: her partide aynı oldukları için model onlara daha sıkı uyar ve Ollama
   değişmeyen istem başını yeniden işlemez. DeepL'de bağlam (`context`) olarak gider.
