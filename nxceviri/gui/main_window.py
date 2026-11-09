@@ -131,7 +131,6 @@ from nxceviri.gui.machine_dialogs import (
     GlossaryDialog,
     MachineDialog,
     MachineSettings,
-    ProviderSettingsDialog,
     TermSuggestionsDialog,
     make_provider,
 )
@@ -143,6 +142,7 @@ from nxceviri.gui.qa_page import QaPage
 from nxceviri.gui.recent import RecentProjects
 from nxceviri.gui.recovery import RecoveryFile, RecoveryKeeper, default_recovery_dir, discard, leftover_files
 from nxceviri.gui.scan_page import ScanPage
+from nxceviri.gui.settings_dialog import PAGE_VIEW, SettingsDialog
 from nxceviri.gui.shortcuts import ShortcutRegistry
 from nxceviri.gui.spell_dialogs import AddSpellWordsDialog, UserDictionaryDialog
 from nxceviri.gui.statusbar import StatusSegments
@@ -198,6 +198,7 @@ class MainWindow(QMainWindow):
     cache_action: QAction
     nav_action: QAction
     size_group: QActionGroup
+    theme_group: QActionGroup
     undo_action: QAction
     update_action: QAction
 
@@ -472,6 +473,8 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if isinstance(app, QApplication):
             apply_theme(app, mode, self._font_size())
+        for act in self.theme_group.actions():
+            act.setChecked(act.data() == mode.value)
 
     def _set_font_size(self, size: int) -> None:
         size = clamp_font_size(size)
@@ -1825,11 +1828,25 @@ class MainWindow(QMainWindow):
         )
 
     def open_settings(self, page: str | None = None) -> None:
-        """Ayarlar penceresini açar (`page`: açılacak sayfa). Şimdilik çeviri sağlayıcı ayarlarını açar."""
-        self.edit_provider_settings()
-
-    def edit_provider_settings(self) -> None:
-        ProviderSettingsDialog(self, self.secrets).exec()
+        """Ayarlar penceresini açar (`page`: açılacak sayfa, ör. `PAGE_PROVIDERS`)."""
+        dialog = SettingsDialog(
+            self,
+            self.settings,
+            self.shortcuts,
+            self.translate_page.view_actions,
+            self.secrets,
+            theme=self._theme_mode(),
+            font_size=self._font_size(),
+            wrap=self.translate_page.wrap_box,
+            issue_colors=self.translate_page.colors_box,
+            updates_available=self.update_action.isEnabled(),
+            page=page or PAGE_VIEW,
+        )
+        dialog.theme_changed.connect(self._set_theme)
+        dialog.font_size_changed.connect(self._set_font_size)
+        dialog.check_updates_requested.connect(self.open_updates)
+        dialog.exec()
+        dialog.deleteLater()
 
     def ask_machine_settings(
         self,

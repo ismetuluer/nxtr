@@ -40,7 +40,7 @@ from nxceviri.core.translate.providers.ollama import DEFAULT_URL, RECOMMENDED_MO
 from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_REVISE, ACTION_TRANSLATE, target_rows
 from nxceviri.core.translate.terms import TermSuggestion
 from nxceviri.gui.icons import bind_icon
-from nxceviri.gui.settings_dialog import DeepLKeyPanel, check_with_wait_cursor
+from nxceviri.gui.settings_dialog import check_with_wait_cursor
 from nxceviri.gui.widgets import Banner, button, format_int, format_size, label, tip_html, title_row
 
 SCOPE_SELECTED = "selected"
@@ -231,7 +231,7 @@ class MachineDialog(QDialog):
         #: İş türüne göre talimat metni: redaksiyonun ve çevirinin (çevir + yeniden çevir) ayrı talimatı var.
         self._texts = {ACTION_REVISE: instruction, ACTION_TRANSLATE: translate_instruction}
         self._shown_kind: str | None = None
-        self.setWindowTitle("Makine Çevirisi")
+        self.setWindowTitle("Otomatik Çeviri")
         self.setMinimumWidth(620)
         self._secrets = secrets
         self._scopes = scopes
@@ -274,7 +274,7 @@ class MachineDialog(QDialog):
         df.setContentsMargins(0, 0, 0, 0)
         key = secrets.get(DEEPL_API_KEY)
         self.deepl_key_label = label(
-            f"Kayıtlı ({plan_label(key)})" if key else "Kayıtlı anahtar yok — Araçlar → Çeviri Ayarları'ndan girin.",
+            f"Kayıtlı ({plan_label(key)})" if key else "Anahtar yok — Dosya → Ayarlar → Çeviri sayfasından girin.",
             None if key else "muted",
         )
         df.addRow("DeepL API anahtarı:", self.deepl_key_label)
@@ -578,36 +578,6 @@ class MachineDialog(QDialog):
             instruction=self.instruction.toPlainText().strip() if self._instruction_enabled() else "",
             include_approved=self.include_approved.isChecked() and self.action != ACTION_TRANSLATE,
         )
-
-
-class ProviderSettingsDialog(QDialog):
-    """Çeviri sağlayıcısı ayarları: DeepL API anahtarı (Windows Kimlik Bilgisi Yöneticisi'nde)."""
-
-    def __init__(self, parent: QWidget | None, secrets: SecretStore) -> None:
-        super().__init__(parent)
-        self.setWindowTitle("Çeviri Ayarları")
-        self.setMinimumWidth(520)
-        lay = QVBoxLayout(self)
-        lay.addWidget(label("DeepL", "cardTitle"))
-        self.panel = DeepLKeyPanel(secrets)
-        lay.addWidget(self.panel)
-        self.key = self.panel.key
-        self.state = self.panel.state
-        lay.addStretch(1)
-        close = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        close.button(QDialogButtonBox.StandardButton.Close).setText("Kapat")
-        close.rejected.connect(self.reject)
-        lay.addWidget(close)
-
-    def save_key(self) -> None:
-        if self.panel.save_key():
-            self.test_key()
-
-    def delete_key(self) -> None:
-        self.panel.delete_key()
-
-    def test_key(self) -> None:
-        self.panel.test_key()
 
 
 class GlossaryDialog(QDialog):

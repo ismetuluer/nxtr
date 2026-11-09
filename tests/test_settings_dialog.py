@@ -16,7 +16,6 @@ from nxceviri.core.secrets import DEEPL_API_KEY, MemoryStore
 from nxceviri.core.translate.providers.base import ProviderStatus
 from nxceviri.core.translate.providers.deepl import DeepLProvider
 from nxceviri.core.translate.providers.ollama import DEFAULT_URL, OllamaProvider
-from nxceviri.gui.machine_dialogs import ProviderSettingsDialog
 from nxceviri.gui.settings_dialog import (
     PAGE_PROVIDERS,
     PAGE_SHORTCUTS,
@@ -427,22 +426,6 @@ def test_deepl_test_button_shows_failure(qtbot: QtBot, env: Env, monkeypatch: py
     qtbot.addWidget(dialog)
     dialog.deepl_panel.test.click()
     assert dialog.deepl_panel.status.text.text() == "Anahtar geçersiz"
-
-
-def test_provider_settings_dialog_wraps_the_panel(qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
-    secrets = MemoryStore()
-    called: list[str] = []
-    wrapper = ProviderSettingsDialog(None, secrets)
-    qtbot.addWidget(wrapper)
-    assert wrapper.state.text() == "Kayıtlı anahtar: yok"
-    wrapper.key.setText(DEEPL_TEST_KEY)
-    monkeypatch.setattr(wrapper, "test_key", lambda: called.append("test"))
-    wrapper.save_key()
-    assert secrets.get(DEEPL_API_KEY) == DEEPL_TEST_KEY
-    assert called == ["test"]
-    assert wrapper.state.text() == "Kayıtlı anahtar: var (DeepL API Free)"
-    wrapper.delete_key()
-    assert secrets.get(DEEPL_API_KEY) is None
 
 
 def test_ollama_url_default_and_save(qtbot: QtBot, env: Env) -> None:

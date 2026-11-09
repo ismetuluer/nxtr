@@ -154,11 +154,25 @@ def test_expected_entries_exist(window: MainWindow) -> None:
     assert not [t for t in everything if "\t" in t]  # tuş metni elle yazılmaz
 
 
-def test_settings_entry_opens_provider_settings_for_now(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
-    opened: list[str] = []
-    monkeypatch.setattr(window, "edit_provider_settings", lambda: opened.append("ayar"))
+def test_settings_entry_opens_settings_dialog(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    from nxceviri.gui.settings_dialog import SettingsDialog
+    from nxceviri.gui.theme import ThemeMode
+
+    opened: list[SettingsDialog] = []
+    previous = window._theme_mode()
+
+    def fake_exec(dialog: SettingsDialog) -> int:
+        opened.append(dialog)
+        assert dialog.stack.currentIndex() == 0  # Görünüm sayfası
+        dialog.theme_changed.emit(ThemeMode.DARK)  # pencereden gelen tema menüye yansır
+        return 0
+
+    monkeypatch.setattr(SettingsDialog, "exec", fake_exec)
     _by_text(_menu(window, "Dosya"), "Ayarlar…").trigger()
-    assert opened == ["ayar"]
+    assert len(opened) == 1
+    checked = [a.data() for a in window.theme_group.actions() if a.isChecked()]
+    assert checked == [ThemeMode.DARK.value]
+    window._set_theme(previous)  # uygulama temasını sonraki testlere sızdırma
     assert window.menu_actions["app.settings"].shortcut().toString() == "Ctrl+,"
 
 

@@ -306,7 +306,8 @@ def test_machine_translation_flow(qtbot: QtBot, window: MainWindow, game: GameFi
     dialog._add("", "boş", "")
     assert dialog.terms() == [GlossaryTerm("Link", "Link", "ad"), GlossaryTerm("Sheriff", "Şerif", "")]
     from nxceviri.core.secrets import DEEPL_API_KEY, MemoryStore
-    from nxceviri.gui.machine_dialogs import PROVIDER_DEEPL, ProviderSettingsDialog
+    from nxceviri.gui.machine_dialogs import PROVIDER_DEEPL
+    from nxceviri.gui.settings_dialog import DeepLKeyPanel
 
     secrets = MemoryStore()
     done_rows = [r for r in page.model.rows if r.translation]
@@ -337,16 +338,14 @@ def test_machine_translation_flow(qtbot: QtBot, window: MainWindow, game: GameFi
     assert deepl.provider_name == PROVIDER_DEEPL
     assert not deepl.ollama_box.isVisibleTo(deepl)
     assert not deepl.start.isEnabled()
-    settings_dialog = ProviderSettingsDialog(window, secrets)
+    settings_dialog = DeepLKeyPanel(secrets)
+    qtbot.addWidget(settings_dialog)
     assert settings_dialog.state.text() == "Kayıtlı anahtar: yok"
     settings_dialog.key.setText("deneme-anahtar:fx")
-    secrets_test: list[str] = []
-    settings_dialog.test_key = lambda: secrets_test.append("test")  # type: ignore[method-assign]
     settings_dialog.save_key()
     assert secrets.get(DEEPL_API_KEY) == "deneme-anahtar:fx"
     assert settings_dialog.state.text() == "Kayıtlı anahtar: var (DeepL API Free)"
     assert settings_dialog.key.text() == ""
-    assert secrets_test == ["test"]
     settings_dialog.delete_key()
     assert secrets.get(DEEPL_API_KEY) is None
 
