@@ -120,7 +120,11 @@ def test_export_with_box_reports_error_rows(
     from PySide6.QtGui import QDesktopServices
 
     opened: list[str] = []
-    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: opened.append(QUrl(url).toLocalFile()) or True)
+    def open_url(url: QUrl) -> bool:
+        opened.append(url.toLocalFile())
+        return True
+
+    monkeypatch.setattr(QDesktopServices, "openUrl", open_url)
     open_action = next(a for a in window.notifier.history[0].actions if a.label == "Klasörü Aç")
     open_action.callback()  # bildirimdeki düğme gerçekten klasörü açar
     assert opened
