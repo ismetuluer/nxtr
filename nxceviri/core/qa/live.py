@@ -72,7 +72,7 @@ KIND_HINTS: dict[str, str] = {
     "repeated_word": "Aynı sözcük art arda yazılmış.",
     "extra_dots": "Fazla nokta var.",
     "end_punctuation": "Sona orijinalde olmayan bir noktalama eklenmiş.",
-    "glossary": "Sözlükteki terimin karşılığı çeviride yok.",
+    "glossary": "Terminolojideki terimin karşılığı çeviride yok.",
     "identifier": "Kod adına benzeyen bir metin çevrilmiş.",
     "suspicious": "Çeviri uydurma gibi görünüyor (İngilizce kalmış, tekrar vb.).",
     "inconsistent": "Aynı metin farklı biçimlerde çevrilmiş.",

@@ -59,7 +59,7 @@ def test_dialog_imports_exports_and_keeps_lore(qtbot: QtBot, tmp_path: Path, mon
     source = tmp_path / "gelen.xlsx"
     source.write_bytes(table_xlsx(["terim", "çeviri"], [["sheriff", "Polis Şefi"], ["Old Mill", "Eski Değirmen"]]))
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: (str(source), ""))
-    dialog.import_action.trigger()
+    dialog.import_button.click()
     assert dialog.terms() == [
         GlossaryTerm("Sheriff", "Polis Şefi", "unvan"),
         lore,
@@ -69,7 +69,7 @@ def test_dialog_imports_exports_and_keeps_lore(qtbot: QtBot, tmp_path: Path, mon
 
     target = tmp_path / "giden"
     monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **k: (str(target), ""))
-    dialog.export_action.trigger()
+    dialog.export_button.click()
     assert read_glossary_xlsx(tmp_path / "giden.xlsx") == [
         GlossaryTerm("Sheriff", "Polis Şefi"),
         GlossaryTerm("Old Mill", "Eski Değirmen"),
@@ -79,7 +79,7 @@ def test_dialog_imports_exports_and_keeps_lore(qtbot: QtBot, tmp_path: Path, mon
     broken = tmp_path / "bozuk.xlsx"
     broken.write_bytes(b"bozuk")
     monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: (str(broken), ""))
-    dialog.import_action.trigger()
+    dialog.import_button.click()
     assert "bozuk.xlsx" in dialog.banner.text.text()
     assert len(dialog.terms()) == 3  # bozuk dosya sözlüğü değiştirmez
 
@@ -118,11 +118,12 @@ def test_suggest_terms_end_to_end(qtbot: QtBot, window: MainWindow, monkeypatch:
         GlossaryTerm("Silver Pines", "tr-Silver Pines", "öneri notu"),
         GlossaryTerm("Old Mill", "tr-Old Mill", "öneri notu"),
     ]
-    assert "2 terim eklendi" in window.translate_page.notice_text
+    assert window.notifier.history[0].title == "Terminoloji güncellendi"
+    assert "2 terim eklendi" in window.notifier.history[0].text
 
 
 def test_suggest_terms_needs_ollama_model(window: MainWindow) -> None:
     window.settings.setValue("translate/provider", "deepl")
     window.suggest_glossary_terms()
     assert window.task is None
-    assert "Ollama gerekli" in window.translate_page.notice_text
+    assert "Ollama gerekli" in window.notifier.history[0].title

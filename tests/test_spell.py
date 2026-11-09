@@ -107,7 +107,7 @@ def test_check_row_reports_misspelled_words() -> None:
     assert len(found) == 1
     assert found[0].severity == SEVERITY_INFO  # liste gürültüsü olmasın: yalnızca süzgeçle görünür
     assert found[0].words == ("oyunu", "yükkle")
-    assert found[0].message == "Sözlükte olmayan sözcükler: oyunu, yükkle"
+    assert found[0].message == "Yazım sözlüğünde olmayan sözcükler: oyunu, yükkle"
     assert KIND_LABELS["spelling"] == "Yazım"
     assert not [i for i in check_row(_row("Load", "Yükle"), "", "", spell=spell) if i.kind == "spelling"]
     assert not [i for i in check_row(_row("Load", "Oyunu yükkle"), "", "") if i.kind == "spelling"]  # denetim yok

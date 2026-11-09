@@ -13,7 +13,7 @@ Denetimler satır başınadır ve yalnızca bulguları döndürür; satırları 
 | page_too_tall | uyarı | Bir sayfada sığdırma kuralındaki satır sayısından fazla satır var |
 | bad_break | uyarı | Satır gereksiz kısa kesilmiş; sonraki sözcük sığardı |
 | spaces | uyarı | Baştaki/sondaki boşluklar orijinalle aynı değil |
-| glossary | uyarı | Sözlükteki terim kaynakta geçiyor ama Türkçe karşılığı çeviride yok |
+| glossary | uyarı | Terminolojideki terim kaynakta geçiyor ama Türkçe karşılığı çeviride yok |
 | identifier | uyarı | Kaynak bir kod adına benziyor (Ad_Soyad_1) ve çevrilmiş; oyun bu adı arayabilir |
 | suspicious | uyarı | Uydurma belirtisi: İngilizce kalmış, yabancı alfabe, tekrar döngüsü, orijinalden çok uzun/kısa |
 | end_punctuation | uyarı | Çevirinin sonuna orijinalde olmayan noktalama eklenmiş (otomatik düzeltmede atılır) |
@@ -72,7 +72,7 @@ KIND_LABELS = {
     "markup": "Fazla etiket",
     "code_position": "Kod yeri",
     "spaces": "Boşluk",
-    "glossary": "Sözlük",
+    "glossary": "Terminoloji",
     "identifier": "Kod adı",
     "untranslated": "Çevrilmedi",
     "line_too_long": "Satır uzun",
@@ -192,7 +192,7 @@ def check_row(
         )
     for term, pattern in glossary or ():
         if pattern.search(row.source) and term.translation.casefold() not in row.translation.casefold():
-            add("glossary", SEVERITY_WARNING, f"Sözlükte “{term.term}” → “{term.translation}” var; çeviride yok.")
+            add("glossary", SEVERITY_WARNING, f"Terminolojide “{term.term}” → “{term.translation}” var; çeviride yok.")
     if _IDENTIFIER.fullmatch(row.source.strip()) and row.translation.strip() != row.source.strip():
         add(
             "identifier",
@@ -223,7 +223,7 @@ def check_row(
     if spell is not None and row.translation.strip() != row.source.strip():
         unknown = spell.unknown_words(row.translation, row.source, spell_extra)
         if unknown:
-            add("spelling", SEVERITY_INFO, f"Sözlükte olmayan sözcükler: {', '.join(unknown)}", tuple(unknown))
+            add("spelling", SEVERITY_INFO, f"Yazım sözlüğünde olmayan sözcükler: {', '.join(unknown)}", tuple(unknown))
     if not problems and row.translation.strip() != row.source.strip():
         doubts = translation_problems(row.source, row.translation, "tr")
         if doubts:

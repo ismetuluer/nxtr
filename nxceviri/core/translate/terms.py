@@ -210,7 +210,7 @@ def _ask(provider: JsonChat, batch: Sequence[TermCandidate], source_lang: str, n
             return rows
         log.warning("Sözlük önerisinde model JSON yerine şunu döndürdü: %r", content[:600])
     raise ProviderError(
-        "Model sözlük önerilerini istenen biçimde (JSON) vermedi.",
+        "Model terim önerilerini istenen biçimde (JSON) vermedi.",
         "Başka bir Ollama modeli seçip yeniden deneyin.",
     )
 
@@ -229,7 +229,7 @@ def suggest_glossary(
     found: dict[str, TermSuggestion] = {}
     total = len(candidates)
     for start in range(0, total, batch_size):
-        ctx.report(start, total, f"Sözlük önerileri: {total - start} terim kaldı")
+        ctx.report(start, total, f"Terim önerileri: {total - start} terim kaldı")
         batch = candidates[start : start + batch_size]
         for row in _ask(provider, batch, source_lang, notes):
             if not isinstance(row, dict) or row.get("add") is not True:
@@ -241,5 +241,5 @@ def suggest_glossary(
             found[candidate.term.casefold()] = TermSuggestion(
                 candidate.term, translation, str(row.get("note", "")).strip(), candidate.count
             )
-    ctx.report(total, total, "Sözlük önerileri hazır")
+    ctx.report(total, total, "Terim önerileri hazır")
     return [found[k] for k in by_key if k in found]

@@ -1,4 +1,4 @@
-"""Makine çevirisi, çeviri sağlayıcısı ayarları ve terim sözlüğü pencereleri."""
+"""Otomatik Çeviri, çeviri sağlayıcısı ayarları ve Terminoloji pencereleri."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QColor, QGuiApplication
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QButtonGroup,
@@ -22,6 +22,8 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QInputDialog,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMenu,
     QPlainTextEdit,
     QTableWidget,
@@ -56,6 +58,7 @@ from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_REVISE, AC
 from nxceviri.core.translate.terms import TermSuggestion
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.settings_dialog import check_with_wait_cursor, valid_ollama_url
+from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.widgets import Banner, button, format_int, format_size, label, tip_html, title_row
 
 SCOPE_SELECTED = "selected"
@@ -129,7 +132,7 @@ INSTRUCTION_PRESETS: tuple[tuple[str, str], ...] = (
         "- Aile ve arkadaşlar gündelik, samimi konuşur, birbirine “sen” der; ya, ki, işte, hadi, baksana gibi "
         "konuşma sözcükleri yerinde kullanılabilir ama abartma.\n"
         "- Aynı İngilizce kalıp her satırda aynı Türkçe kalıba dönüşmesin; doğal olanı seç.\n"
-        "- Karakter ve yer adlarına, sözlükteki terimlere dokunma.\n"
+        "- Karakter ve yer adlarına, terminolojideki terimlere dokunma.\n"
         "- Kontrol kodlarını (⟦1⟧, ⟦2⟧ …) aynı sayıda ve aynı sırayla koru; satır sonu kodlarını cümlenin doğal "
         "kırıldığı yere koy.\n"
         "- Satır uzunluğunu kabaca koru; altyazı kısa ve kolay okunur kalsın.\n"
@@ -175,7 +178,7 @@ TRANSLATE_PRESETS: tuple[tuple[str, str], ...] = (
         "Bu satırlar eşya, yetenek, görev veya karakter açıklaması.\n"
         "- Ad satırlarını kısa ad olarak çevir (Iron Sword → Demir Kılıç); açıklamaları tam cümle yaz.\n"
         "- Etkileri geniş zamanla, tutarlı kalıpla yaz (Increases attack → Saldırıyı artırır).\n"
-        "- Sayıları, birimleri ve oyun terimlerini aynen koru; sözlükteki terimleri kullan.\n"
+        "- Sayıları, birimleri ve oyun terimlerini aynen koru; terminolojideki terimleri kullan.\n"
         "- Aynı istatistik adı (Attack, Defense, HP) her yerde aynı karşılıkla çevrilsin.",
     ),
     (
@@ -786,7 +789,7 @@ class MachineDialog(QDialog):
 
 
 class GlossaryDialog(QDialog):
-    """Terim sözlüğü: karakter, yer, eşya adları, sabit çeviriler ve çevirisiz bilgi notları (lore)."""
+    """Terminoloji: karakter, yer, eşya adları, sabit çeviriler ve çevirisiz bilgi notları (lore)."""
 
     def __init__(
         self,
@@ -796,23 +799,32 @@ class GlossaryDialog(QDialog):
         can_suggest: bool = True,
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Terim Sözlüğü")
+        self.setWindowTitle("Terminoloji")
         self.resize(760, 520)
         self.start_dir = start_dir or Path.home()
-        #: Kullanıcı "Terim Öner"e bastı: sözlük kaydedilir, ardından öneri işi başlatılır.
+        #: Kullanıcı "Terim Öner"e bastı: terminoloji kaydedilir, ardından öneri işi başlatılır.
         self.wants_suggestions = False
         lay = QVBoxLayout(self)
         lay.addWidget(
             title_row(
-                "Terim sözlüğü",
-                "Terimler yazdığınız gibi çevrilir; çevrilmeyecek adlara aynı adı yazın. Karşılığı boş, yalnızca "
-                "notu olan madde bilgi notudur: ad geçince modele bilgi gider. Çok anlamlı tek sözcükleri "
-                "(On, Safe) eklemeyin.",
+                "Terminoloji",
+                "Oyunun adları ve sabit karşılıkları; çeviride aynen kullanılır.",
                 "cardTitle",
             )
         )
         self.table = QTableWidget(0, 3)
-        self.table.setHorizontalHeaderLabels(["Terim (kaynak dil)", "Türkçe karşılığı (boşsa bilgi notu)", "Not"])
+        self.table.setHorizontalHeaderLabels(["Terim", "Karşılık", "Not"])
+        for col, tip in enumerate(
+            (
+                "Kaynak dildeki ad. Çok anlamlı tek sözcükleri (On, Safe) eklemeyin.",
+                "Türkçe karşılığı; çevrilmeyecek ada aynı adı yazın. Boşsa madde bilgi notudur: ad geçince modele "
+                "not gider.",
+                "Modele giden açıklama (karakter, yer, ton).",
+            )
+        ):
+            header = self.table.horizontalHeaderItem(col)
+            if header is not None:
+                header.setToolTip(tip)
         self.table.verticalHeader().hide()
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         h = self.table.horizontalHeader()
@@ -827,30 +839,21 @@ class GlossaryDialog(QDialog):
         add.clicked.connect(lambda: self._add("", "", "", edit=True))
         remove = button("Seçilenleri Sil", icon="x")
         remove.clicked.connect(self._remove)
-        more_menu = QMenu(self)
-        self.import_action = more_menu.addAction("İçe Aktar (XLSX)…")
-        self.import_action.setToolTip("İki sütunlu (terim, çeviri) Excel dosyasındaki terimleri sözlüğe katar.")
-        self.import_action.triggered.connect(self._import)
-        self.export_action = more_menu.addAction("Dışa Aktar (XLSX)…")
-        self.export_action.setToolTip("Çevirisi olan terimleri iki sütunlu Excel dosyasına yazar.")
-        self.export_action.triggered.connect(self._export)
-        self.suggest_action = more_menu.addAction("Terim Öner (Ollama)…")
-        self.suggest_action.setToolTip(
-            "Sık geçen özel adlar için Ollama'dan öneri ister; onaylamadan sözlüğe eklenmez. Önce sözlük kaydedilir."
-        )
-        self.suggest_action.triggered.connect(self._suggest)
-        self.suggest_action.setVisible(can_suggest)
-        self.more_button = QToolButton()
-        self.more_button.setObjectName("viewButton")
-        self.more_button.setText("Daha Fazla")
-        self.more_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        bind_icon(self.more_button, "ellipsis")
-        self.more_button.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
-        self.more_button.setMenu(more_menu)
+        self.import_button = button("İçe Aktar…", icon="file-down")
+        self.import_button.setToolTip("İki sütunlu (terim, karşılık) Excel dosyasındaki terimleri ekler.")
+        self.import_button.clicked.connect(self._import)
+        self.export_button = button("Dışa Aktar…", icon="file-up")
+        self.export_button.setToolTip("Karşılığı olan terimleri iki sütunlu Excel dosyasına yazar.")
+        self.export_button.clicked.connect(self._export)
+        self.suggest_button = button("Terim Öner…", icon="sparkles")
+        self.suggest_button.setToolTip("Sık geçen adlar için Ollama'dan öneri ister; onaylamadan eklenmez.")
+        self.suggest_button.clicked.connect(self._suggest)
+        self.suggest_button.setVisible(can_suggest)
         row.addWidget(add)
         row.addWidget(remove)
         row.addStretch(1)
-        row.addWidget(self.more_button)
+        for b in (self.import_button, self.export_button, self.suggest_button):
+            row.addWidget(b)
         lay.addLayout(row)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         buttons.button(QDialogButtonBox.StandardButton.Save).setText("Kaydet")
@@ -881,7 +884,7 @@ class GlossaryDialog(QDialog):
 
     def _import(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Sözlük dosyasını seç", str(self.start_dir), "Excel dosyaları (*.xlsx);;Tüm dosyalar (*)"
+            self, "Terminoloji dosyasını seç", str(self.start_dir), "Excel dosyaları (*.xlsx);;Tüm dosyalar (*)"
         )
         if not path:
             return
@@ -906,7 +909,7 @@ class GlossaryDialog(QDialog):
             self.banner.show_message("warning", "Dışa aktarılacak, Türkçe karşılığı olan terim yok.")
             return
         target, _ = QFileDialog.getSaveFileName(
-            self, "Sözlüğü kaydet", str(self.start_dir / "sozluk.xlsx"), "Excel dosyaları (*.xlsx)"
+            self, "Terminolojiyi kaydet", str(self.start_dir / "terminoloji.xlsx"), "Excel dosyaları (*.xlsx)"
         )
         if not target:
             return
@@ -944,11 +947,11 @@ class GlossaryDialog(QDialog):
 
 
 class TermSuggestionsDialog(QDialog):
-    """Modelin sözlük önerileri: kullanıcı işaretlediklerini (düzelterek) sözlüğe ekler."""
+    """Modelin terim önerileri: kullanıcı işaretlediklerini (düzelterek) terminolojiye ekler."""
 
     def __init__(self, parent: QWidget | None, suggestions: list[TermSuggestion]) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Sözlük Önerileri")
+        self.setWindowTitle("Terim Önerileri")
         self.resize(760, 520)
         lay = QVBoxLayout(self)
         lay.addWidget(
@@ -988,7 +991,7 @@ class TermSuggestionsDialog(QDialog):
         row.addStretch(1)
         lay.addLayout(row)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Seçilenleri Sözlüğe Ekle")
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Seçilenleri Terminolojiye Ekle")
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Vazgeç")
         bind_icon(buttons.button(QDialogButtonBox.StandardButton.Cancel), "x")
         buttons.accepted.connect(self.accept)
@@ -1015,3 +1018,60 @@ class TermSuggestionsDialog(QDialog):
             if translation or note:
                 out.append(GlossaryTerm(term.text(), translation, note))
         return out
+
+
+class AddTermsDialog(QDialog):
+    """Seçili satırlardan çıkan terimler: işaretlenenler terminolojiye eklenir (çakışmalar işaretsiz başlar)."""
+
+    def __init__(
+        self,
+        parent: QWidget | None,
+        new: Sequence[GlossaryTerm],
+        conflicts: Sequence[tuple[GlossaryTerm, GlossaryTerm]],
+    ) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Terminolojiye Ekle")
+        self.resize(560, 420)
+        lay = QVBoxLayout(self)
+        lay.addWidget(
+            title_row(
+                "Terminolojiye ekle",
+                "İşaretlediğiniz terimler eklenir. Turuncu satırlar terminolojide başka bir karşılıkla var; "
+                "işaretlerseniz karşılık güncellenir.",
+                "cardTitle",
+            )
+        )
+        self.list = QListWidget()
+        self._terms: list[GlossaryTerm] = []
+        for term in new:
+            self._item(f"{term.term} → {term.translation}", term, checked=True)
+        for old, candidate in conflicts:
+            item = self._item(
+                f"{old.term}: {old.translation} → {candidate.translation}",
+                GlossaryTerm(old.term, candidate.translation, old.note),
+                checked=False,
+            )
+            item.setForeground(QColor(current_tokens()["warning"]))
+            item.setToolTip("Terminolojide başka bir karşılıkla var; işaretlerseniz yeni karşılık yazılır.")
+        lay.addWidget(self.list, 1)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.button(QDialogButtonBox.StandardButton.Ok).setText("Ekle")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Vazgeç")
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        lay.addWidget(buttons)
+
+    def _item(self, text: str, term: GlossaryTerm, *, checked: bool) -> QListWidgetItem:
+        item = QListWidgetItem(text)
+        item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+        item.setCheckState(Qt.CheckState.Checked if checked else Qt.CheckState.Unchecked)
+        self.list.addItem(item)
+        self._terms.append(term)
+        return item
+
+    def selected(self) -> list[GlossaryTerm]:
+        return [
+            term
+            for i, term in enumerate(self._terms)
+            if (item := self.list.item(i)) is not None and item.checkState() == Qt.CheckState.Checked
+        ]

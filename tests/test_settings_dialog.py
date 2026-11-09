@@ -574,7 +574,7 @@ def test_reserved_key_is_refused_in_settings(qtbot: QtBot, env: Env, monkeypatch
     monkeypatch.setattr(QMessageBox, "warning", lambda _p, _t, text, *_a: shown.append(text))
     for key in ("Ctrl+C", "Alt+Down", "Esc", "Delete", "A"):
         assert not dialog.assign_shortcut("translate.glossary", QKeySequence(key))
-    assert env.registry.text("translate.glossary") == "Ctrl+Shift+G"
+    assert env.registry.text("translate.glossary") == "Ctrl+Alt+G"
     assert len(shown) == 5
     assert all(text.startswith("Bu tuş uygulamada ayrılmış: ") for text in shown)
 
