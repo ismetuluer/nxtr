@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMenu,
+    QMessageBox,
     QPlainTextEdit,
     QTableWidget,
     QTableWidgetItem,
@@ -55,6 +56,7 @@ from nxceviri.core.translate.providers.ollama import (
     OllamaProvider,
 )
 from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_REVISE, ACTION_TRANSLATE, target_rows
+from nxceviri.core.translate.termlib import add_missing, delete_list, list_names, load_list, save_list
 from nxceviri.core.translate.terms import TermSuggestion
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.settings_dialog import check_with_wait_cursor, valid_ollama_url
@@ -788,6 +790,80 @@ class MachineDialog(QDialog):
         )
 
 
+class TermLibraryButton(QToolButton):
+    """Terminoloji penceresinin "Kitaplık" düğmesi: listeyi kitaplığa kaydet, kitaplıktaki listeleri ekle ya da sil.
+
+    Kitaplık bütün projelerde ortaktır; eklerken projede olan terimin karşılığı korunur (`termlib.add_missing`).
+    """
+
+    def __init__(self, dialog: GlossaryDialog) -> None:
+        super().__init__()
+        self._dialog = dialog
+        self.setText("Kitaplık")
+        self.setToolTip("Terimleri adlandırılmış liste olarak saklayın; aynı serinin başka oyununda ekleyin.")
+        self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        bind_icon(self, "book-open")
+        self.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.menu_widget = QMenu(self)
+        self.menu_widget.aboutToShow.connect(self.fill)
+        self.setMenu(self.menu_widget)
+        self.fill()
+
+    def fill(self) -> None:
+        menu = self.menu_widget
+        menu.clear()
+        names = list_names()
+        add_menu = menu.addMenu("Kitaplıktan Ekle")
+        delete_menu = menu.addMenu("Listeyi Sil")
+        for name in names:
+            add_menu.addAction(name).triggered.connect(lambda _c=False, n=name: self.add_from(n))
+            delete_menu.addAction(name).triggered.connect(lambda _c=False, n=name: self.delete(n))
+        for sub in (add_menu, delete_menu):
+            sub.setEnabled(bool(names))
+        menu.addSeparator()
+        menu.addAction("Kitaplığa Kaydet…").triggered.connect(self.save_current)
+
+    def save_current(self) -> None:
+        terms = self._dialog.terms()
+        if not terms:
+            self._dialog.banner.show_message("warning", "Kaydedilecek terim yok.")
+            return
+        name, ok = QInputDialog.getText(self, "Kitaplığa kaydet", "Listenin adı (ör. oyun serisi):")
+        name = name.strip()
+        if not ok or not name:
+            return
+        if name in list_names():
+            answer = QMessageBox.question(self, "Kitaplığa kaydet", f"“{name}” listesi var. Üzerine yazılsın mı?")
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        try:
+            save_list(name, terms)
+        except OSError as exc:
+            self._dialog.banner.show_message("danger", f"Liste kaydedilemedi: {exc}")
+            return
+        self._dialog.banner.show_message("success", f"“{name}” kitaplığa kaydedildi ({format_int(len(terms))} terim).")
+        self.fill()
+
+    def add_from(self, name: str) -> None:
+        merged, added, kept = add_missing(self._dialog.terms(), load_list(name))
+        self._dialog.set_terms(merged)
+        text = f"“{name}”: {format_int(added)} terim eklendi"
+        if kept:
+            text += f", {format_int(kept)} terim projede zaten olduğu için korundu"
+        self._dialog.banner.show_message("success", text + ". Saklamak için Kaydet'e basın.")
+
+    def delete(self, name: str) -> None:
+        answer = QMessageBox.question(self, "Listeyi sil", f"“{name}” kitaplıktan silinsin mi? Projeler etkilenmez.")
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            delete_list(name)
+        except OSError as exc:
+            self._dialog.banner.show_message("danger", f"Liste silinemedi: {exc}")
+            return
+        self.fill()
+
+
 class GlossaryDialog(QDialog):
     """Terminoloji: karakter, yer, eşya adları, sabit çeviriler ve çevirisiz bilgi notları (lore)."""
 
@@ -831,7 +907,7 @@ class GlossaryDialog(QDialog):
         for col in range(3):
             h.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
         lay.addWidget(self.table, 1)
-        self._set_terms(terms)
+        self.set_terms(terms)
         self.banner = Banner()
         lay.addWidget(self.banner)
         row = QHBoxLayout()
@@ -849,11 +925,13 @@ class GlossaryDialog(QDialog):
         self.suggest_button.setToolTip("Sık geçen adlar için Ollama'dan öneri ister; onaylamadan eklenmez.")
         self.suggest_button.clicked.connect(self._suggest)
         self.suggest_button.setVisible(can_suggest)
+        self.library = TermLibraryButton(self)
         row.addWidget(add)
         row.addWidget(remove)
         row.addStretch(1)
         for b in (self.import_button, self.export_button, self.suggest_button):
             row.addWidget(b)
+        row.addWidget(self.library)
         lay.addLayout(row)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         buttons.button(QDialogButtonBox.StandardButton.Save).setText("Kaydet")
@@ -877,7 +955,7 @@ class GlossaryDialog(QDialog):
         for r in sorted({i.row() for i in self.table.selectedIndexes()}, reverse=True):
             self.table.removeRow(r)
 
-    def _set_terms(self, terms: list[GlossaryTerm]) -> None:
+    def set_terms(self, terms: list[GlossaryTerm]) -> None:
         self.table.setRowCount(0)
         for t in terms:
             self._add(t.term, t.translation, t.note)
@@ -895,7 +973,7 @@ class GlossaryDialog(QDialog):
             self.banner.show_message("danger", exc.user_text())
             return
         merged, added, updated = merge_terms(self.terms(), imported)
-        self._set_terms(merged)
+        self.set_terms(merged)
         self.banner.show_message(
             "success",
             f"{format_int(added)} terim eklendi, {format_int(updated)} terim güncellendi. "
