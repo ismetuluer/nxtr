@@ -91,6 +91,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("go.qa", "Kontrol Et", CATEGORY_GO, "Ctrl+4"),
     Command("go.export", "Dışa Aktar", CATEGORY_GO, "Ctrl+5"),
     # Araçlar
+    Command("tools.spell_check", "Yazım Denetimi", CATEGORY_TOOLS, "F7"),
     Command("tools.spell_dictionary", "Yazım Sözlüğü", CATEGORY_TOOLS),
     Command("tools.plugins", "Eklentiler", CATEGORY_TOOLS),
     Command("tools.diagnosis", "Teşhis Raporu", CATEGORY_TOOLS),

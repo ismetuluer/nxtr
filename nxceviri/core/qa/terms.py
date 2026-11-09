@@ -189,6 +189,8 @@ def term_issues(rows: Sequence[TranslationRow], canon: Mapping[str, str]) -> lis
             message = f"‘{phrase}’ burada çevrilmemiş ya da farklı çevrilmiş; {good} satırda ‘{canonical}’."
         else:
             message = f"‘{phrase}’ burada çevrilmemiş ya da farklı çevrilmiş; kanonik çeviri ‘{canonical}’."
-        out.extend(QaIssue(r.id, r.context or r.key, "term", SEVERITY_WARNING, message) for r, ok in uses if not ok)
+        out.extend(
+            QaIssue(r.id, r.context or r.key, "term", SEVERITY_WARNING, message, (phrase,)) for r, ok in uses if not ok
+        )
     out.sort(key=lambda i: i.row_id)
     return out

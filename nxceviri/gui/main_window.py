@@ -59,7 +59,13 @@ from nxceviri.core.progress import TaskContext
 from nxceviri.core.project import PROJECT_SUFFIX, Change, Project, SourceRecord, TranslationRow, row_group
 from nxceviri.core.qa import transliterate
 from nxceviri.core.qa.autofix import plan_fixes, plan_reflow
-from nxceviri.core.qa.checks import KIND_LABELS, SEVERITY_ERROR, SEVERITY_WARNING, glossary_words
+from nxceviri.core.qa.checks import (
+    KIND_LABELS,
+    SEVERITY_ERROR,
+    SEVERITY_WARNING,
+    glossary_words,
+    parse_word_list,
+)
 from nxceviri.core.qa.checks import run_checks as run_qa_checks
 from nxceviri.core.qa.fonts import FontReport
 from nxceviri.core.qa.fonts import scan_fonts as scan_font_files
@@ -67,8 +73,9 @@ from nxceviri.core.qa.live import SETTING_KEY as LIVE_KINDS_KEY
 from nxceviri.core.qa.live import LiveContext, format_live_kinds, parse_live_kinds
 from nxceviri.core.secrets import DEEPL_API_KEY, GITHUB_UPDATE_KEY, KeyringStore, SecretStore
 from nxceviri.core.selfupdate import PreparedInstall, current_install, discard_prepared, launch_installer
-from nxceviri.core.spell.checker import SpellChecker
+from nxceviri.core.spell.checker import SpellChecker, turkish_lower
 from nxceviri.core.spell.loader import load_spell_checker
+from nxceviri.core.spell.report import replace_word, unknown_words
 from nxceviri.core.spell.userdict import UserDictionary, default_user_dictionary_path
 from nxceviri.core.translate.csvio import (
     CsvError,
@@ -147,6 +154,7 @@ from nxceviri.gui.scan_page import ScanPage
 from nxceviri.gui.settings_dialog import PAGE_VIEW, SettingsDialog
 from nxceviri.gui.shortcuts import ShortcutRegistry
 from nxceviri.gui.spell_dialogs import AddSpellWordsDialog, UserDictionaryDialog
+from nxceviri.gui.spell_window import SpellWindow
 from nxceviri.gui.statusbar import StatusSegments
 from nxceviri.gui.step_nav import COLLAPSED_WIDTH, ProjectHeader, StepNav
 from nxceviri.gui.tasks import Task
@@ -178,6 +186,13 @@ TRANSLATE_INSTRUCTION_KEY = "translate_instruction"
 
 #: Kaydedilmemiş projenin kurtarma kopyasının yenilenme aralığı.
 RECOVERY_INTERVAL_MS = 60_000
+#: Satırlar değişince açık Yazım Denetimi penceresinin tazelenmesi için toplama süresi.
+SPELL_REFRESH_MS = 300
+#: Proje ayarları: yazım denetiminde yoksayılan sözcükler ve "terim değil" denen ifadeler (JSON listesi).
+SPELL_IGNORED_KEY = "spell_ignored"
+TERMS_IGNORED_KEY = "terms_ignored"
+#: Yazım Denetimi penceresinde satır önizlemesinin en çok karakteri.
+PREVIEW_CHARS = 80
 #: Bu genişlikten dar pencerede kenar çubuğu ilk açılışta daralmış başlar.
 NAV_AUTO_COLLAPSE_BELOW = 1000
 #: Kenar çubuğu daralma/açılma animasyonunun süresi (ms).
@@ -189,6 +204,12 @@ PROBE_TIMEOUT_S = 2.0
 def log_dir() -> Path:
     base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
     return Path(base) / "NXCeviri" / "logs"
+
+
+def _preview(text: str) -> str:
+    """Satır listesinde gösterilecek kısa çeviri metni (boşluklar tek, uzunsa kesilir)."""
+    flat = " ".join(text.split())
+    return flat if len(flat) <= PREVIEW_CHARS else flat[: PREVIEW_CHARS - 1] + "…"
 
 
 class MainWindow(QMainWindow):
@@ -322,6 +343,12 @@ class MainWindow(QMainWindow):
         self._derived_timer.setSingleShot(True)
         self._derived_timer.setInterval(0)
         self._derived_timer.timeout.connect(self._refresh_derived)
+        # Açık Yazım Denetimi penceresi, satırlar değişince 300 ms toplanarak tek seferde tazelenir.
+        self._spell_window: SpellWindow | None = None
+        self._spell_timer = QTimer(self)
+        self._spell_timer.setSingleShot(True)
+        self._spell_timer.setInterval(SPELL_REFRESH_MS)
+        self._spell_timer.timeout.connect(self._refresh_spell_window)
         self._menu_timer = QTimer(self)
         self._menu_timer.setSingleShot(True)
         self._menu_timer.setInterval(0)
@@ -331,7 +358,9 @@ class MainWindow(QMainWindow):
         self.translate_page.manual_limit_changed.connect(self._save_manual_limit)
         self.translate_page.hint.connect(lambda text: self.statusBar().showMessage(text, 6000))
         self.translate_page.model.modelReset.connect(self._derived_timer.start)
+        self.translate_page.model.modelReset.connect(self._spell_timer.start)
         self.translate_page.model.dataChanged.connect(lambda *_args: self._derived_timer.start())
+        self.translate_page.model.dataChanged.connect(lambda *_args: self._spell_timer.start())
 
         self.nav.currentRowChanged.connect(self._go_to)
         self.add_page.choose_keys.connect(self._choose_keys)
@@ -350,6 +379,7 @@ class MainWindow(QMainWindow):
         self.translate_page.machine_action_requested.connect(lambda a: self.start_machine_translation(a, True))
         self.translate_page.pane.spell_word_requested.connect(lambda w: self.add_spell_words([w]))
         self.qa_page.add_spelling_requested.connect(self.add_spelling_from_qa)
+        self.qa_page.not_term_requested.connect(self.ignore_terms)
         self.qa_page.user_dictionary_requested.connect(self.edit_user_dictionary)
         self.translate_page.changes_requested.connect(self.show_job_changes)
         self.translate_page.history_requested.connect(self.show_row_history)
@@ -1204,6 +1234,7 @@ class MainWindow(QMainWindow):
                 fit=self._fit_config(),
                 spell=self.spell,
                 kinds=self._live_kinds,
+                spell_ignored=frozenset(turkish_lower(w) for w in self._spell_ignored()),
             )
         )
 
@@ -1328,6 +1359,8 @@ class MainWindow(QMainWindow):
             self.project.glossary(),
             self._fit_config(),
             spell=self.spell,
+            ignored_terms=self._terms_ignored(),
+            spell_ignored=self._spell_ignored(),
         )
         self.qa_page.show_issues(issues, rows)
         self.translate_page.set_qa_issues(issues, rows)
@@ -1357,13 +1390,103 @@ class MainWindow(QMainWindow):
             self.project.glossary(),
             self._fit_config(),
             spell=self.spell,
+            ignored_terms=self._terms_ignored(),
+            spell_ignored=self._spell_ignored(),
         )
         self.qa_page.replace_row_issues(row_id, issues, row)
+
+    def _spell_ignored(self) -> list[str]:
+        """Bu projede yazım bulgusu üretmeyecek sözcükler (ayar bozuksa boş, günlüğe uyarı)."""
+        return parse_word_list(self.project.setting(SPELL_IGNORED_KEY), SPELL_IGNORED_KEY)
+
+    def _terms_ignored(self) -> list[str]:
+        """Bu projede "terim değil" denen ifadeler (ayar bozuksa boş, günlüğe uyarı)."""
+        return parse_word_list(self.project.setting(TERMS_IGNORED_KEY), TERMS_IGNORED_KEY)
+
+    def _store_ignored(self, key: str, current: list[str], additions: list[str]) -> None:
+        merged = list(dict.fromkeys([*current, *additions]))
+        self.project.set_setting(key, json.dumps(merged, ensure_ascii=False))
+        self._mark_changed()
+
+    def _recheck_if_done(self) -> None:
+        """Kontrol Et sonucu varsa (ayar değiştiği için) denetimi yeniler."""
+        if self._qa_count is not None and self._qa_count[0] is self.project:
+            self.run_checks()
+
+    def ignore_terms(self, phrases: list[str]) -> None:
+        """Sorunlar panosunda "Terim değil": ifadeler projede terim sayılmaz, denetim yenilenir."""
+        self._store_ignored(TERMS_IGNORED_KEY, self._terms_ignored(), [str(p) for p in phrases])
+        self.statusBar().showMessage(f"{format_int(len(phrases))} ifade terim sayılmayacak.", 5000)
+        self._recheck_if_done()
+
+    def ignore_spell_words(self, words: list[str]) -> None:
+        """Yazım Denetimi penceresinde "Yoksay": sözcükler bu projede yazım bulgusu üretmez."""
+        self._store_ignored(SPELL_IGNORED_KEY, self._spell_ignored(), [str(w) for w in words])
+        self._sync_live()
+        self._refresh_spell_window()
+        self._recheck_if_done()
+
+    # --- Yazım Denetimi penceresi ----------------------------------------------------------
+
+    def open_spell_window(self) -> None:
+        """Araçlar → Yazım Denetimi: kipsiz tek pencere; açıksa öne gelir."""
+        if self.spell is None or not self.translate_page.model.rows:
+            return
+        win = self._spell_window
+        if win is None:
+            win = SpellWindow(self)
+            win.show_row.connect(self._open_row)
+            win.ignore_requested.connect(self.ignore_spell_words)
+            win.add_requested.connect(self._add_from_spell_window)
+            win.replace_requested.connect(self._replace_spell_word)
+            self._spell_window = win
+        self._refresh_spell_window(force=True)
+        win.show()
+        win.raise_()
+        win.activateWindow()
+
+    def _refresh_spell_window(self, force: bool = False) -> None:
+        """Pencere görünürken (ya da `force`) sözcük listesini güncel satırlardan kurar."""
+        win = self._spell_window
+        if win is None or not (force or win.isVisible()):
+            return
+        if self.spell is None:
+            win.set_words([])
+            return
+        rows = self.translate_page.model.rows
+        words = unknown_words(rows, self.spell, glossary_words(self.project.glossary()), self._spell_ignored())
+        wanted = {i for w in words for i in w.row_ids}
+        previews = {r.id: _preview(r.translation) for r in rows if r.id in wanted}
+        win.set_words(words, previews)
+
+    def _add_from_spell_window(self, words: list[str]) -> None:
+        self.add_spell_words([str(w) for w in words])
+        self._refresh_spell_window()
+
+    def _replace_spell_word(self, old: str, new: str) -> None:
+        """Sözcüğü bütün çevirilerde değiştirir; tek iştir, Geri Al hepsini geri alır."""
+        changes = []
+        for row in self.translate_page.model.rows:
+            text = replace_word(row.translation, old, new)
+            if text != row.translation:
+                changes.append((row.id, text))
+        if not changes:
+            return
+        if self.busy:
+            self.statusBar().showMessage("Bir iş sürerken değiştirilemez; iş bitince yeniden deneyin.", 5000)
+            return
+        if self._replace_translations(changes) is None:
+            return  # neden Çevir sayfasında bildirildi
+        self.statusBar().showMessage(f"{format_int(len(changes))} satırda değiştirildi.", 5000)
+        self._refresh_spell_window()
+        self._recheck_if_done()
 
     def _sync_spell(self) -> None:
         """Editördeki yazım işaretlerini güncel denetleyici ve oyun sözlüğüyle yeniler."""
         self.translate_page.set_spell(self.spell, glossary_words(self.project.glossary()))
         self._sync_live()
+        self.update_menu_state()
+        self._refresh_spell_window()
 
     def add_spell_words(self, words: list[str]) -> None:
         """Sözcükleri kalıcı kullanıcı sözlüğüne ekler; editör ve (yapıldıysa) denetim sonucu yenilenir."""
@@ -1463,7 +1586,14 @@ class MainWindow(QMainWindow):
         rows = self.project.translation_rows()
         glossary = self.project.glossary()
         fit = self._fit_config()
-        issues = run_qa_checks(rows, self._missing_letters(), self._transliterate_letters(), glossary, fit)
+        issues = run_qa_checks(
+            rows,
+            self._missing_letters(),
+            self._transliterate_letters(),
+            glossary,
+            fit,
+            ignored_terms=self._terms_ignored(),
+        )
         if row_ids:
             wanted = set(row_ids)
             issues = [i for i in issues if i.row_id in wanted]

@@ -8,7 +8,8 @@ from pathlib import Path
 import pytest
 from pytestqt.qtbot import QtBot
 
-from nxceviri.core.translate.fitconfig import FitConfig, FitRules, load_config
+from nxceviri.core.translate.fit import FitRules
+from nxceviri.core.translate.fitconfig import FitConfig, load_config
 from nxceviri.gui.main_window import MainWindow
 from tests.test_statusbar import _make_window, _project
 
