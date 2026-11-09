@@ -41,6 +41,7 @@ from nxceviri.core.translate.providers.base import ProviderError, ProviderStatus
 from nxceviri.core.translate.providers.deepl import DeepLProvider, plan_label
 from nxceviri.core.translate.providers.ollama import DEFAULT_URL, RECOMMENDED_MODELS, OllamaProvider
 from nxceviri.gui.icons import icon
+from nxceviri.gui.mascot import mascot_setting, save_mascot_setting
 from nxceviri.gui.notify import KEY_FLASH, KEY_SOUND, KEY_SYSTEM
 from nxceviri.gui.shortcuts import (
     CATEGORIES,
@@ -422,6 +423,10 @@ class SettingsDialog(QDialog):
         self.error_rows_check = self._linked_check("Hatalı satırların arka planını hata rengine boya", error_rows)
         for check in (self.symbols_check, self.wrap_check, self.issue_check, self.error_rows_check):
             lay.addWidget(check)
+        self.mascot_check = QCheckBox("Maskotu göster (durum çubuğu, bildirimler, boş ekranlar)")
+        self.mascot_check.setChecked(mascot_setting(self._settings))
+        self.mascot_check.toggled.connect(lambda on: save_mascot_setting(self._settings, on))
+        lay.addWidget(self.mascot_check)
         lay.addStretch(1)
         return page
 

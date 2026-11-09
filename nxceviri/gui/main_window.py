@@ -11,7 +11,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import httpx
-from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, QUrl, QVariantAnimation
+from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QTimer, QUrl, QVariantAnimation
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QGuiApplication
 from PySide6.QtWidgets import (
     QApplication,
@@ -154,6 +154,16 @@ from nxceviri.gui.machine_dialogs import (
     make_provider,
     rows_matching,
 )
+from nxceviri.gui.mascot import (
+    MOOD_DONE,
+    MOOD_ERROR,
+    MOOD_IDLE,
+    MOOD_SLEEP,
+    MOOD_WORKING,
+    MascotWidget,
+    mascot_setting,
+    set_mascot_enabled,
+)
 from nxceviri.gui.menus import Menus
 from nxceviri.gui.motion import animations_enabled
 from nxceviri.gui.notify import (
@@ -288,6 +298,27 @@ def ask_full_folder(parent: QWidget, dest: Path) -> str:
     return {"Üzerine Yaz": "overwrite", "Başka Klasör…": "other"}.get(choice, "cancel")
 
 
+#: Maskot: "bitti" ve "hata" hâllerinin süresi, ve kullanıcı dokunmadan uykuya dalma süresi (ms).
+MASCOT_DONE_MS = 4000
+MASCOT_ERROR_MS = 10000
+MASCOT_SLEEP_MS = 5 * 60 * 1000
+
+
+class _ActivityWatcher(QObject):
+    """Uygulamadaki tuş ve fare tıklamalarını izler (maskot uyanır, uyku sayacı baştan başlar)."""
+
+    _KINDS = frozenset({QEvent.Type.KeyPress, QEvent.Type.MouseButtonPress, QEvent.Type.Wheel})
+
+    def __init__(self, on_activity: Callable[[], None], parent: QObject) -> None:
+        super().__init__(parent)
+        self._on_activity = on_activity
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if event.type() in self._KINDS:
+            self._on_activity()
+        return False
+
+
 class MainWindow(QMainWindow):
     # Menü çubuğunun (`menus.Menus`) kurduğu eylemler.
     recent_menu: QMenu
@@ -304,6 +335,7 @@ class MainWindow(QMainWindow):
     def __init__(self, settings: QSettings) -> None:
         super().__init__()
         self.settings = settings
+        set_mascot_enabled(mascot_setting(settings))  # sayfalar (boş ekran maskotları) kurulmadan önce
         #: Kısayolların tek kaynağı (komut kataloğu + kullanıcının değiştirdiği tuşlar).
         self.shortcuts = ShortcutRegistry(self)
         self.shortcuts.bind_settings(settings)
@@ -414,7 +446,22 @@ class MainWindow(QMainWindow):
         #: Bütün işlerin ve hataların sonucu buradan bildirilir (kart, geçmiş; arkadayken Windows bildirimi ve ses).
         self.notifier = NotificationCenter(self, self.settings)
         self.notice_button = HistoryButton(self.notifier)
+        #: Maskot: işin durumunu gösterir (çalışıyor, bitti, hata; uzun boşta uyur). Ayarlar → Görünüm'den kapatılır.
+        self.mascot = MascotWidget(20)
+        self.statusBar().addPermanentWidget(self.mascot)
         self.statusBar().addPermanentWidget(self.notice_button)
+        self._mascot_rest = QTimer(self)
+        self._mascot_rest.setSingleShot(True)
+        self._mascot_rest.timeout.connect(self._mascot_settle)
+        self._mascot_sleep = QTimer(self)
+        self._mascot_sleep.setSingleShot(True)
+        self._mascot_sleep.setInterval(MASCOT_SLEEP_MS)
+        self._mascot_sleep.timeout.connect(self._mascot_doze)
+        self._mascot_sleep.start()
+        self._activity = _ActivityWatcher(self._user_active, self)
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(self._activity)
         self.translate_page.notice_requested.connect(self._page_notice)
         self.translate_page.add_terms_requested.connect(self.add_rows_to_terminology)
         #: Bir işin sonucu işlenirken: bildirim gürültülü olsun mu (uzun iş) ve işleyici kendi bildirimini verdi mi.
@@ -997,6 +1044,7 @@ class MainWindow(QMainWindow):
         task.cancelled.connect(lambda: self._end_outcome(LEVEL_WARNING, f"{label} durduruldu", ""))
         task.finished.connect(self._task_finished)
         self.statusBar().showMessage(description + "…")
+        self._set_mascot(MOOD_WORKING)
         self._refresh()
         task.start()
 
@@ -1007,6 +1055,9 @@ class MainWindow(QMainWindow):
             # Kart kısa kalır; uzun ya da çok satırlı açıklamanın tamamı ayrı pencerede.
             actions = (*actions, NoticeAction("Ayrıntılar", lambda: QMessageBox.information(self, title, text)))
         self.notifier.notify(level, title, text, actions, loud=self._outcome_loud)
+        mood = {LEVEL_SUCCESS: MOOD_DONE, LEVEL_WARNING: MOOD_ERROR, LEVEL_ERROR: MOOD_ERROR}.get(level)
+        if mood is not None:
+            self._set_mascot(mood)
 
     def _begin_outcome(self, started: float) -> None:
         self._outcome_noticed = False
@@ -1017,6 +1068,31 @@ class MainWindow(QMainWindow):
             self.notify(level, title, text, actions)
         self._outcome_loud = None
         self._outcome_noticed = False
+
+    # --- maskot ------------------------------------------------------------------------------
+
+    def _set_mascot(self, mood: str) -> None:
+        """Maskotun hâli: "bitti" birkaç saniye, "hata" biraz daha uzun sürer, sonra işe ya da boşa döner."""
+        self.mascot.set_mood(mood)
+        self._mascot_rest.stop()
+        if mood == MOOD_DONE:
+            self._mascot_rest.start(MASCOT_DONE_MS)
+        elif mood == MOOD_ERROR:
+            self._mascot_rest.start(MASCOT_ERROR_MS)
+        self._mascot_sleep.start()
+
+    def _mascot_settle(self) -> None:
+        self._set_mascot(MOOD_WORKING if self.busy else MOOD_IDLE)
+
+    def _mascot_doze(self) -> None:
+        """Uzun süre boşta (iş yok, kullanıcı dokunmadı): uyur."""
+        if not self.busy and self.mascot.mood == MOOD_IDLE:
+            self.mascot.set_mood(MOOD_SLEEP)
+
+    def _user_active(self) -> None:
+        if self.mascot.mood == MOOD_SLEEP:
+            self.mascot.set_mood(MOOD_IDLE)
+        self._mascot_sleep.start()
 
     def _fix_notice(self, state: str, text: str, action: str) -> None:
         level = {"success": LEVEL_SUCCESS, "warning": LEVEL_WARNING, "danger": LEVEL_ERROR}.get(state, LEVEL_INFO)
@@ -1035,6 +1111,8 @@ class MainWindow(QMainWindow):
             self.task.deleteLater()
         self.task = None
         self.statusBar().showMessage("Hazır")
+        if self.mascot.mood == MOOD_WORKING:
+            self._set_mascot(MOOD_IDLE)
         self.add_page.set_busy(False)
         self._refresh()
         if self._recheck_pending:

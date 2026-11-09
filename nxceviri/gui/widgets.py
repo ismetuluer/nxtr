@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from nxceviri.gui.icons import DEFAULT_SIZE, bind_icon, icon
+from nxceviri.gui.mascot import MOOD_IDLE, MOOD_WORKING, MascotWidget
 from nxceviri.gui.theme import current_tokens
 
 #: Sayfa başlığındaki simgenin piksel boyutu.
@@ -324,6 +325,9 @@ class DropZone(QFrame):
         self.setMinimumHeight(110)
         lay = QVBoxLayout(self)
         lay.addStretch(1)
+        # Maskot: dosya üstüne sürüklenince yüzünü toplayıp bakınır.
+        self.mascot = MascotWidget(56)
+        lay.addWidget(self.mascot, alignment=Qt.AlignmentFlag.AlignCenter)
         self.text = label(text, "muted", wrap=True)
         self.text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(self.text)
@@ -341,6 +345,7 @@ class DropZone(QFrame):
     def _set_active(self, active: bool) -> None:
         self.setProperty("active", "true" if active else "false")
         repolish(self)
+        self.mascot.set_mood(MOOD_WORKING if active else MOOD_IDLE)
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if self.isEnabled() and any(p.suffix.lower() in self._suffixes for p in self._paths(event)):
@@ -362,11 +367,16 @@ class DropZone(QFrame):
 
 
 class EmptyState(QWidget):
-    def __init__(self, title: str, text: str, action: QPushButton | None = None) -> None:
+    """Boş durum: maskot (Ayarlar'dan kapatılabilir), başlık, kısa yönlendirme ve isteğe bağlı düğme."""
+
+    def __init__(self, title: str, text: str, action: QPushButton | None = None, mood: str = MOOD_IDLE) -> None:
         super().__init__()
         lay = QVBoxLayout(self)
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.setSpacing(10)
+        self.mascot = MascotWidget(88, mood)
+        lay.addWidget(self.mascot, alignment=Qt.AlignmentFlag.AlignCenter)
+        lay.addSpacing(4)
         self.title = label(title, "emptyTitle")
         self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.text = label(text, "muted", wrap=True)

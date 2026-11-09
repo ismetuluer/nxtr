@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 )
 
 from nxceviri.gui.icons import bind_icon
+from nxceviri.gui.mascot import MOOD_DONE, MOOD_ERROR, MascotWidget, mascot_enabled
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.widgets import button
 
@@ -58,6 +59,8 @@ AUTO_HIDE_MS = 8000
 LONG_TASK_S = 2.0
 
 _ICONS = {LEVEL_SUCCESS: "circle-check", LEVEL_WARNING: "triangle-alert", LEVEL_ERROR: "circle-x", LEVEL_INFO: "info"}
+#: Kartta maskotun hâli (bilgi kartında simge kalır).
+_MOODS = {LEVEL_SUCCESS: MOOD_DONE, LEVEL_WARNING: MOOD_ERROR, LEVEL_ERROR: MOOD_ERROR}
 _TONES = {LEVEL_SUCCESS: "success", LEVEL_WARNING: "warning", LEVEL_ERROR: "danger", LEVEL_INFO: "accent"}
 #: Kartın metni en çok bu kadar karakter; fazlası "…" ile kesilir (tamamı geçmişte, ipucunda ve "Ayrıntılar"da).
 NOTICE_DETAIL_CHARS = 180
@@ -168,9 +171,18 @@ class NoticeCard(QFrame):
         lay = QHBoxLayout(self)
         lay.setContentsMargins(12, 10, 8, 10)
         lay.setSpacing(10)
-        icon_label = QLabel()
-        bind_icon(icon_label, _ICONS[notice.level], size=20, tone=_TONES[notice.level])
-        lay.addWidget(icon_label, alignment=Qt.AlignmentFlag.AlignTop)
+        self.icon_label = QLabel()
+        bind_icon(self.icon_label, _ICONS[notice.level], size=20, tone=_TONES[notice.level])
+        lay.addWidget(self.icon_label, alignment=Qt.AlignmentFlag.AlignTop)
+        # Maskot açıksa simgenin yerinde: kart açılırken yüzünü kurup sevinir ya da endişelenir.
+        self.mascot: MascotWidget | None = None
+        mood = _MOODS.get(notice.level)
+        if mood is not None and mascot_enabled():
+            self.icon_label.hide()
+            self.mascot = MascotWidget(30)
+            lay.insertWidget(0, self.mascot, alignment=Qt.AlignmentFlag.AlignTop)
+            face = self.mascot
+            QTimer.singleShot(120, face, lambda: face.set_mood(mood))  # kart silinirse zamanlayıcı da düşer
         body = QVBoxLayout()
         body.setSpacing(4)
         self.title_label = QLabel(notice.title)
