@@ -107,7 +107,9 @@ dosyasında değil. Sağlayıcı ayrıntıları (Ollama, DeepL): `docs/yol-harit
 ### Arayüz ilkeleri
 - Tüm arayüz Türkçedir. Hata mesajı ne olduğunu ve kullanıcının ne yapması gerektiğini söyler.
 - Sık yol önde, gelişmiş seçenekler bir seviye altta (menüde); yeni kalıcı düğme eklemeden önce mevcut menülere
-  bak (Çevir sayfasında "Daha Fazla", Kontrol Et'te "Düzelt" menüsü). İpucu en çok 1-2 kısa cümle.
+  bak (menü çubuğu ve tablonun sağ tık menüsü; Kontrol Et'te "Düzelt" menüsü). Kısayol eklemek için
+  `nxceviri/gui/shortcuts.py` kataloğuna komut ekleyip eylemi `ShortcutRegistry.bind` ile bağla; tuşu koda yazma.
+  İpucu en çok 1-2 kısa cümle.
 - Çeviri tablosu: orijinal / çeviri / durum (çevrilmedi, makine, redakte, onaylandı, hatalı) / dosya; arama, filtre,
   toplu seçim, satır içi düzenleme; binlerce satırda akıcı (sanal model).
 - Açık/koyu tema, yüksek DPI, küçük pencere, boş / yükleniyor / hata durumları tasarlanır. Hiçbir düğme işlevsiz

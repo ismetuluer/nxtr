@@ -29,13 +29,13 @@ adımları çalışmaz; çevirilen projeyi geri getirip kendi bilgisayarınızda
 
 ## 4. Ollama ile çeviri
 1. Ollama çalışıyor olmalı (varsayılan adres `http://localhost:11434`).
-2. "3. Çevir" ekranında **Makine Çevirisi** → sağlayıcı **Ollama** → modeli listeden seçin (ör. `gemma4:26b`).
+2. "3. Çevir" ekranında **Otomatik Çeviri** (`Ctrl+T`) → sağlayıcı **Ollama** → modeli listeden seçin (ör. `gemma4:26b`).
 3. Önce 15–20 satır seçip (sağ tık → **Seçili satırları çevir**) deneyin; sonuçta şunlara bakın:
    `⟦n⟧` işaretleri aynı mı, satır sonları korunmuş mu, satırlar çok uzamış mı.
 4. Beğenirseniz tümünü çevirin. Çeviriler "Makine" durumuyla yazılır; onayladığınız satırlara dokunulmaz.
 
 Devil May Cry'da satır sonları ve satır uzunluğu önemlidir (metin kutusu dardır): her satır en çok ~34 karakter,
-`⟦n⟧` işaretleri aynen. Bağlam notu ve sözlük projede hazırdır (Makine Çevirisi penceresinden görebilir/değiştirebilirsiniz).
+`⟦n⟧` işaretleri aynen. Bağlam notu ve sözlük projede hazırdır (Otomatik Çeviri penceresinden görebilir/değiştirebilirsiniz).
 
 ## 5. Güncelleme
 **Yardım → Güncellemeleri Denetle…** GitHub'da yayımlanan en yeni sürümü (Releases) gösterir; **Güncelle ve Yeniden Başlat** (veya **İndir ve Yeniden
