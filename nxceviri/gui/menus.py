@@ -347,6 +347,7 @@ class Menus:
             menu, "Teşhis Raporu…", w._diagnosis_report, command="tools.diagnosis", icon="activity"
         )
         menu.addSeparator()
+        self._add(menu, "Yazım Denetimi…", w.open_spell_window, command="tools.spell_check", icon="spell-check")
         self._add(menu, "Yazım Sözlüğü…", w.edit_user_dictionary, command="tools.spell_dictionary", icon="spell-check")
         self._add(menu, "Eklentiler…", w.open_plugins, command="tools.plugins", icon="puzzle")
 
@@ -405,6 +406,8 @@ class Menus:
         self.extract_candidates.setEnabled(ready and report is not None and bool(report.text_candidates))
         self.extract_all.setEnabled(ready)
         self.diagnosis.setEnabled(ready)
+
+        a["tools.spell_check"].setEnabled(w.spell is not None and has_rows)
 
         for step, (command, _icon) in enumerate(_GO_COMMANDS):
             unlocked = bool(w.nav.item(step).flags() & Qt.ItemFlag.ItemIsEnabled)

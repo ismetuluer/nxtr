@@ -804,6 +804,25 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
 143. **Ayarlar penceresi ayar yazmaz, sinyal yayar** (tema/boyut ana pencerede uygulanır ve yazılır); görünüm seçenekleri
     aynı `QAction`larla iki yönlü eşlenir. DeepL anahtarı yalnızca kimlik bilgisi deposunda.
 
+### 4.37 0.51.0 kararları (anlık denetim, Sorunlar, yazım, terimler, sınırlar, Ollama)
+
+144. **Anlık denetim `core/qa/live.py` `LiveChecker`:** satır nesnesi (dondurulmuş) + bağlam anahtarıyla önbellekli;
+    tutarlılık kaynak metne göre dizinle artımlı (`update_row` etkilenen kimlikleri döndürür). Çevir tablosunda anlık
+    türler yalnızca anlık sonuçtan gelir; Kontrol Et'ten yalnızca proje geneli türler (`term`, `untranslated`) eklenir
+    (çift sayım ve kapatılan türün geri gelmesi olmasın).
+145. **Terim tutarsızlığı proje genelidir, anlık değildir** (`core/qa/terms.py`); sözlük terimleri "glossary"
+    denetiminde kaldığından `term` bulgusu yalnızca satırlardan çıkan kanonik terimler için üretilir.
+146. **Anahtar deseni kuralları** `FitConfig.per_key` (fnmatch, büyük/küçük harf duyarsız, en uzun desen kazanır);
+    yalnızca `rules_for_row` uygular. Sınırlar tablosu kartla tek kaynaktan beslenir, düzenleme yalnızca kendi
+    girdisini birleştirir (`rule_edited`).
+147. **Ağır yeniden denetimler arka plan işindedir** (Terim değil / Yoksay / Değiştir / Sözlüğe ekle sonrası); yazım
+    penceresi yalnızca görünürken ve değişen satırlar için artımlı tazelenir.
+148. **Güncelleme yardımcısı `DETACHED_PROCESS` olmadan** (`CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP`) başlatılır;
+    konsolsuz PowerShell betiği çalıştırmıyordu. Uçtan uca test gerçek PowerShell'le (Windows).
+149. **Ollama şablonu `/api/show`'dan okunur:** `.System`/`.Messages` (Go) ya da `messages` (Jinja) yoksa sistem
+    düşer → sistem metni kullanıcı mesajına eklenir ve uyarı verilir. `num_ctx` iş başında `prepare_job` ile en uzun
+    partiden hesaplanır (karakter/3 + yanıt + %15, 8192'nin katı, ≤ modelin sınırı ve 32768).
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

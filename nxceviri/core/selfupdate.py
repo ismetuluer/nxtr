@@ -295,10 +295,11 @@ def launch_installer(
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             close_fds=True,
+            # DETACHED_PROCESS kullanılmaz: konsolsuz başlatılan PowerShell betiği hiç çalıştırmadan çıkıyor
+            # (güncelleme indiriliyor ama kurulmuyordu). CREATE_NO_WINDOW görünmez bir konsol verir; yardımcı,
+            # uygulama kapandıktan sonra da yaşar (Windows'ta çocuk süreç ebeveynle birlikte kapanmaz).
             creationflags=(
-                getattr(subprocess, "DETACHED_PROCESS", 0)
-                | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-                | getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "CREATE_NO_WINDOW", 0)
             ),
         )
     except OSError as exc:

@@ -59,14 +59,26 @@ from nxceviri.core.progress import TaskContext
 from nxceviri.core.project import PROJECT_SUFFIX, Change, Project, SourceRecord, TranslationRow, row_group
 from nxceviri.core.qa import transliterate
 from nxceviri.core.qa.autofix import plan_fixes, plan_reflow
-from nxceviri.core.qa.checks import KIND_LABELS, SEVERITY_ERROR, SEVERITY_WARNING, glossary_words
+from nxceviri.core.qa.checks import (
+    KIND_LABELS,
+    SEVERITY_ERROR,
+    SEVERITY_WARNING,
+    QaIssue,
+    glossary_words,
+    parse_word_list,
+    spell_extra_words,
+)
 from nxceviri.core.qa.checks import run_checks as run_qa_checks
 from nxceviri.core.qa.fonts import FontReport
 from nxceviri.core.qa.fonts import scan_fonts as scan_font_files
+from nxceviri.core.qa.live import SETTING_KEY as LIVE_KINDS_KEY
+from nxceviri.core.qa.live import LiveContext, format_live_kinds, parse_live_kinds
+from nxceviri.core.qa.terms import project_terms
 from nxceviri.core.secrets import DEEPL_API_KEY, GITHUB_UPDATE_KEY, KeyringStore, SecretStore
 from nxceviri.core.selfupdate import PreparedInstall, current_install, discard_prepared, launch_installer
-from nxceviri.core.spell.checker import SpellChecker
+from nxceviri.core.spell.checker import SpellChecker, turkish_lower
 from nxceviri.core.spell.loader import load_spell_checker
+from nxceviri.core.spell.report import UnknownWordCache, replace_unknown
 from nxceviri.core.spell.userdict import UserDictionary, default_user_dictionary_path
 from nxceviri.core.translate.csvio import (
     CsvError,
@@ -145,6 +157,7 @@ from nxceviri.gui.scan_page import ScanPage
 from nxceviri.gui.settings_dialog import PAGE_VIEW, SettingsDialog
 from nxceviri.gui.shortcuts import ShortcutRegistry
 from nxceviri.gui.spell_dialogs import AddSpellWordsDialog, UserDictionaryDialog
+from nxceviri.gui.spell_window import SpellWindow
 from nxceviri.gui.statusbar import StatusSegments
 from nxceviri.gui.step_nav import COLLAPSED_WIDTH, ProjectHeader, StepNav
 from nxceviri.gui.tasks import Task
@@ -176,6 +189,15 @@ TRANSLATE_INSTRUCTION_KEY = "translate_instruction"
 
 #: Kaydedilmemiş projenin kurtarma kopyasının yenilenme aralığı.
 RECOVERY_INTERVAL_MS = 60_000
+#: Satırlar değişince açık Yazım Denetimi penceresinin tazelenmesi için toplama süresi.
+SPELL_REFRESH_MS = 300
+#: Yazım Denetimi penceresinde bu kadardan çok satır yeniden taranacaksa tarama arka planda yapılır.
+SPELL_SYNC_ROWS = 2000
+#: Proje ayarları: yazım denetiminde yoksayılan sözcükler ve "terim değil" denen ifadeler (JSON listesi).
+SPELL_IGNORED_KEY = "spell_ignored"
+TERMS_IGNORED_KEY = "terms_ignored"
+#: Yazım Denetimi penceresinde satır önizlemesinin en çok karakteri.
+PREVIEW_CHARS = 80
 #: Bu genişlikten dar pencerede kenar çubuğu ilk açılışta daralmış başlar.
 NAV_AUTO_COLLAPSE_BELOW = 1000
 #: Kenar çubuğu daralma/açılma animasyonunun süresi (ms).
@@ -187,6 +209,12 @@ PROBE_TIMEOUT_S = 2.0
 def log_dir() -> Path:
     base = os.environ.get("LOCALAPPDATA") or str(Path.home() / "AppData" / "Local")
     return Path(base) / "NXCeviri" / "logs"
+
+
+def _preview(text: str) -> str:
+    """Satır listesinde gösterilecek kısa çeviri metni (boşluklar tek, uzunsa kesilir)."""
+    flat = " ".join(text.split())
+    return flat if len(flat) <= PREVIEW_CHARS else flat[: PREVIEW_CHARS - 1] + "…"
 
 
 class MainWindow(QMainWindow):
@@ -222,9 +250,21 @@ class MainWindow(QMainWindow):
         #: Son denetimin (proje, hata+uyarı sayısı); başka projeye geçilince eskimiş sayılır.
         self._qa_count: tuple[Project, int] | None = None
         self._qa_errors = False
+        #: Çeviri satırları her yeniden kurulduğunda artar; satırlara bağlı ağır hesapların önbelleği buna bağlıdır.
+        self._rows_version = 0
+        self._fit_lists_cache: tuple[int, list[str], list[str], list[str]] | None = None
+        self._limits_key: tuple[object, ...] | None = None
+        self._live_context: LiveContext | None = None
+        #: Açık Yazım Denetimi penceresi için satır başına bilinmeyen sözcükler (yalnızca değişen satırlar taranır).
+        self._spell_cache = UnknownWordCache()
+        self._spell_extra_key: frozenset[str] | None = None
+        self._spell_scan: Task | None = None
+        self._spell_scan_ok = False
+        self._recheck_pending = False
         #: Kalıcı kullanıcı sözlüğü ve Türkçe yazım denetleyicisi (paketlenen süzgeç eksikse None: denetim kapalı).
         self.user_dictionary = UserDictionary(default_user_dictionary_path())
         self.spell: SpellChecker | None = load_spell_checker(self.user_dictionary)
+        self._live_kinds = self._load_live_kinds()
         #: Testlerde sahte sağlayıcı verebilmek için değiştirilebilir.
         self.secrets: SecretStore = KeyringStore()
         self.provider_factory: Callable[[MachineSettings], TranslationProvider] = lambda s: make_provider(
@@ -319,6 +359,12 @@ class MainWindow(QMainWindow):
         self._derived_timer.setSingleShot(True)
         self._derived_timer.setInterval(0)
         self._derived_timer.timeout.connect(self._refresh_derived)
+        # Açık Yazım Denetimi penceresi, satırlar değişince 300 ms toplanarak tek seferde tazelenir.
+        self._spell_window: SpellWindow | None = None
+        self._spell_timer = QTimer(self)
+        self._spell_timer.setSingleShot(True)
+        self._spell_timer.setInterval(SPELL_REFRESH_MS)
+        self._spell_timer.timeout.connect(self._refresh_spell_window)
         self._menu_timer = QTimer(self)
         self._menu_timer.setSingleShot(True)
         self._menu_timer.setInterval(0)
@@ -327,8 +373,11 @@ class MainWindow(QMainWindow):
         self.translate_page.view_changed.connect(self._refresh_status)
         self.translate_page.manual_limit_changed.connect(self._save_manual_limit)
         self.translate_page.hint.connect(lambda text: self.statusBar().showMessage(text, 6000))
+        self.translate_page.model.modelReset.connect(self._rows_replaced)
         self.translate_page.model.modelReset.connect(self._derived_timer.start)
+        self.translate_page.model.modelReset.connect(self._spell_timer.start)
         self.translate_page.model.dataChanged.connect(lambda *_args: self._derived_timer.start())
+        self.translate_page.model.dataChanged.connect(lambda *_args: self._spell_timer.start())
 
         self.nav.currentRowChanged.connect(self._go_to)
         self.add_page.choose_keys.connect(self._choose_keys)
@@ -347,6 +396,7 @@ class MainWindow(QMainWindow):
         self.translate_page.machine_action_requested.connect(lambda a: self.start_machine_translation(a, True))
         self.translate_page.pane.spell_word_requested.connect(lambda w: self.add_spell_words([w]))
         self.qa_page.add_spelling_requested.connect(self.add_spelling_from_qa)
+        self.qa_page.not_term_requested.connect(self.ignore_terms)
         self.qa_page.user_dictionary_requested.connect(self.edit_user_dictionary)
         self.translate_page.changes_requested.connect(self.show_job_changes)
         self.translate_page.history_requested.connect(self.show_row_history)
@@ -363,10 +413,12 @@ class MainWindow(QMainWindow):
         self.qa_page.font_patch_changed.connect(self._set_font_patch)
         self.qa_page.open_row.connect(self._open_row)
         self.qa_page.fix_requested.connect(self.apply_fixes)
+        self.qa_page.translation_edited.connect(self._edit_from_issues)
         self.qa_page.fix_kinds_changed.connect(self._save_fix_kinds)
         self.qa_page.report_requested.connect(self.show_job_changes)
         self.qa_page.fit_changed.connect(self._save_fit)
         self.qa_page.learn_rules_requested.connect(self._learn_rules)
+        self.qa_page.fit_tab_shown.connect(self._refresh_limits)
         self.export_page.choose_folder.connect(self._choose_export_folder)
         self.export_page.export_requested.connect(self.export_mod)
         self.export_page.include_errors_changed.connect(self._set_include_errors)
@@ -826,6 +878,8 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Hazır")
         self.add_page.set_busy(False)
         self._refresh()
+        if self._recheck_pending:
+            self._recheck_if_done()
 
     def _cancel_task(self) -> None:
         if self.task is not None:
@@ -1167,10 +1221,48 @@ class MainWindow(QMainWindow):
         self.qa_page.set_font_patch(self.project.setting("font_patch") == "1", self._patchable_letters())
         mode = self.project.setting("transliterate_mode", transliterate.MODE_NONE)
         self.qa_page.set_mode(mode, self._missing_letters(), self._font_patch_on())
+        config = self._fit_config()
+        self.qa_page.set_fit(config, *self._fit_lists())
+        self._refresh_limits()
+        self._sync_live()
+
+    def _rows_replaced(self) -> None:
+        """Çeviri satırları yeniden kuruldu: satırlara bağlı önbellekler geçersiz."""
+        self._rows_version += 1
+
+    def _fit_lists(self) -> tuple[list[str], list[str], list[str]]:
+        """Sığdırma sekmesinin dosya, kod etiketi ve grup listeleri (satırlar değişmedikçe önbellekten)."""
+        cached = self._fit_lists_cache
+        if cached is None or cached[0] != self._rows_version:
+            rows = self.translate_page.model.rows
+            cached = (
+                self._rows_version,
+                sorted({r.file for r in rows}),
+                sorted({code for r in rows for code in r.code_labels}),
+                list(separate_groups(rows)),
+            )
+            self._fit_lists_cache = cached
+        return cached[1], cached[2], cached[3]
+
+    def _refresh_limits(self) -> None:
+        """Sınırlar tablosunu doldurur; istatistik ve öğrenme tüm satırları taradığı için yalnızca Sığdırma sekmesi
+        görünürken ve satırlar ya da öğrenmeyi etkileyen ayar değiştiyse yapılır."""
+        if not self.qa_page.fit_tab_visible():
+            return
+        config = self._fit_config()
+        key = (
+            self._rows_version,
+            config.default,
+            sorted(config.per_file.items()),
+            config.kinds.dump(),
+        )
+        limits = self.qa_page.limits
+        if key == self._limits_key:
+            limits.set_config(config)
+            return
         rows = self.translate_page.model.rows
-        files = sorted({r.file for r in rows})
-        labels = sorted({code for r in rows for code in r.code_labels})
-        self.qa_page.set_fit(self._fit_config(), files, labels, separate_groups(rows))
+        limits.set_data(rows, config, learn_group_rules(rows, config))
+        self._limits_key = key
 
     def _reload_rows(self) -> None:
         """Tabloyu projeden yeniler; panelde bekleyen metin önce kaydedilir ki yenilenen satırlar bayat kalmasın."""
@@ -1181,6 +1273,36 @@ class MainWindow(QMainWindow):
         """Çeviri sayfasına sığdırma ayarını ve kod türlerini verir (panel sayacı ve çipler)."""
         self.translate_page.set_fit_config(self._fit_config())
         self.translate_page.set_manual_limit(self._manual_limit())
+        self._sync_live()
+
+    def _load_live_kinds(self) -> frozenset[str]:
+        """Ayarlardaki anlık denetim türleri (bozuk ya da yoksa hepsi)."""
+        return parse_live_kinds(self.settings.value(LIVE_KINDS_KEY, None))
+
+    def _sync_live(self, force: bool = False) -> None:
+        """Anlık denetimin bağlamını proje, font, sözlük, sığdırma, yazım denetleyicisi ve seçili türlerle kurar.
+
+        Bağlam değişmediyse tablo yenilenmez (büyük projede tüm hücreleri yeniden çizdirmek pahalıdır); yazım
+        denetleyicisinin içi değiştiyse (sözcük eklendi) `force` verilir.
+        """
+        context = LiveContext(
+            missing_letters=self._missing_letters(),
+            transliterated=self._transliterate_letters(),
+            glossary=tuple(self.project.glossary()),
+            fit=self._fit_config(),
+            spell=self.spell,
+            kinds=self._live_kinds,
+            spell_ignored=frozenset(turkish_lower(w) for w in self._spell_ignored()),
+        )
+        if not force and context == self._live_context:
+            return
+        self._live_context = context
+        self.translate_page.set_live_context(context)
+
+    def _set_live_kinds(self, kinds: list[str]) -> None:
+        self._live_kinds = frozenset(kinds)
+        self.settings.setValue(LIVE_KINDS_KEY, format_live_kinds(kinds))
+        self._sync_live()
 
     def _manual_limit(self) -> int:
         """Projenin kayıtlı "Elle sınır"ı (0: kapalı)."""
@@ -1213,7 +1335,9 @@ class MainWindow(QMainWindow):
         config = self.qa_page.fit_config()
         all_rows = self.translate_page.model.rows
         if scope == EACH_GROUP:
-            self.qa_page.show_learned_groups(learn_group_rules(all_rows, config))
+            learned = learn_group_rules(all_rows, config)
+            self.qa_page.show_learned_groups(learned)
+            self.qa_page.limits.set_learned(learned)
             return
         if scope.startswith(GROUP_PREFIX):
             group = scope[len(GROUP_PREFIX) :]
@@ -1278,6 +1402,7 @@ class MainWindow(QMainWindow):
             return
         self._mark_changed()
         self.qa_page.set_mode(mode, self._missing_letters(), self._font_patch_on())
+        self._sync_live()
 
     def _set_font_patch(self, enabled: bool) -> None:
         try:
@@ -1288,16 +1413,32 @@ class MainWindow(QMainWindow):
         self._mark_changed()
         self._refresh_qa()
 
+    def _checks_job(self, rows: list[TranslationRow]) -> Callable[[], list[QaIssue]]:
+        """Denetimi `rows` üzerinde çalıştıran işlev; ayarlar şimdi okunur (iş parçacığı veritabanına dokunmaz)."""
+        missing, transliterated = self._missing_letters(), self._transliterate_letters()
+        glossary, fit, spell = self.project.glossary(), self._fit_config(), self.spell
+        ignored_terms, spell_ignored = self._terms_ignored(), self._spell_ignored()
+
+        def job() -> list[QaIssue]:
+            return run_qa_checks(
+                rows,
+                missing,
+                transliterated,
+                glossary,
+                fit,
+                spell=spell,
+                ignored_terms=ignored_terms,
+                spell_ignored=spell_ignored,
+            )
+
+        return job
+
     def run_checks(self) -> None:
         rows = self.project.translation_rows()
-        issues = run_qa_checks(
-            rows,
-            self._missing_letters(),
-            self._transliterate_letters(),
-            self.project.glossary(),
-            self._fit_config(),
-            spell=self.spell,
-        )
+        self._show_check_results(self._checks_job(rows)(), rows)
+
+    def _show_check_results(self, issues: list[QaIssue], rows: list[TranslationRow]) -> None:
+        self._sync_live()  # Çevir'deki anlık denetim bağlamı Kontrol Et'in kullandığı güncel ayarlarla aynı olsun
         self.qa_page.show_issues(issues, rows)
         self.translate_page.set_qa_issues(issues, rows)
         counted = [i for i in issues if i.severity in (SEVERITY_ERROR, SEVERITY_WARNING)]
@@ -1305,9 +1446,225 @@ class MainWindow(QMainWindow):
         self._qa_errors = any(i.severity == SEVERITY_ERROR for i in counted)
         self._refresh_nav()
 
+    def _edit_from_issues(self, row_id: int, text: str) -> None:
+        """Sorunlar panosunda yerinde düzenleme: Çevir'deki kayıt yolundan yazılır, satır hemen yeniden denetlenir."""
+        if self.busy:
+            self.qa_page.show_fix_result("warning", "Bir iş sürerken düzenlenemez; iş bitince yeniden deneyin.")
+            return
+        try:
+            rows = self._commit_translations([(row_id, text)])
+        except NxError as exc:
+            self.qa_page.show_fix_result("danger", exc.user_text())
+            return
+        if not rows:
+            return
+        self.translate_page.model.update_rows(rows)
+        self._recheck_board_rows(rows[0])
+
+    def _recheck_board_rows(self, row: TranslationRow) -> None:
+        """Düzenlenen satırı ve aynı kaynaklı satırları (tutarsızlık değişir) panoda yeniden denetler.
+
+        Terimler tüm projeden çıkarılır (tek satırdan çıkmaz); sayaç ve adım çubuğu güncellenir.
+        """
+        all_rows = self.translate_page.model.rows
+        group = [r for r in all_rows if r.source == row.source] if row.source.strip() else [row]
+        glossary = self.project.glossary()
+        ignored_terms = self._terms_ignored()
+        issues = run_qa_checks(
+            group,
+            self._missing_letters(),
+            self._transliterate_letters(),
+            glossary,
+            self._fit_config(),
+            spell=self.spell,
+            ignored_terms=ignored_terms,
+            spell_ignored=self._spell_ignored(),
+            terms=project_terms(all_rows, glossary, ignored_terms),
+        )
+        by_row: dict[int, list[QaIssue]] = {}
+        for issue in issues:
+            by_row.setdefault(issue.row_id, []).append(issue)
+        self.qa_page.replace_rows_issues(by_row, group)
+        self._recount_qa()
+
+    def _recount_qa(self) -> None:
+        """Panodaki bulgulardan Kontrol Et sayacını ve adım çubuğunu yeniler (Kontrol Et çalıştırılmışsa)."""
+        if self._qa_count is None or self._qa_count[0] is not self.project:
+            return
+        counted = [i for i in self.qa_page.model.issues if i.severity in (SEVERITY_ERROR, SEVERITY_WARNING)]
+        self._qa_count = (self.project, len(counted))
+        self._qa_errors = any(i.severity == SEVERITY_ERROR for i in counted)
+        self._refresh_nav()
+
+    def _spell_ignored(self) -> list[str]:
+        """Bu projede yazım bulgusu üretmeyecek sözcükler (ayar bozuksa boş, günlüğe uyarı)."""
+        return parse_word_list(self.project.setting(SPELL_IGNORED_KEY), SPELL_IGNORED_KEY)
+
+    def _terms_ignored(self) -> list[str]:
+        """Bu projede "terim değil" denen ifadeler (ayar bozuksa boş, günlüğe uyarı)."""
+        return parse_word_list(self.project.setting(TERMS_IGNORED_KEY), TERMS_IGNORED_KEY)
+
+    def _store_ignored(self, key: str, current: list[str], additions: list[str]) -> None:
+        merged = list(dict.fromkeys([*current, *additions]))
+        self.project.set_setting(key, json.dumps(merged, ensure_ascii=False))
+        self._mark_changed()
+
+    def _recheck_if_done(self) -> None:
+        """Kontrol Et sonucu varsa (ayar değiştiği için) denetimi arka planda yeniler.
+
+        Büyük projede tam denetim uzun sürer; arayüz donmaz. Başka bir iş sürüyorsa o bitince yenilenir.
+        """
+        if self._qa_count is None or self._qa_count[0] is not self.project:
+            return
+        if self.busy:
+            self._recheck_pending = True
+            return
+        self._recheck_pending = False
+        rows = self.project.translation_rows()
+        project = self.project
+        job = self._checks_job(rows)
+
+        def work(_ctx: TaskContext) -> object:
+            return job()
+
+        def done(result: object) -> None:
+            if self.project is project:
+                assert isinstance(result, list)
+                self._show_check_results(result, rows)
+
+        self._run(
+            work,
+            "Denetim yenileniyor",
+            on_success=done,
+            on_failure=lambda text: self.qa_page.show_fix_result("danger", text),
+        )
+
+    def ignore_terms(self, phrases: list[str]) -> None:
+        """Sorunlar panosunda "Terim değil": ifadeler projede terim sayılmaz, denetim yenilenir."""
+        self._store_ignored(TERMS_IGNORED_KEY, self._terms_ignored(), [str(p) for p in phrases])
+        self.statusBar().showMessage(f"{format_int(len(phrases))} ifade terim sayılmayacak.", 5000)
+        self._recheck_if_done()
+
+    def ignore_spell_words(self, words: list[str]) -> None:
+        """Yazım Denetimi penceresinde "Yoksay": sözcükler bu projede yazım bulgusu üretmez."""
+        self._store_ignored(SPELL_IGNORED_KEY, self._spell_ignored(), [str(w) for w in words])
+        self._sync_spell()  # canlı denetim, editör ve tablodaki yazım çizgisi, pencere
+        self._recheck_if_done()
+
+    # --- Yazım Denetimi penceresi ----------------------------------------------------------
+
+    def open_spell_window(self) -> None:
+        """Araçlar → Yazım Denetimi: kipsiz tek pencere; açıksa öne gelir."""
+        if self.spell is None or not self.translate_page.model.rows:
+            return
+        win = self._spell_window
+        if win is None:
+            win = SpellWindow(self)
+            win.show_row.connect(self._open_row)
+            win.ignore_requested.connect(self.ignore_spell_words)
+            win.add_requested.connect(self._add_from_spell_window)
+            win.replace_requested.connect(self._replace_spell_word)
+            self._spell_window = win
+        self._refresh_spell_window(force=True)
+        win.show()
+        win.raise_()
+        win.activateWindow()
+
+    def _refresh_spell_window(self, force: bool = False) -> None:
+        """Pencere görünürken (ya da `force`) sözcük listesini güncel satırlardan kurar."""
+        win = self._spell_window
+        if win is None or not (force or win.isVisible()):
+            return
+        if self.spell is None:
+            win.set_words([])
+            return
+        rows = self.translate_page.model.rows
+        extra = glossary_words(self.project.glossary())
+        if extra != self._spell_extra_key:
+            self._spell_cache.clear()
+            self._spell_extra_key = extra
+        stale = self._spell_cache.stale(rows)
+        if len(stale) > SPELL_SYNC_ROWS:
+            win.set_scanning(True)
+            self._start_spell_scan(stale, self.spell, extra)
+            return
+        self._spell_cache.store(self._spell_cache.scan(stale, self.spell, extra))
+        words = self._spell_cache.words(rows, self._spell_ignored())
+        wanted = {i for w in words for i in w.row_ids}
+        previews = {r.id: _preview(r.translation) for r in rows if r.id in wanted}
+        win.set_words(words, previews)
+
+    def _start_spell_scan(self, stale: list[TranslationRow], spell: SpellChecker, extra: frozenset[str]) -> None:
+        """Çok sayıda satırı arka planda tarar (aynı anda tek tarama); biterken pencere yeniden tazelenir."""
+        if self._spell_scan is not None:
+            return  # sürüyor: bitince kalan değişen satırlar için yeniden başlatılır
+
+        def work(ctx: TaskContext) -> object:
+            scanned: dict[int, tuple[TranslationRow, tuple[str, ...]]] = {}
+            for start in range(0, len(stale), SPELL_SYNC_ROWS):
+                ctx.check()
+                scanned |= UnknownWordCache.scan(stale[start : start + SPELL_SYNC_ROWS], spell, extra)
+            return scanned
+
+        def done(result: object) -> None:
+            assert isinstance(result, dict)
+            if spell is self.spell and extra == self._spell_extra_key:
+                self._spell_cache.store(result)
+            self._spell_scan_ok = True
+
+        scan = Task(work, "Yazım taraması")
+        self._spell_scan = scan
+        self._spell_scan_ok = False
+        scan.succeeded.connect(done)
+        scan.finished.connect(self._spell_scan_finished)
+        scan.start()
+
+    def _spell_scan_finished(self) -> None:
+        scan, self._spell_scan = self._spell_scan, None
+        if scan is not None:
+            scan.deleteLater()
+        if self._spell_scan_ok:
+            self._refresh_spell_window()  # tarama sürerken değişen satırlar için
+        elif self._spell_window is not None:
+            self._spell_window.set_scanning(False)
+
+    def _add_from_spell_window(self, words: list[str]) -> None:
+        self.add_spell_words([str(w) for w in words])
+        self._refresh_spell_window()
+
+    def _replace_spell_word(self, old: str, new: str) -> None:
+        """Sözcüğü pencerenin listelediği geçişlerde değiştirir; tek iştir, Geri Al hepsini geri alır.
+
+        Kaynakta da geçen, tamamı büyük harfli, özel ad ve çevrilmemiş kopya geçişlere dokunulmaz (pencere de
+        bunları saymaz); böylece değişen satır sayısı penceredeki sayıyla aynıdır.
+        """
+        spell = self.spell
+        if spell is None:
+            return
+        extra = glossary_words(self.project.glossary())
+        changes = []
+        for row in self.translate_page.model.rows:
+            text = replace_unknown(row.translation, row.source, spell, extra, word=old, new=new)
+            if text != row.translation:
+                changes.append((row.id, text))
+        if not changes:
+            return
+        if self.busy:
+            self.statusBar().showMessage("Bir iş sürerken değiştirilemez; iş bitince yeniden deneyin.", 5000)
+            return
+        if self._replace_translations(changes) is None:
+            return  # neden Çevir sayfasında bildirildi
+        self.statusBar().showMessage(f"{format_int(len(changes))} satırda değiştirildi.", 5000)
+        self._refresh_spell_window()
+        self._recheck_if_done()
+
     def _sync_spell(self) -> None:
         """Editördeki yazım işaretlerini güncel denetleyici ve oyun sözlüğüyle yeniler."""
-        self.translate_page.set_spell(self.spell, glossary_words(self.project.glossary()))
+        self._spell_cache.clear()  # sözlük ya da yoksayılanlar değişti
+        self.translate_page.set_spell(self.spell, spell_extra_words(self.project.glossary(), self._spell_ignored()))
+        self._sync_live(force=True)
+        self.update_menu_state()
+        self._refresh_spell_window()
 
     def add_spell_words(self, words: list[str]) -> None:
         """Sözcükleri kalıcı kullanıcı sözlüğüne ekler; editör ve (yapıldıysa) denetim sonucu yenilenir."""
@@ -1320,8 +1677,7 @@ class MainWindow(QMainWindow):
             self.spell.add_user_words(words)
         self._sync_spell()
         self.statusBar().showMessage(f"{format_int(added)} sözcük yazım sözlüğüne eklendi.", 5000)
-        if self._qa_count is not None and self._qa_count[0] is self.project:
-            self.run_checks()
+        self._recheck_if_done()
 
     def add_spelling_from_qa(self, words: list[str]) -> None:
         dialog = AddSpellWordsDialog(self, [str(w) for w in words])
@@ -1334,8 +1690,7 @@ class MainWindow(QMainWindow):
         if dialog.removed:
             self.spell = load_spell_checker(self.user_dictionary)
             self._sync_spell()
-            if self._qa_count is not None and self._qa_count[0] is self.project:
-                self.run_checks()
+            self._recheck_if_done()
 
     def _save_fix_kinds(self, kinds: list[str]) -> None:
         self.settings.setValue("qa/fix_kinds", ",".join(kinds))
@@ -1407,7 +1762,15 @@ class MainWindow(QMainWindow):
         rows = self.project.translation_rows()
         glossary = self.project.glossary()
         fit = self._fit_config()
-        issues = run_qa_checks(rows, self._missing_letters(), self._transliterate_letters(), glossary, fit)
+        issues = run_qa_checks(
+            rows,
+            self._missing_letters(),
+            self._transliterate_letters(),
+            glossary,
+            fit,
+            ignored_terms=self._terms_ignored(),
+            terms={},  # terim tutarsızlığı otomatik düzeltilemez: bulgusu hesaplanmaz
+        )
         if row_ids:
             wanted = set(row_ids)
             issues = [i for i in issues if i.row_id in wanted]
@@ -1841,8 +2204,10 @@ class MainWindow(QMainWindow):
             issue_colors=self.translate_page.colors_box,
             error_rows=self.translate_page.error_rows_box,
             updates_available=self.update_action.isEnabled(),
+            live_kinds=self._live_kinds,
             page=page or PAGE_VIEW,
         )
+        dialog.live_kinds_changed.connect(self._set_live_kinds)
         dialog.theme_changed.connect(self._set_theme)
         dialog.font_size_changed.connect(self._set_font_size)
         dialog.check_updates_requested.connect(self.open_updates)
@@ -2463,6 +2828,7 @@ class MainWindow(QMainWindow):
         self.translate_page.set_rows(project.translation_rows())
         self._sync_spell()
         self.font_report = None
+        self._sync_live()  # font raporu sıfırlandı: eksik harf bağlamı projenin kayıtlı değerinden gelir
         self.last_export = None
         self.dirty = False
         self.add_page.set_files_message("warning", "")
@@ -2561,6 +2927,9 @@ class MainWindow(QMainWindow):
         self.translate_page.flush_pending()  # panelde yazılıp kaydedilmemiş metin kaybolmasın
         if self._update_task is not None:
             self._update_task.wait()  # ağ zaman aşımlarıyla sınırlı; çalışan iş parçacığı yok edilemez
+        if self._spell_scan is not None:
+            self._spell_scan.cancel()
+            self._spell_scan.wait()
         if self.busy:
             answer = QMessageBox.question(
                 self, "İşlem sürüyor", "Bir işlem devam ediyor. İptal edip çıkmak istiyor musunuz?"

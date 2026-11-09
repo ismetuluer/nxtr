@@ -3,8 +3,8 @@
 Ayarlar proje veritabanındaki `settings` tablosunda iki anahtarda tutulur (şema göçü gerekmez):
 
 - `fit_config`: tek JSON; `{"enabled": bool, "default": {...} | null, "files": {"yol": {...}},
-  "groups": {"grup": {...}}, "options": {...}}` (`enabled` yoksa — eski projeler — açık sayılır; `groups` yoksa grup
-  kuralı yoktur),
+  "groups": {"grup": {...}}, "keys": {"desen": {...}}, "options": {...}}` (`enabled` yoksa — eski projeler — açık
+  sayılır; `groups` / `keys` yoksa grup / anahtar kuralı yoktur),
 - `code_kinds`: etiket -> tür eşlemesi (`CodeKinds.dump`).
 
 Bozuk veri çökertmez: uyarı günlüğe yazılır, ilgili girdi atlanır ya da varsayılan kullanılır.
@@ -16,6 +16,7 @@ import json
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field, fields
+from fnmatch import fnmatchcase
 from typing import NamedTuple
 
 from nxceviri.core.project import Project, TranslationRow, row_group
@@ -45,7 +46,9 @@ class FitOptions:
 class FitConfig:
     """Bir projenin sığdırma ayarları: varsayılan kural, dosya ve grup kuralları, kod türleri, seçenekler.
 
-    Öncelik: grup (`row_group` adı) > dosya > proje.
+    Öncelik: anahtar deseni > grup (`row_group` adı) > dosya > proje. Anahtar deseni `fnmatch` biçimindedir
+    (`menu_*`, `*_title`), büyük/küçük harf ayırmaz; satırın anahtarına, Unity'de bağlamın son parçasına (okunur
+    anahtar adı) bakılır; birden çok desen eşleşirse en uzunu (en özgülü) kazanır.
 
     `enabled` kapalıyken kurallar saklanır ama hiçbir dosyaya uygulanmaz.
     """
@@ -56,6 +59,7 @@ class FitConfig:
     options: FitOptions = field(default_factory=FitOptions)
     enabled: bool = True
     per_group: dict[str, FitRules] = field(default_factory=dict)
+    per_key: dict[str, FitRules] = field(default_factory=dict)
 
     def rules_for(self, file: str, group: str = "") -> FitRules | None:
         """Grup kuralı, yoksa dosya kuralı, yoksa varsayılan kural (hiçbiri yoksa ya da sığdırma kapalıysa `None`)."""
@@ -65,14 +69,45 @@ class FitConfig:
 
     def rules_for_row(self, row: TranslationRow) -> FitRules | None:
         """Satıra uygulanacak kural; denetim, düzeltme ve panel sayacı bu yolu kullanır."""
+        if self.enabled and self.per_key:
+            by_key = self.key_rules_for(row)
+            if by_key is not None:
+                return by_key
         group = row_group(row)
         if "/" not in row.context and row.file in self.per_file:
             group = ""  # bağlamdan gelmeyen (dosya adı) grup kuralı, dosyanın kendi kuralını ezmez
         return self.rules_for(row.file, group)
 
+    def key_rules_for(self, row: TranslationRow) -> FitRules | None:
+        """Satırın anahtarına uyan en özgül (en uzun) desenin kuralı; uyan desen yoksa `None`."""
+        names = key_names(row)
+        best = ""
+        for pattern in self.per_key:
+            if len(pattern) > len(best) and key_matches(pattern, names):
+                best = pattern
+            elif pattern != best and len(pattern) == len(best) and key_matches(pattern, names):
+                best = min(best, pattern, key=str.casefold)  # eşit uzunlukta sonuç sıraya bağlı olmasın
+        return self.per_key[best] if best else None
+
     def kind_of_row(self, row: TranslationRow) -> KindOf:
         """Satırın `⟦n⟧` kod numarasından (1 tabanlı) türe çeviren işlev; aralık dışı numara `KIND_OTHER` olur."""
         return _kind_of_labels(row.code_labels, self.kinds)
+
+
+def key_names(row: TranslationRow) -> tuple[str, ...]:
+    """Anahtar desenlerinin denendiği adlar (küçük harfe çevrilmiş): satır anahtarı ve bağlamın son parçası."""
+    names = [row.key.casefold()]
+    if "/" in row.context:
+        tail = row.context.rsplit("/", 1)[-1].casefold()
+        if tail and tail not in names:
+            names.append(tail)
+    return tuple(names)
+
+
+def key_matches(pattern: str, names: Sequence[str]) -> bool:
+    """`pattern` (büyük/küçük harf ayırmaz) adlardan birine uyar mı."""
+    folded = pattern.casefold()
+    return any(fnmatchcase(name, folded) for name in names)
 
 
 def _kind_of_labels(labels: Sequence[str], kinds: CodeKinds) -> KindOf:
@@ -145,6 +180,7 @@ class _Parsed(NamedTuple):
     default: FitRules | None
     per_file: dict[str, FitRules]
     per_group: dict[str, FitRules]
+    per_key: dict[str, FitRules]
     options: FitOptions
     enabled: bool
 
@@ -154,24 +190,27 @@ def _parse_config(text: str) -> _Parsed:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
         log.warning("Sığdırma ayarı okunamadı, varsayılanlar kullanılıyor: %s", exc)
-        return _Parsed(None, {}, {}, FitOptions(), True)
+        return _Parsed(None, {}, {}, {}, FitOptions(), True)
     if not isinstance(data, dict):
         log.warning("Sığdırma ayarı bir sözlük değil, varsayılanlar kullanılıyor.")
-        return _Parsed(None, {}, {}, FitOptions(), True)
+        return _Parsed(None, {}, {}, {}, FitOptions(), True)
     default = _parse_rules("varsayılan", data["default"]) if data.get("default") is not None else None
     per_file = _parse_rule_map(data.get("files", {}), "Dosya")
     per_group = _parse_rule_map(data.get("groups", {}), "Grup")
+    per_key = _parse_rule_map(data.get("keys", {}), "Anahtar")
     options = _parse_options(data["options"]) if "options" in data else FitOptions()
-    return _Parsed(default, per_file, per_group, options, _parse_enabled(data))
+    return _Parsed(default, per_file, per_group, per_key, options, _parse_enabled(data))
 
 
 def load_config(project: Project) -> FitConfig:
     """Projeden sığdırma ayarlarını okur; ayar yoksa sessizce, bozuksa uyarıyla varsayılan döner."""
     config_text = project.setting(SETTING_CONFIG)
     kinds_text = project.setting(SETTING_KINDS)
-    parsed = _parse_config(config_text) if config_text else _Parsed(None, {}, {}, FitOptions(), True)
+    parsed = _parse_config(config_text) if config_text else _Parsed(None, {}, {}, {}, FitOptions(), True)
     kinds = CodeKinds.load(kinds_text) if kinds_text else CodeKinds({})
-    return FitConfig(parsed.default, parsed.per_file, kinds, parsed.options, parsed.enabled, parsed.per_group)
+    return FitConfig(
+        parsed.default, parsed.per_file, kinds, parsed.options, parsed.enabled, parsed.per_group, parsed.per_key
+    )
 
 
 def _rules_json(rules: FitRules) -> dict[str, int]:
@@ -185,6 +224,7 @@ def save_config(project: Project, config: FitConfig) -> None:
         "default": None if config.default is None else _rules_json(config.default),
         "files": {path: _rules_json(rules) for path, rules in config.per_file.items()},
         "groups": {group: _rules_json(rules) for group, rules in config.per_group.items()},
+        "keys": {pattern: _rules_json(rules) for pattern, rules in config.per_key.items()},
         "options": {f.name: getattr(config.options, f.name) for f in fields(FitOptions)},
     }
     project.set_setting(SETTING_CONFIG, json.dumps(data, ensure_ascii=False, sort_keys=True))

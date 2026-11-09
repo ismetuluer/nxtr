@@ -357,3 +357,13 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     `language`, `extract`) UnityPy ile yükleniyor; metin yalnızca `resources.assets`'te. Çözüm adayı: yüklenen `env`'in dosya
     başına önbelleğe alınması ya da `Localization`'ı barındırabilecek dosyaların adla sınırlanması. *Ne zaman:* kullanıcı
     beklemeyi sorun ettiğinde.
+
+84. **Kontrol Et → Denetle ana iş parçacığında çalışıyor (0.51.0).** 50.000 satırda birkaç saniye sürebilir. Arka plana
+    almak denetim testlerinin çoğunu eşzamansız yapacağından ertelendi; diğer yeniden denetimler (Terim değil, Yoksay,
+    Değiştir) arka planda. *Ne zaman:* D aşaması (bildirimler) ile.
+85. **Sorunlar panosu küçük eksikleri (0.51.0):** "Sorunlu satırlar" süzgeci tüm satırları anlık denetler (büyük
+    projede ilk süzmede yavaş olabilir); iş sürerken yerinde düzenlenen metin reddedilince kaybolur; riskli toplu
+    düzeltmelerde ayrıca onay sorusu yok; 8 harften uzun Türkçe ek zincirleri terim denetiminde tanınmaz.
+    *Ne zaman:* kullanıcı geri bildirimiyle.
+86. **Ollama belirteç tahmini kaba (karakter/3, 0.51.0).** Japonca/Çince kaynakta gerçek belirteç sayısı daha yüksek
+    olabilir; parti tahminden uzun çıkarsa `num_ctx` bir basamak yükselir (model bir kez yeniden yüklenir).

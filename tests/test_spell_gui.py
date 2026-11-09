@@ -106,7 +106,7 @@ def test_qa_lists_spelling_and_adds_selected_words(
     assert [i.words for i in spelling] == [("başlatt",)]  # "Elara" kaynakta ve oyun sözlüğünde var
     assert not page.spell_add_button.isEnabled()
     assert page.proxy.rowCount() == 0  # bilgi düzeyi: varsayılan listeyi kirletmez
-    page.kind.setCurrentIndex(page.kind.findData("spelling"))
+    page.chip_bar.chips["spelling"].click()
     assert page.proxy.rowCount() == 1
     for row in range(page.proxy.rowCount()):
         if page.model.issues[page.proxy.mapToSource(page.proxy.index(row, 0)).row()].kind == "spelling":
@@ -123,6 +123,7 @@ def test_qa_lists_spelling_and_adds_selected_words(
     page.spell_add_button.trigger()
     assert chosen == [["başlatt"]]
     assert window.user_dictionary.words() == frozenset({"başlatt"})
+    qtbot.waitUntil(lambda: not window.busy)  # denetim arka planda yenilenir
     assert not [i for i in page.model.issues if i.kind == "spelling" and "başlatt" in i.words]  # yeniden denetlendi
 
 

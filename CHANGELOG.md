@@ -2,6 +2,42 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.51.0] — 2026-11-10 — Anlık denetim, Sorunlar panosu, Yazım Denetimi
+
+### Düzeltildi
+- **Uygulama içi güncelleme kurulmuyordu:** paket iniyor, uygulama kapanıyor ama yeni sürüm yerine konmuyor ve uygulama
+  yeniden açılmıyordu (yardımcı PowerShell betiği hiç çalışmıyordu). Gerçek PowerShell'le uçtan uca test eklendi.
+  **0.48–0.50 kullananlar bu sürümü bir kez elle indirip açmalı**; sonraki güncellemeler uygulama içinden kurulur.
+  Masaüstünde kalmış `.nxtr-guncelleme` klasörü silinebilir.
+- **Ollama: şablonu sistem mesajını yok sayan modeller** (ör. `{{ .Prompt }}` şablonuyla oluşturulmuş GGUF modelleri)
+  kuralları, oyun notlarını ve talimatı hiç almıyordu. Artık şablon okunur; böyle bir modelde uyarı gösterilir ve
+  talimatlar kullanıcı mesajına eklenir. Jinja ve Go şablonları tanınır.
+
+### Eklendi
+- **Anlık denetim:** satır kaydedilince (ve çizilirken) o satır hemen denetlenir: kontrol kodu, uzunluk, sığdırma, satır
+  sonu, boşluk, noktalama, eksik harf, sözlük, yazım, tutarsız çeviri … Durum simgesi ve ipucu anında güncellenir.
+  Hangi denetimlerin anlık çalışacağı **Ayarlar → Anlık Denetimler**'de seçilir.
+- **Sorunlar panosu** (Kontrol Et → Sorunlar): türler sayılarıyla çip olarak (boş türler gizli, çoklu seçim);
+  daraltılabilir **Düzeltmeler** paneli (yalnızca bulgusu olan türler, her birinde örnekli ipucu; metni yeniden
+  biçimleyen riskli düzeltmeler ilk açılışta kapalı); kapsam açık seçim ("Listede seçili N bulgu" / "Tüm bulgular");
+  **çeviri bu tabloda yerinde düzenlenir** ve satır hemen yeniden denetlenir; sağ tık: Bu satırı düzelt · Bu türdeki
+  tümünü düzelt · Çevir'de göster · Sözlüğe ekle · Terim değil.
+- **Yazım Denetimi penceresi** (Araçlar, `F7`): sözlükte olmayan sözcükler ve kaç satırda geçtikleri; Yoksay (proje),
+  Sözlüğe Ekle, **Hepsini şununla değiştir** (yalnızca listelenen satırlarda, tek iş, Geri Al). Yoksayılanların altı
+  editörde ve tabloda da çizilmez.
+- **Terim tutarsızlığı** denetimi: kendi başına satır olan kısa özel adlar (en az iki satırda geçen) ve sözlük terimleri
+  kanonik çeviri sayılır; cümle içinde farklı çevrildiyse bulgu verir ("‘Silver Pines’ burada farklı çevrilmiş; 14
+  satırda ‘Gümüş Çamlar’"). Türkçe ekler, ünsüz yumuşaması (Kılıç → Kılıcı), büyük/küçük harf ve satır sonları yok
+  sayılır. "Terim değil" ile işaretlenen ifade bir daha denetlenmez.
+- **Grup ve anahtar sınırları tablosu** (Sığdırma): grup ve **anahtar deseni** (`menu_*`, `*_title`) başına satır
+  sayısı, en uzun orijinal satır, öğrenilen ve elle sınır; "Hepsini Öğren". Öncelik: anahtar deseni > grup > dosya > proje.
+
+### Değişti
+- **Ollama bağlam boyutu** sabit 8192 değil: iş başında en uzun partiye göre bir kez seçilir (en çok modelin sınırı ve
+  32768; iş boyunca sabit kalır, önbellek korunur). Oyun notları/talimat sığmayacak kadar uzunsa iş başlamadan uyarır.
+- Sığdırma sekmesinde "Kod türleri" Gelişmiş altına indi.
+- 50.000 satırlık projede Yazım Denetimi penceresi, Kontrol Et sayfası ve toplu güncellemeler artık donmuyor.
+
 ## [0.50.0] — 2026-11-09 — Menüler, Ayarlar ve kısayollar
 
 ### Eklendi

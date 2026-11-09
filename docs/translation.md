@@ -276,6 +276,39 @@ sonundadır. Kullanıcı mesajı:
 
 DeepL'e bağlam satırlarının özgün metni `context` alanıyla gider (çevrilmez, kotadan düşmez).
 
+### Model şablonu
+
+Ollama, `/api/chat` isteğindeki sistem mesajını (kurallar, Türkçe üslup, oyun notları, talimat) yalnızca modelin
+**şablonu** onu kullanıyorsa iletir. Şablonu denetlemek için komut satırında:
+
+```
+ollama show <model> --template
+```
+
+Çıktıda `.System` ya da `.Messages` (GGUF'tan gelen Jinja şablonlarında `messages` değişkeni) geçiyorsa model sohbet biçimini bilir ve her şey olması gibi gider.
+Çıktı yalnızca `{{ .Prompt }}` ise (ya da boşsa; bazı elle içe aktarılmış GGUF'larda olur) Ollama yalnızca son
+kullanıcı mesajını modele verir; kurallar hiç ulaşmaz.
+
+Uygulama bunu kendisi denetler (`/api/show` içindeki `template`, model başına bir kez okunur) ve sistem metnini
+düşüren şablonda isteği yine çalıştırır: sistem metni kullanıcı mesajının başına `Instructions:` bölümü olarak,
+JSON girdisi ise `Input:` bölümünün altına konur. Bağlantı sınamasında ve Otomatik Çeviri penceresinde
+(**Modelleri Listele**'den sonra) model için kısa bir uyarı görünür; günlüğe de bir kez yazılır. Bu yalnızca bir
+kurtarma yoludur, çünkü sohbet biçimi uygulanmaz. En iyi sonuç için sohbet şablonu olan bir model seçin
+(Ollama kütüphanesindeki sürümler ve doğru şablonla gelen `hf.co/…` GGUF'ları).
+
+### Bağlam boyutu (`num_ctx`)
+
+`num_ctx` her iş başında **bir kez** belirlenir ve iş boyunca sabit kalır (değişirse Ollama modeli yeniden yükler
+ve istem önek önbelleğini kaybeder). Hesap: en uzun partinin sistem + kullanıcı mesajının karakter sayısının
+üçte biri (tahmini belirteç) + yanıt payı (`num_predict` 3072) + %15 pay, 8192'nin katına yukarı yuvarlanır.
+Alt sınır 8192; üst sınır modelin `context_length`'i (`/api/show` → `model_info`) ve 32768'dir. Uzun oyun notları
+ya da talimat gerekirse 16384/24576/32768 seçer. İstem üst sınıra sığmıyorsa **iş başlamadan** Türkçe hata
+verilir ve kaç karakter fazla olduğu söylenir (oyun notlarını/talimatı kısaltın). Parti ortasında istem tahminden
+uzun çıkarsa (bağlam satırlarındaki çeviriler uzunsa) değer o isteğe yetecek basamağa yükselir ve işin kalanında orada kalır (günlüğe yazılır);
+sınırı aşarsa aynı hata verilir. Seçilen değer günlüğe yazılır. Sağlayıcıya bilgi `runner` tarafından verilir:
+sağlayıcı isteğe bağlı `prepare_job(batches, kaynak_dil, hedef_dil, notlar)` yöntemini sunarsa, partiler
+kurulduktan sonra ve ilk istekten önce bir kez çağrılır.
+
 ### Örnek: makine çevirisi ve hedeflenen sonuç (Despelote)
 
 | Özgün | Birebir makine çevirisi | Hedef |

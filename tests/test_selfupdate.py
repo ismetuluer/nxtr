@@ -6,7 +6,9 @@ import io
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -188,7 +190,7 @@ def test_helper_does_not_restart_old_app_when_it_never_closed() -> None:
     assert "if ($restartOld -and" in script  # kapanmayan uygulamanın ikinci kopyası açılmaz
 
 
-def test_launch_installer_writes_script_and_starts_detached(tmp_path: Path, install: Path) -> None:
+def test_launch_installer_writes_script_and_starts_in_background(tmp_path: Path, install: Path) -> None:
     calls: list[tuple[list[str], dict[str, Any]]] = []
     prepared = PreparedInstall("0.30.0", tmp_path / "yeni", tmp_path / "is")
     state = tmp_path / "durum"
@@ -346,3 +348,47 @@ def test_helper_does_not_execute_injection_text_in_path(tmp_path: Path) -> None:
     assert done.returncode == 0, done.stderr
     assert not list(tmp_path.rglob("enjekte.txt"))
     assert (install / "surum.txt").read_text(encoding="utf-8") == "yeni"
+
+
+def test_launch_installer_does_not_detach_powershell_from_a_console(tmp_path: Path, install: Path) -> None:
+    """DETACHED_PROCESS ile başlayan PowerShell betiği hiç çalıştırmıyor (0.48–0.50'deki güncelleme hatası)."""
+    calls: list[dict[str, Any]] = []
+    prepared = PreparedInstall("0.30.0", tmp_path / "yeni", tmp_path / "is")
+    launch_installer(prepared, install, pid=77, state=tmp_path / "durum", popen=lambda _cmd, **kw: calls.append(kw))
+    flags = calls[0]["creationflags"]
+    assert not flags & getattr(subprocess, "DETACHED_PROCESS", 0x8)
+    assert flags & getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)  # pencere yine görünmez
+
+
+_CHILD = """
+import sys
+sys.path.insert(0, {repo!r})
+from pathlib import Path
+from nxceviri.core.selfupdate import PreparedInstall, launch_installer
+launch_installer(PreparedInstall("0.50.0", Path({new!r}), Path({work!r})), Path({install!r}), state=Path({state!r}))
+"""
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="gerçek PowerShell yardımcısı yalnızca Windows'ta")
+def test_real_helper_swaps_folder_after_the_app_exits(tmp_path: Path) -> None:
+    """Uçtan uca: uygulama yardımcıyı başlatıp hemen çıkar; yardımcı klasörü değiştirir ve çalışma klasörünü siler."""
+    install = tmp_path / "Masaüstü Çeviri" / "NXTR-0.49.0-windows"
+    work = install.parent / selfupdate.WORK_DIR_NAME
+    new = work / "acilan" / "NXTR-0.50.0-windows"
+    system = Path(os.environ.get("SYSTEMROOT", r"C:\Windows")) / "System32" / "hostname.exe"
+    for folder, tag in ((install, "eski"), (new, "yeni")):
+        folder.mkdir(parents=True)
+        shutil.copy(system, folder / selfupdate.PACKAGE_EXE)  # yeniden başlatılan "uygulama" hemen kapanır
+        (folder / "surum.txt").write_text(tag, encoding="utf-8")
+    state = tmp_path / "durum"
+    repo = str(Path(__file__).resolve().parents[1])
+    code = _CHILD.format(repo=repo, new=str(new), work=str(work), install=str(install), state=str(state))
+    subprocess.run([sys.executable, "-c", code], check=True, timeout=60)  # çocuk süreç çıkınca yardımcı devam eder
+    deadline = time.monotonic() + 60
+    while work.exists() and time.monotonic() < deadline:
+        time.sleep(0.5)
+    failure = state / FAILURE_FILE
+    assert not failure.exists(), failure.read_text(encoding="utf-8-sig")
+    assert (install / "surum.txt").read_text(encoding="utf-8") == "yeni"
+    assert not work.exists()
+    assert not selfupdate.backup_dir_for(install).exists()

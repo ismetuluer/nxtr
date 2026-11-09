@@ -7,6 +7,7 @@ değişince menü güncellenir. Tema ve yazı boyutu sinyalle bildirilir; temay�
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from urllib.parse import urlsplit
 
 from PySide6.QtCore import QEvent, QSettings, QSize, Qt, Signal
@@ -33,6 +34,8 @@ from PySide6.QtWidgets import (
 )
 
 from nxceviri.core.errors import NxError
+from nxceviri.core.qa.checks import KIND_LABELS
+from nxceviri.core.qa.live import DEFAULT_LIVE_KINDS, KIND_HINTS, LIVE_KINDS
 from nxceviri.core.secrets import DEEPL_API_KEY, SecretStore
 from nxceviri.core.translate.providers.base import ProviderError, ProviderStatus, TranslationProvider
 from nxceviri.core.translate.providers.deepl import DeepLProvider, plan_label
@@ -53,6 +56,7 @@ from nxceviri.gui.widgets import Banner, button, label
 
 PAGE_VIEW = "view"
 PAGE_SHORTCUTS = "shortcuts"
+PAGE_LIVE = "live"
 PAGE_PROVIDERS = "providers"
 PAGE_UPDATES = "updates"
 
@@ -60,6 +64,7 @@ PAGE_UPDATES = "updates"
 _PAGES = (
     (PAGE_VIEW, "Görünüm", "palette"),
     (PAGE_SHORTCUTS, "Kısayollar", "keyboard"),
+    (PAGE_LIVE, "Anlık Denetimler", "shield-check"),
     (PAGE_PROVIDERS, "Çeviri", "sparkles"),
     (PAGE_UPDATES, "Güncelleme", "refresh-cw"),
 )
@@ -277,6 +282,7 @@ class SettingsDialog(QDialog):
     theme_changed = Signal(object)  # ThemeMode
     font_size_changed = Signal(int)
     check_updates_requested = Signal()
+    live_kinds_changed = Signal(list)  # seçili türler, gösterim sırasıyla; yazmak ve uygulamak pencereyi açanın işidir
 
     def __init__(
         self,
@@ -292,6 +298,7 @@ class SettingsDialog(QDialog):
         issue_colors: QAction,
         error_rows: QAction,
         updates_available: bool,
+        live_kinds: Collection[str] = DEFAULT_LIVE_KINDS,
         page: str = PAGE_VIEW,
     ) -> None:
         super().__init__(parent)
@@ -322,11 +329,13 @@ class SettingsDialog(QDialog):
 
         self.view_page = _scrolled(self._build_view_page(theme, font_size, wrap, issue_colors, error_rows))
         self.shortcuts_page = self._build_shortcuts_page()
+        self.live_page = _scrolled(self._build_live_page(live_kinds))
         self.providers_page = _scrolled(self._build_providers_page())
         self.updates_page = _scrolled(self._build_updates_page(updates_available))
         widgets = {
             PAGE_VIEW: self.view_page,
             PAGE_SHORTCUTS: self.shortcuts_page,
+            PAGE_LIVE: self.live_page,
             PAGE_PROVIDERS: self.providers_page,
             PAGE_UPDATES: self.updates_page,
         }
@@ -595,6 +604,53 @@ class SettingsDialog(QDialog):
             "Tümünü Döndür",
         ):
             self._registry.reset_all()
+
+    # --- anlık denetimler ----------------------------------------------------------------
+
+    def _build_live_page(self, live_kinds: Collection[str]) -> QWidget:
+        page, lay = _page_layout()
+        lay.addWidget(
+            label(
+                "Çeviri tablosunda satırlar yazılırken hangi sorunların hemen gösterileceği. "
+                "Kapalı türler yine de Kontrol Et'te bulunur.",
+                "muted",
+                wrap=True,
+            )
+        )
+        row = QHBoxLayout()
+        self.live_all = button("Tümü")
+        self.live_all.clicked.connect(lambda: self._set_all_live(True))
+        self.live_none = button("Hiçbiri")
+        self.live_none.clicked.connect(lambda: self._set_all_live(False))
+        row.addWidget(self.live_all)
+        row.addWidget(self.live_none)
+        row.addStretch(1)
+        lay.addLayout(row)
+        chosen = set(live_kinds)
+        self.live_checks: dict[str, QCheckBox] = {}
+        for kind in LIVE_KINDS:
+            box = QCheckBox(KIND_LABELS[kind])
+            box.setToolTip(KIND_HINTS[kind])
+            box.setChecked(kind in chosen)
+            box.toggled.connect(self._emit_live_kinds)
+            self.live_checks[kind] = box
+            lay.addWidget(box)
+            lay.addWidget(label(KIND_HINTS[kind], "muted", wrap=True))
+        lay.addStretch(1)
+        return page
+
+    def _chosen_live_kinds(self) -> list[str]:
+        return [k for k in LIVE_KINDS if self.live_checks[k].isChecked()]
+
+    def _emit_live_kinds(self) -> None:
+        self.live_kinds_changed.emit(self._chosen_live_kinds())
+
+    def _set_all_live(self, on: bool) -> None:
+        for box in self.live_checks.values():
+            box.blockSignals(True)
+            box.setChecked(on)
+            box.blockSignals(False)
+        self._emit_live_kinds()
 
     # --- çeviri sağlayıcıları ------------------------------------------------------------
 
