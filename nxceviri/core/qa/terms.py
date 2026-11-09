@@ -260,3 +260,23 @@ def term_issues(rows: Sequence[TranslationRow], canon: Mapping[str, str]) -> lis
         )
     out.sort(key=lambda i: i.row_id)
     return out
+
+
+#: Örtük terimlerin modele giden notu.
+IMPLICIT_NOTE = "oyunda böyle çevrildi"
+
+
+def implicit_terms(
+    rows: Sequence[TranslationRow], glossary: Sequence[GlossaryTerm], ignored: Collection[str] = ()
+) -> list[GlossaryTerm]:
+    """Terminolojide olmayan kanonik terimler (kendi başına satır olan kısa adların en sık çevirisi).
+
+    Otomatik çeviride terminolojiyle birlikte modele verilir: cümle içinde geçen ad, menüde/başlıkta nasıl
+    çevrildiyse öyle çevrilsin. "Terim değil" denen ifadeler (`ignored`) verilmez.
+    """
+    known = {turkish_lower(_squash(t.term)) for t in glossary}
+    return [
+        GlossaryTerm(phrase, translation, IMPLICIT_NOTE)
+        for phrase, translation in canonical_terms(rows, (), ignored).items()
+        if turkish_lower(phrase) not in known
+    ]

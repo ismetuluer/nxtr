@@ -7,9 +7,12 @@ başlık yoksa ilk satır da veridir; isteğe bağlı üçüncü sütun not olar
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
+from nxceviri.core.project import TranslationRow
 from nxceviri.core.translate.csvio import CsvError, table_xlsx, xlsx_table
 from nxceviri.core.translate.providers.base import GlossaryTerm
 
@@ -21,7 +24,7 @@ _HEADER_NAMES = frozenset(("terim", "term", "kaynak", "orijinal", "source", "ori
 
 def glossary_xlsx(terms: Sequence[GlossaryTerm]) -> bytes:
     """Çevirisi olan terimler, iki sütun (`terim`, `çeviri`)."""
-    return table_xlsx(GLOSSARY_COLUMNS, [(t.term, t.translation) for t in terms if t.translation], sheet="Sözlük")
+    return table_xlsx(GLOSSARY_COLUMNS, [(t.term, t.translation) for t in terms if t.translation], sheet="Terminoloji")
 
 
 def export_glossary_xlsx(terms: Sequence[GlossaryTerm], path: Path) -> None:
@@ -85,3 +88,55 @@ def merge_terms(
             merged[key] = GlossaryTerm(old.term, t.translation, t.note or old.note)
             updated += 1
     return list(merged.values()), added, updated
+
+
+#: Terim metninde kalanlar: harfler, sözcük içi kesme/tire ve boşluk. Kodlar, sayılar ve semboller atılır.
+_CODE_RE = re.compile(r"⟦\d+⟧")
+_NOT_TERM_RE = re.compile(r"[^\w\s'’\-]|[\d_]")
+
+
+def term_text(text: str) -> str:
+    """Satır metnini terim biçimine indirir: kontrol kodları, satır sonları, sayılar ve semboller ayıklanır, baştaki ve
+    sondaki noktalama atılır ("⟦1⟧Gümüş\nÇamlar!" → "Gümüş Çamlar")."""
+    text = _CODE_RE.sub(" ", text)
+    text = _NOT_TERM_RE.sub(" ", text)
+    text = " ".join(text.split())
+    return text.strip(" '’-")
+
+
+@dataclass(frozen=True)
+class TermPlan:
+    """Satırlardan terminolojiye ekleme planı."""
+
+    new: list[GlossaryTerm]
+    #: (terminolojideki, satırdan gelen): aynı terim farklı karşılıkla.
+    conflicts: list[tuple[GlossaryTerm, GlossaryTerm]]
+    #: Zaten aynı karşılıkla olan ya da çevirisi/terimi boş kalan satır sayısı.
+    skipped: int
+
+
+def plan_terms_from_rows(rows: Sequence[TranslationRow], existing: Sequence[GlossaryTerm]) -> TermPlan:
+    """Seçili satırların orijinal ve çevirisinden terim önerir; terimler büyük/küçük harf duyarsız eşleşir."""
+    known = {t.term.casefold(): t for t in existing}
+    seen: set[str] = set()
+    new: list[GlossaryTerm] = []
+    conflicts: list[tuple[GlossaryTerm, GlossaryTerm]] = []
+    skipped = 0
+    for row in rows:
+        term, translation = term_text(row.source), term_text(row.translation)
+        if not term or not translation:
+            skipped += 1
+            continue
+        key = term.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        candidate = GlossaryTerm(term, translation, "")
+        old = known.get(key)
+        if old is None:
+            new.append(candidate)
+        elif old.translation == translation:
+            skipped += 1
+        else:
+            conflicts.append((old, candidate))
+    return TermPlan(new, conflicts, skipped)

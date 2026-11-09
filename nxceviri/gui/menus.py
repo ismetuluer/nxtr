@@ -313,7 +313,15 @@ class Menus:
             tip="Metni değiştirmeden durumu “Makine”ye döndürür.",
         )
         menu.addSeparator()
-        self._add(menu, "Sözlük…", w.edit_glossary, command="translate.glossary", icon="book-open")
+        self._add(menu, "Terminoloji…", w.edit_glossary, command="translate.glossary", icon="book-open")
+        self._add(
+            menu,
+            "Seçili Satırları Terminolojiye Ekle…",
+            w.add_rows_to_terminology,
+            command="translate.add_terms",
+            icon="circle-plus",
+            tip="Seçili satırların orijinali ve çevirisi (kod, sayı ve sembollerden ayıklanarak) terim olur.",
+        )
         self._share(menu, page.changes_button, "translate.changes", "git-compare")
         self._add(menu, "Çeviri Geçmişi…", page.history_selected, command="translate.history", icon="history")
         menu.addSeparator()
@@ -435,3 +443,4 @@ class Menus:
         a["translate.approve"].setEnabled(counts.approvable > 0)
         a["translate.unapprove"].setEnabled(counts.approved > 0)
         a["translate.history"].setEnabled(counts.selected == 1)
+        a["translate.add_terms"].setEnabled(counts.with_translation > 0)

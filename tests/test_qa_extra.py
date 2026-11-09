@@ -37,7 +37,7 @@ def test_glossary_term_missing_in_translation() -> None:
     ]
     assert _kinds(rows) == [(1, "glossary"), (4, "glossary"), (6, "glossary")]
     messages = [i.message for i in run_checks(rows[:1], "", "", GLOSSARY)]
-    assert messages == ["Sözlükte “Police Department” → “Polis Merkezi” var; çeviride yok."]
+    assert messages == ["Terminolojide “Police Department” → “Polis Merkezi” var; çeviride yok."]
 
 
 def test_glossary_check_is_off_without_glossary() -> None:

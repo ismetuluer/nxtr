@@ -2,6 +2,25 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.53.0] — 2026-11-09 — Terminoloji
+
+### Değişti
+- **"Sözlük" artık Terminoloji** (oyunun adları ve sabit karşılıkları; Çeviri → Terminoloji…, `Ctrl+Alt+G`).
+  Türkçe yazım listesi **Yazım sözlüğü** adıyla ayrı kalır; denetim türü de "Terminoloji".
+- **Sade pencere:** sütunlar Terim · Karşılık · Not (ayrıntı başlık ipuçlarında); "Daha Fazla" kalktı, İçe Aktar,
+  Dışa Aktar, Terim Öner ve Kitaplık ayrı küçük düğmeler.
+- **Kısa hatalar:** Terim Öner'de Ollama yoksa ya da kapalıysa uzun paragraf yerine kısa bildirim ve tek tıkla çözüm
+  (Otomatik Çeviri… / Ayarları Aç).
+
+### Eklendi
+- **Seçili satırları terminolojiye ekle** (sağ tık ve Çeviri menüsü, `Ctrl+Shift+G`): orijinal ve çeviri kontrol
+  kodu, satır sonu, sayı ve sembollerden ayıklanır; onay listesinde işaretlenenler eklenir; terminolojide başka
+  karşılıkla olan terim turuncu ve işaretsiz gelir (işaretlenirse güncellenir).
+- **Terminoloji kitaplığı:** terminolojiyi adlandırılmış liste olarak kaydedin ("DMC serisi"), başka projede
+  *Kitaplıktan Ekle* ile katın (birden çok liste birleştirilebilir; projede olan terimin karşılığı korunur).
+- **Örtük terimler Ollama'ya:** oyunda kendi başına satır olan kısa adların (mekân, eşya, bölüm) en sık çevirisi,
+  terminolojide olmasalar da Otomatik Çeviri'de modele terim olarak verilir; cümle içinde de aynı çevrilir.
+
 ## [0.52.1] — 2026-11-09 — Eksiklerin tamamlanması (D ve önceki aşamalar)
 
 ### Değişti

@@ -673,6 +673,8 @@ class TranslatePage(QWidget):
     go_to_scan = Signal()
     #: Kullanıcıya gösterilecek sonuç (durum, metin): ana pencere bildirim merkezine iletir.
     notice_requested = Signal(str, str)
+    #: Sağ tık → "Terminolojiye ekle": ana pencere seçili satırlardan terim önerir.
+    add_terms_requested = Signal()
     #: Süzgeç değişti ya da satırlar yenilendi (durum çubuğundaki "N / M satır" güncellensin).
     view_changed = Signal()
     #: Kısa, geçici bilgi (durum çubuğunda birkaç saniye gösterilir).
@@ -1690,6 +1692,10 @@ class TranslatePage(QWidget):
         unapprove.setToolTip("Metni değiştirmeden durumu “Makine”ye döndürür (yanlışlıkla onaylanan satırlar için).")
         unapprove.setEnabled(counts.approved > 0)
         unapprove.triggered.connect(self.unapprove_selected)
+        terms = self._menu_action(menu, "Terminolojiye ekle…", "circle-plus", "translate.add_terms")
+        terms.setToolTip("Seçili satırların orijinali ve çevirisi terim olarak eklenir (önce onay listesi).")
+        terms.setEnabled(counts.with_translation > 0)
+        terms.triggered.connect(self.add_terms_requested)
         menu.addSeparator()
 
         edit = self._submenu(menu, "Düzenle", "pen-line")

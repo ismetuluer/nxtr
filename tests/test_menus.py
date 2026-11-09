@@ -152,7 +152,8 @@ def test_expected_entries_exist(window: MainWindow) -> None:
     assert "Çeviri Ayarları…" not in texts["Araçlar"]
     assert "Otomatik Çeviri…" in texts["Çeviri"]
     assert "Redaksiyon…" in texts["Çeviri"]
-    assert "Sözlük…" in texts["Çeviri"]
+    assert "Terminoloji…" in texts["Çeviri"]
+    assert "Seçili Satırları Terminolojiye Ekle…" in texts["Çeviri"]
     assert "Teşhis Raporu…" in texts["Araçlar"]
     assert "Eklentiler…" in texts["Araçlar"]
     assert "Eklentiler…" not in texts["Yardım"]
@@ -347,6 +348,7 @@ def test_context_menu_is_grouped_and_short(window: MainWindow) -> None:
         ("Çevir", True),
         ("Onayla (1)", False),
         ("Onayı kaldır (0)", False),
+        ("Terminolojiye ekle…", False),
         ("Düzenle", True),
         ("Kopyala", True),
         ("Dışa aktar", True),

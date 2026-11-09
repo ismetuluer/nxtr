@@ -75,7 +75,7 @@ from nxceviri.core.qa.fonts import FontReport
 from nxceviri.core.qa.fonts import scan_fonts as scan_font_files
 from nxceviri.core.qa.live import SETTING_KEY as LIVE_KINDS_KEY
 from nxceviri.core.qa.live import LiveContext, format_live_kinds, parse_live_kinds
-from nxceviri.core.qa.terms import project_terms
+from nxceviri.core.qa.terms import implicit_terms, project_terms
 from nxceviri.core.secrets import DEEPL_API_KEY, GITHUB_UPDATE_KEY, KeyringStore, SecretStore
 from nxceviri.core.selfupdate import PreparedInstall, current_install, discard_prepared, launch_installer
 from nxceviri.core.spell.checker import SpellChecker, turkish_lower
@@ -103,7 +103,7 @@ from nxceviri.core.translate.fitconfig import (
     save_config,
     separate_groups,
 )
-from nxceviri.core.translate.glossary_io import merge_terms
+from nxceviri.core.translate.glossary_io import merge_terms, plan_terms_from_rows
 from nxceviri.core.translate.port import ReadyTranslations, port_translations, read_ready_translations
 from nxceviri.core.translate.probe import deepl_summary, ollama_summary
 from nxceviri.core.translate.providers.base import ProviderError, TranslationProvider
@@ -118,7 +118,7 @@ from nxceviri.core.translate.runner import (
     target_rows,
 )
 from nxceviri.core.translate.status import TRANSLATED_STATUSES, Status
-from nxceviri.core.translate.terms import TermSuggestion, find_candidates, suggest_glossary
+from nxceviri.core.translate.terms import TermCandidate, TermSuggestion, find_candidates, suggest_glossary
 from nxceviri.core.translate.uppercase import UppercaseRules
 from nxceviri.core.update import (
     GitHubUpdater,
@@ -144,6 +144,7 @@ from nxceviri.gui.machine_dialogs import (
     SCOPE_GROUPS,
     SCOPE_PATTERN,
     SCOPE_SELECTED,
+    AddTermsDialog,
     GlossaryDialog,
     MachineDialog,
     MachineSettings,
@@ -171,7 +172,7 @@ from nxceviri.gui.qa_page import QaPage
 from nxceviri.gui.recent import RecentProjects
 from nxceviri.gui.recovery import RecoveryFile, RecoveryKeeper, default_recovery_dir, discard, leftover_files
 from nxceviri.gui.scan_page import ScanPage
-from nxceviri.gui.settings_dialog import PAGE_VIEW, SettingsDialog
+from nxceviri.gui.settings_dialog import PAGE_PROVIDERS, PAGE_VIEW, SettingsDialog
 from nxceviri.gui.shortcuts import ShortcutRegistry
 from nxceviri.gui.spell_dialogs import AddSpellWordsDialog, UserDictionaryDialog
 from nxceviri.gui.spell_window import SpellWindow
@@ -375,6 +376,7 @@ class MainWindow(QMainWindow):
         self.notice_button = HistoryButton(self.notifier)
         self.statusBar().addPermanentWidget(self.notice_button)
         self.translate_page.notice_requested.connect(self._page_notice)
+        self.translate_page.add_terms_requested.connect(self.add_rows_to_terminology)
         #: Bir işin sonucu işlenirken: bildirim gürültülü olsun mu (uzun iş) ve işleyici kendi bildirimini verdi mi.
         self._outcome_loud: bool | None = None
         self._outcome_noticed = False
@@ -2255,33 +2257,66 @@ class MainWindow(QMainWindow):
         try:
             self.project.set_glossary(dialog.terms())
         except NxError as exc:
-            self.notify(LEVEL_ERROR, "Sözlük kaydedilemedi", exc.user_text())
+            self.notify(LEVEL_ERROR, "Terminoloji kaydedilemedi", exc.user_text())
             return
         self._mark_changed()
         self._sync_spell()
-        self.statusBar().showMessage(f"Sözlük kaydedildi ({len(dialog.terms())} terim).", 5000)
+        self.statusBar().showMessage(f"Terminoloji kaydedildi ({len(dialog.terms())} terim).", 5000)
         if dialog.wants_suggestions:
             self.suggest_glossary_terms()
 
+    def add_rows_to_terminology(self) -> None:
+        """Seçili satırların orijinal ve çevirisi (ayıklanarak) onaydan sonra terminolojiye eklenir."""
+        rows = self.translate_page.selected_rows()
+        if not rows:
+            self.notify(LEVEL_WARNING, "Önce satır seçin", "Terminolojiye eklenecek satırları tabloda seçin.")
+            return
+        plan = plan_terms_from_rows(rows, self.project.glossary())
+        if not plan.new and not plan.conflicts:
+            self.notify(LEVEL_INFO, "Eklenecek terim yok", "Seçili satırlar zaten terminolojide ya da çevirisiz.")
+            return
+        dialog = AddTermsDialog(self, plan.new, plan.conflicts)
+        if dialog.exec() != AddTermsDialog.DialogCode.Accepted or not dialog.selected():
+            return
+        merged, added, updated = merge_terms(self.project.glossary(), dialog.selected())
+        try:
+            self.project.set_glossary(merged)
+        except NxError as exc:
+            self.notify(LEVEL_ERROR, "Terminoloji kaydedilemedi", exc.user_text())
+            return
+        self._mark_changed()
+        self._sync_spell()
+        self._sync_live()
+        self.notify(
+            LEVEL_SUCCESS,
+            "Terminoloji güncellendi",
+            f"{format_int(added)} terim eklendi · {format_int(updated)} terim güncellendi",
+        )
+
+    def find_term_candidates(self) -> list[TermCandidate]:
+        """Terim önerisinin adayları: metinlerde sık geçen, terminolojide olmayan özel adlar."""
+        return find_candidates(self.project.translation_rows(), self.project.glossary())
+
     def suggest_glossary_terms(self) -> None:
-        """Metinlerde sık geçen adları bulur, Ollama'dan karşılık ister; onaylananlar sözlüğe katılır."""
+        """Metinlerde sık geçen adları bulur, Ollama'dan karşılık ister; onaylananlar terminolojiye katılır."""
         if self.busy:
             return
         page = self.translate_page
         model = str(self.settings.value("ollama/model", ""))
         if str(self.settings.value("translate/provider", PROVIDER_OLLAMA)) != PROVIDER_OLLAMA or not model:
-            page.show_notice(
-                "warning",
-                "Terim önerisi için Ollama gerekli. Önce “Otomatik Çeviri” penceresinde sağlayıcı olarak Ollama'yı "
-                "ve bir model seçip bir iş başlatın (ayarlar kaydedilir); sonra Sözlük → Terim Öner'i yeniden deneyin.",
+            self.notify(
+                LEVEL_WARNING,
+                "Terim önerisi için Ollama gerekli",
+                "Otomatik Çeviri'de sağlayıcı olarak Ollama'yı ve bir model seçin.",
+                (NoticeAction("Otomatik Çeviri…", lambda: self.start_machine_translation(ACTION_TRANSLATE)),),
             )
             return
-        candidates = find_candidates(self.project.translation_rows(), self.project.glossary())
+        candidates = self.find_term_candidates()
         if not candidates:
-            page.show_notice(
-                "warning",
-                "Metinlerde sözlüğe aday özel ad bulunamadı (en az iki kez, cümle ortasında büyük harfle geçen adlar "
-                "aranır; sözlükte olanlar atlanır).",
+            self.notify(
+                LEVEL_INFO,
+                "Önerilecek terim yok",
+                "Cümle ortasında en az iki kez büyük harfle geçen yeni bir ad bulunamadı.",
             )
             return
         notes = self.project.setting("translation_notes")
@@ -2306,21 +2341,33 @@ class MainWindow(QMainWindow):
             finally:
                 provider.close()
 
-        def finish(state: str, text: str) -> None:
+        def failed(text: str) -> None:
             page.set_machine_running(False)
-            page.show_notice(state, text)
+            title, rest = split_notice(text)
+            if "bağlanılamadı" in title:
+                title = "Ollama'ya bağlanılamadı"
+            self.notify(
+                LEVEL_ERROR,
+                title,
+                rest,
+                (NoticeAction("Ayarları Aç", lambda: self.open_settings(PAGE_PROVIDERS)),),
+            )
+
+        def cancelled() -> None:
+            page.set_machine_running(False)
+            self.notify(LEVEL_WARNING, "Terim önerisi durduruldu", "Terminoloji değişmedi.")
 
         def done(result: object) -> None:
             assert isinstance(result, list)
             page.set_machine_running(False)
             if not result:
-                page.show_notice(
-                    "warning", f"Model {format_int(len(candidates))} aday için sözlüğe eklenecek terim önermedi."
+                self.notify(
+                    LEVEL_INFO, "Terim önerilmedi", f"Model {format_int(len(candidates))} aday için bir terim önermedi."
                 )
                 return
             dialog = TermSuggestionsDialog(self, result)
             if dialog.exec() != TermSuggestionsDialog.DialogCode.Accepted or not dialog.selected():
-                page.show_notice("success", "Sözlük önerileri eklenmedi.")
+                page.show_notice("success", "Terim önerileri eklenmedi.")
                 return
             merged, added, updated = merge_terms(self.project.glossary(), dialog.selected())
             try:
@@ -2330,21 +2377,21 @@ class MainWindow(QMainWindow):
                 return
             self._mark_changed()
             self._sync_spell()
-            page.show_notice(
-                "success",
-                f"Sözlüğe {format_int(added)} terim eklendi, {format_int(updated)} terim güncellendi. "
-                "Yeni çeviriler bu karşılıkları kullanır.",
+            self.notify(
+                LEVEL_SUCCESS,
+                "Terminoloji güncellendi",
+                f"{format_int(added)} terim eklendi · {format_int(updated)} terim güncellendi",
             )
 
         page.set_machine_running(True)
         page.show_notice("success", "")
         self._run(
             work,
-            "Sözlük önerisi",
+            "Terim önerisi",
             on_success=done,
-            on_failure=lambda text: finish("danger", text),
+            on_failure=failed,
             on_progress=page.update_machine_progress,
-            on_cancel=lambda: finish("warning", "Sözlük önerisi durduruldu; sözlük değişmedi."),
+            on_cancel=cancelled,
         )
 
     def open_settings(self, page: str | None = None) -> None:
@@ -2451,7 +2498,11 @@ class MainWindow(QMainWindow):
             rows=target,
             source_lang=self.project.setting("source_language", "en"),
             notes=chosen.notes,
-            glossary=self.project.glossary(),
+            # Terminoloji + örtük terimler (menüde/başlıkta nasıl çevrildiyse cümlede de öyle; partide geçenler gider).
+            glossary=[
+                *self.project.glossary(),
+                *implicit_terms(self.project.translation_rows(), self.project.glossary(), self._terms_ignored()),
+            ],
             memory=self.project.memory_lookup(r.source for r in target) if chosen.action == ACTION_TRANSLATE else {},
             action=chosen.action,
             instruction=chosen.instruction,

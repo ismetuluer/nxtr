@@ -81,7 +81,8 @@ COMMANDS: tuple[Command, ...] = (
     Command("translate.revise", "Redaksiyon (Talimatla Düzelt)", CATEGORY_TRANSLATE, "Ctrl+R"),
     Command("translate.approve", "Onayla", CATEGORY_TRANSLATE, "Ctrl+Shift+A"),
     Command("translate.unapprove", "Onayı Kaldır", CATEGORY_TRANSLATE),
-    Command("translate.glossary", "Sözlük", CATEGORY_TRANSLATE, "Ctrl+Shift+G"),
+    Command("translate.glossary", "Terminoloji", CATEGORY_TRANSLATE, "Ctrl+Alt+G"),
+    Command("translate.add_terms", "Terminolojiye Ekle", CATEGORY_TRANSLATE, "Ctrl+Shift+G"),
     Command("translate.changes", "Son İşin Değişiklikleri", CATEGORY_TRANSLATE),
     Command("translate.history", "Çeviri Geçmişi", CATEGORY_TRANSLATE),
     # Git (adımlar)

@@ -844,6 +844,17 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
 156. **Kod türü şüphesi** (`codekinds.suspected_line_breaks`): tahmini "diğer" olan, en az 3 kez görülen ve
     görülmelerinin %70'inde sözcük arasına boşluksuz giren kod; kullanıcı türünü elle verdiyse sorulmaz.
 
+### 4.40 0.53.0 kararları (Terminoloji)
+
+157. **Arayüzde "Terminoloji", kodda `glossary`:** veri modeli ve proje şeması değişmedi; yalnızca kullanıcıya görünen
+    adlar. "Yazım sözlüğü" ayrı kavramdır.
+158. **Kitaplık kullanıcıya aittir** (`core/translate/termlib.py`, AppData, liste başına JSON; görünen ad dosyada,
+    dosya adı güvenli karakter + özet). Kitaplıktan eklerken projedeki karşılık korunur (`add_missing`).
+159. **Satırdan terim** `glossary_io.plan_terms_from_rows`: kod/satır sonu/sayı/sembol ayıklanır; çakışma kullanıcıya
+    sorulur (onay listesinde işaretsiz).
+160. **Örtük terimler** (`qa/terms.implicit_terms`) iş başında bir kez hesaplanır ve iş sözlüğüne eklenir; partiye
+    yalnızca geçenler gider (`relevant_terms`), "Terim değil" listesi uygulanır.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.
