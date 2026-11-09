@@ -1,6 +1,7 @@
 """Tablo sütun davranışları (Çevir ve Kontrol Et tabloları ortak kullanır).
 
-- `FitTableView`: yumuşak (piksel bazlı) kaydırma; hücreye tıklayınca tablo yatayda kendiliğinden kaymaz.
+- `FitTableView`: yumuşak (piksel bazlı) kaydırma; hücreye tıklayınca ya da program bir satırı seçince tablo
+  yatayda kendiliğinden kaymaz, ama klavye gezinmesinde (ok tuşları, Tab) geçerli hücre görünür kalır.
 - `ColumnFitter`: akıllı sığdırma. Esnek sütunlar (Orijinal, Çeviri) her zaman görünür ve kalan genişliği
   paylaşır; dar sütunlar sabit genişliktedir. Pencere küçülünce önce dar sütunlar daralır. Kullanıcı bir
   sütunu elle ayarlayınca genişlikler saklanır ve artık kendiliğinden değişmez.
@@ -10,6 +11,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEvent, QModelIndex, QObject, QPersistentModelIndex, QPoint, QSettings, Qt, Signal
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QAbstractItemView, QMenu, QTableView
 
 #: Tekerlek bir adımda bu kadar satır yüksekliği kaydırır.
@@ -34,6 +36,7 @@ class FitTableView(QTableView):
 
     def __init__(self) -> None:
         super().__init__()
+        self._keyboard_nav = False
         self.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
 
@@ -47,14 +50,23 @@ class FitTableView(QTableView):
         self.verticalScrollBar().setSingleStep(step)
         self.horizontalScrollBar().setSingleStep(step)
 
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        self._keyboard_nav = True
+        try:
+            super().keyPressEvent(event)
+        finally:
+            self._keyboard_nav = False
+
     def scrollTo(
         self, index: _Index, hint: QAbstractItemView.ScrollHint = QAbstractItemView.ScrollHint.EnsureVisible
     ) -> None:
-        """Satırı dikeyde görünür kılar; yatay konumu korur (tıklama tabloyu yana kaydırmasın)."""
+        """Satırı dikeyde görünür kılar. Yatay konum yalnızca klavye gezinmesinde değişir (hücre ekran dışında
+        kalmasın); tıklama ve program kaynaklı seçim tabloyu yana kaydırmaz."""
         bar = self.horizontalScrollBar()
         keep = bar.value()
         super().scrollTo(index, hint)
-        bar.setValue(keep)
+        if not self._keyboard_nav:
+            bar.setValue(keep)
 
 
 class ColumnFitter(QObject):

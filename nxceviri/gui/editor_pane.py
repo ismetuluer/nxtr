@@ -158,6 +158,12 @@ def counter_info(
             tallest = max(len(split_lines(page, kind_of)) for page, _sep in split_pages(text, kind_of))
             shown += f" · Sayfa {tallest}/{rules.max_lines}"
             over = over or tallest > rules.max_lines
+        if basis == BASIS_MANUAL:
+            # Elle sınır, oyunun gerçek sınırlarını (sığdırma kuralı, biçim sınırı) gizlemez.
+            real = counter_info(text, kind_of, rules, max_length, source=source)
+            if real.basis in (BASIS_RULE, BASIS_MAX_LENGTH) and real.state == "danger":
+                shown += " · Oyun sınırı aşıldı"
+                over = True
         return Counter(shown, "danger" if over else "", basis, limit)
     visible = len(placeholders.TOKEN_RE.sub("", text))
     if basis == BASIS_MAX_LENGTH and max_length is not None:
@@ -644,8 +650,11 @@ class EditorPane(QWidget):
             limit, _basis = line_limit(
                 self._row.source, self._kind_of, self._rules, self._row.max_length, self.manual_limit
             )
-            if limit is not None:
-                for start, end in overflow_spans(text, self._kind_of, limit, self._rules):
+            limits = [limit] if limit is not None else []
+            if _basis == BASIS_MANUAL and self._rules is not None:
+                limits.append(self._rules.width)  # elle sınır, kuralın gerçek sınırını gizlemesin
+            for each in limits:
+                for start, end in overflow_spans(text, self._kind_of, each, self._rules):
                     fmt = QTextCharFormat()
                     fmt.setBackground(QColor(tokens["danger_bg"]))
                     add(start, end, fmt)

@@ -6,7 +6,8 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QAbstractAnimation, QSettings, Qt
+import shiboken6
+from PySide6.QtCore import QCoreApplication, QEvent, QSettings, Qt
 from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import QApplication, QMenu
 from pytestqt.qtbot import QtBot
@@ -291,7 +292,9 @@ def test_collapse_animates_when_enabled(qtbot: QtBot, window: MainWindow, monkey
     assert anim is not None  # hemen bitmedi
     assert window.nav_column.width() > COLLAPSED_WIDTH
     qtbot.waitUntil(lambda: window.nav_column.width() == COLLAPSED_WIDTH and _collapsed(window), timeout=2000)
-    assert anim.state() == QAbstractAnimation.State.Stopped
+    assert window._nav_anim is None  # biten animasyon nesnesi silinir
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    assert not shiboken6.isValid(anim)
     assert not window.nav_header.isVisibleTo(window)
 
 

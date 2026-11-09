@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import httpx
+from pytestqt.qtbot import QtBot
 
 from nxceviri.core.translate.probe import ollama_summary, parse_expiry
 
@@ -33,3 +34,27 @@ def test_forever_cpu_only_and_expiring() -> None:
 def test_no_model_selected_and_bad_json() -> None:
     assert ollama_summary("http://x", "", _client({"models": []}), lambda: NOW)[0] == "Model seçilmedi"
     assert ollama_summary("http://x", "m", _client(["beklenmeyen"]), lambda: NOW) == ["Ollama'ya bağlanılamadı."]
+
+
+def test_request_for_a_new_key_waits_for_the_running_job(qtbot: QtBot) -> None:
+    import threading
+
+    from PySide6.QtCore import QObject
+
+    from nxceviri.gui.provider_probe import ProviderProbe
+
+    parent = QObject()
+    probe = ProviderProbe(parent, lambda: _client({}))
+    seen: list[list[str]] = []
+    probe.fetched.connect(seen.append)
+    gate = threading.Event()
+
+    def slow(_client: httpx.Client) -> list[str]:
+        gate.wait(5)
+        return ["eski"]
+
+    probe.request("a", slow)
+    probe.request("b", lambda _client: ["yeni"])  # çalışan iş varken gelen istek kaybolmaz
+    gate.set()
+    qtbot.waitUntil(lambda: seen == [["yeni"]], timeout=5000)
+    probe.close()

@@ -8,7 +8,7 @@ from collections.abc import Iterator
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QTextCursor, QTextOption
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QWidget
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.project import TranslationRow
@@ -94,6 +94,14 @@ def test_counter_info_variants() -> None:
     c = counter_info("abcdef", kind_of, rules, None, source="abcdefghij", manual=6)
     assert (c.text, c.state, c.basis, c.limit) == ("En uzun satır 6 / 6", "", BASIS_MANUAL, 6)
     assert counter_info("abcdefg", kind_of, rules, None, manual=6).state == "danger"
+    # Elle sınır açıkken gerçek (kural) sınırın aşımı yine bildirilir ve kırmızı olur.
+    c = counter_info("abcdefghijkl", kind_of, rules, None, manual=20)
+    assert c.state == "danger"
+    assert c.text == "En uzun satır 12 / 20 · Oyun sınırı aşıldı"
+    c = counter_info("abcde", kind_of, None, 3, manual=20)  # biçim sınırı (max_length) aşıldı
+    assert c.state == "danger"
+    assert c.text.endswith("Oyun sınırı aşıldı")
+    assert counter_info("abcde", kind_of, None, 9, manual=20).state == ""
     # Yalnızca max_length varsa toplam karakter.
     assert counter_info("abcde", kind_of, None, 3, source="x").text == "5 / 3"
     assert counter_info("abc", kind_of, None, 3).basis == BASIS_MAX_LENGTH
@@ -157,6 +165,25 @@ def test_counter_limit_from_rule_original_or_manual(qtbot: QtBot) -> None:
     assert pane.manual_limit == 12
 
 
+def overflow_selections(pane: EditorPane) -> list[object]:
+    danger_bg = current_tokens()["danger_bg"]
+    return [
+        s
+        for s in pane.translation_edit.extraSelections()
+        if s.format.background().color().name().lower() == danger_bg.lower()
+    ]
+
+
+def test_manual_limit_keeps_rule_overflow_highlight(qtbot: QtBot) -> None:
+    row = make_row(source="x", translation="abcdefghijkl")
+    pane = make_pane(qtbot, row, FitRules(10, 3))
+    assert overflow_selections(pane)
+    pane.limit_box.setChecked(True)
+    pane.limit_spin.setValue(30)  # elle sınır aşılmadı ama oyun sınırı (10) aşıldı: kırmızı kalır
+    assert overflow_selections(pane)
+    assert pane.counter_label.property("role") == "danger"
+
+
 def test_manual_limit_signal_and_restore(qtbot: QtBot) -> None:
     pane = make_pane(qtbot, make_row(), None)
     seen: list[int] = []
@@ -178,6 +205,7 @@ def test_manual_limit_signal_and_restore(qtbot: QtBot) -> None:
 def test_title_shows_short_identity_and_full_key_in_tooltip(qtbot: QtBot) -> None:
     row = make_row()
     pane = make_pane(qtbot, row)
+    pane.resize(1600, 400)  # başlık yazı tipine bağlı olarak kısaltılmasın
     pane.set_row(row, kind_of, None, number=120)
     assert pane.title_label.text() == "No 120 · a.msbt"
     assert "Menu_Start" in pane.title_label.toolTip()
@@ -405,17 +433,23 @@ def test_narrow_head_keeps_badge_and_approve_whole(qtbot: QtBot, width: int) -> 
 
 
 def test_head_hides_arrows_only_when_cramped(qtbot: QtBot) -> None:
+    host = QWidget()  # üst düzey pencere yerleşimin en küçük ölçüsünü zorlar; alt öğe dar boyutlanabilir
+    qtbot.addWidget(host)
+    host.resize(700, 500)
     pane = EditorPane()
-    qtbot.addWidget(pane)
+    pane.setParent(host)
     pane.set_row(make_row(status=Status.UNTRANSLATED), kind_of, None)
-    pane.show()
+    host.show()
+    pane.setMinimumWidth(0)
     pane.resize(600, 400)
     assert pane.prev_button.isVisibleTo(pane)
     assert pane.next_button.isVisibleTo(pane)
-    pane.setMinimumWidth(0)
-    pane.resize(220, 400)
-    QApplication.processEvents()
-    assert pane.width() == 220
+    for width in range(600, 100, -10):  # oklar gizlenene dek daralt (eşik yazı tipine bağlı olduğundan taranır)
+        pane.resize(width, 400)
+        QApplication.processEvents()
+        if not pane.prev_button.isVisibleTo(pane):
+            break
+    assert pane.width() == width
     assert not pane.prev_button.isVisibleTo(pane)
     assert not pane.next_button.isVisibleTo(pane)
     assert _head_state(pane) == {"badge": True, "approve": True}

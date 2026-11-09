@@ -136,16 +136,20 @@ def test_pane_visibility_and_position_persist_as_app_setting(qtbot: QtBot, tmp_p
     assert other.splitter.orientation() == Qt.Orientation.Horizontal
 
 
-def test_manual_limit_persists_as_app_setting(qtbot: QtBot, tmp_path: Path) -> None:
-    ini = str(tmp_path / "limit.ini")
-    page, _ = make_page(qtbot, settings=QSettings(ini, QSettings.Format.IniFormat))
+def test_page_relays_manual_limit_changes_and_loads_without_signal(qtbot: QtBot) -> None:
+    page, _ = make_page(qtbot)
+    seen: list[int] = []
+    page.manual_limit_changed.connect(seen.append)
     page.pane.limit_box.setChecked(True)
     page.pane.limit_spin.setValue(33)
-    other, _ = make_page(qtbot, settings=QSettings(ini, QSettings.Format.IniFormat))
-    assert other.pane.manual_limit == 33
-    page.pane.limit_box.setChecked(False)
-    third, _ = make_page(qtbot, settings=QSettings(ini, QSettings.Format.IniFormat))
-    assert third.pane.manual_limit is None
+    assert seen[-1] == 33
+    seen.clear()
+    page.set_manual_limit(0)  # proje değişince yüklenir; sinyal yaymaz
+    assert seen == []
+    assert not page.pane.limit_box.isChecked()
+    page.set_manual_limit(21)
+    assert page.pane.limit_spin.value() == 21
+    assert seen == []
 
 
 def test_pane_title_uses_row_number_and_group(qtbot: QtBot) -> None:
@@ -371,6 +375,24 @@ def test_pane_starts_closed_when_there_is_no_room_and_state_is_remembered(qtbot:
     page.view_actions.pane_toggle.trigger()  # kullanıcı kapatır; seçim hatırlanır
     other, _ = make_page(qtbot, settings=QSettings(ini, QSettings.Format.IniFormat))
     assert not other.pane.isVisibleTo(other)
+
+
+def test_opening_pane_without_room_tells_why(qtbot: QtBot) -> None:
+    page = TranslatePage()
+    qtbot.addWidget(page)
+    page.setMinimumSize(1, 1)
+    page.resize(820, 520)
+    page.show()
+    page.set_rows(default_rows())
+    qtbot.waitUntil(lambda: not page.pane.isVisibleTo(page), timeout=3000)
+    page.view_actions.pane_toggle.trigger()  # kapat
+    seen: list[str] = []
+    page.hint.connect(seen.append)
+    page.view_actions.pane_toggle.trigger()  # aç: yer yok
+    assert seen == ["Panel için yer yok; pencereyi büyütün ya da paneli sağa alın."]
+    assert not page.pane.isVisibleTo(page)
+    page.view_actions.pane_toggle.trigger()  # kapat: ileti yok
+    assert len(seen) == 1
 
 
 def test_external_update_refreshes_idle_pane(qtbot: QtBot) -> None:

@@ -166,6 +166,8 @@ STEP_TRANSLATE = 2
 STEP_QA = 3
 STEP_EXPORT = 4
 #: Proje ayarı: son kullanılan redaksiyon talimatı (pencere bir sonraki açılışta bunu önerir).
+#: Projenin ayar tablosunda "Elle sınır" (çeviri panelinin satır sınırı); 0 = kapalı.
+MANUAL_LIMIT_KEY = "translate_manual_limit"
 REVISE_INSTRUCTION_KEY = "revise_instruction"
 TRANSLATE_INSTRUCTION_KEY = "translate_instruction"
 
@@ -301,6 +303,8 @@ class MainWindow(QMainWindow):
         self._derived_timer.setInterval(0)
         self._derived_timer.timeout.connect(self._refresh_derived)
         self.translate_page.view_changed.connect(self._refresh_status)
+        self.translate_page.manual_limit_changed.connect(self._save_manual_limit)
+        self.translate_page.hint.connect(lambda text: self.statusBar().showMessage(text, 6000))
         self.translate_page.model.modelReset.connect(self._derived_timer.start)
         self.translate_page.model.dataChanged.connect(lambda *_args: self._derived_timer.start())
 
@@ -385,6 +389,7 @@ class MainWindow(QMainWindow):
         self.nav_action.setChecked(not collapsed)
         if self._nav_anim is not None:
             self._nav_anim.stop()
+            self._nav_anim.deleteLater()  # durdurulan animasyon nesnesi pencereyle birlikte birikmesin
             self._nav_anim = None
         self._nav_collapsed = collapsed
         target = self._nav_width()
@@ -405,6 +410,8 @@ class MainWindow(QMainWindow):
         anim.start()
 
     def _finish_nav(self, collapsed: bool) -> None:
+        if self._nav_anim is not None:
+            self._nav_anim.deleteLater()
         self._nav_anim = None
         self.nav.set_collapsed(collapsed)
         self.nav_header.setVisible(not collapsed)
@@ -1250,6 +1257,17 @@ class MainWindow(QMainWindow):
     def _push_fit_to_page(self) -> None:
         """Çeviri sayfasına sığdırma ayarını ve kod türlerini verir (panel sayacı ve çipler)."""
         self.translate_page.set_fit_config(self._fit_config())
+        self.translate_page.set_manual_limit(self._manual_limit())
+
+    def _manual_limit(self) -> int:
+        """Projenin kayıtlı "Elle sınır"ı (0: kapalı)."""
+        try:
+            return max(int(self.project.setting(MANUAL_LIMIT_KEY, "0")), 0)
+        except ValueError:
+            return 0
+
+    def _save_manual_limit(self, limit: int) -> None:
+        self.project.set_setting(MANUAL_LIMIT_KEY, str(limit))
 
     def _fit_config(self) -> FitConfig:
         """Projenin kayıtlı sığdırma ayarı (sınır yoksa denetim ve düzeltme sığdırma yapmaz)."""

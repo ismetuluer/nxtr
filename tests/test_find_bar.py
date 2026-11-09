@@ -230,17 +230,6 @@ def test_spans_are_painted_and_cleared(qtbot: QtBot) -> None:
     assert spans_of(page, 1) is None
 
 
-def test_match_hidden_by_table_filter_clears_the_filter(qtbot: QtBot) -> None:
-    page, _ = make_page(qtbot)
-    page.search.setText("limit")
-    page.open_find(False)
-    page.find_bar.find_edit.setText("içmem")  # süzgeçle gizlenen satır: gösterilmek için süzgeç temizlenir
-    current = page.current_row()
-    assert current is not None
-    assert current.id == 4
-    assert page.search.text() == ""
-
-
 def test_field_source_finds_in_original_and_cannot_replace(qtbot: QtBot) -> None:
     page, writer = make_page(qtbot)
     bar = page.find_bar

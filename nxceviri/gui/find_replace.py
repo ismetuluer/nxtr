@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import dataclasses
 import re
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -23,7 +23,15 @@ from PySide6.QtGui import QAction, QActionGroup, QKeySequence, QShortcut
 from PySide6.QtWidgets import QCheckBox, QHBoxLayout, QLineEdit, QMenu, QToolButton, QVBoxLayout, QWidget
 
 from nxceviri.core.project import TranslationRow
-from nxceviri.core.translate.replace import ReplacePlan, find_pattern, plan_replace
+from nxceviri.core.translate.regexguard import (
+    RISKY_MESSAGE,
+    SEARCH_BUDGET,
+    TIMEOUT_MESSAGE,
+    Deadline,
+    RiskyPattern,
+    SearchTimeout,
+)
+from nxceviri.core.translate.replace import ReplacePlan, find_pattern, plan_replace, replacement_error
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.widgets import button, format_int, label
 
@@ -35,6 +43,12 @@ _SCOPE_NAMES = {SCOPE_ALL: "Tümü", SCOPE_VISIBLE: "Görünenler", SCOPE_SELECT
 FIELD_TRANSLATION = "translation"
 FIELD_SOURCE = "source"
 _FIELD_NAMES = {FIELD_TRANSLATION: "Çeviri", FIELD_SOURCE: "Orijinal"}
+
+#: Büyük tablolarda (bu kadar satırdan çoksa) her tuş vuruşu için eşleştirme yazma durunca yapılır.
+_DEBOUNCE_ROWS = 2000
+_DEBOUNCE_MS = 150
+#: Önizleme yalnızca görünen satırlar için hesaplanır; kaydırınca bu gecikmeyle tazelenir.
+_SCROLL_REFRESH_MS = 60
 
 #: Modelin hücre için verdiği bul-vurgusu: `FindCell`. Hücre çizimi eşleşen aralıkları bununla boyar.
 FIND_SPANS_ROLE = Qt.ItemDataRole.UserRole + 20
@@ -67,7 +81,15 @@ class FindHost(Protocol):
 
     def find_current_id(self) -> int | None: ...
 
-    def find_goto(self, row_id: int) -> None: ...
+    def find_order(self, row_id: int) -> int: ...
+
+    def find_view_ids(self) -> frozenset[int]: ...
+
+    def find_filters_active(self) -> bool: ...
+
+    def find_clear_filters(self) -> None: ...
+
+    def find_goto(self, row_id: int) -> bool: ...
 
     def find_apply(self, changes: list[tuple[int, str]]) -> list[TranslationRow] | None: ...
 
@@ -79,6 +101,34 @@ def match_spans(pattern: re.Pattern[str], text: str) -> tuple[tuple[int, int], .
     return tuple((m.start(), m.end()) for m in pattern.finditer(text) if m.end() > m.start())
 
 
+class LazySpans(Mapping[int, tuple[tuple[int, int], ...]]):
+    """Satır kimliği → eşleşme aralıkları; aralıklar yalnızca istenen (çizilen) satırlar için hesaplanır.
+
+    Çok sayıda eşleşmede (ör. 50.000 satır) her tuş vuruşunda hepsinin aralığını çıkarmak arayüzü donduruyordu.
+    """
+
+    def __init__(self, pattern: re.Pattern[str], rows: Mapping[int, str]) -> None:
+        self._pattern = pattern
+        self._texts = rows
+        self._cache: dict[int, tuple[tuple[int, int], ...]] = {}
+
+    def __getitem__(self, row_id: int) -> tuple[tuple[int, int], ...]:
+        if row_id not in self._texts:
+            raise KeyError(row_id)
+        if row_id not in self._cache:
+            self._cache[row_id] = match_spans(self._pattern, self._texts[row_id])
+        return self._cache[row_id]
+
+    def __iter__(self) -> Iterator[int]:
+        return iter(self._texts)
+
+    def __len__(self) -> int:
+        return len(self._texts)
+
+    def __contains__(self, row_id: object) -> bool:
+        return row_id in self._texts
+
+
 class FindBar(QWidget):
     closed = Signal()
 
@@ -87,14 +137,17 @@ class FindBar(QWidget):
         self.setObjectName("findBar")
         self._host = host
         self._matches: list[int] = []
-        self._spans: dict[int, tuple[tuple[int, int], ...]] = {}
-        self._order: dict[int, int] = {}
+        self._spans: Mapping[int, tuple[tuple[int, int], ...]] = {}
+        self._match_rows: dict[int, TranslationRow] = {}
         self._cursor = 0
         self._current_id: int | None = None
         self._selected_ids: frozenset[int] = frozenset()
         self._updating = False
         self._busy = False
+        self._hidden_match = False
         self.error = ""
+        self.replace_error = ""
+        self._scope_chosen = False
         self.scope = SCOPE_ALL
         self.field = FIELD_TRANSLATION
 
@@ -132,6 +185,21 @@ class FindBar(QWidget):
         top.addWidget(self.close_button)
         outer.addLayout(top)
 
+        self.notice_row = QWidget()
+        notice = QHBoxLayout(self.notice_row)
+        notice.setContentsMargins(0, 0, 0, 0)
+        notice.setSpacing(4)
+        self.notice_label = label("", "muted")
+        self.clear_filters_link = QToolButton()
+        self.clear_filters_link.setProperty("role", "link")
+        self.clear_filters_link.setText("Süzgeci Temizle")
+        self.clear_filters_link.setCursor(Qt.CursorShape.PointingHandCursor)
+        notice.addWidget(self.notice_label)
+        notice.addWidget(self.clear_filters_link)
+        notice.addStretch(1)
+        self.notice_row.hide()
+        outer.addWidget(self.notice_row)
+
         self.replace_row = QWidget()
         bottom = QHBoxLayout(self.replace_row)
         bottom.setContentsMargins(0, 0, 0, 0)
@@ -167,6 +235,7 @@ class FindBar(QWidget):
         self.replace_button.clicked.connect(self.replace_current)
         self.replace_all_button.clicked.connect(self.replace_all)
         self.close_button.clicked.connect(self.close_bar)
+        self.clear_filters_link.clicked.connect(self._clear_filters_clicked)
         escape = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
         escape.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         escape.activated.connect(self.close_bar)
@@ -175,6 +244,15 @@ class FindBar(QWidget):
         self._refresh_timer.setSingleShot(True)
         self._refresh_timer.setInterval(0)
         self._refresh_timer.timeout.connect(self._recompute_keep)
+        # Büyük tabloda tuş vuruşları birikmesin: eşleştirme yazma durunca bir kez yapılır.
+        self._typing_timer = QTimer(self)
+        self._typing_timer.setSingleShot(True)
+        self._typing_timer.setInterval(_DEBOUNCE_MS)
+        self._typing_timer.timeout.connect(self._recompute_from_start)
+        self._scroll_timer = QTimer(self)
+        self._scroll_timer.setSingleShot(True)
+        self._scroll_timer.setInterval(_SCROLL_REFRESH_MS)
+        self._scroll_timer.timeout.connect(self._refresh_marks)
         self.hide()
         self._update_state()
 
@@ -219,6 +297,8 @@ class FindBar(QWidget):
         self.show()
         if replace:
             self.replace_toggle.setChecked(True)
+        if not self._scope_chosen:  # süzgeç etkinken varsayılan kapsam görünen satırlardır
+            self._apply_scope(SCOPE_VISIBLE if self._host.find_filters_active() else SCOPE_ALL)
         self.find_edit.setFocus()
         self.find_edit.selectAll()
         self._recompute_from_start()
@@ -227,8 +307,12 @@ class FindBar(QWidget):
         if self.isHidden():
             return
         self.hide()
+        self._typing_timer.stop()
+        self._scroll_timer.stop()
+        self._scope_chosen = False
         self._matches = []
         self._spans = {}
+        self._match_rows = {}
         self._set_marks(FindMarks())
         self.closed.emit()
 
@@ -240,12 +324,17 @@ class FindBar(QWidget):
     # --- seçenekler ------------------------------------------------------------------------
 
     def set_scope(self, scope: int) -> None:
+        """Kullanıcının seçtiği kapsam; süzgeç etkinken bile bu seçim korunur."""
+        self._scope_chosen = True
+        self._apply_scope(scope)
+        self._recompute_from_start()
+
+    def _apply_scope(self, scope: int) -> None:
         self.scope = scope
         self._scope_actions[scope].setChecked(True)
         self.scope_button.setText(_SCOPE_NAMES[scope])
         if scope == SCOPE_SELECTED:  # gezinirken seçim değişir; kapsam seçildiği andaki satırlarda kalır
             self._selected_ids = frozenset(r.id for r in self._host.find_rows(SCOPE_SELECTED))
-        self._recompute_from_start()
 
     def set_field(self, field_name: str) -> None:
         self.field = field_name
@@ -285,27 +374,57 @@ class FindBar(QWidget):
             )
         except re.error as exc:
             self.error = f"Düzenli ifade geçersiz: {exc}"
-            return None
+        except RiskyPattern:
+            self.error = RISKY_MESSAGE
+        return None
 
     def _recompute(self) -> None:
         pattern = self._pattern()
         self._matches = []
         self._spans = {}
-        self._order = {r.id: i for i, r in enumerate(self._host.find_rows(SCOPE_ALL))}
+        self._match_rows = {}
         if pattern is not None:
-            for row in self._scope_rows():
-                spans = match_spans(pattern, self._text_of(row))
-                if spans:
-                    self._matches.append(row.id)
-                    self._spans[row.id] = spans
+            deadline = Deadline(SEARCH_BUDGET)
+            try:
+                texts: dict[int, str] = {}
+                for row in self._scope_rows():
+                    deadline.check()
+                    text = self._text_of(row)
+                    found = pattern.search(text)
+                    # Yalnızca boş eşleşen satır eşleşme sayılmaz (aralıklar boş eşleşmeleri atlar).
+                    if found is not None and (found.end() > found.start() or match_spans(pattern, text)):
+                        self._matches.append(row.id)
+                        self._match_rows[row.id] = row
+                        texts[row.id] = text
+                self._spans = LazySpans(pattern, texts)
+            except SearchTimeout:
+                self._matches, self._spans, self._match_rows = [], {}, {}
+                self.error = TIMEOUT_MESSAGE
+        self._sync_replace_error(pattern)
+
+    def _sync_replace_error(self, pattern: re.Pattern[str] | None) -> None:
+        """Düzenli ifade değiştirme metni geçersizse hata çubukta gösterilir; değiştirme ve önizleme pasifleşir."""
+        previous = self.replace_error
+        regex = self.regex_button.isChecked() and pattern is not None
+        self.replace_error = replacement_error(pattern, self.replace_edit.text()) if regex and pattern else ""
+        if self.replace_error:
+            self.status_label.setText(self.replace_error)
+        elif previous and self.status_label.text() == previous:
+            self.status_label.setText("")
 
     def _recompute_from_start(self) -> None:
         """Ölçüt değişti: eşleşmeler yenilenir, imleç tablodaki geçerli satırdan sonraki ilk eşleşmeye gider."""
+        self._typing_timer.stop()
         if self.isHidden():
             return
         self._recompute()
         self._cursor = self._start_index()
         self._show_current(goto=True)
+
+    def flush(self) -> None:
+        """Bekleyen (gecikmeli) arama varsa hemen yapar."""
+        if self._typing_timer.isActive():
+            self._recompute_from_start()
 
     def _recompute_keep(self) -> None:
         """Tablo değişti: imleç aynı satırda kalır (satır artık eşleşmiyorsa sıradaki eşleşmede)."""
@@ -321,20 +440,37 @@ class FindBar(QWidget):
         if not self.isHidden() and not self._updating:
             self._refresh_timer.start()
 
+    def view_scrolled(self) -> None:
+        """Tablo kaydırıldı: önizleme açıksa yeni görünen satırlar için tazelenir."""
+        if not self.isHidden() and self._preview_on():
+            self._scroll_timer.start()
+
     def _start_index(self) -> int:
         if not self._matches:
             return 0
         current = self._host.find_current_id()
-        start = self._order.get(current, 0) if current is not None else 0
-        return next((i for i, rid in enumerate(self._matches) if self._order.get(rid, 0) >= start), 0)
+        start = self._host.find_order(current) if current is not None else 0
+        return next((i for i, rid in enumerate(self._matches) if self._host.find_order(rid) >= start), 0)
 
-    def _criteria_changed(self) -> None:
+    def _criteria_changed(self, *_args: object) -> None:
         self.status_label.setText("")
-        self._recompute_from_start()
+        if len(self._host.find_rows(SCOPE_ALL)) > _DEBOUNCE_ROWS:
+            self._typing_timer.start()
+        else:
+            self._recompute_from_start()
 
     def _replacement_changed(self) -> None:
         self.status_label.setText("")
+        self._sync_replace_error(self._pattern_if_valid())
+        self._update_state()
         self._refresh_marks()
+
+    def _pattern_if_valid(self) -> re.Pattern[str] | None:
+        """Bul hatası durumunu bozmadan geçerli kalıbı verir (değiştirme metni denetimi için)."""
+        saved = self.error
+        pattern = self._pattern()
+        self.error = saved
+        return pattern
 
     # --- gezinme -----------------------------------------------------------------------------
 
@@ -345,6 +481,7 @@ class FindBar(QWidget):
         self._step(-1)
 
     def _step(self, delta: int) -> None:
+        self.flush()
         if not self._matches:
             return
         self._cursor = (self._cursor + delta) % len(self._matches)
@@ -358,14 +495,23 @@ class FindBar(QWidget):
         else:
             self._cursor = 0
             self._current_id = None
-        self._update_state()
-        self._refresh_marks()
+        self._hidden_match = False
         if goto and self._current_id is not None:
             self._updating = True
             try:
-                self._host.find_goto(self._current_id)
+                self._hidden_match = not self._host.find_goto(self._current_id)
             finally:
                 self._updating = False
+        self._update_state()
+        self._refresh_marks()
+
+    def _clear_filters_clicked(self) -> None:
+        """Kullanıcı süzgeci kendisi temizler; sonra o eşleşmeye gidilir."""
+        self._host.find_clear_filters()
+        self._recompute()
+        if self._current_id in self._matches:
+            self._cursor = self._matches.index(self._current_id)
+        self._show_current(goto=True)
 
     @property
     def match_count(self) -> int:
@@ -379,29 +525,49 @@ class FindBar(QWidget):
 
     def _update_state(self) -> None:
         count = len(self._matches)
+        stopped = self.error in (RISKY_MESSAGE, TIMEOUT_MESSAGE)
         self.count_label.setToolTip(self.error)
-        if self.error:
+        if stopped:
+            self.count_label.setText("Durduruldu")
+        elif self.error:
             self.count_label.setText("Geçersiz")
         elif not self.find_edit.text():
             self.count_label.setText("")
         else:
-            self.count_label.setText(
-                f"{format_int(self._cursor + 1)} / {format_int(count)}" if count else "Eşleşme yok"
-            )
+            text = f"{format_int(self._cursor + 1)} / {format_int(count)}" if count else "Eşleşme yok"
+            if count and self.scope == SCOPE_VISIBLE and self._host.find_filters_active():
+                text += " · süzgeçli"
+            self.count_label.setText(text)
+        notice = self.error if stopped else ("Bu eşleşme süzgeç nedeniyle gizli" if self._hidden_match else "")
+        self.notice_label.setText(notice)
+        self.clear_filters_link.setVisible(self._hidden_match and not stopped)
+        self.notice_row.setVisible(bool(notice))
         for tool in (self.prev_button, self.next_button):
             tool.setEnabled(count > 0)
-        can = count > 0 and self._can_replace() and not self.error
+        can = count > 0 and self._can_replace() and not self.error and not self.replace_error
         self.replace_button.setEnabled(can)
         self.replace_all_button.setEnabled(can)
         self.replace_edit.setEnabled(self._can_replace())
-        self.preview_box.setEnabled(self._can_replace())
+        self.preview_box.setEnabled(self._can_replace() and not self.replace_error)
         self.replace_edit.setToolTip("" if self._can_replace() else "Orijinal metinde yalnızca bulunur.")
+
+    def _preview_on(self) -> bool:
+        return (
+            self.preview_box.isChecked()
+            and self.replace_visible
+            and self._can_replace()
+            and not self.replace_error
+            and not self.error
+        )
 
     def _refresh_marks(self) -> None:
         preview: dict[int, str] = {}
-        if self.preview_box.isChecked() and self.replace_visible and self._can_replace() and self._matches:
-            preview = dict(self._plan(self._rows_by_id(self._matches)).changes)
-        self._set_marks(FindMarks(self.field, dict(self._spans), self._current_id, preview))
+        if self._preview_on() and self._matches:
+            # Yalnızca görünen satırlar önizlenir; “Tümünü Değiştir” yine kapsamın tamamında planlar.
+            visible = self._host.find_view_ids()
+            rows = [self._match_rows[i] for i in self._matches if i in visible]
+            preview = dict(self._plan(rows, budget=SEARCH_BUDGET).changes)
+        self._set_marks(FindMarks(self.field, self._spans, self._current_id, preview))
 
     def _set_marks(self, marks: FindMarks) -> None:
         self._updating = True
@@ -416,7 +582,7 @@ class FindBar(QWidget):
         wanted = set(ids)
         return [r for r in self._scope_rows() if r.id in wanted]
 
-    def _plan(self, rows: Sequence[TranslationRow]) -> ReplacePlan:
+    def _plan(self, rows: Sequence[TranslationRow], budget: float = 2.0) -> ReplacePlan:
         return plan_replace(
             rows,
             self.find_edit.text(),
@@ -424,11 +590,13 @@ class FindBar(QWidget):
             case=self.case_button.isChecked(),
             whole_word=self.word_button.isChecked(),
             regex=self.regex_button.isChecked(),
+            budget=budget,
         )
 
     def replace_current(self) -> None:
         """Gösterilen satırdaki eşleşmeleri değiştirir ve sonraki eşleşmeye geçer."""
-        if not self._matches or not self._can_replace() or self.error or self._current_id is None:
+        self.flush()
+        if not self._matches or not self._can_replace() or self.error or self.replace_error or self._current_id is None:
             return
         replaced_id = self._current_id
         if not self._write(self._plan(self._rows_by_id([replaced_id]))):
@@ -440,7 +608,8 @@ class FindBar(QWidget):
 
     def replace_all(self) -> None:
         """Kapsamdaki bütün eşleşmeleri tek iş olarak değiştirir."""
-        if not self._matches or not self._can_replace() or self.error:
+        self.flush()
+        if not self._matches or not self._can_replace() or self.error or self.replace_error:
             return
         if self._write(self._plan(self._rows_by_id(self._matches))):
             self._recompute()

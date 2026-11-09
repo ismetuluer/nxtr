@@ -40,6 +40,7 @@ class ProviderProbe(QObject):
         self._cache: tuple[object, float, list[str]] | None = None
         self._wanted: object = None
         self._task: Task | None = None
+        self._queued: tuple[object, Fetch] | None = None
 
     def lines_for(self, key: object) -> list[str] | None:
         """Bu anahtar için son bilinen satırlar (eskimiş olabilir); yoksa None."""
@@ -51,7 +52,9 @@ class ProviderProbe(QObject):
             self.fetched.emit(self._cache[2])
             return
         if self._task is not None:
+            self._queued = (key, fetch)  # çalışan iş bitince bu istek çalıştırılır; ipucu "alınıyor"da kalmasın
             return
+        self._queued = None
 
         def work(_ctx: object) -> list[str]:
             client = self._client_factory()
@@ -76,6 +79,9 @@ class ProviderProbe(QObject):
         task, self._task = self._task, None
         if task is not None:
             task.deleteLater()
+        queued, self._queued = self._queued, None
+        if queued is not None:
+            self.request(*queued)
 
     def close(self) -> None:
         """Pencere kapanırken süren sorgunun bitmesini bekler (zaman aşımı kısa olduğundan en çok birkaç saniye)."""

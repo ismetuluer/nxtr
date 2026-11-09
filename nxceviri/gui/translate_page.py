@@ -85,8 +85,6 @@ COL_SOURCE, COL_TRANSLATION, COL_STATUS, COL_FILE, COL_KEY, COL_PREVIOUS, COL_NO
 _COLUMNS = ("Orijinal", "Çeviri", "Durum", "Dosya", "Anahtar", "Önceki çeviri", "No")
 #: Arama kutusuna "#120" yazılınca 120 numaralı satıra gidilir.
 _NUMBER_QUERY = re.compile(r"#\s*(\d+)")
-#: "Elle sınır" (çeviri panelinin karakter sayacı) uygulama ayarı anahtarı; 0 = kapalı.
-KEY_MANUAL_LIMIT = "translate/manual_limit"
 #: Durum süzgecinde "son işte değişen satırlar" seçeneğinin değeri.
 CHANGED_FILTER = "@changed"
 #: Durum süzgecinde yalnızca renkle işaretli (sorunlu) satırlar.
@@ -133,20 +131,14 @@ _RESIZE_DELAY_MS = 60
 _UPPERCASE_MARK = "⇧ "
 #: Görünen satırların üstünde/altında da ölçülen satır sayısı (kaydırırken boşluk görünmesin).
 _ROW_MARGIN = 8
+#: Görünür alan bilinmiyorken (yerleşim oturmadan) önizlenecek en çok satır sayısı.
+_VIEW_ROWS_CAP = 200
 
 _Index = QModelIndex | QPersistentModelIndex
 #: Panel sağdayken en az bu genişlikte (px) gösterilir.
 PANE_MIN_WIDTH = 280
 #: Değişiklikleri kaydeder ve güncellenmiş satırları döndürür; hata olursa NxError fırlatır.
 CommitFn = Callable[[list[tuple[int, str]]], list[TranslationRow]]
-
-
-def _int_setting(settings: QSettings, key: str) -> int:
-    """Tam sayı ayarı; yoksa ya da bozuksa 0."""
-    try:
-        return max(int(str(settings.value(key, "0"))), 0)
-    except ValueError:
-        return 0
 
 
 def clipboard_text(rows: list[TranslationRow], what: str) -> str:
@@ -300,7 +292,14 @@ class TranslationModel(QAbstractTableModel):
         old = self.find_marks
         self.find_marks = marks
         changed = {*old.spans, *old.preview, *marks.spans, *marks.preview, old.current, marks.current}
-        self._ids_changed([i for i in changed if i is not None])
+        positions = [p for i in changed if i is not None and (p := self._pos.get(i)) is not None]
+        if positions:
+            # Satır satır yerine tek aralık: 50.000 eşleşmede bile tek sinyal; yalnızca bul rolleri değişir.
+            self.dataChanged.emit(
+                self.index(min(positions), 0),
+                self.index(max(positions), len(_COLUMNS) - 1),
+                [FIND_SPANS_ROLE, ROW_ROLE, Qt.ItemDataRole.DisplayRole],
+            )
 
     def row_by_id(self, row_id: int) -> TranslationRow | None:
         i = self._pos.get(row_id)
@@ -615,6 +614,10 @@ class TranslatePage(QWidget):
     go_to_scan = Signal()
     #: Süzgeç değişti ya da satırlar yenilendi (durum çubuğundaki "N / M satır" güncellensin).
     view_changed = Signal()
+    #: Kısa, geçici bilgi (durum çubuğunda birkaç saniye gösterilir).
+    hint = Signal(str)
+    #: Kullanıcı "Elle sınır"ı değiştirdi (0: kapalı); proje ayarına yazılır.
+    manual_limit_changed = Signal(int)
     machine_requested = Signal()
     uppercase_changed = Signal(object)  # UppercaseRules
     machine_action_requested = Signal(str)  # bağlam menüsü: seçili satırlara iş (çevir/yeniden çevir/düzelt)
@@ -730,7 +733,7 @@ class TranslatePage(QWidget):
         self.view_actions.symbols_changed.connect(lambda _on: self._apply_view())
         self.view_actions.align_changed.connect(lambda _align: self._apply_view())
         self.view_actions.pane_changed.connect(lambda _pane: self._apply_pane())
-        self.view_actions.pane_visible_changed.connect(lambda _visible: self._apply_pane())
+        self.view_actions.pane_visible_changed.connect(self._pane_visible_changed)
         self.card = Card("Çeviri tablosu")
         filters = QHBoxLayout()
         self.search = QLineEdit()
@@ -744,6 +747,15 @@ class TranslatePage(QWidget):
         self.key_filter = ValueFilter("Anahtar")
         filters.addWidget(self.search, 2)
         filters.addWidget(self.status_filter)
+        # Süzgeç etkinken satırların neden azaldığını gösterir; süzgeç yokken görünmez (kalıcı düğme değil).
+        self.filter_chip = QToolButton()
+        self.filter_chip.setProperty("role", "link")
+        self.filter_chip.setText("Süzgeç etkin · Temizle")
+        self.filter_chip.setToolTip("Arama ve süzgeçlerin hepsini kaldırır.")
+        self.filter_chip.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.filter_chip.clicked.connect(self._clear_filters)
+        self.filter_chip.hide()
+        filters.addWidget(self.filter_chip)
         filters.addStretch(1)
         # Görünüm seçenekleri tek menüde: dar pencerede filtre satırı sığsın.
         self.wrap_box = QAction("Metni kaydır", self, checkable=True)
@@ -865,6 +877,7 @@ class TranslatePage(QWidget):
         self._scroll_timer.setInterval(0)
         self._scroll_timer.timeout.connect(self._scroll_row_into_view)
         self.table.verticalScrollBar().valueChanged.connect(lambda _v: self._schedule_fit_rows())
+        self.table.verticalScrollBar().valueChanged.connect(lambda _v: self.find_bar.view_scrolled())
         self.wrap_box.toggled.connect(self._set_wrap)
         self.colors_box.toggled.connect(self._set_issue_colors)
         self.previous_box.toggled.connect(self._show_previous)
@@ -884,6 +897,7 @@ class TranslatePage(QWidget):
         self._fit_rows()
 
         self.pane = EditorPane()
+        self.pane.manual_limit_changed.connect(self.manual_limit_changed)
         self.pane.commit_requested.connect(self._on_pane_commit)
         self.pane.navigate_requested.connect(self._navigate)
         self.pane.approve_requested.connect(self._approve_from_pane)
@@ -929,8 +943,10 @@ class TranslatePage(QWidget):
         self.view_actions.bind_settings(settings)
         self._apply_view()
         self._apply_pane()
-        self.pane.set_manual_limit(_int_setting(settings, KEY_MANUAL_LIMIT))
-        self.pane.manual_limit_changed.connect(lambda limit: settings.setValue(KEY_MANUAL_LIMIT, str(limit)))
+
+    def set_manual_limit(self, limit: int) -> None:
+        """Projenin kayıtlı "Elle sınır"ını panele yükler (0: kapalı); sinyal yaymaz."""
+        self.pane.set_manual_limit(limit)
 
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
@@ -987,6 +1003,14 @@ class TranslatePage(QWidget):
         if not self.view_actions.pane_visible or not self._pane_room:
             return None
         return self.view_actions.pane
+
+    def _pane_visible_changed(self, visible: bool) -> None:
+        """Panel açılmak istenip yer yoksa kullanıcıya bir kez nedeni söylenir (panel gizli kalır)."""
+        self._apply_pane()
+        if visible and self.isVisible():
+            self._check_pane_room()
+            if not self._pane_room:
+                self.hint.emit("Panel için yer yok; pencereyi büyütün ya da paneli sağa alın.")
 
     def _check_pane_room(self) -> None:
         """Yerleşim oturduktan sonra (zamanlayıcıyla) panele yer olup olmadığına bakar."""
@@ -1235,9 +1259,20 @@ class TranslatePage(QWidget):
         self.group_filter.set_values(groups)
         self.key_filter.set_values(keys)
         if self._pending_filters is not None:  # proje değişti: kayıtlı süzgeçler artık değerler bilindiği için yüklenir
-            self.group_filter.load_json(self._pending_filters[0])
-            self.key_filter.load_json(self._pending_filters[1])
+            # Sütunu gizli olan (başlıkta huni görünmeyen) süzgeç yok sayılıp kayıttan da silinir: satırları
+            # görünmeden gizlemesin. Sütun gizleme uygulama geneli, süzgeç proje başınadır.
+            dropped = False
+            for col, vf, saved in (
+                (COL_FILE, self.group_filter, self._pending_filters[0]),
+                (COL_KEY, self.key_filter, self._pending_filters[1]),
+            ):
+                if self.table.isColumnHidden(col):
+                    dropped = dropped or bool(saved)
+                else:
+                    vf.load_json(saved)
             self._pending_filters = None
+            if dropped:
+                self._save_filters()
         self.stack.setCurrentWidget(self.content if rows else self.empty)
         self.banner.show_message("danger", "")
         self._refilter()
@@ -1255,6 +1290,7 @@ class TranslatePage(QWidget):
             self.key_filter.selected,
             self.search.text(),
         )
+        self.filter_chip.setVisible(self.find_filters_active())
         self.view_changed.emit()
         self._schedule_fit_rows()
         if current is not None:
@@ -1393,25 +1429,49 @@ class TranslatePage(QWidget):
         row = self.current_row()
         return None if row is None else row.id
 
-    def find_goto(self, row_id: int) -> None:
-        """Eşleşen satırı odağı çalmadan seçer ve görünür yapar (gizleyen süzgeçler temizlenir)."""
+    def find_order(self, row_id: int) -> int:
+        return self.model.position(row_id) or 0
+
+    def find_view_ids(self) -> frozenset[int]:
+        """Tabloda görünen (ve çevresindeki) satırların kimlikleri; önizleme yalnızca bunlar için hesaplanır."""
+        total = self.proxy.rowCount()
+        if not total:
+            return frozenset()
+        first = max(self.table.rowAt(0), 0)
+        last = self.table.rowAt(self.table.viewport().height() - 1)
+        last = min(first + _VIEW_ROWS_CAP, total - 1) if last < 0 else last
+        return frozenset(
+            self.model.rows[self.proxy.mapToSource(self.proxy.index(i, 0)).row()].id
+            for i in range(max(first - _ROW_MARGIN, 0), min(last + _ROW_MARGIN, total - 1) + 1)
+        )
+
+    def find_filters_active(self) -> bool:
+        return bool(
+            self.proxy.status or self.proxy.text or self.proxy.groups is not None or self.proxy.keys is not None
+        )
+
+    def find_clear_filters(self) -> None:
+        self._clear_filters()
+
+    def find_goto(self, row_id: int) -> bool:
+        """Eşleşen satırı odağı çalmadan seçer ve görünür yapar. Satırı süzgeç gizliyorsa süzgeçlere
+        dokunulmaz ve False döner."""
         source = self.model.position(row_id)
         if source is None:
-            return
+            return False
         index = self.proxy.mapFromSource(self.model.index(source, 0))
         if not index.isValid():
-            self._clear_filters()
-            index = self.proxy.mapFromSource(self.model.index(source, 0))
-        if index.isValid():
-            self._select_proxy_row(index.row())
+            return False
+        self._select_proxy_row(index.row())
+        return True
 
     def find_apply(self, changes: list[tuple[int, str]]) -> list[TranslationRow] | None:
         return None if self.replace_fn is None else self.replace_fn(changes)
 
     def find_set_marks(self, marks: FindMarks) -> None:
-        had_preview = bool(self.model.find_marks.preview)
+        preview_changed = self.model.find_marks.preview != marks.preview
         self.model.set_find_marks(marks)
-        if had_preview or marks.preview:
+        if preview_changed:
             self._schedule_fit_rows()  # önizleme metni satır yüksekliğini değiştirir
 
     def current_row(self) -> TranslationRow | None:

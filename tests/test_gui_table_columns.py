@@ -377,6 +377,27 @@ def test_user_widening_beyond_window_shows_scrollbar_and_click_does_not_scroll(q
     assert bar.value() == 0
 
 
+def test_keyboard_navigation_keeps_current_cell_visible(qtbot: QtBot) -> None:
+    p = _page(qtbot, [_row(i, f"Satır {i}", f"Line {i}") for i in range(1, 30)], width=900)
+    h = p.table.horizontalHeader()
+    h.resizeSection(COL_SOURCE, 1500)
+    h.resizeSection(COL_TRANSLATION, 1500)
+    bar = p.table.horizontalScrollBar()
+    qtbot.waitUntil(lambda: bar.maximum() > 0)
+    bar.setValue(0)
+    p.table.setCurrentIndex(p.proxy.index(3, COL_SOURCE))
+    p.table.setFocus()
+    assert bar.value() == 0
+    qtbot.keyClick(p.table, Qt.Key.Key_Right)  # Çeviri sütununa: 1500 px'lik hücre, bir kısmı görünmeli
+    current = p.table.currentIndex()
+    assert current.column() != COL_SOURCE
+    cell = p.table.visualRect(current)
+    assert cell.intersects(p.table.viewport().rect())
+    for _ in range(4):  # çok sağa git: geçerli hücre hep görünür kalır
+        qtbot.keyClick(p.table, Qt.Key.Key_Right)
+        assert p.table.visualRect(p.table.currentIndex()).intersects(p.table.viewport().rect())
+
+
 def test_reset_widths_returns_to_auto_fit(qtbot: QtBot, tmp_path: Path) -> None:
     settings = _ini(tmp_path)
     p = _page(qtbot, [_row(1, "A", "B")], width=1000, settings=settings)
