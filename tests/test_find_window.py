@@ -6,8 +6,9 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QPoint, QSettings, Qt
+from PySide6.QtCore import QPoint, QRect, QSettings, Qt
 from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QWidget
 from pytestqt.qtbot import QtBot
 
 from nxceviri.gui.find_replace import FIELD_SOURCE, KEY_FIND_GEOMETRY
@@ -44,6 +45,30 @@ def test_find_opens_in_separate_window_not_above_the_table(qtbot: QtBot, window:
     assert find_window.windowTitle() == "Bul ve Değiştir"
     assert page.table.mapTo(page, QPoint(0, 0)).y() == table_top  # tablo aşağı itilmedi
     assert not page.find_bar.close_button.isVisibleTo(find_window)  # pencerenin kendi kapat düğmesi var
+
+
+def test_window_is_compact_and_count_does_not_cover_the_field(qtbot: QtBot, window: MainWindow) -> None:
+    """Dizüstü ekranda uzun şerit yerine kareye yakın pencere; sayaç bul kutusunun (temizle düğmesi) üstüne binmez."""
+    page = window.translate_page
+    _open(qtbot, window)
+    bar = page.find_bar
+    bar.replace_toggle.setChecked(True)
+    bar.set_field(FIELD_SOURCE)
+    bar.find_edit.setText("Hello")
+    bar.flush()
+    find_window = page.find_window
+    find_window.adjustSize()
+    qtbot.wait(20)
+    assert find_window.width() <= 460
+    assert find_window.minimumWidth() <= 380
+
+    def rect(widget: QWidget) -> QRect:
+        return QRect(widget.mapTo(find_window, QPoint(0, 0)), widget.size())
+
+    assert bar.count_label.text() == "1 / 1"
+    assert not rect(bar.count_label).intersects(rect(bar.find_edit))
+    for widget in (bar.replace_edit, bar.replace_button, bar.replace_all_button, bar.scope_button):
+        assert rect(widget).right() <= find_window.width()  # hiçbir şey taşmaz
 
 
 def test_window_close_button_closes_the_search(qtbot: QtBot, window: MainWindow) -> None:

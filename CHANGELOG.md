@@ -18,6 +18,9 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
   yerleşir. Kartta "Türkçe resim: 12 / 148" ilerlemesi ve **Klasörü Aç**.
 
 ### Düzeltildi
+- **Bul ve Değiştir penceresi kareye yakın ve küçük** (360 piksel; önceden en az 520): üstte bul kutusu ve
+  oklar, altında seçenekler ve sayaç, en altta değiştir. Sayaç artık bul kutusunun temizle düğmesinin üstüne binmiyor.
+  Pencere bir kez yeni boyutuyla açılır, sonra yine bıraktığınız yerde ve boyutta açılır.
 - Koyu temada işaretsiz onay kutuları görünmüyordu; artık çerçeveli, işaretlenince vurgu renginde tik.
 - Otomatik Çeviri ve Terminoloji'deki **Kitaplık** düğmeleri öteki düğmelerle aynı görünür.
 

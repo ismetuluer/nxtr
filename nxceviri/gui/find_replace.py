@@ -190,15 +190,22 @@ class FindBar(QWidget):
         )
         self._shortcuts.changed.connect(lambda _command: self._refresh_tips())
         self._refresh_tips()
+        # Kareye yakın düzen (dizüstü ekranda uzun şerit olmasın): üstte bul kutusu ve gezinme, altında seçenekler
+        # ve sayaç (sayaç kutunun içinde değil; temizle düğmesinin üstüne binmesin), en altta değiştir bölümü.
         top.addWidget(self.replace_toggle)
         top.addWidget(self.find_edit, 1)
-        top.addWidget(self.count_label)
-        for widget in (self.prev_button, self.next_button, self.case_button, self.word_button, self.regex_button):
-            top.addWidget(widget)
-        top.addWidget(self.scope_button)
-        top.addWidget(self.field_button)
+        top.addWidget(self.prev_button)
+        top.addWidget(self.next_button)
         top.addWidget(self.close_button)
         outer.addLayout(top)
+
+        options = QHBoxLayout()
+        options.setSpacing(4)
+        for widget in (self.case_button, self.word_button, self.regex_button, self.scope_button, self.field_button):
+            options.addWidget(widget)
+        options.addStretch(1)
+        options.addWidget(self.count_label)
+        outer.addLayout(options)
 
         self.notice_row = QWidget()
         notice = QHBoxLayout(self.notice_row)
@@ -216,24 +223,29 @@ class FindBar(QWidget):
         outer.addWidget(self.notice_row)
 
         self.replace_row = QWidget()
-        bottom = QHBoxLayout(self.replace_row)
-        bottom.setContentsMargins(0, 0, 0, 0)
+        replace_lay = QVBoxLayout(self.replace_row)
+        replace_lay.setContentsMargins(0, 0, 0, 0)
+        replace_lay.setSpacing(6)
+        bottom = QHBoxLayout()
         bottom.setSpacing(4)
         self.replace_edit = QLineEdit()
         self.replace_edit.setPlaceholderText("Yerine…")
         self.replace_edit.setMinimumWidth(140)
+        self.replace_edit.setClearButtonEnabled(True)
         self.preview_box = QCheckBox("Önizle")
         self.preview_box.setToolTip("Değişikliği tabloda yazmadan gösterir.")
         self.replace_button = button("Değiştir", icon="replace")
         self.replace_button.setToolTip("Gösterilen satırdaki eşleşmeleri değiştirir ve sonrakine geçer.")
         self.replace_all_button = button("Tümünü Değiştir", icon="replace-all")
         self.replace_all_button.setToolTip("Kapsamdaki bütün eşleşmeleri değiştirir. Geri Al hepsini geri alır.")
-        self.status_label = label("", "muted")
-        bottom.addWidget(self.replace_edit, 1)
+        self.status_label = label("", "muted", wrap=True)
         bottom.addWidget(self.preview_box)
+        bottom.addStretch(1)
         bottom.addWidget(self.replace_button)
         bottom.addWidget(self.replace_all_button)
-        bottom.addWidget(self.status_label)
+        replace_lay.addWidget(self.replace_edit)
+        replace_lay.addLayout(bottom)
+        replace_lay.addWidget(self.status_label)
         self.replace_row.hide()
         outer.addWidget(self.replace_row)
 
@@ -654,8 +666,9 @@ class FindBar(QWidget):
         return True
 
 
-#: Bul penceresinin konumu ve boyutu (uygulama ayarı).
-KEY_FIND_GEOMETRY = "translate/find_geometry"
+#: Bul penceresinin konumu ve boyutu (uygulama ayarı). 0.54.0'da düzen kareye döndü; eski (uzun) boyut
+#: geri yüklenmesin diye anahtar değişti.
+KEY_FIND_GEOMETRY = "translate/find_geometry_v2"
 #: İlk açılışta pencerenin, tablonun sağ üst köşesinden uzaklığı (piksel).
 _FIRST_MARGIN = 24
 
@@ -682,7 +695,7 @@ class FindWindow(QWidget):
         bar.opened.connect(self._show_window)
         bar.closed.connect(self._hide_window)
         bar.replace_toggle.toggled.connect(lambda _on: QTimer.singleShot(0, self._fit_height))
-        self.setMinimumWidth(520)
+        self.setMinimumWidth(360)
 
     def bind_settings(self, settings: QSettings) -> None:
         self._settings = settings
