@@ -56,6 +56,7 @@ from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, FitRules
 from nxceviri.core.translate.fitconfig import EACH_GROUP, GROUP_PREFIX, FitConfig, FitOptions
 from nxceviri.gui.icons import bind_icon, icon
 from nxceviri.gui.issue_chips import ChipBar, Disclosure
+from nxceviri.gui.limits_table import LimitsTable
 from nxceviri.gui.table_columns import ColumnFitter, FitTableView, HeaderColumnMenu
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.translate_page import _Editor
@@ -446,6 +447,7 @@ class QaPage(QWidget):
         self._default: FitRules | None = None
         self._per_file: dict[str, FitRules] = {}
         self._per_group: dict[str, FitRules] = {}
+        self._per_key: dict[str, FitRules] = {}
         self._kinds: dict[str, str] = {}
         self._options = FitOptions()
         self._enabled = True
@@ -556,9 +558,27 @@ class QaPage(QWidget):
         options.addStretch(1)
         body.addLayout(options)
         lay.addWidget(self.fit_card)
+        # Grup ve anahtar deseni başına sınırlar tek tabloda; elle sınır burada yazılır, "Hepsini Öğren" her grubu
+        # ayrı öğrenir.
+        self.limits_card = Card("Grup ve anahtar sınırları")
+        self.limits = LimitsTable()
+        self.limits.setMinimumHeight(260)
+        self.limits.config_edited.connect(self._limits_edited)
+        self.limits.learn_all_requested.connect(
+            lambda: self._commit_pending(lambda: self.learn_rules_requested.emit(EACH_GROUP))
+        )
+        self.limits_card.body.addWidget(self.limits)
+        lay.addWidget(self.limits_card)
         lay.addStretch(1)
         self._apply_fit_widgets([], [], [])
         return scroll
+
+    def _limits_edited(self, config: FitConfig) -> None:
+        """Sınırlar tablosunda grup ya da anahtar deseni sınırı değişti: kart güncellenir ve kaydettirilir."""
+        self._per_group = dict(config.per_group)
+        self._per_key = dict(config.per_key)
+        self._show_scope()
+        self.fit_changed.emit()
 
     def set_fit(self, config: FitConfig, files: list[str], labels: list[str], groups: Sequence[str] = ()) -> None:
         """Ayarı ve kapsam/kod listelerini gösterir; `fit_changed` yayılmaz. Seçili kapsam korunur.
@@ -568,6 +588,7 @@ class QaPage(QWidget):
         self._default = config.default
         self._per_file = dict(config.per_file)
         self._per_group = dict(config.per_group)
+        self._per_key = dict(config.per_key)
         self._kinds = dict(config.kinds.mapping)
         self._options = config.options
         self._enabled = config.enabled
@@ -583,6 +604,7 @@ class QaPage(QWidget):
             self._options,
             self.fit_enabled.isChecked(),
             dict(self._per_group),
+            dict(self._per_key),
         )
 
     def show_learned(self, rules: FitRules | None) -> None:

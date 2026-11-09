@@ -366,6 +366,7 @@ class MainWindow(QMainWindow):
         self.qa_page.font_patch_changed.connect(self._set_font_patch)
         self.qa_page.open_row.connect(self._open_row)
         self.qa_page.fix_requested.connect(self.apply_fixes)
+        self.qa_page.translation_edited.connect(self._edit_from_issues)
         self.qa_page.fix_kinds_changed.connect(self._save_fix_kinds)
         self.qa_page.report_requested.connect(self.show_job_changes)
         self.qa_page.fit_changed.connect(self._save_fit)
@@ -1173,7 +1174,9 @@ class MainWindow(QMainWindow):
         rows = self.translate_page.model.rows
         files = sorted({r.file for r in rows})
         labels = sorted({code for r in rows for code in r.code_labels})
-        self.qa_page.set_fit(self._fit_config(), files, labels, separate_groups(rows))
+        config = self._fit_config()
+        self.qa_page.set_fit(config, files, labels, separate_groups(rows))
+        self.qa_page.limits.set_data(rows, config, learn_group_rules(rows, config))
         self._sync_live()
 
     def _reload_rows(self) -> None:
@@ -1332,6 +1335,30 @@ class MainWindow(QMainWindow):
         self._qa_count = (self.project, len(counted))
         self._qa_errors = any(i.severity == SEVERITY_ERROR for i in counted)
         self._refresh_nav()
+
+    def _edit_from_issues(self, row_id: int, text: str) -> None:
+        """Sorunlar panosunda yerinde düzenleme: Çevir'deki kayıt yolundan yazılır, satır hemen yeniden denetlenir."""
+        if self.busy:
+            self.qa_page.show_fix_result("warning", "Bir iş sürerken düzenlenemez; iş bitince yeniden deneyin.")
+            return
+        try:
+            rows = self._commit_translations([(row_id, text)])
+        except NxError as exc:
+            self.qa_page.show_fix_result("danger", exc.user_text())
+            return
+        if not rows:
+            return
+        self.translate_page.model.update_rows(rows)
+        row = rows[0]
+        issues = run_qa_checks(
+            [row],
+            self._missing_letters(),
+            self._transliterate_letters(),
+            self.project.glossary(),
+            self._fit_config(),
+            spell=self.spell,
+        )
+        self.qa_page.replace_row_issues(row_id, issues, row)
 
     def _sync_spell(self) -> None:
         """Editördeki yazım işaretlerini güncel denetleyici ve oyun sözlüğüyle yeniler."""
