@@ -86,6 +86,8 @@ EDIT_HINT = (
 #: Bu genişliğin altında düzeltme paneli, kullanıcı seçim yapmadıysa kapalı başlar.
 _NARROW_WIDTH = 1100
 _FIX_PANEL_WIDTH = 260
+#: Font tablosu hücresinde fontun kendi "Ne yapılabilir" önerisi (İçe alındı yazısı kalkınca geri konur).
+_ADVICE_ROLE = Qt.ItemDataRole.UserRole + 1
 
 #: Her düzeltme türünün tek cümlelik ipucu ve örneği.
 FIX_TIPS: dict[str, str] = {
@@ -923,14 +925,16 @@ class QaPage(QWidget):
         self.font_table.setSortingEnabled(False)  # doldurulurken satırlar yer değiştirmesin
         self.font_table.setRowCount(len(report.fonts))
         self._editable_fonts = {f.source for f in report.fonts if is_editable_font(f)}
-        self._advice = {f.source: font_advice(f) for f in report.fonts}
         for r, f in enumerate(sorted(report.fonts, key=lambda x: (x.language_specific, x.name))):
             miss = "?" if f.chars is None else (f.missing() or "yok")
             kind = f.kind + (" — dile özgü" if f.language_specific else "")
-            for col, value in enumerate((f.name, kind, miss, self._advice[f.source], f.source.rsplit("/", 1)[-1])):
+            advice = font_advice(f)
+            for col, value in enumerate((f.name, kind, miss, advice, f.source.rsplit("/", 1)[-1])):
                 item = QTableWidgetItem(value)
                 item.setToolTip(f.source if col == 4 else (f.note or value))
                 item.setData(Qt.ItemDataRole.UserRole, f.source)
+                # Aynı paketteki fontlar (ör. data.unity3d) aynı yolu paylaşır; öneri satırın kendisinde tutulur.
+                item.setData(_ADVICE_ROLE, advice)
                 self.font_table.setItem(r, col, item)
         self.font_table.setSortingEnabled(True)
         self.font_table.setVisible(bool(report.fonts))
@@ -945,15 +949,12 @@ class QaPage(QWidget):
         self._update_font_buttons()
 
     def _show_overrides(self) -> None:
-        advice = getattr(self, "_advice", {})
         for r in range(self.font_table.rowCount()):
             item = self.font_table.item(r, 3)
             if item is None:
                 continue
-            source = str(item.data(Qt.ItemDataRole.UserRole))
-            stored = self._font_overrides.get(source)
-            item.setText(f"İçe alındı: {Path(stored).name}" if stored else advice.get(source, item.text()))
-
+            stored = self._font_overrides.get(str(item.data(Qt.ItemDataRole.UserRole)))
+            item.setText(f"İçe alındı: {Path(stored).name}" if stored else str(item.data(_ADVICE_ROLE)))
     def selected_font(self) -> str | None:
         items = self.font_table.selectedItems()
         return str(items[0].data(Qt.ItemDataRole.UserRole)) if items else None

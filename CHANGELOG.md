@@ -2,6 +2,25 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.54.0] — 2026-11-09 — Dışa aktarma, font, görseller
+
+### Eklendi
+- **Dolu klasöre dışa aktarma:** hedefte daha önce NXTR'nin ürettiği bir mod varsa **Üzerine Yaz / Başka Klasör… /
+  Vazgeç** sorulur. Üzerine yazma güvenlidir: yeni mod önce geçici klasöre yazılır, eski mod yedeğe alınır, sorun
+  çıkarsa geri konur. NXTR'nin üretmediği dolu bir klasör güvenlik için **hiç silinmez** (yalnızca Başka Klasör).
+- **Kontrol Et → Font ve harfler → "Ne yapılabilir" sütunu:** her font için kısa açıklama (font yaması, dinamik yedek
+  font, harf dönüştürme ya da dışarıda düzenleme).
+- **Fontu Dışa Aktar / Düzenlenmiş Fontu İçe Al / Özgün Fonta Dön:** oyunda serbest duran TTF/OTF fontları kaydedip
+  FontForge gibi bir araçta düzenleyebilir, düzenlenmiş hâlini geri alabilirsiniz; dışa aktarılan modda özgün fontun
+  yerine konur. Tabloda "İçe alındı: dosya" görünür; dosya taşınırsa dışa aktarırken bildirim çıkar.
+- **Dışa Aktar → Görseller** (Ys Origin): yazı içeren resimleri **Orijinalleri Çıkar** ile PNG olarak oyun dosyalarının
+  yanındaki klasöre çıkarır; Türkçesini `temiz/` klasörüne aynı adla koyduğunuzda mod oluşturulurken kendiliğinden
+  yerleşir. Kartta "Türkçe resim: 12 / 148" ilerlemesi ve **Klasörü Aç**.
+
+### Düzeltildi
+- Koyu temada işaretsiz onay kutuları görünmüyordu; artık çerçeveli, işaretlenince vurgu renginde tik.
+- Otomatik Çeviri ve Terminoloji'deki **Kitaplık** düğmeleri öteki düğmelerle aynı görünür.
+
 ## [0.53.0] — 2026-11-09 — Terminoloji
 
 ### Değişti

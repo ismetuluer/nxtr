@@ -855,6 +855,21 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
 160. **Örtük terimler** (`qa/terms.implicit_terms`) iş başında bir kez hesaplanır ve iş sözlüğüne eklenir; partiye
     yalnızca geçenler gider (`relevant_terms`), "Terim değil" listesi uygulanır.
 
+### 4.41 0.54.0 kararları (dışa aktarma, font, görseller)
+
+161. **Üzerine yazma yalnızca NXTR modunda** (`ExportOptions.overwrite`): hedefte `NXTR - Bilgi.txt` yoksa reddedilir,
+    kullanıcının başka dosyaları asla silinmez. Sıra: geçici klasöre yaz → eskiyi `.eski` yedeğe taşı → `os.replace` →
+    başarıda yedeği sil, hatada geri koy. Karar arayüzde `ask_full_folder` (empty/overwrite/other/cancel).
+162. **Düzenlenmiş font = ek dosya** (`ExportOptions.extra_files`, TitleID → RomFS yolu → bayt): proje ayarı
+    `font_overrides` (RomFS yolu → kullanıcının dosya yolu, JSON) yalnızca yolu saklar; bayt dışa aktarırken okunur.
+    Yalnızca RomFS'te serbest duran TTF/OTF (`is_editable_font`); paket içi fontlar (Unity bundle, SARC) kapsam dışı.
+    İçe alınan dosya başlık imzasıyla denetlenir (`looks_like_font`).
+163. **Font önerisi satırın kendisinde** (`_ADVICE_ROLE`): aynı paketteki fontlar aynı kaynak yolunu paylaşır, yola
+    göre sözlük yanlış öneri gösterirdi.
+164. **Görseller eklenti özelliği** (`derived.GraphicsSupport(folder_name, export)`, eklentide `graphics = ...`):
+    klasör oyun dosyalarının yanında `<folder_name>/orijinal|temiz`; hazır resimler mevcut `derived_files` yoluyla
+    moda girer. İlk destek Ys Origin; DMC1 ve RHG doku dönüştürücüleri henüz bu arayüze bağlanmadı (TECH_DEBT 89).
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

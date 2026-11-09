@@ -349,8 +349,8 @@ def font_advice(font: FontInfo) -> str:
     if font.kind == KIND_TMP_STATIC:
         if font.patchable:
             rest = "".join(c for c in missing if c not in font.patchable)
-            text = f"Font yaması {' '.join(font.patchable)} harflerini fontun kendi harflerinden üretir."
-            return text + (f" {' '.join(rest)} için harf dönüştürme kullanın." if rest else "")
+            text = f"Font yaması {' '.join(font.patchable)} harflerini ekler"
+            return text + ("; kalanlara harf dönüştürme." if rest else ".")
         return "Eksik harflerin parçaları fontta yok; harf dönüştürme kullanın."
     if is_editable_font(font):
         return "TTF/OTF dosyası: Fontu Dışa Aktar ile FontForge gibi bir araçta düzenleyip içe alın."

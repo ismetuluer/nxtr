@@ -1,6 +1,7 @@
 # HANDOFF — oturum devri (2026-11-02, 0.47.0)
 
 ## Durum
+- **Sürüm 0.54.0** (2026-11-09): F aşaması — dolu klasörde Üzerine Yaz / Başka Klasör (yalnızca NXTR modu silinir, yedekli), font "Ne yapılabilir" sütunu, serbest TTF/OTF fontu dışa/içe aktarma (modda özgünün yerine), Dışa Aktar → Görseller (Ys Origin). ARCHITECTURE §4.41, TECH_DEBT 89. **Yayımlanmadı:** ürün sahibi "yayınla" diyene kadar master/push/release yok. Sıradaki: G (maskot, yardım, katkı rehberi).
 - **Sürüm 0.53.0** (2026-11-09): E aşaması — Terminoloji (ad, sade pencere, kısa hatalar, kitaplık, seçili satırları ekleme, örtük terimler Ollama'ya). ARCHITECTURE §4.40. Sıradaki: F (dışa aktarma, font, grafik).
 - **Sürüm 0.52.1** (2026-11-09): A–D hedef/sonuç kıyasındaki eksikler kapandı (Denetle arka planda, sonuç bildirimleri, Otomatik Çeviri sadeleşti, Düzeltirken temizle tek yerde, kod türü uyarısı). ARCHITECTURE §4.39. Bilinçli bırakılan: Ayarlar'da "Genel" sayfası (içerecek ayar yok). Sıradaki: E (Terminoloji).
 - **Sürüm 0.52.0** (2026-11-09): D aşaması — bildirim merkezi (kart, Windows bildirimi, ses, görev çubuğu, geçmiş; Ayarlar → Bildirimler), iş sonu sarı kutusu kalktı, güncelleme bildirimi, değişiklikler penceresinde kaydırma/yerinde düzenleme/bağlam, talimat kitaplığı, desen kapsamı, yarım yanıtta bölme. ARCHITECTURE §4.38. Kalan: TECH_DEBT 84 (Denetle arka plana), 87, 88. Sıradaki: E (Terminoloji).

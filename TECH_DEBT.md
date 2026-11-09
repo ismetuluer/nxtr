@@ -373,3 +373,7 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     *Ne zaman:* kullanıcı geri bildirimiyle.
 88. **Windows bildirimi yalnızca API düzeyinde denendi (0.52.0).** Gerçek Windows'ta tepsi simgesi kuruluyor ve
     bildirim isteği hatasız kabul ediliyor; Odak Yardımı/Rahatsız Etmeyin açıkken Windows bildirimi göstermez.
+89. **Görseller adımı yalnızca Ys Origin'de (0.54.0).** DMC1 resim çevirisi hâlâ ortam değişkeniyle çalışır, RHG doku
+    dönüştürücüsü (`switchtex`) arayüze bağlı değil; ikisi de `GraphicsSupport` uygulayınca Dışa Aktar'da kart çıkar.
+    Paket içindeki fontlar (Unity bundle, SARC/BFFNT) dışa/içe aktarılamaz; yalnızca serbest TTF/OTF. Gerçek oyunda
+    Görseller kartı ve font içe alma elle denenmedi. *Ne zaman:* ilgili oyun yeniden çevrilirken.

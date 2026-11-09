@@ -82,6 +82,19 @@ def test_font_tab_buttons_follow_selection(qtbot: QtBot) -> None:
     assert got == ["Font/a.ttf"]
 
 
+def test_fonts_in_same_bundle_keep_their_own_advice(qtbot: QtBot) -> None:
+    from nxceviri.gui.qa_page import QaPage
+
+    page = QaPage()
+    qtbot.addWidget(page)
+    static = FontInfo("Dialog SDF", "data.unity3d", KIND_TMP_STATIC, LATIN, False, "", "ışğ")
+    dynamic = FontInfo("Fallback", "data.unity3d", KIND_TMP_DYNAMIC, LATIN, False)
+    page.show_font_report(FontReport([static, dynamic]), "")
+    page.set_font_overrides({})
+    advice = {page.font_table.item(r, 0).text(): page.font_table.item(r, 3).text() for r in range(2)}  # type: ignore[union-attr]
+    assert advice == {"Dialog SDF": font_advice(static), "Fallback": font_advice(dynamic)}
+
+
 @pytest.mark.parametrize("missing", [True, False])
 def test_reset_disabled_without_override(qtbot: QtBot, missing: bool) -> None:
     from nxceviri.gui.qa_page import QaPage
