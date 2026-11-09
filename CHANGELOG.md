@@ -2,6 +2,11 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.55.2] — 2026-11-10 — Çevir sayfa başlığı geri geldi
+
+### Düzeltildi
+- 0.55.1'de istenmediği hâlde kaldırılan **Çevir sayfa başlığı** (ikon ve açıklama) geri kondu. Yalnızca "Çeviri tablosu" kart başlığı kaldırılmış kalır.
+
 ## [0.55.1] — 2026-11-09 — Çeviriye karışan kod, arama, uyarılar
 
 ### Düzeltildi

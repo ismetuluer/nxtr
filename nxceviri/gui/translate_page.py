@@ -81,7 +81,7 @@ from nxceviri.gui.table_columns import ColumnFitter, FitTableView, HeaderColumnM
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.value_filter import FilterHeader, FilterPopup, ValueFilter
 from nxceviri.gui.view_actions import PANE_RIGHT, ViewActions
-from nxceviri.gui.widgets import Card, EmptyState, button, format_int, label, tip_html
+from nxceviri.gui.widgets import Card, EmptyState, button, format_int, label, tip_html, title_row
 
 COL_SOURCE, COL_TRANSLATION, COL_STATUS, COL_FILE, COL_KEY, COL_PREVIOUS, COL_NO = range(7)
 _COLUMNS = ("Orijinal", "Çeviri", "Durum", "Dosya", "Anahtar", "Önceki çeviri", "No")
@@ -706,6 +706,14 @@ class TranslatePage(QWidget):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(24, 22, 24, 22)
         lay.setSpacing(14)
+        lay.addWidget(
+            title_row(
+                "Çevir",
+                "Çeviri sütununa çift tıklayarak yazın; değişiklikler hemen kaydedilir. "
+                "⟦1⟧ gibi işaretler kontrol kodlarıdır ve çeviride aynı sırayla kalmalıdır.",
+                icon="languages",
+            )
+        )
         self.stack = QStackedWidget()
         lay.addWidget(self.stack, 1)
 
@@ -775,9 +783,7 @@ class TranslatePage(QWidget):
         self.view_actions.align_changed.connect(lambda _align: self._apply_view())
         self.view_actions.pane_changed.connect(lambda _pane: self._apply_pane())
         self.view_actions.pane_visible_changed.connect(self._pane_visible_changed)
-        self.card = Card(
-            ""
-        )  # başlıksız: tabloya daha çok yer kalır (sayfa başlığı da yok; kenar çubuğu adımı gösterir)
+        self.card = Card("")  # kart başlığı yok: sayfa başlığı zaten var
         filters = QHBoxLayout()
         self.search = QLineEdit()
         self.search.setPlaceholderText("Ara…")

@@ -339,7 +339,7 @@ def test_pages_have_no_long_visible_descriptions(qtbot: QtBot, tmp_path: Path) -
             for lbl in page.findChildren(QLabel):
                 if lbl.property("role") == "muted" and lbl.text() and not lbl.text().startswith("<"):
                     assert len(lbl.text()) <= 90, lbl.text()
-        for page in (w.qa_page, w.export_page, w.scan_page):  # Çevir sayfasında başlık yok (tablo tüm yeri kullanır)
+        for page in (w.translate_page, w.qa_page, w.export_page, w.scan_page):
             titles = [lbl for lbl in page.findChildren(QLabel) if lbl.property("role") == "pageTitle"]
             assert titles
             assert titles[0].toolTip(), "açıklama başlığın ipucu olarak durmalı"
@@ -407,9 +407,9 @@ def test_search_looks_only_at_source_and_translation(qtbot: QtBot) -> None:
     assert "Orijinal ve çeviri" in p.search.toolTip()
 
 
-def test_translate_page_has_no_title_row(qtbot: QtBot) -> None:
+def test_translate_page_has_no_card_title(qtbot: QtBot) -> None:
     p = TranslatePage()
     qtbot.addWidget(p)
     texts = {w.text() for w in p.findChildren(QLabel) if w.isVisibleTo(p)}
-    assert "Çevir" not in texts  # sayfa başlığı yok
-    assert "Çeviri tablosu" not in texts  # kart başlığı yok
+    assert "Çevir" in texts  # sayfa başlığı durur
+    assert "Çeviri tablosu" not in texts  # yalnızca kart başlığı kalktı
