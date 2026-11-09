@@ -215,7 +215,7 @@ def test_program_fix_applies_fit(window: MainWindow) -> None:
     window.apply_fixes(["line_too_long", "page_too_tall", "bad_break"], [])
     assert _rows(window)["d01"].translation == "Merhaba dostum,\nnasılsın?"
     assert not _kinds_found(page) & FIT_KINDS  # denetim kendiliğinden yeniden çalıştı
-    assert "sorun bulunmadı" in page.summary.text()
+    assert "Sorun bulunmadı" in page.summary.text()
 
 
 def test_learned_values_saved_when_checking(window: MainWindow) -> None:
