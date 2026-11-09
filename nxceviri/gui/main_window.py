@@ -445,7 +445,7 @@ class MainWindow(QMainWindow):
         self.translate_page.translation_import_requested.connect(self.import_translation)
         self.translate_page.cancel_machine.connect(self._cancel_task)
         self.qa_page.scan_fonts.connect(self.scan_fonts)
-        self.qa_page.run_checks.connect(self.run_checks)
+        self.qa_page.run_checks.connect(self.start_checks)
         self.qa_page.transliterate_changed.connect(self._set_transliterate)
         self.qa_page.font_patch_changed.connect(self._set_font_patch)
         self.qa_page.open_row.connect(self._open_row)
@@ -762,6 +762,7 @@ class MainWindow(QMainWindow):
             else:
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
         self.nav.setEnabled(not self.busy)
+        self.qa_page.check_button.setEnabled(not self.busy)
         self._refresh_nav()
         self._refresh_status()
         self.update_menu_state()
@@ -1537,8 +1538,45 @@ class MainWindow(QMainWindow):
         return job
 
     def run_checks(self) -> None:
+        """Denetimi hemen (bu iş parçacığında) yapar; düzeltmenin ardından ve testlerde kullanılır."""
         rows = self.project.translation_rows()
         self._show_check_results(self._checks_job(rows)(), rows)
+
+    def start_checks(self) -> None:
+        """Kontrol Et → Denetle: denetim arka plan işinde çalışır (büyük projede arayüz donmaz), bitince bildirilir."""
+        if self.busy:
+            return
+        rows = self.project.translation_rows()
+        project = self.project
+        job = self._checks_job(rows)
+
+        def work(_ctx: TaskContext) -> object:
+            return job()
+
+        def done(result: object) -> None:
+            if self.project is not project:
+                return
+            assert isinstance(result, list)
+            self._show_check_results(result, rows)
+            errors = sum(1 for i in result if i.severity == SEVERITY_ERROR)
+            warnings = sum(1 for i in result if i.severity == SEVERITY_WARNING)
+            if errors or warnings:
+                self.notify(
+                    LEVEL_ERROR if errors else LEVEL_WARNING,
+                    "Denetim bitti",
+                    f"{format_int(errors)} hata · {format_int(warnings)} uyarı",
+                    (NoticeAction("Sorunları Gör", lambda: self.nav.setCurrentRow(STEP_QA)),),
+                )
+            else:
+                self.notify(LEVEL_SUCCESS, "Denetim bitti", "Sorun bulunmadı.")
+
+        self.qa_page.summary.setText("Denetleniyor…")
+        self._run(
+            work,
+            "Denetim",
+            on_success=done,
+            on_failure=lambda text: self.qa_page.show_fix_result("danger", text),
+        )
 
     def _show_check_results(self, issues: list[QaIssue], rows: list[TranslationRow]) -> None:
         self._sync_live()  # Çevir'deki anlık denetim bağlamı Kontrol Et'in kullandığı güncel ayarlarla aynı olsun

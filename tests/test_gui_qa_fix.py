@@ -49,6 +49,7 @@ def window(qtbot: QtBot, tmp_path: Path) -> Iterator[MainWindow]:
     w.show()
     w.nav.setCurrentRow(STEP_QA)
     w.qa_page.check_button.click()
+    qtbot.waitUntil(lambda: not w.busy, timeout=10000)  # Denetle arka planda çalışır
     yield w
     w.dirty = False
     w.close()

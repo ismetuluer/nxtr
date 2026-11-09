@@ -18,6 +18,7 @@ from nxceviri.gui.main_window import STEP_SCAN, STEP_TRANSLATE, MainWindow
 from nxceviri.gui.theme import TOKENS, ThemeMode, apply_theme
 from nxceviri.gui.translate_page import COL_TRANSLATION
 from tests.conftest import GameFiles
+from tests.task_wait import finish_task
 
 pytestmark = pytest.mark.gui
 
@@ -371,6 +372,7 @@ def test_qa_and_export_flow(qtbot: QtBot, window: MainWindow, game: GameFiles, t
     _wait_idle(qtbot, window)
     assert "font bulunamadı" in qa.font_banner.text.text()  # deneme oyununda font yok
     qa.check_button.click()
+    finish_task(window)
     assert "1 hata" in qa.summary.text()
     assert qa.proxy.rowCount() == 1  # bilgiler (çevrilmedi) varsayılan olarak gizli
     assert qa.proxy.index(0, 4).data() == "Bekleyin"  # bulguda çeviri metni görünür

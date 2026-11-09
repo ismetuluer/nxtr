@@ -22,6 +22,7 @@ from nxceviri.core.translate.fit import FitRules
 from nxceviri.core.translate.fitconfig import FitConfig, FitOptions, learn_rules, load_config, save_config
 from nxceviri.gui.main_window import STEP_QA, MainWindow
 from nxceviri.gui.qa_page import QaPage
+from tests.task_wait import finish_task
 
 pytestmark = pytest.mark.gui
 
@@ -104,6 +105,7 @@ def test_no_rules_message(window: MainWindow) -> None:
     for widget in (page.fit_width, page.fit_lines, page.fit_learn, page.fit_kinds, page.fit_spaces, page.fit_scope):
         assert not widget.isEnabled()
     page.check_button.click()
+    finish_task(window)
     assert not _kinds_found(page) & FIT_KINDS
     assert load_config(window.project).default is None
 
@@ -111,6 +113,7 @@ def test_no_rules_message(window: MainWindow) -> None:
 def test_fit_card_saves_and_flags(window: MainWindow) -> None:
     page = _page(window)
     page.check_button.click()
+    finish_task(window)
     assert KIND_LABELS["line_too_long"] not in page.summary.text()
     _enable(page, 20, 2)
     assert not page.fit_note.isVisibleTo(page)
@@ -118,6 +121,7 @@ def test_fit_card_saves_and_flags(window: MainWindow) -> None:
     assert load_config(window.project).default == FitRules(20, 2)
     assert window.dirty
     page.check_button.click()
+    finish_task(window)
     assert "1 uyarı" in page.summary.text()
 
     page.fit_enabled.setChecked(False)  # kapatınca sınır saklanır ama uygulanmaz
@@ -125,6 +129,7 @@ def test_fit_card_saves_and_flags(window: MainWindow) -> None:
     assert not config.enabled
     assert config.default == FitRules(20, 2)
     page.check_button.click()
+    finish_task(window)
     assert not _kinds_found(page) & FIT_KINDS
 
 
@@ -212,6 +217,7 @@ def test_program_fix_applies_fit(window: MainWindow) -> None:
     page = _page(window)
     _enable(page, 20, 2)
     page.run_checks.emit()
+    finish_task(window)
     window.apply_fixes(["line_too_long", "page_too_tall", "bad_break"], [])
     assert _rows(window)["d01"].translation == "Merhaba dostum,\nnasılsın?"
     assert not _kinds_found(page) & FIT_KINDS  # denetim kendiliğinden yeniden çalıştı
@@ -224,6 +230,7 @@ def test_learned_values_saved_when_checking(window: MainWindow) -> None:
     expected = learn_rules(window.project.translation_rows(), CodeKinds({}))
     page.fit_learn.click()
     page.check_button.click()  # denetim kutularda görünen değerlerle yapılır, öneri böylece kaydedilir
+    finish_task(window)
     assert load_config(window.project).default == expected
     assert page.fit_learn_note.text() == ""
 
@@ -271,6 +278,7 @@ def test_toggle_off_keeps_limits(window: MainWindow) -> None:
     assert not page.fit_width.isEnabled()
     assert page.fit_note.text() == "Sığdırma kapalı; sınırlar saklanıyor."
     page.check_button.click()
+    finish_task(window)
     assert not _kinds_found(page) & FIT_KINDS
 
     window.nav.setCurrentRow(0)

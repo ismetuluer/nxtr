@@ -19,6 +19,7 @@ from nxceviri.core.translate.fitconfig import EACH_GROUP, GROUP_PREFIX, FitConfi
 from nxceviri.core.translate.status import Status
 from nxceviri.gui.main_window import STEP_QA, MainWindow
 from nxceviri.gui.qa_page import QaPage
+from tests.task_wait import finish_task
 
 pytestmark = pytest.mark.gui
 
@@ -138,6 +139,7 @@ def test_group_rules_apply_in_checks(window: MainWindow) -> None:
     window._push_fit_to_page()
     page = _page(window)
     page.check_button.click()
+    finish_task(window)
     flagged = {i.row_id for i in page.model.issues if i.kind == "line_too_long"}
     assert flagged == {_rows(window)["m1"].id}
 
