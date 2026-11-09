@@ -11,9 +11,10 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtCore import QObject, QSettings, Signal
-from PySide6.QtGui import QAction, QActionGroup, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup
 
 from nxceviri.gui.icons import bind_icon
+from nxceviri.gui.shortcuts import ShortcutRegistry
 
 log = logging.getLogger(__name__)
 
@@ -33,15 +34,17 @@ KEY_ALIGN = "translate/align"
 KEY_PANE = "translate/pane"
 KEY_PANE_VISIBLE = "translate/pane_visible"
 
+#: (metin, simge, kısayol kimliği, ipucu); tuşlar kayıt defterinden gelir (`shortcuts.COMMANDS`).
 _ALIGN_SPECS = {
-    ALIGN_LEFT: ("Sola Hizala", "align-left", "Ctrl+L", "Metni sola hizala (yalnızca görünüm)"),
-    ALIGN_CENTER: ("Ortaya Hizala", "align-center", "Ctrl+E", "Metni ortala (yalnızca görünüm)"),
-    ALIGN_RIGHT: ("Sağa Hizala", "align-right", "Ctrl+R", "Metni sağa hizala (yalnızca görünüm)"),
+    ALIGN_LEFT: ("Sola Hizala", "align-left", "view.align_left", "Metni sola hizala (yalnızca görünüm)"),
+    ALIGN_CENTER: ("Ortaya Hizala", "align-center", "view.align_center", "Metni ortala (yalnızca görünüm)"),
+    ALIGN_RIGHT: ("Sağa Hizala", "align-right", "view.align_right", "Metni sağa hizala (yalnızca görünüm)"),
 }
 _PANE_SPECS = {
-    PANE_BOTTOM: ("Çeviri Panelini Altta Göster", "panel-bottom", "Ctrl+Alt+B", "Çeviri panelini altta aç/kapat"),
-    PANE_RIGHT: ("Çeviri Panelini Sağda Göster", "panel-right", "Ctrl+Alt+R", "Çeviri panelini sağda aç/kapat"),
+    PANE_BOTTOM: ("Çeviri Panelini Altta Göster", "panel-bottom", "view.pane_bottom", "Çeviri panelini altta aç/kapat"),
+    PANE_RIGHT: ("Çeviri Panelini Sağda Göster", "panel-right", "view.pane_right", "Çeviri panelini sağda aç/kapat"),
 }
+_PANE_TOGGLE_TIP = "Çeviri panelini aç/kapat"
 
 
 class ViewActions(QObject):
@@ -50,28 +53,29 @@ class ViewActions(QObject):
     pane_changed = Signal(str)
     pane_visible_changed = Signal(bool)
 
-    def __init__(self, parent: QObject | None = None) -> None:
+    def __init__(self, parent: QObject | None = None, shortcuts: ShortcutRegistry | None = None) -> None:
         super().__init__(parent)
+        #: Tuşların tek kaynağı; verilmezse eylemler varsayılan tuşlarla çalışır (ana pencere kendi kaydını verir).
+        self.shortcuts = shortcuts if shortcuts is not None else ShortcutRegistry(self)
         self._settings: QSettings | None = None
+        self._pane_room = True
         self._align = ALIGN_LEFT
         self._pane = PANE_BOTTOM
         self._pane_visible = True
 
         self.symbols = QAction("Sembolleri Göster/Gizle", self)
         self.symbols.setCheckable(True)
-        self.symbols.setShortcut(QKeySequence("Ctrl+Shift+8"))
-        self.symbols.setToolTip("Boşluk, satır sonu ve sekmeleri göster/gizle (Ctrl+Shift+8)")
+        self.shortcuts.bind("view.symbols", self.symbols, tip="Boşluk, satır sonu ve sekmeleri göster/gizle")
         bind_icon(self.symbols, "pilcrow")
         self.symbols.toggled.connect(self._on_symbols)
 
         group = QActionGroup(self)
         group.setExclusive(True)
         self.align_actions: dict[str, QAction] = {}
-        for key, (text, icon_name, shortcut, tip) in _ALIGN_SPECS.items():
+        for key, (text, icon_name, command, tip) in _ALIGN_SPECS.items():
             action = QAction(text, self)
             action.setCheckable(True)
-            action.setShortcut(QKeySequence(shortcut))
-            action.setToolTip(f"{tip} ({shortcut})")
+            self.shortcuts.bind(command, action, tip=tip)
             bind_icon(action, icon_name)
             group.addAction(action)
             action.triggered.connect(lambda _checked=False, k=key: self._on_align(k))
@@ -81,19 +85,19 @@ class ViewActions(QObject):
         self.pane_toggle = QAction("Çeviri Paneli", self)
         self.pane_toggle.setCheckable(True)
         self.pane_toggle.setChecked(True)
-        self.pane_toggle.setShortcut(QKeySequence("Ctrl+J"))
-        self.pane_toggle.setToolTip("Çeviri panelini aç/kapat (Ctrl+J)")
+        self.shortcuts.bind("view.pane", self.pane_toggle)
+        self._refresh_pane_tip()
+        self.shortcuts.changed.connect(self._shortcut_changed)
         bind_icon(self.pane_toggle, "panel-bottom")
         self.pane_toggle.toggled.connect(self._on_pane_visible)
 
         pane_group = QActionGroup(self)
         pane_group.setExclusive(True)
         self.pane_actions: dict[str, QAction] = {}
-        for key, (text, icon_name, shortcut, tip) in _PANE_SPECS.items():
+        for key, (text, icon_name, command, tip) in _PANE_SPECS.items():
             action = QAction(text, self)
             action.setCheckable(True)
-            action.setShortcut(QKeySequence(shortcut))
-            action.setToolTip(f"{tip} ({shortcut})")
+            self.shortcuts.bind(command, action, tip=tip)
             bind_icon(action, icon_name)
             pane_group.addAction(action)
             action.triggered.connect(lambda _checked=False, k=key: self._on_pane(k))
@@ -125,8 +129,17 @@ class ViewActions(QObject):
 
     def set_pane_room(self, room: bool) -> None:
         """Panele yer yoksa ipucu bunu söyler (panel gizlenir, seçim değişmez)."""
-        tip = "Çeviri panelini aç/kapat (Ctrl+J)"
-        self.pane_toggle.setToolTip(tip if room else f"{tip}. Pencere küçük olduğu için panele yer yok.")
+        self._pane_room = room
+        self._refresh_pane_tip()
+
+    def _refresh_pane_tip(self) -> None:
+        key = self.shortcuts.text("view.pane")
+        tip = f"{_PANE_TOGGLE_TIP} ({key})" if key else _PANE_TOGGLE_TIP
+        self.pane_toggle.setToolTip(tip if self._pane_room else f"{tip}. Pencere küçük olduğu için panele yer yok.")
+
+    def _shortcut_changed(self, command_id: str) -> None:
+        if command_id == "view.pane":
+            self._refresh_pane_tip()
 
     # --- kullanıcı eylemleri -------------------------------------------------------------
 

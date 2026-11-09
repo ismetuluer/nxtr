@@ -340,7 +340,9 @@ def test_short_window_hides_bottom_pane_instead_of_moving_it_right(qtbot: QtBot)
     page, _ = make_page(qtbot)
     assert page.splitter.orientation() == Qt.Orientation.Vertical
     page.setMinimumSize(1, 1)  # bağımsız sayfa, panel yüzünden ana penceredeki gibi küçülemez
-    page.resize(1300, 560)  # altta sığmaz, genişlik yeterli: yine de sağa geçmez
+    page.resize(
+        1300, 500
+    )  # altta sığmaz (eylem satırı kalktığı için eşik 560'tan düştü), genişlik yeterli: sağa geçmez
     qtbot.waitUntil(lambda: not page.pane.isVisibleTo(page), timeout=3000)
     assert page.splitter.orientation() == Qt.Orientation.Vertical
     assert page.view_actions.pane == PANE_BOTTOM

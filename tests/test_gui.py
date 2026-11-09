@@ -154,7 +154,7 @@ def test_full_flow_drop_scan_save_reopen(qtbot: QtBot, window: MainWindow, game:
     page.search.setText("wait")
     assert page.proxy.rowCount() == 1
     page.table.selectAll()
-    page._copy_source()
+    page.copy_source_selected()
     wait_row = next(r for r in page.model.rows if r.key == "Wait")
     assert (wait_row.translation, wait_row.status) == ("Please wait⟦1⟧", "approved")
     page.search.clear()
@@ -448,11 +448,11 @@ def test_row_context_menu_translates_selected(
     page._show_context_menu(page.table.visualRect(page.proxy.index(0, 0)).center())
     menu = page.table.findChild(QMenu)
     assert menu is not None
-    texts = [a.text() for a in menu.actions()[:3]]
-    assert texts[0].startswith("Seçili satırları çevir…")
-    assert texts[1].startswith("Seçili satırları yeniden çevir…")
-    assert texts[2].startswith("Seçili satırları talimatla düzelt…")
-    assert all(a.isEnabled() for a in menu.actions()[:3])
+    translate = menu.actions()[0].menu()
+    assert isinstance(translate, QMenu)
+    items = translate.actions()
+    assert [a.text().split("\t", maxsplit=1)[0] for a in items] == ["Çevir (1)", "Yeniden çevir (1)", "Redaksiyon (1)"]
+    assert all(a.isEnabled() for a in items)
 
     asked: list[tuple[str, str, int]] = []
 
@@ -460,8 +460,8 @@ def test_row_context_menu_translates_selected(
         asked.append((action, scope, len(scopes["selected"])))
 
     window.ask_machine_settings = settings  # type: ignore[assignment]
-    menu.actions()[0].trigger()
-    menu.actions()[1].trigger()
+    items[0].trigger()
+    items[1].trigger()
     assert asked == [("translate", "selected", 1), ("retranslate", "selected", 1)]
     menu.close()
 
@@ -479,13 +479,13 @@ def test_uppercase_marking_from_context_menu(qtbot: QtBot, window: MainWindow, g
     page._show_context_menu(page.table.visualRect(page.proxy.index(0, 0)).center())
     menu = page.table.findChild(QMenu)
     assert menu is not None
-    more = next(x.menu() for x in menu.actions() if x.menu())
-    assert isinstance(more, QMenu)
-    by_text = {a.text(): a for a in more.actions() if a.text()}
-    row_action = by_text["Büyük harfle gösterilir (i → İ)"]
+    upper = next(x.menu() for x in menu.actions() if x.text() == "Büyük harf")
+    assert isinstance(upper, QMenu)
+    by_text = {a.text(): a for a in upper.actions() if a.text()}
+    row_action = by_text["Seçili satırlar (i → İ)"]
     assert row_action.isCheckable()
     assert not row_action.isChecked()
-    group_action = next(a for t, a in by_text.items() if t.endswith("tablosunun tamamı büyük harfle gösterilir"))
+    group_action = next(a for t, a in by_text.items() if t.endswith("tablosunun tamamı"))
     group_action.trigger()
     rules = window.project.uppercase_rules()
     assert len(rules.groups) == 1
@@ -596,13 +596,12 @@ def test_scan_page_diagnosis_report(
     window.add_page.next_button.click()
     _wait_idle(qtbot, window)
     page = window.scan_page
-    more = page.report.more_button
-    assert more.isVisibleTo(page)  # rapor açıkken dosya listesinin altında "Daha Fazla" menüsü
-    assert [a.text() for a in more.menu().actions() if a.text()] == [
-        "Metin Adaylarını Klasöre Çıkar…",
-        "Tüm RomFS'i Çıkar…",
-        "Teşhis Raporu Oluştur…",
-    ]
+    assert not hasattr(page.report, "more_button")  # sayfadaki "Daha Fazla" kalktı; işler Araçlar menüsünde
+    tools = next(a.menu() for a in window.menuBar().actions() if a.text() == "&Araçlar")
+    assert isinstance(tools, QMenu)
+    entries = [a for a in tools.actions() if a.text() and not a.menu()]
+    assert [a.text() for a in entries[:3]] == ["Metin Adaylarını Çıkar…", "Tüm RomFS'i Çıkar…", "Teşhis Raporu…"]
+    assert all(a.isEnabled() for a in entries[:3])  # tarama raporu var
 
     hedef = tmp_path / "rapor klasörü"
     hedef.mkdir()
@@ -616,7 +615,7 @@ def test_scan_page_diagnosis_report(
         return True
 
     monkeypatch.setattr(QDesktopServices, "openUrl", url_ac)
-    more.menu().actions()[-1].trigger()
+    entries[2].trigger()
     assert page.stack.currentWidget() is page.loading
     _wait_idle(qtbot, window)
     assert (hedef / RAPOR_ADI).is_file()
@@ -625,4 +624,3 @@ def test_scan_page_diagnosis_report(
     assert str(hedef / RAPOR_ADI) in mesajlar[0]
     assert UYARI in mesajlar[0]
     assert [Path(a) for a in acilan] == [hedef]
-    assert not more.isHidden()

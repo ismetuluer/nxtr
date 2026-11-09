@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QSettings, Qt
-from PySide6.QtGui import QShortcut
 from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
@@ -89,9 +88,15 @@ def spans_of(page: TranslatePage, row_id: int, column: int = COL_TRANSLATION) ->
 
 
 def fire(page: TranslatePage, keys: str) -> None:
-    """Sayfanın kısayolunu çalıştırır (gerçek tuş vuruşu Qt'nin tuş durumunu bozup başka testleri etkiler)."""
-    shortcut = next(s for s in page.findChildren(QShortcut) if s.key().toString() == keys)
-    shortcut.activated.emit()
+    """Kısayolun çalıştırdığı sayfa yöntemini çağırır. Tuşlar ana pencerenin menü eylemlerindedir ve kayıt
+    defterinden gelir (tests/test_menus.py); gerçek tuş vuruşu Qt'nin tuş durumunu bozup başka testleri etkiler."""
+    {
+        "Ctrl+F": lambda: page.open_find(False),
+        "Ctrl+H": lambda: page.open_find(True),
+        "Ctrl+Shift+F": page.focus_search,
+        "F3": page.find_next,
+        "Shift+F3": page.find_previous,
+    }[keys]()
 
 
 def activate(qtbot: QtBot, page: TranslatePage) -> None:
