@@ -1,6 +1,7 @@
 # HANDOFF — oturum devri (2026-11-02, 0.47.0)
 
 ## Durum
+- **Sürüm 0.49.0** (2026-11-09): kullanılabilirlik incelemesi A aşaması — Çevir ekranı (`docs/inceleme/2026-11-09-kullanilabilirlik.md`); ARCHITECTURE §4.35. Sıradaki: B (menüler, Ayarlar, kısayollar), C (anlık denetim + Sorunlar panosu).
 - **Sürüm 0.48.0** (2026-11-06): ajan destekli yerelleştirme — AGENTS.md + docs/rehber + skill'ler + istem kartları, araçlar (nxceviri/arac: teshis/ara/dogrula/eklenti-olustur/eklentiler), kullanıcı eklentileri (core/plugins, Yardım → Eklentiler), anahtarsız + kendiliğinden güncelleme (core/selfupdate), MIT LICENSE + THIRD_PARTY_NOTICES, DMC1 metni özetle; ARCHITECTURE §4.34. Depo temiz geçmişle yeni depoya (ismetuluer/nxtr) taşındı. Açık: aşama 3 provası (temiz klasörde istem kartıyla ajan).
 - **Sürüm 0.47.0** (2026-11-02): ad NXTR + logo (`docs/tasarim/logo/uret.py` üretir), Kontrol Et seçmeli düzeltme + rapor (Ollama düzeltmesi kaldırıldı), yeni denetimler, kod sırası, grup sınırları, satırları yeniden böl, hatalı satırları da aktar; ARCHITECTURE §4.33. Opus şef + Sonnet işçiler (`isci/*` dalları, `.claude/worktrees/w-*`). Menü itirazları sadeleştirme istekleriyle karşılandı; sadeleştirme sürecek.
 - **Sürüm 0.46.0** (2026-11-02): sadeleştirme turu — Çevir/Kontrol Et düğmeleri menülere, sağ tık menüsü 6 öğe, gürültü azaltıldı; ARCHITECTURE §4.32. Sıradaki: Makine Çevirisi penceresini sadeleştir, NXTR adı + logo, kalan menü itirazları.

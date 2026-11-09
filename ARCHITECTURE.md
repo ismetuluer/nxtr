@@ -779,6 +779,17 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     kurtarma, loglar; projeler; ayarlar) klasör dışında olduğu için etkilenmez. Git kopyasında yalnızca denetim yapılır.
 133. **Depoda oyun metni yok:** DMC1 açıklamaları özetle eşleşir (`exe.digest`: satır sonu ve sondaki boşluk normalize).
 
+### 4.35 0.49.0 kararları (Çevir ekranı)
+
+134. **No = aktarım sırası**, tek kaynak `TranslationModel.number(row_id)`; sıralama ve süzgeçle değişmez.
+135. **Önizleme yalnızca çizimdedir:** önizleme metni `DisplayRole`/`ROW_ROLE`'dan döner; `EditRole`, `model.rows`,
+    kayıt, dışa aktarma ve denetim gerçek metni kullanır. Bul vurgusu `FIND_SPANS_ROLE` ile, aralıklar tembel hesaplanır.
+136. **Süzgeci yalnızca kullanıcı temizler;** bul çubuğu süzgeç etkinken görünen satırlarda arar. Sütunu gizli süzgeç
+    yüklenmez (görünmez süzgeç satır gizlemesin).
+137. **Düzenli ifade koruması:** Python `re` kesilemediği için önce riskli desen denetimi (`regexguard.is_risky`),
+    sonra satırlar arası süre bütçesi (500 ms; Tümünü Değiştir 2 sn). Yeni bağımlılık yok.
+138. **Elle sınır proje ayarıdır** (`translate_manual_limit`); oyunun gerçek sınırının (kural/`max_length`) aşımını gizlemez.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

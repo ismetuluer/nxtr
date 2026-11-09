@@ -2,6 +2,35 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.49.0] — 2026-11-09 — Çevir ekranı: küçük ekran, sütunlar, Bul ve Değiştir
+
+### Eklendi
+- **Bul ve Değiştir çubuğu** (tablonun üstünde; `Ctrl+F` bul, `Ctrl+H` değiştir, `F3` / `Shift+F3`): eşleşmeler hücrede
+  boyanır, sayaç "3 / 41", **Önizle** açıkken değişiklik tabloda görünür ama yazılmaz, Değiştir / Tümünü Değiştir (tek
+  adımda geri alınır). Büyük/küçük harf, tam sözcük, düzenli ifade (kilitleyecek desenler engellenir), kapsam ve alan
+  seçimi. Kontrol kodunu bozacak değişiklik uygulanmaz. Süzgeç etkinken yalnızca görünen satırlarda arar; süzgeci
+  kendiliğinden temizlemez. Tablo arama kutusu `Ctrl+Shift+F`.
+- **No sütunu** (aktarım sırası; aramada `#120` o satıra gider) ve **doğal sıralama** (1, 2, 10, 100).
+- **Çoklu süzgeç:** Dosya (grup) ve Anahtar başlığındaki huniden aramalı, onay kutulu seçim; proje başına hatırlanır.
+  Süzgeç etkinken "Süzgeç etkin · Temizle" çipi görünür.
+- Panelde **canlı karakter sınırı**: "En uzun satır 23 / 28"; sınır sığdırma kuralından, biçim sınırından ya da
+  orijinalin en uzun satırından gelir; projeye özel **Elle sınır** girilebilir (oyunun gerçek sınırı aşılırsa yine uyarır).
+- Tabloda yazım hataları kırmızı dalgalı çizgiyle; Orijinal hücresine çift tıklayınca seçilip kopyalanabilir.
+
+### Değişti
+- **Kenar çubuğu daraltılabilir** (`Ctrl+Alt+S`, Görünüm → Kenar Çubuğu); dar pencerede daralmış başlar.
+- **Durum çubuğu simgelerle:** anahtar, satır, ilerleme, sorunlar, sağlayıcı, kayıt; ayrıntı ipucunda. Ollama ipucunda
+  model, GPU/CPU payı ve bellekte kalma süresi; DeepL ipucunda kalan kota. Tekrarlanan satır sayıları kalktı.
+- **Durum sütunu simge:** çevrilmedi, makine, redakte, onaylı; sorunlu satırda sarı/kırmızı üçgen.
+- **Sütunlar:** Orijinal ve Çeviri pencereye sığar, diğerleri daralır; başlığa sağ tıkla gizle/göster (hatırlanır);
+  tıklayınca tablo yana kaymaz; kaydırma piksel piksel (satır atlamaz). Kontrol Et tablosunda da.
+- **Semboller tabloda da** (· boşluk, ¶ satır sonu, → sekme, kod çipleri); sözcükler ortadan bölünmez.
+- **Çeviri paneli** `Ctrl+J` ile açılıp kapanır ve yer yetmeyince sağa kaçmaz; başlıkta "No 120 · grup"; Orijinal alanı
+  kopyalanabilir.
+
+### Kaldırıldı
+- Ayrı Bul ve Değiştir penceresi (yerine çubuk).
+
 ## [0.48.1] — 2026-11-06 — Yeni depo
 
 ### Değişti
