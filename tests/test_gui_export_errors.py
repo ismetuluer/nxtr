@@ -120,6 +120,7 @@ def test_export_with_box_reports_error_rows(
     from PySide6.QtGui import QDesktopServices
 
     opened: list[str] = []
+
     def open_url(url: QUrl) -> bool:
         opened.append(url.toLocalFile())
         return True
