@@ -50,6 +50,8 @@ KEY_FLASH = "notify/flash"
 MAX_HISTORY = 50
 #: Aynı anda görünen en çok kart (eskiler kapanır; geçmişte kalır).
 MAX_CARDS = 4
+#: Kartın genişliği (piksel).
+CARD_WIDTH = 380
 #: Başarı ve bilgi kartlarının kendiliğinden kapanma süresi.
 AUTO_HIDE_MS = 8000
 #: Bu süreden uzun süren iş, pencere önde olsa da gürültülü bildirilir (kullanıcı başka işe dönmüş olabilir).
@@ -162,8 +164,7 @@ class NoticeCard(QFrame):
             f"QFrame#noticeCard {{ background: {tokens['surface']}; border: 1px solid {tokens['border']};"
             f" border-left: 4px solid {tone}; border-radius: 10px; }}"
         )
-        self.setMinimumWidth(320)
-        self.setMaximumWidth(420)
+        self.setFixedWidth(CARD_WIDTH)  # sabit genişlik: sarılan metnin yüksekliği doğru hesaplanır
         lay = QHBoxLayout(self)
         lay.setContentsMargins(12, 10, 8, 10)
         lay.setSpacing(10)
@@ -252,7 +253,16 @@ class NoticeStack(QWidget):
             self._place()
 
     def _place(self) -> None:
-        self.adjustSize()
+        # Sarılan etiketler yüksekliği genişliğe göre belirler; kartların gerçek toplam yüksekliği buradan.
+        height = sum(
+            c.heightForWidth(CARD_WIDTH) if c.hasHeightForWidth() else c.sizeHint().height() for c in self._cards
+        )
+        height += self._lay.spacing() * max(len(self._cards) - 1, 0)
+        for card in self._cards:
+            card.setFixedHeight(
+                card.heightForWidth(CARD_WIDTH) if card.hasHeightForWidth() else card.sizeHint().height()
+            )
+        self.resize(CARD_WIDTH, height)
         margin = 18
         bottom = self._window.height() - margin
         status = getattr(self._window, "statusBar", None)

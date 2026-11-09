@@ -138,3 +138,31 @@ def test_posted_signal(env: Env) -> None:
     env.center.posted.connect(got.append)
     notice = env.center.notify(LEVEL_SUCCESS, "Bitti", loud=False)
     assert got == [notice]
+
+
+def test_card_parts_do_not_overlap(qtbot: QtBot, env: Env) -> None:
+    """Uzun metinli, düğmeli kartta başlık, metin ve düğme üst üste binmez (kart yüksekliği sarılan metne göre)."""
+    env.window.show()
+    env.center.notify(
+        LEVEL_WARNING,
+        "Yeniden çeviri bitti",
+        "3.938 satır yenilendi · 2.098 satır aynı kaldı · 6 satır denetimden geçmedi",
+        (NoticeAction("Değişiklikleri Gör", lambda: None),),
+        loud=False,
+    )
+    env.center.notify(
+        LEVEL_ERROR,
+        "Otomatik çeviri durdu",
+        "Ollama'ya bağlanılamadı. Yapılanlar kaydedildi. Yeniden başlatınca kaldığı yerden devam eder.",
+        (NoticeAction("Tekrar Dene", lambda: None),),
+        loud=False,
+    )
+    for card in env.center.stack.cards():
+        qtbot.waitUntil(card.isVisible)
+        title = card.title_label.geometry()
+        text = card.text_label.geometry()
+        button = card.action_buttons[0].mapTo(card, card.action_buttons[0].rect().topLeft())
+        assert title.bottom() <= text.top()
+        assert text.bottom() <= button.y()
+        assert button.y() + card.action_buttons[0].height() <= card.height()
+        assert text.height() > 1.5 * card.text_label.fontMetrics().height()  # uzun metin iki satıra sarıldı

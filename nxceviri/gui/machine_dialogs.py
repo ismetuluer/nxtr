@@ -79,7 +79,7 @@ _ACTIONS = (
     ),
     (
         ACTION_REVISE,
-        "Talimatla düzelt",
+        "Redaksiyon",
         "Mevcut çeviriler yazdığınız talimata göre düzeltilir. Yalnızca Ollama ile yapılabilir.",
     ),
 )
@@ -109,7 +109,7 @@ def rows_matching(rows: Sequence[TranslationRow], pattern: str) -> list[Translat
 _START_LABELS = {
     ACTION_TRANSLATE: "Çeviriyi Başlat",
     ACTION_RETRANSLATE: "Yeniden Çevir",
-    ACTION_REVISE: "Düzeltmeyi Başlat",
+    ACTION_REVISE: "Redaksiyonu Başlat",
 }
 
 #: Hazır redaksiyon talimatları: (menüdeki ad, talimat metni).
@@ -564,7 +564,7 @@ class MachineDialog(QDialog):
         self.count.setText(text)
         if revise_on_deepl:
             self.status.show_message(
-                "warning", "DeepL talimat izleyemez; talimatla düzeltme için sağlayıcı olarak Ollama'yı seçin."
+                "warning", "DeepL talimat izleyemez; redaksiyon için sağlayıcı olarak Ollama'yı seçin."
             )
         self.start.setEnabled(bool(rows) and not no_key and not revise_on_deepl)
 
