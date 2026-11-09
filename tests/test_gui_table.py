@@ -9,7 +9,7 @@ import pytest
 from PySide6.QtCore import QPoint, QSettings, Qt
 from PySide6.QtGui import QFont
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QToolButton
+from PySide6.QtWidgets import QApplication, QLabel, QToolButton
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.project import TranslationRow
@@ -339,7 +339,7 @@ def test_pages_have_no_long_visible_descriptions(qtbot: QtBot, tmp_path: Path) -
             for lbl in page.findChildren(QLabel):
                 if lbl.property("role") == "muted" and lbl.text() and not lbl.text().startswith("<"):
                     assert len(lbl.text()) <= 90, lbl.text()
-        for page in (w.translate_page, w.qa_page, w.export_page, w.scan_page):
+        for page in (w.qa_page, w.export_page, w.scan_page):  # Çevir sayfasında başlık yok (tablo tüm yeri kullanır)
             titles = [lbl for lbl in page.findChildren(QLabel) if lbl.property("role") == "pageTitle"]
             assert titles
             assert titles[0].toolTip(), "açıklama başlığın ipucu olarak durmalı"
@@ -381,3 +381,35 @@ def test_copy_without_selection_does_nothing(page: TranslatePage) -> None:
     page.table.clearSelection()
     page.copy_to_clipboard("both")
     assert QApplication.clipboard().text() == "eski"
+
+
+def test_search_looks_only_at_source_and_translation(qtbot: QtBot) -> None:
+    """Arama kutusu anahtar ve dosya adında aramaz: "/(" gibi kod parçaları anahtardan dolayı hepsini getirmesin."""
+    p = TranslatePage()
+    qtbot.addWidget(p)
+    p.set_rows(
+        [
+            _row(1, "Start", "Başla", key="/(ui_story)"),
+            _row(2, "Quit", "Çık\n/(leaked_key)", key="ui_quit"),
+            _row(3, "Menu", "Menü", key="menu_a_en"),
+        ]
+    )
+    p.search.setText("/(")
+    assert [p.proxy.index(r, COL_SOURCE).data() for r in range(p.proxy.rowCount())] == [
+        "Quit"
+    ]  # yalnızca çeviride geçen
+    p.search.setText("ui_story")
+    assert p.proxy.rowCount() == 0  # anahtarda geçiyor ama metinde değil
+    p.search.setText("a_en.bundle")
+    assert p.proxy.rowCount() == 0  # dosya adı
+    p.search.setText("başla")
+    assert p.proxy.rowCount() == 1
+    assert "Orijinal ve çeviri" in p.search.toolTip()
+
+
+def test_translate_page_has_no_title_row(qtbot: QtBot) -> None:
+    p = TranslatePage()
+    qtbot.addWidget(p)
+    texts = {w.text() for w in p.findChildren(QLabel) if w.isVisibleTo(p)}
+    assert "Çevir" not in texts  # sayfa başlığı yok
+    assert "Çeviri tablosu" not in texts  # kart başlığı yok

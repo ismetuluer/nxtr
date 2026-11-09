@@ -633,3 +633,64 @@ def test_extra_files_are_written_into_the_mod(msbt_project: tuple[Inputs, Projec
     written = [f for f in result.files if f.endswith("Font/oyun.ttf")]
     assert len(written) == 1
     assert (dest / written[0]).read_bytes() == b"yeni-font"
+
+
+def test_export_lists_which_error_rows_stayed_original(msbt_project: tuple[Inputs, Project], tmp_path: Path) -> None:
+    """Orijinal kalan hatalı satırlar sonuçta kimliğiyle bulunur; çevirisiyle yazılan hatalı satır listede yoktur."""
+    inputs, project = msbt_project
+    rows = _with_error_status(project, "No", "Wait")
+    result = export_mod(
+        inputs,
+        _refs(project),
+        rows,
+        options=ExportOptions(LAYOUT_ATMOSPHERE, tmp_path / "liste", "Deneme", "", include_errors=True),
+        info=INFO,
+    )
+    by_key = {r.key: r.id for r in rows}
+    assert result.error_kept_ids == [by_key["Wait"]]  # "No" yazıldı, "Wait" (kodu eksik) orijinal kaldı
+    plain = export_mod(
+        inputs,
+        _refs(project),
+        rows,
+        options=ExportOptions(LAYOUT_ATMOSPHERE, tmp_path / "duz", "Deneme", ""),
+        info=INFO,
+    )
+    assert sorted(plain.error_kept_ids) == sorted([by_key["No"], by_key["Wait"]])
+
+
+def test_export_refuses_when_written_file_gains_or_loses_rows(
+    msbt_project: tuple[Inputs, Project], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Yazılan dosya geri okununca satır kümesi orijinalinkinden farklıysa (ör. çeviriye karışan satır sonu satırı
+    böldüyse) mod üretilmez; neden ve satır adı söylenir."""
+    from nxceviri.core.formats.base import TextEntry
+
+    inputs, project = msbt_project
+    written: list[bytes] = []
+    real_inject, real_extract = MsbtPlugin.inject, MsbtPlugin.extract
+
+    def inject(self: MsbtPlugin, data: bytes, translations: Any) -> bytes:
+        out = real_inject(self, data, translations)
+        written.append(out)
+        return out
+
+    def extract(self: MsbtPlugin, data: bytes, context: Any = None) -> list[TextEntry]:
+        entries = real_extract(self, data, context)
+        if data in written:  # yazılmış dosya: fazladan bir satır belirmiş gibi
+            entries = [*entries, TextEntry("/(ghost_key)", 99, "kalıntı", ())]
+        return entries
+
+    monkeypatch.setattr(MsbtPlugin, "inject", inject)
+    monkeypatch.setattr(MsbtPlugin, "extract", extract)
+    dest = tmp_path / "bozuk"
+    with pytest.raises(ExportError) as caught:
+        export_mod(
+            inputs,
+            _refs(project),
+            project.translation_rows(),
+            options=ExportOptions(LAYOUT_ATMOSPHERE, dest, "Deneme", ""),
+            info=INFO,
+        )
+    assert "satır kümesi" in caught.value.message
+    assert "/(ghost_key)" in caught.value.message
+    assert not dest.exists()  # hedefte hiçbir şey bırakılmadı

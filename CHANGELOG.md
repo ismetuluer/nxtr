@@ -2,6 +2,28 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.55.1] — 2026-11-09 — Çeviriye karışan kod, arama, uyarılar
+
+### Düzeltildi
+- **Modelin çeviriye anahtar adı eklemesi** (ör. çevirinin sonuna `/(ursa_desc)`): oyunun CSV dosyasında satırı ikiye
+  bölüyor, oyun yerelleştirme dosyasını okuyamayınca bütün metinleri bırakıp ham anahtarları gösteriyordu. Üç katmanlı
+  savunma: (1) model artık anahtar adını kod olarak değil sözcük ipucu olarak alıyor ("ursa_desc" → "ursa desc");
+  (2) orijinalde olmayan anahtar benzeri ifade ya da fazladan satır sonu içeren çeviri **Şüpheli çeviri** sayılır ve
+  toplu çeviride model bu sorun söylenerek yeniden istenir; (3) **dışa aktarırken yazılan dosya eklentinin kendi
+  okuyucusuyla geri okunur**: satır kümesi orijinalinden farklıysa mod üretilmez, fazladan/eksik satırların adı söylenir.
+- **Arama kutusu** anahtarda ve dosya adında da arıyordu ("/(" yazınca tüm satırlar geliyordu). Artık yalnızca
+  Orijinal ve Çeviri sütunlarında arar.
+- **Dışa aktarma uyarısı** "1 satır orijinal bırakıldı" derken hangi satır olduğunu söylemiyordu. Artık bildirimde
+  tablodaki **No**, orijinal ve çeviri metniyle listelenir (en çok 12 satır, fazlası sayıyla).
+
+### Değişti
+- **Çevir sayfasında başlık yok:** sayfa başlığı ve "Çeviri tablosu" kart başlığı kaldırıldı; tabloya daha çok yer
+  kalır (kenar çubuğu hangi adımda olduğunuzu zaten gösterir).
+- **"Satır sığdırırken ayrıca" bloğu kalktı:** üç temizlik seçeneği ayrı birer onay kutusu olmak yerine ilgili
+  denetim/düzeltme türüne bağlandı: **Çift boşluk**, **Tekrarlı noktalama** (eski "Fazla nokta"; artık `!!!!` ve `,,`
+  da) ve yeni **Noktalama öncesi boşluk** ("Merhaba !"). Hepsi Sorunlar listesinde bulgu olarak çıkar, Düzeltmeler
+  panelinde seçilir, Ayarlar → Anlık Denetimler'de açılıp kapanır. Eski projelerdeki seçenekler yok sayılır.
+
 ## [0.55.0] — 2026-11-09 — Maskot, Yardım, katkı rehberi
 
 ### Eklendi

@@ -341,8 +341,8 @@ def test_short_window_hides_bottom_pane_instead_of_moving_it_right(qtbot: QtBot)
     assert page.splitter.orientation() == Qt.Orientation.Vertical
     page.setMinimumSize(1, 1)  # bağımsız sayfa, panel yüzünden ana penceredeki gibi küçülemez
     page.resize(
-        1300, 500
-    )  # altta sığmaz (eylem satırı kalktığı için eşik 560'tan düştü), genişlik yeterli: sağa geçmez
+        1300, 420
+    )  # altta sığmaz (eylem satırı kalktığı için eşik başlık kalkınca ≈480'e düştü), genişlik yeterli: sağa geçmez
     qtbot.waitUntil(lambda: not page.pane.isVisibleTo(page), timeout=3000)
     assert page.splitter.orientation() == Qt.Orientation.Vertical
     assert page.view_actions.pane == PANE_BOTTOM
@@ -354,7 +354,7 @@ def test_short_window_hides_bottom_pane_instead_of_moving_it_right(qtbot: QtBot)
 def test_tiny_window_hides_pane_without_changing_choice(qtbot: QtBot) -> None:
     page, _ = make_page(qtbot)
     page.setMinimumSize(1, 1)  # bağımsız sayfa, panel yüzünden ana penceredeki gibi küçülemez
-    page.resize(820, 520)
+    page.resize(820, 420)
     qtbot.waitUntil(lambda: not page.pane.isVisibleTo(page), timeout=3000)
     assert page.view_actions.pane == PANE_BOTTOM
     assert page.view_actions.pane_visible
@@ -369,7 +369,7 @@ def test_pane_starts_closed_when_there_is_no_room_and_state_is_remembered(qtbot:
     page = TranslatePage()
     qtbot.addWidget(page)
     page.setMinimumSize(1, 1)
-    page.resize(820, 520)
+    page.resize(820, 420)
     page.bind_settings(QSettings(ini, QSettings.Format.IniFormat))
     page.show()
     page.set_rows(default_rows())
@@ -383,7 +383,7 @@ def test_opening_pane_without_room_tells_why(qtbot: QtBot) -> None:
     page = TranslatePage()
     qtbot.addWidget(page)
     page.setMinimumSize(1, 1)
-    page.resize(820, 520)
+    page.resize(820, 420)
     page.show()
     page.set_rows(default_rows())
     qtbot.waitUntil(lambda: not page.pane.isVisibleTo(page), timeout=3000)

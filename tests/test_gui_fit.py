@@ -19,7 +19,7 @@ from nxceviri.core.secrets import MemoryStore
 from nxceviri.core.translate.cleanup import tidy_punctuation
 from nxceviri.core.translate.codekinds import KIND_PAGE_BREAK, KIND_VARIABLE, CodeKinds
 from nxceviri.core.translate.fit import FitRules
-from nxceviri.core.translate.fitconfig import FitConfig, FitOptions, learn_rules, load_config, save_config
+from nxceviri.core.translate.fitconfig import FitConfig, learn_rules, load_config, save_config
 from nxceviri.gui.main_window import STEP_QA, MainWindow
 from nxceviri.gui.qa_page import QaPage
 from tests.task_wait import finish_task
@@ -102,7 +102,7 @@ def test_no_rules_message(window: MainWindow) -> None:
     assert not page.fit_enabled.isChecked()
     assert page.fit_note.isVisibleTo(page)
     assert page.fit_note.text() == "Sınır girilmedi; sığdırma kapalı."
-    for widget in (page.fit_width, page.fit_lines, page.fit_learn, page.fit_kinds, page.fit_spaces, page.fit_scope):
+    for widget in (page.fit_width, page.fit_lines, page.fit_learn, page.fit_kinds, page.fit_scope):
         assert not widget.isEnabled()
     page.check_button.click()
     finish_task(window)
@@ -188,13 +188,6 @@ def test_code_kind_table_edit_persists(window: MainWindow) -> None:
     combo.setCurrentIndex(combo.findData(KIND_PAGE_BREAK))
     assert combo.currentText() == "Sayfa sonu"
     assert load_config(window.project).kinds.mapping == {CODE: KIND_PAGE_BREAK}
-
-
-def test_options_persist(window: MainWindow) -> None:
-    page = _page(window)
-    _enable(page, 40, 3)
-    page.fit_repeated.setChecked(False)
-    assert load_config(window.project).options == FitOptions(repeated_punct=False)
 
 
 def test_set_fit_does_not_emit(qtbot: QtBot, window: MainWindow) -> None:
@@ -290,10 +283,19 @@ def test_toggle_off_keeps_limits(window: MainWindow) -> None:
     assert page.fit_config() == stored
 
 
-def test_repeated_punct_tooltip_matches_cleanup(window: MainWindow) -> None:
-    """İpucundaki örnekler temizliğin gerçekte yaptığıyla aynı olmalı."""
-    tip = _page(window).fit_repeated.toolTip()
-    pairs = re.findall(r"“([^”]+)” → “([^”]+)”", tip)
-    assert pairs
-    for before, after in pairs:
-        assert tidy_punctuation("x", before) == after
+def test_cleanup_fix_tips_match_what_they_do() -> None:
+    """Düzeltme ipuçlarındaki örnekler temizliğin gerçekte yaptığıyla aynı olmalı."""
+    from nxceviri.gui.qa_page import FIX_TIPS
+
+    for kind in ("extra_dots", "space_before_punct"):
+        pairs = re.findall(r"‘([^’]+)’ → ‘([^’]+)’", FIX_TIPS[kind])
+        assert pairs
+        for before, after in pairs:
+            assert tidy_punctuation("x", before) == after
+
+
+def test_cleanup_options_are_not_a_separate_block(window: MainWindow) -> None:
+    """Boşluk ve noktalama temizlikleri ayrı bir "sığdırırken ayrıca" bloğu değil, düzeltme türleridir."""
+    page = _page(window)
+    assert not hasattr(page, "fit_spaces")
+    assert {"double_space", "extra_dots", "space_before_punct"} <= set(page.fix_boxes)

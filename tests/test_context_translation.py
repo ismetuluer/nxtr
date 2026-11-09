@@ -114,7 +114,13 @@ def test_payload_carries_scene_current_fix_and_instruction() -> None:
     assert len(payload["context_before"][1]["text"]) == 300  # çok uzun bağlam satırı kısaltılır
     assert payload["context_after"] == [{"text": "Fine."}]
     assert payload["items"] == [
-        {"id": "0", "text": "Not me.", "current": "Ben değil.", "key": "Dialogue/s06", "fix": "Eksik kontrol kodu: ⟦1⟧"}
+        {
+            "id": "0",
+            "text": "Not me.",
+            "current": "Ben değil.",
+            "where": "Dialogue s06",
+            "fix": "Eksik kontrol kodu: ⟦1⟧",
+        }
     ]
     # Çeviride talimat ve "current" gönderilmez.
     plain = json.loads(build_messages(items, "en", "tr", "", [], scene=Scene(instruction="yok sayılır"))[1]["content"])

@@ -12,7 +12,7 @@ from nxceviri.core.qa.autofix import FIX_KINDS, local_fix, plan_fixes
 from nxceviri.core.qa.checks import KIND_LABELS, run_checks
 from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.fit import FitRules
-from nxceviri.core.translate.fitconfig import FitConfig, FitOptions
+from nxceviri.core.translate.fitconfig import FitConfig
 from nxceviri.core.translate.providers.base import GlossaryTerm
 from nxceviri.core.translate.status import Status
 
@@ -116,16 +116,26 @@ def test_plan_fixes_fits_locally() -> None:
     assert plan.applied[1] == ("line_too_long", "bad_break")  # düzelen sığdırma türleri
 
 
-def test_options_gate_cleanup() -> None:
+def test_selected_kinds_gate_cleanup() -> None:
+    """Boşluk/noktalama temizlikleri ayrı düzeltme türleridir; yalnızca seçilenler (sınırlı satırda da) uygulanır."""
     row = _fit_row("Dur....", source="Wait!")
-    off = FitConfig(default=FitRules(40, 3), options=FitOptions(repeated_punct=False))
-    assert local_fix(row, fit=off) == "Dur...."
+    assert local_fix(row, fit=FIT, kinds=["double_space"]) == "Dur...."
+    assert local_fix(row, fit=FIT, kinds=["extra_dots"]) == "Dur..."
     assert local_fix(row, fit=FIT) == "Dur..."
     assert local_fix(row) == "Dur..."  # sınır yokken de 4+ nokta temizlenir (kaynakta yoksa)
     spaced = _fit_row("Dur  bakalım !", source="Wait!")
     assert local_fix(spaced, fit=FIT) == "Dur bakalım!"
-    no_spaces = FitConfig(default=FitRules(40, 3), options=FitOptions(spaces=False, space_before_punct=False))
-    assert local_fix(spaced, fit=no_spaces) == "Dur  bakalım !"
+    assert local_fix(spaced, fit=FIT, kinds=["double_space"]) == "Dur bakalım !"
+    assert local_fix(spaced, fit=FIT, kinds=["space_before_punct"]) == "Dur  bakalım!"
+    assert local_fix(spaced, kinds=["space_before_punct"]) == "Dur  bakalım!"  # sınırsız satırda da
+
+
+def test_repeated_punctuation_is_one_kind_with_dots() -> None:
+    row = _fit_row("Hayır!!!!", source="No!")
+    assert local_fix(row, kinds=["extra_dots"]) == "Hayır!!!"
+    assert [i.kind for i in run_checks([row], "", "", None, None)] == ["extra_dots"]
+    spaced = _fit_row("Merhaba !", source="Hi!")
+    assert [i.kind for i in run_checks([spaced], "", "", None, None)] == ["space_before_punct"]
 
 
 def test_fix_keeps_placeholders() -> None:
@@ -171,7 +181,7 @@ def test_local_fix_never_worsens_codes(monkeypatch: pytest.MonkeyPatch) -> None:
     text = "Eski sandıkta⟦1⟧⟦2⟧ altın para buldun, harika bir şey bu."
     row = TranslationRow(1, "f", "k", source, text, Status.MACHINE, "", ("Satır sonu", "Sayı 0001"), None)
     swapped = "Eski sandıkta ⟦2⟧ altın para buldun,⟦1⟧harika bir şey bu."
-    monkeypatch.setattr(autofix_module, "fit_and_tidy", lambda _row, _text, _fit: swapped)
+    monkeypatch.setattr(autofix_module, "fit_and_tidy", lambda _row, _text, _fit, _tidy: swapped)
     assert local_fix(row, fit=fit) == text
     plan = plan_fixes([row], run_checks([row], "", "", None, fit), fit=fit)
     assert plan.changes == []

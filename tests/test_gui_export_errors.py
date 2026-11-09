@@ -156,3 +156,21 @@ def test_full_folder_offers_overwrite_or_other_folder(
     assert asked[-1][1] == ["Başka Klasör…", "Vazgeç"]
     assert "silinmez" in asked[-1][0]
     assert ask_full_folder(window, tmp_path / "yok") == "empty"
+
+
+def test_kept_rows_text_names_number_and_texts(qtbot: QtBot, tmp_path: Path) -> None:
+    """Uyarı hangi satırların orijinal kaldığını No, orijinal ve çeviriyle söyler; çoksa ilk birkaçını."""
+    from nxceviri.gui.main_window import KEPT_ROWS_SHOWN
+    from tests.test_statusbar import _make_window, _project
+
+    w = _make_window(qtbot, tmp_path, _project())
+    rows = w.project.translation_rows()
+    text = w._kept_rows_text([rows[0].id], rows)
+    assert "Orijinal bırakılan hatalı satırlar" in text
+    assert f"No {w.translate_page.model.number(rows[0].id)}:" in text
+    assert rows[0].source.split()[0] in text
+    assert w._kept_rows_text([], rows) == ""
+    many = w._kept_rows_text([rows[0].id] * (KEPT_ROWS_SHOWN + 5), rows)
+    assert "… ve 5 satır daha" in many
+    w.dirty = False
+    w.close()

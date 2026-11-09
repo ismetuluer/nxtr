@@ -299,6 +299,15 @@ def ask_full_folder(parent: QWidget, dest: Path) -> str:
     return {"Üzerine Yaz": "overwrite", "Başka Klasör…": "other"}.get(choice, "cancel")
 
 
+#: Dışa aktarma bildiriminde en çok bu kadar orijinal bırakılan hatalı satır listelenir; metinler bu kadar kısalır.
+KEPT_ROWS_SHOWN = 12
+_CLIP_CHARS = 70
+
+
+def _clip(text: str) -> str:
+    return text if len(text) <= _CLIP_CHARS else text[: _CLIP_CHARS - 1].rstrip() + "…"
+
+
 #: Maskot: "bitti" ve "hata" hâllerinin süresi, ve kullanıcı dokunmadan uykuya dalma süresi (ms).
 MASCOT_DONE_MS = 4000
 MASCOT_ERROR_MS = 10000
@@ -2379,6 +2388,9 @@ class MainWindow(QMainWindow):
                     f"{format_int(result.rows_error_kept)} tanesi orijinal bırakıldı. Oyun çökerse bu satırları "
                     "düzeltip modu yeniden oluşturun."
                 )
+            kept = self._kept_rows_text(result.error_kept_ids, rows)
+            if kept:
+                message += "\n\n" + kept
             if result.font_patches:
                 message += f"\n\nFont yaması: {format_int(len(result.font_patches))} fonta Türkçe harf eklendi."
             if result.warnings:
@@ -2409,6 +2421,25 @@ class MainWindow(QMainWindow):
             on_progress=page.progress.update_progress,
             on_cancel=cancelled,
         )
+
+    def _kept_rows_text(self, ids: Sequence[int], rows: Sequence[TranslationRow]) -> str:
+        """Hatalı olduğu için modda orijinal kalan satırlar: tablodaki No, orijinal ve çeviri (en çok ilk birkaçı)."""
+        if not ids:
+            return ""
+        by_id = {r.id: r for r in rows}
+        model = self.translate_page.model
+        lines = []
+        for row_id in ids[:KEPT_ROWS_SHOWN]:
+            row = by_id.get(row_id)
+            if row is None:
+                continue
+            first = _clip(" ".join(row.source.split()))
+            second = _clip(" ".join(row.translation.split())) or "çeviri yok"
+            lines.append(f"  No {format_int(model.number(row_id))}: “{first}” → “{second}”")
+        more = len(ids) - KEPT_ROWS_SHOWN
+        if more > 0:
+            lines.append(f"  … ve {format_int(more)} satır daha (Kontrol Et → Sorunlar).")
+        return "Orijinal bırakılan hatalı satırlar:\n" + "\n".join(lines)
 
     def _open_export_folder(self) -> None:
         if self.last_export is not None:

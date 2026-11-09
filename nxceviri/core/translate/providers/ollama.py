@@ -268,6 +268,18 @@ def language_name(code: str) -> str:
     return LANGUAGE_NAMES_EN.get(code.split("-", maxsplit=1)[0].lower(), code)
 
 
+_HINT_WORD_RE = re.compile(r"[^\W_]+")
+
+
+def _key_hint(context: str) -> str:
+    """Anahtar adından yalnızca sözcük ipucu ("Dialogue/Greet" → "Dialogue Greet", "ursa_desc" → "ursa desc").
+
+    Kod gibi görünen ifade modelin çeviriye kopyalamasına yol açıyordu (ör. "/(ursa_desc)" çevirinin sonuna eklenip
+    oyun dosyasında satırı bölüyordu); sözcük olarak verilince yine ipucu olur ama kopyalanacak bir kod kalmaz.
+    """
+    return " ".join(_HINT_WORD_RE.findall(context))
+
+
 def _context_lines(lines: tuple[ContextLine, ...]) -> list[dict[str, str]]:
     out = []
     for line in lines:
@@ -347,7 +359,7 @@ def build_messages(
             "id": it.id,
             "text": it.text,
             **({"current": it.current} if scene.revise else {}),
-            **({"key": it.context} if it.context else {}),
+            **({"where": hint} if (hint := _key_hint(it.context)) else {}),
             **({"max_length": it.max_length} if it.max_length else {}),
             **({"fix": it.fix} if it.fix else {}),
             **({"codes": codes} if (codes := _code_notes(it)) else {}),

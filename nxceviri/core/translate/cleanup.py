@@ -194,6 +194,16 @@ def tidy_punctuation(
     return text
 
 
+def collapse_repeated_punct(source: str, text: str) -> str:
+    """Tekrarlı noktalamayı toplar (`!!!!` → `!!!`, `,,` → `,`); özgünde öyle yazılmışsa dokunmaz."""
+    return tidy_punctuation(source, text, spaces=False, before_punct=False)
+
+
+def drop_space_before_punct(source: str, text: str) -> str:
+    """Noktalamadan önceki boşluğu siler (`Merhaba !` → `Merhaba!`); özgünde öyleyse dokunmaz."""
+    return tidy_punctuation(source, text, spaces=False, repeated=False)
+
+
 def tidy_spaces(source: str, text: str) -> str:
     """Temizlikten kalan çift boşlukları ve noktalamadan önceki boşluğu toplar (özgünde öyle değilse)."""
     return tidy_punctuation(source, text, repeated=False)

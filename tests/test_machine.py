@@ -86,7 +86,8 @@ def test_translate_batch_request_shape() -> None:
     payload = json.loads(body["messages"][1]["content"])
     assert "game_notes" not in payload
     assert payload["glossary"] == [{"term": "Link", "translation": "Link", "note": "karakter adı; çevrilmez"}]
-    assert payload["items"][0]["key"] == "Dialogue/Greet"
+    assert payload["items"][0]["where"] == "Dialogue Greet"  # sözcük ipucu; kod gibi görünen anahtar gitmez
+    assert "key" not in payload["items"][0]
     assert payload["items"][1]["max_length"] == 10
 
 
@@ -426,3 +427,12 @@ def test_truncated_single_item_still_fails_clearly(project: Project) -> None:
     server = FakeOllama(truncate_over=0)
     with pytest.raises(ProviderError, match="kesildi"):
         run_machine_translation(server.provider(), _job(project), TaskContext(), _write(project))
+
+
+def test_key_hint_has_no_code_like_text() -> None:
+    from nxceviri.core.translate.providers.ollama import _key_hint
+
+    assert _key_hint("/(ursa_desc)") == "ursa desc"
+    assert _key_hint("Dialogue/Greet") == "Dialogue Greet"
+    assert _key_hint("Assets/Loc/conversation/12") == "Assets Loc conversation 12"
+    assert _key_hint("") == ""

@@ -22,7 +22,8 @@ Denetimler satır başınadır ve yalnızca bulguları döndürür; satırları 
 | protected | uyarı | Orijinal cümlenin içindeki kod adı (`Barrel_Cannon`) çeviride aynen yok |
 | double_space | uyarı | Metnin içinde çift/çoklu boşluk (otomatik düzeltilir) |
 | repeated_word | uyarı | Art arda aynı sözcük, "ve ve" (otomatik düzeltilir) |
-| extra_dots | uyarı | 4+ nokta veya orijinalde olmayan ".." (otomatik düzeltilir) |
+| extra_dots | uyarı | 4+ nokta, orijinalde olmayan "..", "!!!!", ",," (otomatik düzeltilir) |
+| space_before_punct | uyarı | "Merhaba !" gibi noktalamadan önce boşluk (otomatik düzeltilir) |
 | inconsistent | uyarı | Aynı kaynak metin projede farklı biçimlerde çevrilmiş (hepsi onaylı değilse) |
 | term | uyarı | Kaynakta geçen terimin (özel ad) kanonik çevirisi çeviride yok; projede farklı çevrilmiş |
 | untranslated | bilgi | Çevrilmemiş satır (oyunda orijinal metin kalır) |
@@ -42,7 +43,9 @@ from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.cleanup import (
     added_end_punctuation,
     collapse_inner_spaces,
+    collapse_repeated_punct,
     drop_repeated_words,
+    drop_space_before_punct,
     fix_extra_dots,
     foreign_markup,
     misplaced_breaks,
@@ -50,7 +53,7 @@ from nxceviri.core.translate.cleanup import (
     missing_protected,
 )
 from nxceviri.core.translate.fit import PROBLEM_BREAK, PROBLEM_LINE, PROBLEM_PAGE, find_problems
-from nxceviri.core.translate.fitconfig import FitConfig, FitOptions
+from nxceviri.core.translate.fitconfig import FitConfig
 from nxceviri.core.translate.guards import translation_problems
 from nxceviri.core.translate.providers.base import GlossaryTerm
 from nxceviri.core.translate.status import Status
@@ -86,7 +89,8 @@ KIND_LABELS = {
     "protected": "Korunan ifade",
     "double_space": "Çift boşluk",
     "repeated_word": "Tekrarlı sözcük",
-    "extra_dots": "Fazla nokta",
+    "extra_dots": "Tekrarlı noktalama",
+    "space_before_punct": "Noktalama öncesi boşluk",
     "term": "Terim tutarsızlığı",
 }
 
@@ -210,13 +214,17 @@ def check_row(
             SEVERITY_WARNING,
             f"Çevrilmemesi gereken ifade çeviride yok: {', '.join(kept[:4])}. Oyun bu adı arayabilir.",
         )
-    options = fit.options if fit is not None else FitOptions()
-    if options.spaces and collapse_inner_spaces(row.source, row.translation) != row.translation:
+    if collapse_inner_spaces(row.source, row.translation) != row.translation:
         add("double_space", SEVERITY_WARNING, "Metnin içinde çift boşluk var.")
     if drop_repeated_words(row.source, row.translation) != row.translation:
         add("repeated_word", SEVERITY_WARNING, "Aynı sözcük art arda iki kez yazılmış.")
-    if options.repeated_punct and fix_extra_dots(row.source, row.translation) != row.translation:
-        add("extra_dots", SEVERITY_WARNING, "Fazla nokta var (üç nokta olmalı).")
+    if (
+        fix_extra_dots(row.source, row.translation) != row.translation
+        or collapse_repeated_punct(row.source, row.translation) != row.translation
+    ):
+        add("extra_dots", SEVERITY_WARNING, "Tekrarlı noktalama var (ör. “.....” “...”, “!!!!” “!!!” olmalı).")
+    if drop_space_before_punct(row.source, row.translation) != row.translation:
+        add("space_before_punct", SEVERITY_WARNING, "Noktalamadan önce boşluk var (“Merhaba !”).")
     end = added_end_punctuation(row.source, row.translation)
     if end:
         add("end_punctuation", SEVERITY_WARNING, f"Sonda orijinalde olmayan noktalama var: “{end}”")
@@ -225,7 +233,7 @@ def check_row(
         if unknown:
             add("spelling", SEVERITY_INFO, f"Yazım sözlüğünde olmayan sözcükler: {', '.join(unknown)}", tuple(unknown))
     if not problems and row.translation.strip() != row.source.strip():
-        doubts = translation_problems(row.source, row.translation, "tr")
+        doubts = translation_problems(row.source, row.translation, "tr", breaks=False)
         if doubts:
             add("suspicious", SEVERITY_WARNING, " ".join(doubts))
     if (row.source[:1].isspace(), row.source[-1:].isspace()) != (

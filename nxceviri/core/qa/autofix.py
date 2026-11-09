@@ -12,7 +12,7 @@ bağlıdır (`FIX_KINDS`); kullanıcı hangi türlerin düzeltileceğini seçer 
 - `spaces`: baştaki/sondaki boşluklar özgünle eşlenir;
 - `glossary`: çeviride İngilizce kalmış sözlük terimi karşılığıyla değiştirilir, kesme işaretinden sonraki ek
   korunur ("Sheriff'e" → "Şerif'e");
-- `end_punctuation`, `double_space`, `repeated_word`, `extra_dots`: metin temizliği;
+- `end_punctuation`, `double_space`, `repeated_word`, `extra_dots`, `space_before_punct`: metin temizliği;
 - `line_too_long`, `page_too_tall`, `bad_break`: projede satır/sayfa sınırı tanımlıysa sorunlu sayfa kelime
   sınırlarından, noktalamayı tercih ederek yeniden bölünür (`fit_text`); sayfa sonu kodlarına dokunulmaz. Sınırlı
   satırda "satır sonu sayısı özgünle aynı olmalı" kuralı uygulanmaz; satır sayısını sınır belirler.
@@ -25,14 +25,17 @@ from __future__ import annotations
 
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass, field, replace
+from typing import NamedTuple
 
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa.checks import QaIssue, check_row, glossary_patterns
 from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.cleanup import (
     collapse_inner_spaces,
+    collapse_repeated_punct,
     drop_invented_codes,
     drop_repeated_words,
+    drop_space_before_punct,
     fix_extra_dots,
     is_line_break,
     split_words,
@@ -51,7 +54,7 @@ from nxceviri.core.translate.fit import (
     fit_text,
     reflow_text,
 )
-from nxceviri.core.translate.fitconfig import FitConfig, FitOptions
+from nxceviri.core.translate.fitconfig import FitConfig
 from nxceviri.core.translate.providers.base import GlossaryTerm
 from nxceviri.core.translate.runner import match_edges
 from nxceviri.core.translate.status import Status
@@ -70,6 +73,7 @@ FIX_KINDS = (
     "double_space",
     "repeated_word",
     "extra_dots",
+    "space_before_punct",
     PROBLEM_LINE,
     PROBLEM_PAGE,
     PROBLEM_BREAK,
@@ -180,7 +184,18 @@ def apply_glossary(source: str, text: str, glossary: Sequence[GlossaryTerm]) -> 
     return text
 
 
-def fit_and_tidy(row: TranslationRow, text: str, fit: FitConfig) -> str:
+class Tidy(NamedTuple):
+    """Satır sığdırılırken hangi temizlikler yapılsın (düzeltme türleri seçimine göre)."""
+
+    spaces: bool = True
+    before_punct: bool = True
+    repeated: bool = True
+
+
+ALL_TIDY = Tidy()
+
+
+def fit_and_tidy(row: TranslationRow, text: str, fit: FitConfig, tidy: Tidy = ALL_TIDY) -> str:
     """Sınırı olan satırı sığdırır (`fit_text`), sonra projenin temizlik seçeneklerini uygular.
 
     Temizlik yalnızca karakter atar; yine de sığdırma sonucunu bozarsa (ör. kısalan satır gereksiz kısa kalırsa)
@@ -191,13 +206,8 @@ def fit_and_tidy(row: TranslationRow, text: str, fit: FitConfig) -> str:
         return text
     kind_of = fit.kind_of_row(row)
     fitted = fit_text(text, kind_of, rules, row.source).text
-    options = fit.options
     tidied = tidy_punctuation(
-        row.source,
-        fitted,
-        spaces=options.spaces,
-        before_punct=options.space_before_punct,
-        repeated=options.repeated_punct,
+        row.source, fitted, spaces=tidy.spaces, before_punct=tidy.before_punct, repeated=tidy.repeated
     )
     if tidied == fitted:
         return fitted
@@ -250,7 +260,6 @@ def local_fix(
     """
     want = frozenset(FIX_KINDS if kinds is None else kinds)
     source = row.source
-    options = fit.options if fit is not None else FitOptions()
     limited = fit is not None and fit.rules_for_row(row) is not None
     text = row.translation
     cleaned = text
@@ -274,24 +283,26 @@ def local_fix(
         text = apply_glossary(source, text, glossary)
     if "end_punctuation" in want:
         text = strip_added_end_punctuation(source, text)
-    # Sınırlı satırda çift boşluğu `fit_and_tidy` (sığdırmayı bozarsa geri alarak) temizler; nokta seçeneğe bağlı.
-    if "double_space" in want and options.spaces and not limited:
+    # Sınırlı satırda boşluk ve noktalama temizliğini `fit_and_tidy` (sığdırmayı bozarsa geri alarak) yapar.
+    tidy = Tidy("double_space" in want, "space_before_punct" in want, "extra_dots" in want)
+    if "double_space" in want and not limited:
         text = collapse_inner_spaces(source, text)
     if "repeated_word" in want:
         text = drop_repeated_words(source, text)
-    if "extra_dots" in want and options.repeated_punct:
+    if "extra_dots" in want:
         text = fix_extra_dots(source, text)
+        if not limited:
+            text = collapse_repeated_punct(source, text)
+    if "space_before_punct" in want and not limited:
+        text = drop_space_before_punct(source, text)
     if fit is not None and limited:
         if want & FIT_KINDS:
             # Sığdırma uzunluğu değiştiren son adımdır: sözlük terimi satırı uzatmış olabilir.
-            chosen = FitOptions(
-                options.spaces and "double_space" in want,
-                options.space_before_punct,
-                options.repeated_punct and "extra_dots" in want,
+            text = fit_and_tidy(row, text, fit, tidy)
+        else:
+            text = tidy_punctuation(
+                source, text, spaces=tidy.spaces, before_punct=tidy.before_punct, repeated=tidy.repeated
             )
-            text = fit_and_tidy(row, text, replace(fit, options=chosen))
-        elif "double_space" in want and options.spaces:
-            text = collapse_inner_spaces(source, text)
     text = match_edges(source if "spaces" in want else row.translation, text)
     # Kontrol kodu bütünlüğü hiçbir yerel adımda kötüleşmemeli (§4.3); kötüleşirse çeviri olduğu gibi kalır.
     before = set(placeholders.problems(source, row.translation))

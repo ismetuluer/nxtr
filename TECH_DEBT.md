@@ -381,3 +381,4 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     maskotunkiler ve kenar çubuğu daralması var; bildirim kartı ve panel kayarak açılmıyor. Maskot animasyonu ekransız
     testte ve kare dökümüyle denendi; gerçek pencerede ve yüksek DPI'da elle izlenmedi. *Ne zaman:* kullanıcı geri
     bildirimiyle.
+91. **Dışa aktarma geri okuması oyunun ayrıştırıcısından yumuşak olabilir (0.55.1).** Yapı denetimi eklentinin kendi `extract`ını kullanır; oyunun yerleşik okuyucusu daha katıysa (ör. tırnaksız satır sonu bölen basit CSV okuyucu) bizim okuyucumuz sorunu görmeyebilir. Savunmanın öteki katmanları (çeviriye karışan kod/satır sonu denetimi) bu boşluğu azaltır. Kalıcı çözüm: biçim eklentilerine "satır sonu yasak" gibi bir kural bildirimi. *Ne zaman:* yeni bir oyunda benzer bozulma görülürse.

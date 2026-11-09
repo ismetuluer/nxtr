@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Sequence
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
 from typing import NamedTuple
 
@@ -34,15 +34,6 @@ EACH_GROUP = "*gruplar"
 
 
 @dataclass(frozen=True)
-class FitOptions:
-    """Otomatik düzeltme seçenekleri (boşluk, noktalama öncesi boşluk, tekrarlanan noktalama)."""
-
-    spaces: bool = True
-    space_before_punct: bool = True
-    repeated_punct: bool = True
-
-
-@dataclass(frozen=True)
 class FitConfig:
     """Bir projenin sığdırma ayarları: varsayılan kural, dosya ve grup kuralları, kod türleri, seçenekler.
 
@@ -56,7 +47,6 @@ class FitConfig:
     default: FitRules | None = None
     per_file: dict[str, FitRules] = field(default_factory=dict)
     kinds: CodeKinds = field(default_factory=lambda: CodeKinds({}))
-    options: FitOptions = field(default_factory=FitOptions)
     enabled: bool = True
     per_group: dict[str, FitRules] = field(default_factory=dict)
     per_key: dict[str, FitRules] = field(default_factory=dict)
@@ -142,20 +132,6 @@ def _parse_rules(name: str, data: object) -> FitRules | None:
     return FitRules(width, max_lines, variable_width)
 
 
-def _parse_options(data: object) -> FitOptions:
-    if not isinstance(data, dict):
-        log.warning("Sığdırma seçenekleri bir sözlük değil, varsayılanlar kullanılıyor.")
-        return FitOptions()
-    values: dict[str, bool] = {}
-    for f in fields(FitOptions):
-        value = data.get(f.name)
-        if isinstance(value, bool):
-            values[f.name] = value
-        elif f.name in data:
-            log.warning("Sığdırma seçeneği (%s) doğru/yanlış değil, varsayılan kullanılıyor.", f.name)
-    return FitOptions(**values)
-
-
 def _parse_enabled(data: dict[str, object]) -> bool:
     value = data.get("enabled", True)
     if isinstance(value, bool):
@@ -181,7 +157,6 @@ class _Parsed(NamedTuple):
     per_file: dict[str, FitRules]
     per_group: dict[str, FitRules]
     per_key: dict[str, FitRules]
-    options: FitOptions
     enabled: bool
 
 
@@ -190,27 +165,25 @@ def _parse_config(text: str) -> _Parsed:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
         log.warning("Sığdırma ayarı okunamadı, varsayılanlar kullanılıyor: %s", exc)
-        return _Parsed(None, {}, {}, {}, FitOptions(), True)
+        return _Parsed(None, {}, {}, {}, True)
     if not isinstance(data, dict):
         log.warning("Sığdırma ayarı bir sözlük değil, varsayılanlar kullanılıyor.")
-        return _Parsed(None, {}, {}, {}, FitOptions(), True)
+        return _Parsed(None, {}, {}, {}, True)
     default = _parse_rules("varsayılan", data["default"]) if data.get("default") is not None else None
     per_file = _parse_rule_map(data.get("files", {}), "Dosya")
     per_group = _parse_rule_map(data.get("groups", {}), "Grup")
     per_key = _parse_rule_map(data.get("keys", {}), "Anahtar")
-    options = _parse_options(data["options"]) if "options" in data else FitOptions()
-    return _Parsed(default, per_file, per_group, per_key, options, _parse_enabled(data))
+    # Eski projelerdeki "options" (üç temizlik seçeneği) yok sayılır: artık düzeltme türleri olarak seçilir.
+    return _Parsed(default, per_file, per_group, per_key, _parse_enabled(data))
 
 
 def load_config(project: Project) -> FitConfig:
     """Projeden sığdırma ayarlarını okur; ayar yoksa sessizce, bozuksa uyarıyla varsayılan döner."""
     config_text = project.setting(SETTING_CONFIG)
     kinds_text = project.setting(SETTING_KINDS)
-    parsed = _parse_config(config_text) if config_text else _Parsed(None, {}, {}, {}, FitOptions(), True)
+    parsed = _parse_config(config_text) if config_text else _Parsed(None, {}, {}, {}, True)
     kinds = CodeKinds.load(kinds_text) if kinds_text else CodeKinds({})
-    return FitConfig(
-        parsed.default, parsed.per_file, kinds, parsed.options, parsed.enabled, parsed.per_group, parsed.per_key
-    )
+    return FitConfig(parsed.default, parsed.per_file, kinds, parsed.enabled, parsed.per_group, parsed.per_key)
 
 
 def _rules_json(rules: FitRules) -> dict[str, int]:
@@ -225,7 +198,6 @@ def save_config(project: Project, config: FitConfig) -> None:
         "files": {path: _rules_json(rules) for path, rules in config.per_file.items()},
         "groups": {group: _rules_json(rules) for group, rules in config.per_group.items()},
         "keys": {pattern: _rules_json(rules) for pattern, rules in config.per_key.items()},
-        "options": {f.name: getattr(config.options, f.name) for f in fields(FitOptions)},
     }
     project.set_setting(SETTING_CONFIG, json.dumps(data, ensure_ascii=False, sort_keys=True))
     project.set_setting(SETTING_KINDS, config.kinds.dump())

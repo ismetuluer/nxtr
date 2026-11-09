@@ -55,7 +55,7 @@ from nxceviri.core.qa.checks import KIND_LABELS, SEVERITY_ERROR, SEVERITY_LABELS
 from nxceviri.core.qa.fonts import FontReport, font_advice, is_editable_font
 from nxceviri.core.translate.codekinds import KIND_NAMES, CodeKinds
 from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, FitRules
-from nxceviri.core.translate.fitconfig import EACH_GROUP, GROUP_PREFIX, FitConfig, FitOptions
+from nxceviri.core.translate.fitconfig import EACH_GROUP, GROUP_PREFIX, FitConfig
 from nxceviri.core.translate.limits import SCOPE_GROUP, SCOPE_KEY
 from nxceviri.gui.icons import bind_icon, icon
 from nxceviri.gui.issue_chips import ChipBar, Disclosure
@@ -100,7 +100,8 @@ FIX_TIPS: dict[str, str] = {
     "end_punctuation": "Orijinalde olmayan son noktayı siler: ‘Tamam.’ → ‘Tamam’.",
     "double_space": "Sözcükler arasındaki çift boşluğu teke indirir: ‘Çok  güzel’ → ‘Çok güzel’.",
     "repeated_word": "Art arda tekrarlanan sözcüğü teke indirir: ‘ve ve bitir’ → ‘ve bitir’.",
-    "extra_dots": "Fazla noktaları üç noktaya indirir: ‘Bekle.....’ → ‘Bekle...’.",
+    "extra_dots": "Tekrarlı noktalamayı toplar: ‘Bekle.....’ → ‘Bekle...’, ‘Hayır!!!!’ → ‘Hayır!!!’.",
+    "space_before_punct": "Noktalamadan önceki boşluğu siler: ‘Merhaba !’ → ‘Merhaba!’.",
     "line_too_long": "Sığdırma sınırını aşan satırları sözcük sınırlarından yeniden böler.",
     "page_too_tall": "Sınırdan fazla satırlı sayfaları yeniden böler.",
     "bad_break": "Kötü yerden bölünmüş satırları noktalama ve sözcük sınırlarına göre yeniden böler.",
@@ -500,7 +501,6 @@ class QaPage(QWidget):
         self._per_group: dict[str, FitRules] = {}
         self._per_key: dict[str, FitRules] = {}
         self._kinds: dict[str, str] = {}
-        self._options = FitOptions()
         self._enabled = True
         self._pending = False  # "Orijinalden öğren" önerisi kutularda, henüz kaydedilmedi
         scroll = QScrollArea()
@@ -669,7 +669,6 @@ class QaPage(QWidget):
         self._per_group = dict(config.per_group)
         self._per_key = dict(config.per_key)
         self._kinds = dict(config.kinds.mapping)
-        self._options = config.options
         self._enabled = config.enabled
         self._apply_fit_widgets(files, labels, groups)
 
@@ -680,7 +679,6 @@ class QaPage(QWidget):
             self._default,
             dict(self._per_file),
             kinds,
-            self._options,
             self.fit_enabled.isChecked(),
             dict(self._per_group),
             dict(self._per_key),
@@ -724,7 +722,7 @@ class QaPage(QWidget):
 
     def _apply_fit_widgets(self, files: list[str], labels: list[str], groups: Sequence[str]) -> None:
         scope = self._scope()
-        with _Blocked(self.fit_enabled, self.fit_scope, self.fit_spaces, self.fit_before_punct, self.fit_repeated):
+        with _Blocked(self.fit_enabled, self.fit_scope):
             self.fit_enabled.setChecked(self._enabled and self._has_rules())
             self.fit_scope.clear()
             self.fit_scope.addItem("Tüm proje", "")
@@ -737,9 +735,6 @@ class QaPage(QWidget):
             if files:
                 self.fit_scope.addItem("Her grup ayrı", EACH_GROUP)
             self.fit_scope.setCurrentIndex(max(self.fit_scope.findData(scope), 0))
-            self.fit_spaces.setChecked(self._options.spaces)
-            self.fit_before_punct.setChecked(self._options.space_before_punct)
-            self.fit_repeated.setChecked(self._options.repeated_punct)
         kinds = CodeKinds(self._kinds)
         self.fit_kinds.setRowCount(len(labels))
         for r, code in enumerate(labels):
@@ -791,9 +786,6 @@ class QaPage(QWidget):
             self.fit_inherit,
             self.fit_learn,
             self.fit_kinds,
-            self.fit_spaces,
-            self.fit_before_punct,
-            self.fit_repeated,
         ):
             widget.setEnabled(on)
         for spin in (self.fit_width, self.fit_lines):
@@ -840,12 +832,6 @@ class QaPage(QWidget):
 
     def _kind_changed(self, code: str, combo: QComboBox) -> None:
         self._kinds[code] = str(combo.currentData())
-        self.fit_changed.emit()
-
-    def _option_toggled(self) -> None:
-        self._options = FitOptions(
-            self.fit_spaces.isChecked(), self.fit_before_punct.isChecked(), self.fit_repeated.isChecked()
-        )
         self.fit_changed.emit()
 
     # --- fontlar ------------------------------------------------------------------------
@@ -1142,24 +1128,6 @@ class QaPage(QWidget):
             scope.addWidget(radio)
             radio.toggled.connect(lambda _c: self._update_fix_boxes())
         lay.addWidget(self.fix_scope)
-        # Sığdırma düzeltmesinin yan temizliği: düzeltmelerle aynı yerde (eskiden Sığdırma sekmesindeydi, Çift boşluk /
-        # Fazla nokta düzeltmeleriyle karışıyordu). Proje ayarıdır; yalnızca orijinalde olmayan kalıplara dokunur.
-        lay.addWidget(
-            label(
-                "Satır sığdırırken ayrıca",
-                "muted",
-                tip="Satır uzun, Sayfa uzun ve Kötü bölünme düzeltilirken uygulanır; orijinaldeki kalıba dokunulmaz.",
-            )
-        )
-        self.fit_spaces = QCheckBox("Gereksiz boşluğu sil")
-        self.fit_spaces.setToolTip(tip_html("Sözcükler arasındaki çift boşluk teke indirilir."))
-        self.fit_before_punct = QCheckBox("Noktalama öncesi boşluğu sil")
-        self.fit_before_punct.setToolTip(tip_html("“Merhaba !” → “Merhaba!”"))
-        self.fit_repeated = QCheckBox("Tekrarlı noktalamayı azalt")
-        self.fit_repeated.setToolTip(tip_html("“!!!!” → “!!!”, “.....” → “...”, “,,” → “,”"))
-        for box in (self.fit_spaces, self.fit_before_punct, self.fit_repeated):
-            box.toggled.connect(self._option_toggled)
-            lay.addWidget(box)
         self.fix_button = button("Seçilenleri Düzelt", "primary", icon="refresh-cw")
         self.fix_button.clicked.connect(lambda: self._commit_pending(self._request_fix))
         lay.addWidget(self.fix_button)

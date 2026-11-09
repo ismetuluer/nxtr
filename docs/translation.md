@@ -85,8 +85,13 @@ Kod: `nxceviri/core/translate/` — `providers/base.py` (sözleşme), `providers
   ayrı bir aşamadır.
 - **Noktalama:** **Sondaki noktalama** uyarısı, orijinal noktalamasız bitiyorken çevirinin sonuna `. ! ? … : ;`
   eklendiğinde çıkar ("Start Game" → "Oyunu Başlat."); düzeltmesi işareti atar (sondaki boşluk ve kontrol kodları
-  kalır). Metin içindeki ünlem/soru denetlenmez (Türkçede doğal). **Fazla nokta** (4+ nokta ya da kaynakta olmayan
-  "..") "..."ya indirilir.
+  kalır). Metin içindeki ünlem/soru denetlenmez (Türkçede doğal). **Tekrarlı noktalama** (4+ nokta, kaynakta
+  olmayan "..", "!!!!", ",,") toplanır ("...", "!!!", ","); **Noktalama öncesi boşluk** ("Merhaba !") silinir.
+  İkisi de ayrı düzeltme türüdür ve Kontrol Et → Düzeltmeler'den seçilir; satır sığdırılırken de aynı seçimler
+  geçerlidir.
+- **Çeviriye karışan kod:** model bağlamdan anahtar adı gibi bir ifadeyi (`/(ursa_desc)`, `ursa_desc`) ya da
+  orijinalde olmayan bir satır sonu eklerse satır **Şüpheli çeviri** olur ve toplu çeviride modele sorun söylenerek
+  yeniden istenir. Modele anahtar adı kod olarak değil, sözcük ipucu olarak ("ursa desc") verilir.
 - **Kontrol Et → Düzeltmeler:** Denetle'den sonra bulguların altında düzeltilebilir türler sayılarıyla listelenir;
   işaretlediğiniz türler **Seçilenleri Düzelt** ile yerinde düzeltilir (tabloda satır seçiliyse yalnızca o satırlarda,
   onaylı satırlara dokunulmaz). “Raporu Gör” önceki/yeni hâli ve uygulanan düzeltmeyi gösterir; Ctrl+Z hepsini geri

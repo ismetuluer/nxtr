@@ -15,7 +15,9 @@ from nxceviri.core.qa.checks import SEVERITY_ERROR, run_checks
 from nxceviri.core.translate import runner as runner_module
 from nxceviri.core.translate.cleanup import (
     clean_output,
+    collapse_repeated_punct,
     drop_invented_codes,
+    drop_space_before_punct,
     foreign_markup,
     misplaced_breaks,
     split_words,
@@ -171,6 +173,13 @@ def test_repeated_punct_collapsed() -> None:
 def test_repeated_punct_kept_when_source_has_it() -> None:
     assert tidy_punctuation("Wait.....", "Bekle.....") == "Bekle....."
     assert tidy_punctuation("Hmm,,", "Hmm,,") == "Hmm,,"
+
+
+def test_single_cleanups() -> None:
+    assert collapse_repeated_punct("Hi", "Hayır!!!! Dur,,") == "Hayır!!! Dur,"
+    assert collapse_repeated_punct("Hi!!!!", "Hayır!!!!") == "Hayır!!!!"  # özgünde de var
+    assert drop_space_before_punct("Hi", "Merhaba !") == "Merhaba!"
+    assert drop_space_before_punct("Hi !", "Merhaba !") == "Merhaba !"
 
 
 def test_options_can_be_disabled() -> None:

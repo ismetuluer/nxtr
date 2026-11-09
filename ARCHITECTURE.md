@@ -885,6 +885,22 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     dosya değildir, `ShortcutRegistry`den üretilir ve tuş değişince yenilenir (`help.contents`, F1, yeni kategori
     "Yardım"). Arama `turkish_lower` ile; vurgu `ExtraSelection`.
 
+### 4.43 0.55.1 kararları (çeviriye karışan kod, temizlik türleri)
+
+169. **Anahtar kod olarak gitmez** (`ollama._key_hint`): kalem alanı `where`, değeri anahtarın sözcükleri. Kopyalanacak
+    kod kalmaz; ipucu işlevi sürer. Sağlayıcıdan bağımsız savunma `guards.foreign_key_tokens` (kaynakta/eski çeviride
+    olmayan `/(x)` ve alt çizgili tanımlayıcılar) ve eklenen satır sonudur; ikisi `translation_problems` ve
+    `revision_problems` içindedir, bu yüzden hem toplu çeviride yeniden istek hem Kontrol Et'te "Şüpheli çeviri" olur.
+170. **Dışa aktarmada yapı geri okuması** (`_verify_group(..., original=)`): metin eşitliğine ek olarak yazılan
+    dosyanın anahtar kümesi orijinalinkiyle aynı olmalı. Aynı eklentinin `extract`ı iki yanda kullanıldığı için
+    eklenti tuhaflıkları birbirini götürür; fark `ExportError` olur ve hedefe hiçbir şey yazılmaz. Oyunun kendi
+    ayrıştırıcısı bizimkinden katıysa (ör. tırnaksız satır sonu) bu yine de yakalamayabilir; savunmanın birinci ve
+    ikinci katmanı bunun için vardır.
+171. **`FitOptions` kalktı:** üç temizlik (çift boşluk, noktalama öncesi boşluk, tekrarlı noktalama) ayrı seçenek
+    değil düzeltme türüdür (`double_space`, `space_before_punct`, `extra_dots`); satır sığdırma da seçili türlere
+    bakar (`autofix.Tidy`). `fit_config` JSON'undaki eski `options` anahtarı okunurken yok sayılır, yazılmaz.
+172. **Arama yalnızca görünen metin** (`TranslationFilter.filterAcceptsRow`): anahtar ve dosya adı eşleşmeye girmez.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

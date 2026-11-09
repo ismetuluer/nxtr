@@ -13,7 +13,6 @@ from nxceviri.core.translate.fitconfig import (
     SETTING_CONFIG,
     SETTING_KINDS,
     FitConfig,
-    FitOptions,
     learn_group_rules,
     learn_rules,
     load_config,
@@ -31,7 +30,6 @@ def test_save_load_roundtrip() -> None:
         default=FitRules(40, 3, 5),
         per_file={"b.msbt": FitRules(30, 2)},
         kinds=CodeKinds({"Kod 0x05": "page_break"}),
-        options=FitOptions(spaces=False, space_before_punct=True, repeated_punct=False),
     )
     save_config(p, config)
     assert load_config(p) == config

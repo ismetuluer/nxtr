@@ -95,3 +95,34 @@ def test_revise_keeps_old_translation_when_model_writes_english() -> None:
     assert written == []
     assert (summary.retried, summary.rejected) == (1, 1)
     assert any("İngilizce" in issue for issue in summary.rejections[0].issues)
+
+
+def test_foreign_key_like_token_is_flagged() -> None:
+    """Modelin çeviriye eklediği anahtar benzeri ifade (ör. "/(ursa_desc)") uydurma belirtisidir."""
+    from nxceviri.core.translate.guards import foreign_key_tokens, translation_problems
+
+    assert foreign_key_tokens("Start in Firelord Stance", "Ateş Lordu Duruşuyla Başla\n/(ursa_desc)") == [
+        "/(ursa_desc)"
+    ]
+    assert foreign_key_tokens("Press menu_start", "menu_start tuşuna bas") == []  # kaynakta da var
+    assert foreign_key_tokens("Hello", "Merhaba (iyi) gün") == []  # sıradan parantez
+    assert foreign_key_tokens("Hello", "Merhaba, ben_ci") == ["ben_ci"]
+    problems = translation_problems("Start in Firelord Stance", "Ateş Lordu Duruşuyla Başla /(ursa_desc)", "tr")
+    assert any("/(ursa_desc)" in p for p in problems)
+
+
+def test_added_line_break_is_flagged() -> None:
+    from nxceviri.core.translate.guards import translation_problems
+
+    assert any("satır sonu" in p for p in translation_problems("Hello there", "Merhaba\norada", "tr"))
+    assert not [p for p in translation_problems("Hello\nthere", "Merhaba\norada", "tr") if "satır sonu" in p]
+    assert not [p for p in translation_problems("Hello there", "Merhaba orada", "tr") if "satır sonu" in p]
+
+
+def test_revision_flags_foreign_token_not_in_old_translation() -> None:
+    from nxceviri.core.translate.guards import revision_problems
+
+    bad = revision_problems("Wait here", "Burada bekle", "Burada bekle\n/(wait_desc)", "en", "tr")
+    assert any("/(wait_desc)" in p for p in bad)
+    kept = revision_problems("Wait", "Bekle /(wait_desc)", "Bekle /(wait_desc)", "en", "tr")
+    assert not [p for p in kept if "wait_desc" in p]  # eski çeviride zaten vardı; yeni bir şey eklenmedi

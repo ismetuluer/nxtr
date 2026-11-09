@@ -71,9 +71,33 @@ def repeated_pair(text: str) -> str | None:
     return None
 
 
+#: Anahtar/kod adı gibi görünen ifadeler: `/(ursa_desc)` ve `ursa_desc` (alt çizgili, boşluksuz, Latin harfli).
+#: Model bunları bağlamdan çeviriye kopyalar; oyun dosyasında satırı bölebilir ya da oyunda yazı olarak görünür.
+_KEY_LIKE_RE = re.compile(r"/\([^()\s]+\)|\b[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+\b")
+_NL = "\n"
+
+
+def foreign_key_tokens(source: str, new: str, old: str = "") -> list[str]:
+    """Yeni çeviride olup orijinalde (ve varsa eski çeviride) bulunmayan anahtar benzeri ifadeler."""
+    known = set(_KEY_LIKE_RE.findall(source)) | set(_KEY_LIKE_RE.findall(old))
+    return list(dict.fromkeys(t for t in _KEY_LIKE_RE.findall(new) if t not in known))
+
+
+def _foreign_token_problem(tokens: list[str]) -> str:
+    return (
+        f"Çeviriye orijinalde olmayan kod/anahtar benzeri ifade eklenmiş: {' '.join(tokens[:3])}. "
+        "Yalnızca bu satırın çevirisini yaz; anahtar adı ya da başka bir şey ekleme."
+    )
+
+
 def revision_problems(source: str, old: str, new: str, source_lang: str, target_lang: str) -> list[str]:
     """Eski çevirinin yerine yazılmadan önce yeni sonucun denetimi (Türkçe sorun açıklamaları)."""
     problems: list[str] = []
+    foreign = foreign_key_tokens(source, new, old)
+    if foreign:
+        problems.append(_foreign_token_problem(foreign))
+    if new.count(_NL) > max(source.count(_NL), old.count(_NL)):
+        problems.append(_ADDED_BREAK_PROBLEM)
     if target_lang == "tr" and source_lang == "en" and looks_english(new) and not looks_english(old):
         problems.append("Sonuç Türkçe değil, İngilizce yazılmış; satırı Türkçeye çevir.")
     src, before, after = len(_visible(source)), len(_visible(old)), len(_visible(new))
@@ -125,13 +149,22 @@ def foreign_letters(source: str, text: str) -> list[str]:
     return sorted({c for c in _visible(text) if (s := _script(c)) and s not in allowed})
 
 
-def translation_problems(source: str, new: str, target_lang: str) -> list[str]:
+_ADDED_BREAK_PROBLEM = "Çeviriye orijinalde olmayan satır sonu eklenmiş; satır sonlarını orijinaldeki gibi bırak."
+
+
+def translation_problems(source: str, new: str, target_lang: str, *, breaks: bool = True) -> list[str]:
     """Eski çevirisi olmayan satırın yeni çevirisinde uydurma belirtileri (Türkçe sorun açıklamaları).
 
     Kodlar yerindeyse sonuç yine yazılır; bu belirtiler satırı yeniden istemek ve Kontrol Et'te "şüpheli" olarak
-    göstermek içindir.
+    göstermek içindir. `breaks` kapalıyken eklenen satır sonu sorun sayılmaz (Kontrol Et'te satır sonu bulguları ve
+    sığdırma kuralları ayrıca bakar; sığdırma satır sonu ekler).
     """
     problems: list[str] = []
+    foreign = foreign_key_tokens(source, new)
+    if foreign:
+        problems.append(_foreign_token_problem(foreign))
+    if breaks and new.count(_NL) > source.count(_NL):
+        problems.append(_ADDED_BREAK_PROBLEM)
     if new.strip() == source.strip() and len(_words(source)) >= _UNCHANGED_MIN_WORDS:
         problems.append("Satır çevrilmeden aynen bırakılmış; Türkçeye çevir.")
     elif target_lang.split("-", maxsplit=1)[0].lower() == "tr" and looks_english(new):

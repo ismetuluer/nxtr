@@ -76,9 +76,8 @@ def test_cancel_and_start_buttons_in_dialog_boxes_have_icons() -> None:
 def test_translate_page_title_and_icons(qtbot: QtBot) -> None:
     page = TranslatePage()
     qtbot.addWidget(page)
-    titles = [lbl for lbl in page.findChildren(QLabel) if lbl.property("role") == "pageTitle"]
-    assert [t.text() for t in titles] == ["Çevir"]
-    assert [lbl for lbl in page.findChildren(QLabel) if lbl.objectName() == "titleIcon"]
+    # Çevir sayfasında başlık satırı yok: tablo tüm yeri kullanır (kenar çubuğu adımı gösterir).
+    assert not [lbl for lbl in page.findChildren(QLabel) if lbl.property("role") == "pageTitle"]
     for name in ("machine_button", "run_cancel"):
         assert not getattr(page, name).icon().isNull(), name
     assert page.machine_button.text() == "Otomatik Çeviri"

@@ -110,6 +110,8 @@ class ExportResult:
     rows_error: int = 0
     rows_error_written: int = 0  # include_errors açıkken çevirisiyle yazılan hatalı satır sayısı
     rows_error_kept: int = 0  # include_errors açıkken orijinal bırakılan hatalı satır (reddedilen veya çevirisiz)
+    #: Hatalı olduğu için modda orijinal kalan satırların kimlikleri (arayüz hangi satırlar olduğunu gösterir).
+    error_kept_ids: list[int] = field(default_factory=list)
     rows_untranslated: int = 0
     rows_uppercase: int = 0  # i → İ dönüşümü uygulanan satır sayısı
     unchanged_files: int = 0
@@ -455,7 +457,7 @@ def export_mod(
                     original = tree.view.open(top).read_all()
                     data = _apply_group(original, group, translations, skip=1, result=result)
                     if group:
-                        _verify_group(data, group, translations, skip=1, result=result)
+                        _verify_group(data, group, translations, skip=1, result=result, original=original)
                     if options.patch_fonts and (is_patchable_font_bundle(top) or top in options.font_files):
                         data = _patch_font_file(data, top, result)
                     extra = extra_patches.get((title_id, top))
@@ -538,6 +540,16 @@ def export_mod(
             attempted = sum(len(keys) for keys in result.attempted_keys.values())
             result.rows_error_written = attempted - dropped
             result.rows_error_kept = result.rows_error - result.rows_error_written
+            written_keys = {
+                (path, key)
+                for path, keys in result.attempted_keys.items()
+                for key in keys - result.dropped_keys.get(path, frozenset())
+            }
+            result.error_kept_ids = [
+                r.id for r in rows if r.status == Status.ERROR and (r.file, r.key) not in written_keys
+            ]
+        else:
+            result.error_kept_ids = [r.id for r in rows if r.status == Status.ERROR]
         (tmp / INFO_FILE).write_text(_info_text(info, options, result), encoding="utf-8")
         ctx.check()
         if replace_old:
@@ -725,15 +737,34 @@ def _verify_group(
     *,
     skip: int,
     result: ExportResult,
+    original: bytes | None = None,
 ) -> None:
+    """Yazılan dosyayı eklentinin kendi okuyucusuyla geri okur: metinler yazılanla aynı olmalı ve (`original`
+    verilmişse) satır kümesi orijinalinkiyle aynı kalmalı. Çeviriye karışan bir satır sonu ya da ayraç dosyayı
+    bölüyorsa oyun dosyayı okuyamaz; burada yakalanır ve mod üretilmez."""
     for ref in group:
         plugin = plugin_for_kind(ref.format, ref.title_id)
         assert plugin is not None
         inner = nested.split(ref.path)[skip:]
         try:
             got = {e.key: e.source for e in plugin.extract(nested.open_inner(data, inner))}
+            before = (
+                {e.key for e in plugin.extract(nested.open_inner(original, inner))} if original is not None else None
+            )
         except NxError as exc:
             raise ExportError(f"'{ref.path}' yazıldıktan sonra okunamadı: {exc.message}") from None
+        if before is not None and set(got) != before:
+            gained, lost = sorted(set(got) - before), sorted(before - set(got))
+            parts = []
+            if gained:
+                parts.append(f"fazladan {len(gained)} satır ({', '.join(gained[:3])})")
+            if lost:
+                parts.append(f"eksik {len(lost)} satır ({', '.join(lost[:3])})")
+            raise ExportError(
+                f"'{ref.path}' yazıldıktan sonra satır kümesi orijinalinden farklı: {'; '.join(parts)}.",
+                "Mod üretilmedi. Çevirilerde satır sonu ya da dosya biçimini bozan bir karakter olabilir; "
+                "Kontrol Et → Sorunlar'da satır sonu ve şüpheli çeviri bulgularına bakın.",
+            )
         dropped = result.dropped_keys.get(ref.path, frozenset())
         reordered = result.reordered_keys.get(ref.path, frozenset())
         wrong = [
@@ -785,7 +816,7 @@ def _export_m2(
         if data == original:
             result.unchanged_files += 1
             continue
-        _verify_group(data, refs, translations, skip=2, result=result)
+        _verify_group(data, refs, translations, skip=2, result=result, original=original)
         encoded = m2.encode(data, member, archive.key)
         if m2.decode(encoded, member, archive.key) != data:
             raise ExportError(f"'{member}' arşiv biçimine doğru kodlanamadı.")
@@ -841,7 +872,7 @@ def _export_member_archive(
         if data == original:
             result.unchanged_files += 1
             continue
-        _verify_group(data, refs, translations, skip=2, result=result)
+        _verify_group(data, refs, translations, skip=2, result=result, original=original)
         changed[member] = data
     for member, data in sorted((extra or {}).items()):  # eklentilerin hazır ürettiği üyeler (ör. çevrilmiş resimler)
         try:
@@ -914,7 +945,7 @@ def _export_pak(
         if data == original:
             result.unchanged_files += 1
             continue
-        _verify_group(data, refs, translations, skip=2, result=result)
+        _verify_group(data, refs, translations, skip=2, result=result, original=original)
         files[relative_to_mount(pak.mount_point, member)] = data
     if not files:
         return None
