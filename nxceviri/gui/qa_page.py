@@ -3,12 +3,13 @@ dönüştürme seçimi."""
 
 from __future__ import annotations
 
-import math
 from collections.abc import Callable, Collection, Sequence
 from typing import Any
 
 from PySide6.QtCore import (
+    QAbstractItemModel,
     QAbstractTableModel,
+    QItemSelectionModel,
     QModelIndex,
     QPersistentModelIndex,
     QPoint,
@@ -18,21 +19,24 @@ from PySide6.QtCore import (
     QTimer,
     Signal,
 )
-from PySide6.QtGui import QAction, QColor
+from PySide6.QtGui import QAction, QColor, QShowEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QButtonGroup,
     QCheckBox,
     QComboBox,
     QFormLayout,
-    QGridLayout,
+    QFrame,
     QHBoxLayout,
     QHeaderView,
+    QLabel,
     QMenu,
     QRadioButton,
     QScrollArea,
     QSizePolicy,
     QSpinBox,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -50,8 +54,11 @@ from nxceviri.core.qa.fonts import FontReport
 from nxceviri.core.translate.codekinds import KIND_NAMES, CodeKinds
 from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, FitRules
 from nxceviri.core.translate.fitconfig import EACH_GROUP, GROUP_PREFIX, FitConfig, FitOptions
+from nxceviri.gui.icons import bind_icon, icon
+from nxceviri.gui.issue_chips import ChipBar, Disclosure
 from nxceviri.gui.table_columns import ColumnFitter, FitTableView, HeaderColumnMenu
 from nxceviri.gui.theme import current_tokens
+from nxceviri.gui.translate_page import _Editor
 from nxceviri.gui.widgets import ActionBar, Banner, Card, PageHeader, button, format_int, label, tip_html
 
 _Index = QModelIndex | QPersistentModelIndex
@@ -67,9 +74,38 @@ _FIT_KEPT_TEXT = "Sığdırma kapalı; sınırlar saklanıyor."
 
 #: Satırın çeviri ekranında nasıl açılacağı; hücre ipuçlarının sonuna eklenir.
 OPEN_HINT = "Çift tıklayın veya Enter'a basın: satır çeviri ekranında düzenlemeye açılır."
+#: Çeviri hücresi bu tabloda yerinde düzenlenir.
+EDIT_HINT = "Çift tıklayın veya F2'ye basın: çeviriyi burada düzenleyin (Enter kaydeder, Shift+Enter satır sonu)."
+#: Bu genişliğin altında düzeltme paneli, kullanıcı seçim yapmadıysa kapalı başlar.
+_NARROW_WIDTH = 1100
+_FIX_PANEL_WIDTH = 260
+
+#: Her düzeltme türünün tek cümlelik ipucu ve örneği.
+FIX_TIPS: dict[str, str] = {
+    "placeholder": "Orijinalde olmayan kontrol kodlarını atar, karışmış kod sırasını düzeltir: ⟦2⟧ ⟦1⟧ → ⟦1⟧ ⟦2⟧.",
+    "markup": "Orijinalde olmayan HTML/XML etiketlerini siler: ‘<b>Tamam</b>’ → ‘Tamam’.",
+    "code_position": "Sona yığılmış satır sonlarını orijinaldeki yerlerine dağıtır: ‘A B ⏎⏎’ → ‘A ⏎ B ⏎’.",
+    "newlines": "Satır sonu sayısını orijinale uydurur, gerekirse metni yeniden böler: ‘Bir ⏎ iki’ → ‘Bir iki’.",
+    "spaces": "Baştaki ve sondaki boşlukları orijinalle eşler: ‘ Tamam’ → ‘Tamam’.",
+    "glossary": "İngilizce kalmış sözlük terimini karşılığıyla değiştirir: ‘Sheriff’e’ → ‘Şerif’e’.",
+    "end_punctuation": "Orijinalde olmayan son noktayı siler: ‘Tamam.’ → ‘Tamam’.",
+    "double_space": "Sözcükler arasındaki çift boşluğu teke indirir: ‘Çok  güzel’ → ‘Çok güzel’.",
+    "repeated_word": "Art arda tekrarlanan sözcüğü teke indirir: ‘ve ve bitir’ → ‘ve bitir’.",
+    "extra_dots": "Fazla noktaları üç noktaya indirir: ‘Bekle.....’ → ‘Bekle...’.",
+    "line_too_long": "Sığdırma sınırını aşan satırları sözcük sınırlarından yeniden böler.",
+    "page_too_tall": "Sınırdan fazla satırlı sayfaları yeniden böler.",
+    "bad_break": "Kötü yerden bölünmüş satırları noktalama ve sözcük sınırlarına göre yeniden böler.",
+}
+#: Metni yeniden biçimleyen ya da kod yerini değiştiren türler: ilk açılışta işaretsizdir, kullanıcı bilerek açar.
+RISKY_FIX_KINDS = frozenset(
+    {"end_punctuation", "code_position", "newlines", "line_too_long", "page_too_tall", "bad_break"}
+)
 
 
 class IssueModel(QAbstractTableModel):
+    #: Kullanıcı çeviri hücresini değiştirdi: (satır kimliği, yeni metin). Model metni kendisi değiştirmez.
+    translation_edited = Signal(int, str)
+
     def __init__(self) -> None:
         super().__init__()
         self.issues: list[QaIssue] = []
@@ -80,6 +116,36 @@ class IssueModel(QAbstractTableModel):
         self.issues = issues
         self.rows = rows or {}
         self.endResetModel()
+
+    def replace_row(self, row_id: int, issues: list[QaIssue], row: TranslationRow) -> None:
+        """Satırın bulgularını yenisiyle değiştirir; ilk eski bulgunun yerine yazılır, öteki satırlara dokunulmaz."""
+        self.rows[row_id] = row
+        old = [n for n, i in enumerate(self.issues) if i.row_id == row_id]
+        at = old[0] if old else len(self.issues)
+        for n in reversed(old):
+            self.beginRemoveRows(QModelIndex(), n, n)
+            del self.issues[n]
+            self.endRemoveRows()
+        if issues:
+            self.beginInsertRows(QModelIndex(), at, at + len(issues) - 1)
+            self.issues[at:at] = issues
+            self.endInsertRows()
+
+    def flags(self, index: _Index) -> Qt.ItemFlag:
+        flags = super().flags(index)
+        if index.isValid() and index.column() == COL_TRANSLATION and self.issues[index.row()].row_id in self.rows:
+            flags |= Qt.ItemFlag.ItemIsEditable
+        return flags
+
+    def setData(self, index: _Index, value: Any, role: int = Qt.ItemDataRole.EditRole) -> bool:
+        if not index.isValid() or role != Qt.ItemDataRole.EditRole or index.column() != COL_TRANSLATION:
+            return False
+        issue = self.issues[index.row()]
+        row = self.rows.get(issue.row_id)
+        text = str(value)
+        if row is not None and text != row.translation:
+            self.translation_edited.emit(issue.row_id, text)
+        return False
 
     def _texts(self, issue: QaIssue) -> tuple[str, str]:
         row = self.rows.get(issue.row_id)
@@ -101,6 +167,8 @@ class IssueModel(QAbstractTableModel):
             return None
         i = self.issues[index.row()]
         col = index.column()
+        if role == Qt.ItemDataRole.EditRole and col == COL_TRANSLATION:
+            return self._texts(i)[1]
         if role == Qt.ItemDataRole.DisplayRole:
             source, translation = self._texts(i)
             return (
@@ -118,7 +186,7 @@ class IssueModel(QAbstractTableModel):
                 text = translation
             else:
                 text = f"{i.message}\n\nAnahtar: {i.key}"
-            return tip_html(f"{text}\n\n{OPEN_HINT}")
+            return tip_html(f"{text}\n\n{EDIT_HINT if col == COL_TRANSLATION else OPEN_HINT}")
         if role == Qt.ItemDataRole.ForegroundRole and col == 0:
             t = current_tokens()
             return QColor(
@@ -134,28 +202,57 @@ class IssueModel(QAbstractTableModel):
 class IssueFilter(QSortFilterProxyModel):
     def __init__(self) -> None:
         super().__init__()
-        self.kind = ""
+        self.kinds: frozenset[str] = frozenset()
         self.show_info = False
 
     def lessThan(self, left: _Index, right: _Index) -> bool:
         """Doğal sıralama: sayılar değerine göre (1, 2, 10), harfler Türkçe sırayla."""
         return natural_sort_key(str(left.data() or "")) < natural_sort_key(str(right.data() or ""))
 
-    def update(self, kind: str, show_info: bool) -> None:
+    def update(self, kinds: frozenset[str], show_info: bool) -> None:
         self.beginFilterChange()
-        self.kind, self.show_info = kind, show_info
+        self.kinds, self.show_info = kinds, show_info
         self.endFilterChange()
 
     def filterAcceptsRow(self, source_row: int, source_parent: _Index) -> bool:
         model = self.sourceModel()
         assert isinstance(model, IssueModel)
         i = model.issues[source_row]
-        if self.kind:
-            return i.kind == self.kind
+        if self.kinds:
+            return i.kind in self.kinds
         return self.show_info or i.severity != "info"
 
 
+class _TranslationDelegate(QStyledItemDelegate):
+    """Çeviri hücresi düzenleyicisi: Enter kaydeder, Shift+Enter satır sonu, Esc vazgeçer (Çevir tablosundaki gibi)."""
+
+    def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: _Index) -> QWidget:
+        editor = _Editor(parent)
+        editor.setTabChangesFocus(True)
+        editor.committed.connect(lambda: self._finish(editor))
+        return editor
+
+    def _finish(self, editor: _Editor) -> None:
+        self.commitData.emit(editor)
+        self.closeEditor.emit(editor, QStyledItemDelegate.EndEditHint.NoHint)
+
+    def setEditorData(self, editor: QWidget, index: _Index) -> None:
+        assert isinstance(editor, _Editor)
+        editor.setPlainText(str(index.data(Qt.ItemDataRole.EditRole) or ""))
+        editor.selectAll()
+
+    def setModelData(self, editor: QWidget, model: QAbstractItemModel, index: _Index) -> None:
+        assert isinstance(editor, _Editor)
+        model.setData(index, editor.toPlainText(), Qt.ItemDataRole.EditRole)
+
+    def updateEditorGeometry(self, editor: QWidget, option: QStyleOptionViewItem, index: _Index) -> None:
+        rect = option.rect
+        rect.setHeight(max(rect.height(), 4 * option.fontMetrics.height()))
+        editor.setGeometry(rect)
+
+
 class QaPage(QWidget):
+    translation_edited = Signal(int, str)  # satır kimliği, yeni çeviri (yerinde düzenleme)
     scan_fonts = Signal()
     run_checks = Signal()
     transliterate_changed = Signal(str)
@@ -265,26 +362,29 @@ class QaPage(QWidget):
         self.check_button.clicked.connect(lambda: self._commit_pending(self.run_checks.emit))
         self.check_bar.add_action(self.check_button)
         self.summary = self.check_bar.status
-        self.summary.setWordWrap(True)  # denetim özeti tür sayımlarıyla uzayabilir
         self.summary.setText("Henüz denetlenmedi.")
+        self.summary_icon = QLabel()
+        self.summary_icon.hide()
+        row = self.check_bar.layout()
+        assert isinstance(row, QHBoxLayout)
+        row.insertWidget(0, self.summary_icon)
         self.fix_banner = Banner()
         self.fix_banner.action_clicked.connect(self.report_requested)
         self.check_card.body.addWidget(self.fix_banner)
-        filters = QHBoxLayout()
-        self.kind = QComboBox()
-        self.kind.addItem("Hatalar ve uyarılar", "")
-        for kind, text in KIND_LABELS.items():
-            self.kind.addItem(text, kind)
-        filters.addWidget(self.kind)
-        filters.addStretch(1)
-        self.check_card.body.addLayout(filters)
+        self.chip_bar = ChipBar()
+        self.chip_bar.selection_changed.connect(self._refilter)
+        self.check_card.body.addWidget(self.chip_bar)
         self.model = IssueModel()
+        self.model.translation_edited.connect(self.translation_edited)
         self.proxy = IssueFilter()
         self.proxy.setSourceModel(self.model)
         self.table = FitTableView()
         self.table.setModel(self.proxy)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.setEditTriggers(
+            QAbstractItemView.EditTrigger.DoubleClicked | QAbstractItemView.EditTrigger.EditKeyPressed
+        )
+        self.table.setItemDelegateForColumn(COL_TRANSLATION, _TranslationDelegate(self.table))
         self.table.verticalHeader().hide()
         self.table.setAlternatingRowColors(True)
         self.table.setSortingEnabled(True)  # başlığa tıklayınca sıralar; üçüncü tıklama özgün sıraya döner
@@ -318,22 +418,27 @@ class QaPage(QWidget):
         self.spell_add_button = QAction("Yazım sözlüğüne ekle…", self)
         self.spell_add_button.setEnabled(False)
         self.spell_add_button.triggered.connect(self._add_spelling)
+        bind_icon(self.spell_add_button, "spell-check")
         self.user_dict_button = QAction("Yazım sözlüğünü aç…", self)
         self.user_dict_button.triggered.connect(self.user_dictionary_requested)
+        bind_icon(self.user_dict_button, "book-open")
         self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.table.customContextMenuRequested.connect(self._show_context_menu)
         self.table.doubleClicked.connect(self._open)
         self.table.activated.connect(self._open)
         self.table.setToolTip(OPEN_HINT)
-        self.check_card.body.addWidget(self.table, 1)
-        self.check_card.body.addWidget(self._build_fix_section())
+        self._fixes_collapsed_saved = False
+        split = QHBoxLayout()
+        split.setSpacing(12)
+        split.addWidget(self.table, 1)
+        split.addWidget(self._build_fix_section(), 0, Qt.AlignmentFlag.AlignTop)
+        self.check_card.body.addLayout(split, 1)
         self.table.selectionModel().selectionChanged.connect(lambda *_a: self._selection_changed())
         check_lay.addWidget(self.check_bar)
         check_lay.addWidget(self.check_card, 1)
-        self.tabs.addTab(check_tab, "Satır denetimi")
+        self.tabs.addTab(check_tab, "Sorunlar")
         self.tabs.addTab(self._build_fit_tab(), "Sığdırma")
         self.tabs.addTab(scroll, "Font ve harfler")
-        self.kind.currentIndexChanged.connect(self._refilter)
 
     # --- satır sığdırma -----------------------------------------------------------------
 
@@ -412,7 +517,10 @@ class QaPage(QWidget):
         learn_row.addWidget(self.fit_learn_note, 1)
         body.addLayout(learn_row)
 
-        body.addWidget(
+        self.fit_advanced = Disclosure("Gelişmiş")
+        body.addWidget(self.fit_advanced)
+        adv = self.fit_advanced.body_layout
+        adv.addWidget(
             label(
                 "Kod türleri",
                 "cardTitle",
@@ -428,9 +536,9 @@ class QaPage(QWidget):
         kh = self.fit_kinds.horizontalHeader()
         kh.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         kh.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        body.addWidget(self.fit_kinds)
+        adv.addWidget(self.fit_kinds)
         self.fit_kinds_empty = label("Metinlerde kontrol kodu yok.", "muted")
-        body.addWidget(self.fit_kinds_empty)
+        adv.addWidget(self.fit_kinds_empty)
 
         body.addWidget(
             label("Düzeltirken temizle", "cardTitle", tip="Yalnızca orijinalde olmayan kalıplara dokunulur.")
@@ -747,16 +855,60 @@ class QaPage(QWidget):
     # --- satır denetimi -----------------------------------------------------------------
 
     def show_issues(self, issues: list[QaIssue], rows: list[TranslationRow]) -> None:
-        total_rows = len(rows)
         self.model.set_issues(issues, {r.id: r for r in rows})
+        self._issues_changed()
+
+    def replace_row_issues(self, row_id: int, issues: list[QaIssue], row: TranslationRow) -> None:
+        """Tek satırın bulgularını yenisiyle değiştirir (yerinde düzenleme sonrası); bulgu kalmadıysa satır düşer.
+
+        Seçim ve kaydırma konumu korunur; çipler, düzeltme sayıları ve özet güncellenir.
+        """
+        was_selected = row_id in self._selected_row_ids()
+        scroll = self.table.verticalScrollBar().value()
+        self.model.replace_row(row_id, issues, row)
+        self._issues_changed()
+        if was_selected:
+            self._select_row_id(row_id)
+        self.table.verticalScrollBar().setValue(scroll)
+
+    def _select_row_id(self, row_id: int) -> None:
+        selection = self.table.selectionModel()
+        for r in range(self.proxy.rowCount()):
+            index = self.proxy.index(r, 0)
+            if self.model.issues[self.proxy.mapToSource(index).row()].row_id == row_id:
+                selection.select(
+                    index, QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows
+                )
+
+    def _issues_changed(self) -> None:
+        """Bulgu listesi değişti: özet, çipler ve düzeltme sayıları yeniden hesaplanır."""
+        issues = self.model.issues
         errors = sum(1 for i in issues if i.severity == SEVERITY_ERROR)
         warnings = sum(1 for i in issues if i.severity == SEVERITY_WARNING)
-        self.summary.setText(
-            f"{format_int(total_rows)} satır denetlendi — {format_int(errors)} hata, {format_int(warnings)} uyarı."
-            if errors or warnings
-            else f"{format_int(total_rows)} satır denetlendi — sorun bulunmadı."
-        )
+        if errors or warnings:
+            parts = []
+            if errors:
+                parts.append(f"{format_int(errors)} hata")
+            if warnings:
+                parts.append(f"{format_int(warnings)} uyarı")
+            self.summary.setText(" · ".join(parts))
+            bind_icon(
+                self.summary_icon,
+                "circle-x" if errors else "triangle-alert",
+                size=16,
+                tone="danger" if errors else "warning",
+            )
+        else:
+            self.summary.setText("Sorun bulunmadı.")
+            bind_icon(self.summary_icon, "circle-check", size=16, tone="success")
+        self.summary_icon.show()
         self.summary.setProperty("role", None)
+        counts: dict[str, int] = {}
+        severities: dict[str, str] = {}
+        for i in issues:
+            counts[i.kind] = counts.get(i.kind, 0) + 1
+            severities[i.kind] = _worse(severities.get(i.kind, ""), i.severity)
+        self.chip_bar.set_counts(counts, severities)
         self._update_fix_counts(issues)
         self._refilter()
 
@@ -764,11 +916,15 @@ class QaPage(QWidget):
         """Bulgu tablosunun sütun genişliklerini ve gizli sütunlarını geri yükler."""
         self.fitter.bind_settings(settings, "qa/column_widths")
         self.column_menu.bind_settings(settings, "qa/hidden_columns")
+        self._fix_settings: QSettings | None = settings
+        saved = settings.value("qa/fixes_collapsed", None)
+        if saved is not None:
+            self.set_fixes_collapsed(str(saved).lower() in ("1", "true"))
 
     def _refilter(self) -> None:
-        kind = str(self.kind.currentData() or "")
-        self.proxy.update(kind, show_info=False)
+        self.proxy.update(self.chip_bar.selected_kinds(), show_info=False)
         self._fit_rows()
+        self._update_fix_boxes()
 
     def _fit_rows(self) -> None:
         """Satır yüksekliğini metne göre ayarlar; çok büyük listede pencere donmasın diye yalnızca sınıra kadar."""
@@ -778,22 +934,36 @@ class QaPage(QWidget):
     # --- düzeltmeler --------------------------------------------------------------------
 
     def _build_fix_section(self) -> QWidget:
-        """Düzeltilebilir türlerin onay kutuları (iki sütun), "Tümü / Hiçbiri" ve tek düzeltme düğmesi."""
+        """Sağdaki daraltılabilir düzeltme paneli: bulgusu olan türler, kapsam seçimi ve düzeltme düğmesi."""
         self.fix_counts: dict[str, int] = dict.fromkeys(FIX_KINDS, 0)
         self.fix_boxes: dict[str, QCheckBox] = {}
-        box = QWidget()
-        lay = QVBoxLayout(box)
-        lay.setContentsMargins(0, 4, 0, 0)
-        lay.setSpacing(4)
-        head = QHBoxLayout()
-        head.addWidget(
-            label(
-                "Düzeltmeler",
-                "cardTitle",
-                tip="İşaretlediğiniz türlerdeki sorunlar düzeltilir; yanındaki sayı o türden bulgu sayısıdır. "
-                "Onaylı satırlara dokunulmaz. Düzeltme tek işlemdir: Geri Al hepsini geri alır.",
-            )
+        self._fixes_collapsed = False
+        self._fixes_decided = False
+        self._fix_settings = None
+        panel = QFrame()
+        outer = QVBoxLayout(panel)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(8)
+        self.fix_toggle = QToolButton()
+        self.fix_toggle.setText("Düzeltmeler")
+        self.fix_toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.fix_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.fix_toggle.setToolTip(
+            tip_html("İşaretli türlerdeki sorunlar düzeltilir. Onaylı satırlara dokunulmaz; Geri Al hepsini geri alır.")
         )
+        bind_icon(self.fix_toggle, "panel-right")
+        self.fix_toggle.clicked.connect(lambda: self.set_fixes_collapsed(not self._fixes_collapsed, save=True))
+        outer.addWidget(self.fix_toggle)
+        self.fix_body = QWidget()
+        self.fix_body.setFixedWidth(_FIX_PANEL_WIDTH)
+        lay = QVBoxLayout(self.fix_body)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(4)
+        self.fix_empty = label("Düzeltilecek sorun yok.", "muted")
+        lay.addWidget(self.fix_empty)
+        self.fix_links = QWidget()
+        head = QHBoxLayout(self.fix_links)
+        head.setContentsMargins(0, 0, 0, 0)
         head.addStretch(1)
         self.fix_all = QToolButton()
         self.fix_all.setText("Tümü")
@@ -805,32 +975,56 @@ class QaPage(QWidget):
             head.addWidget(link)
         self.fix_all.clicked.connect(lambda: self._check_all_kinds(True))
         self.fix_none.clicked.connect(lambda: self._check_all_kinds(False))
-        lay.addLayout(head)
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(24)
-        grid.setVerticalSpacing(2)
-        per_column = math.ceil(len(FIX_KINDS) / 2)
-        for n, kind in enumerate(FIX_KINDS):
+        lay.addWidget(self.fix_links)
+        for kind in FIX_KINDS:
             check = QCheckBox()
-            check.setChecked(True)
+            check.setChecked(kind not in RISKY_FIX_KINDS)
+            check.setToolTip(tip_html(FIX_TIPS[kind]))
             check.toggled.connect(self._fix_selection_changed)
             self.fix_boxes[kind] = check
-            grid.addWidget(check, n % per_column, n // per_column)
-        grid.setColumnStretch(0, 1)
-        grid.setColumnStretch(1, 1)
-        lay.addLayout(grid)
+            lay.addWidget(check)
+        self.fix_scope = QWidget()
+        scope = QVBoxLayout(self.fix_scope)
+        scope.setContentsMargins(0, 8, 0, 0)
+        scope.setSpacing(2)
+        self.scope_selected = QRadioButton("Listede seçili 0 bulgu")
+        self.scope_all = QRadioButton("Tüm bulgular (0)")
+        self.scope_all.setChecked(True)
+        group = QButtonGroup(self)
+        for radio in (self.scope_selected, self.scope_all):
+            group.addButton(radio)
+            scope.addWidget(radio)
+            radio.toggled.connect(lambda _c: self._update_fix_boxes())
+        lay.addWidget(self.fix_scope)
         self.fix_button = button("Seçilenleri Düzelt", "primary", icon="refresh-cw")
         self.fix_button.clicked.connect(lambda: self._commit_pending(self._request_fix))
-        foot = QHBoxLayout()
-        foot.addStretch(1)
-        foot.addWidget(self.fix_button)
-        lay.addLayout(foot)
+        lay.addWidget(self.fix_button)
+        outer.addWidget(self.fix_body)
         self._update_fix_boxes()
-        box.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)  # dar pencerede tablo kısalır
-        return box
+        panel.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
+        return panel
+
+    def fixes_collapsed(self) -> bool:
+        return self._fixes_collapsed
+
+    def set_fixes_collapsed(self, collapsed: bool, save: bool = False) -> None:
+        """Düzeltme panelini açar/kapatır; `save` ise seçim ayara yazılır (kullanıcının kendi seçimi)."""
+        self._fixes_collapsed = collapsed
+        self._fixes_decided = True
+        self.fix_body.setVisible(not collapsed)
+        if save and self._fix_settings is not None:
+            self._fix_settings.setValue("qa/fixes_collapsed", int(collapsed))
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        if not self._fixes_decided:  # kayıtlı seçim yoksa dar pencerede kapalı başlar
+            self.set_fixes_collapsed(self.width() < _NARROW_WIDTH)
 
     def _request_fix(self) -> None:
-        self.fix_requested.emit(self.fix_kinds_to_apply(), self._selected_row_ids())
+        self.fix_requested.emit(self.fix_kinds_to_apply(), self._scope_row_ids())
+
+    def _scope_row_ids(self) -> list[int]:
+        return self._selected_row_ids() if self.scope_selected.isChecked() and self.scope_selected.isEnabled() else []
 
     def fix_kinds_to_apply(self) -> list[str]:
         """İşaretli ve bulgusu olan düzeltme türleri (liste sırasıyla)."""
@@ -865,13 +1059,23 @@ class QaPage(QWidget):
         self._update_fix_boxes()
 
     def _update_fix_boxes(self) -> None:
-        """Onay kutularının yazısını (tür adı + bulgu sayısı) ve düğmenin durumunu tazeler; bulgusuz tür soluk kalır."""
+        """Panelin yazılarını, görünürlüğünü ve düğme durumunu tazeler; bulgusu olmayan tür görünmez."""
         for kind, check in self.fix_boxes.items():
             n = self.fix_counts[kind]
             check.setText(f"{KIND_LABELS[kind]}  {format_int(n)}")
-            check.setEnabled(n > 0)
+            check.setVisible(n > 0)
+        any_fixable = any(self.fix_counts.values())
+        self.fix_empty.setVisible(not any_fixable)
+        for part in (self.fix_links, self.fix_scope, self.fix_button):
+            part.setVisible(any_fixable)
+        selected = len(self.table.selectionModel().selectedRows())
+        planned = sum(self.fix_counts[k] for k in self.checked_fix_kinds())
+        self.scope_selected.setText(f"Listede seçili {format_int(selected)} bulgu")
+        self.scope_selected.setEnabled(selected > 0)
+        self.scope_all.setText(f"Tüm bulgular ({format_int(planned)})")
+        if not selected and self.scope_selected.isChecked():
+            self.scope_all.setChecked(True)
         self.fix_button.setEnabled(bool(self.fix_kinds_to_apply()))
-        self.fix_button.setText("Seçili Satırlarda Düzelt" if self._selected_row_ids() else "Seçilenleri Düzelt")
 
     def show_fix_result(self, state: str, text: str, action: str = "") -> None:
         self.fix_banner.show_message(state, text, action)
@@ -882,12 +1086,37 @@ class QaPage(QWidget):
         return sorted({self.model.issues[r].row_id for r in rows})
 
     def _selection_changed(self) -> None:
+        had = self.scope_selected.isEnabled()
         self._update_fix_boxes()
+        if self.scope_selected.isEnabled() and not had:  # seçim başladı: kapsam seçilenler olur
+            self.scope_selected.setChecked(True)
         self.spell_add_button.setEnabled(bool(self._selected_spelling_words()))
 
+    def _selected_issues(self) -> list[QaIssue]:
+        rows = sorted({self.proxy.mapToSource(i).row() for i in self.table.selectionModel().selectedRows()})
+        return [self.model.issues[r] for r in rows]
+
+    def _fix_now(self, kinds: list[str], row_ids: list[int]) -> None:
+        self._commit_pending(lambda: self.fix_requested.emit(kinds, row_ids))
+
     def context_menu(self) -> QMenu:
+        """Seçili bulguya göre bağlam menüsü; her öğe kullanılabilir olduğunda görünür."""
         menu = QMenu(self)
-        menu.addAction(self.spell_add_button)
+        issues = self._selected_issues()
+        if issues:
+            present = {i.kind for i in issues}
+            kinds = [k for k in FIX_KINDS if k in present]
+            row_ids = sorted({i.row_id for i in issues})
+            if kinds:
+                fix_row = menu.addAction(icon("refresh-cw"), "Bu satırı düzelt")
+                fix_row.triggered.connect(lambda: self._fix_now(kinds, row_ids))
+                fix_kind = menu.addAction(icon("replace-all"), "Bu türdeki tümünü düzelt")
+                fix_kind.triggered.connect(lambda: self._fix_now(kinds, []))
+            show = menu.addAction(icon("arrow-left-right"), "Çevir'de göster")
+            show.triggered.connect(lambda: self.open_row.emit(issues[0].row_id))
+            menu.addSeparator()
+        if self.spell_add_button.isEnabled():
+            menu.addAction(self.spell_add_button)
         menu.addAction(self.user_dict_button)
         return menu
 
@@ -912,8 +1141,17 @@ class QaPage(QWidget):
             self.add_spelling_requested.emit(words)
 
     def _open(self, index: QModelIndex) -> None:
+        if index.column() == COL_TRANSLATION:  # çeviri hücresi yerinde düzenlenir
+            return
         issue = self.model.issues[self.proxy.mapToSource(index).row()]
         self.open_row.emit(issue.row_id)
+
+
+_SEVERITY_ORDER = {"": 0, "info": 1, SEVERITY_WARNING: 2, SEVERITY_ERROR: 3}
+
+
+def _worse(a: str, b: str) -> str:
+    return a if _SEVERITY_ORDER.get(a, 0) >= _SEVERITY_ORDER.get(b, 0) else b
 
 
 class _Blocked:

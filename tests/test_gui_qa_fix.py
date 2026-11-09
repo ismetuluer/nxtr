@@ -83,8 +83,8 @@ def test_counts_and_disabled_kinds(window: MainWindow) -> None:
     assert page.fix_counts["end_punctuation"] == 1
     assert page.fix_counts["repeated_word"] == 1
     assert page.fix_boxes["spaces"].text() == "Boşluk  2"
-    assert page.fix_boxes["spaces"].isEnabled()
-    assert not page.fix_boxes["markup"].isEnabled()  # bulgusu olmayan tür soluk
+    assert page.fix_boxes["spaces"].isVisibleTo(page.fix_body)
+    assert not page.fix_boxes["markup"].isVisibleTo(page.fix_body)  # bulgusu olmayan tür görünmez
     assert page.fix_button.text() == "Seçilenleri Düzelt"
 
 
@@ -99,7 +99,7 @@ def test_fix_selected_kinds_report_and_second_round(window: MainWindow) -> None:
     assert page.fix_banner.text.text() == "1 satır düzeltildi."
     assert page.fix_banner.action_button.text() == "Raporu Gör"
     assert page.fix_counts["end_punctuation"] == 0  # denetim kendiliğinden yeniden çalıştı
-    assert not page.fix_boxes["end_punctuation"].isEnabled()
+    assert not page.fix_boxes["end_punctuation"].isVisibleTo(page.fix_body)
     assert page.fix_counts["spaces"] == 2
 
     page.fix_banner.action_button.click()
@@ -137,7 +137,7 @@ def test_fix_is_one_undoable_job(window: MainWindow) -> None:
 def test_selected_rows_scope(window: MainWindow) -> None:
     page = window.qa_page
     _select_issue_row(window, "c")
-    assert page.fix_button.text() == "Seçili Satırlarda Düzelt"
+    assert page.scope_selected.isChecked()
     page.fix_button.click()
     rows = _rows(window)
     assert rows["c"].translation == "Devam et ve bitir"
@@ -174,4 +174,4 @@ def test_ollama_fix_is_gone(window: MainWindow) -> None:
     assert not [t for t in texts if "Otomatik Düzelt" in t or "Ollama" in t or "Programla" in t]
     assert not hasattr(window, "auto_fix")
     assert not hasattr(window, "program_fix")
-    assert [a.text() for a in page.context_menu().actions()] == ["Yazım sözlüğüne ekle…", "Yazım sözlüğünü aç…"]
+    assert [a.text() for a in page.context_menu().actions()] == ["Yazım sözlüğünü aç…"]
