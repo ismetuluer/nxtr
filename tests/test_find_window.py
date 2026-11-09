@@ -11,7 +11,7 @@ from PySide6.QtTest import QTest
 from pytestqt.qtbot import QtBot
 
 from nxceviri.gui.find_replace import FIELD_SOURCE, KEY_FIND_GEOMETRY
-from nxceviri.gui.main_window import STEP_TRANSLATE, MainWindow
+from nxceviri.gui.main_window import STEP_QA, STEP_TRANSLATE, MainWindow
 from tests.test_statusbar import _make_window, _project
 
 pytestmark = pytest.mark.gui
@@ -86,3 +86,52 @@ def test_f3_works_while_the_find_window_is_active(qtbot: QtBot, window: MainWind
     # Shift+F3 gerçek tuşla gönderilmez: ekransız ortamda Shift basılı kalır ve sonraki testleri bozar.
     window.menu_actions["edit.find_prev"].trigger()
     assert page.find_bar.current_id == first
+
+
+def test_find_window_hides_with_the_page_and_returns_with_it(qtbot: QtBot, window: MainWindow) -> None:
+    page = window.translate_page
+    _open(qtbot, window)
+    window.nav.setCurrentRow(STEP_QA)
+    qtbot.waitUntil(lambda: not page.find_window.isVisible(), timeout=3000)
+    window.nav.setCurrentRow(STEP_TRANSLATE)
+    qtbot.waitUntil(page.find_window.isVisible, timeout=3000)  # arama açıktı: pencere geri gelir
+
+
+def test_closed_search_does_not_reappear_with_the_page(qtbot: QtBot, window: MainWindow) -> None:
+    page = window.translate_page
+    _open(qtbot, window)
+    page.find_bar.close_bar()
+    window.nav.setCurrentRow(STEP_QA)
+    window.nav.setCurrentRow(STEP_TRANSLATE)
+    assert not page.find_window.isVisible()
+
+
+def test_new_rows_close_the_search(qtbot: QtBot, window: MainWindow) -> None:
+    page = window.translate_page
+    _open(qtbot, window)
+    page.set_rows(page.model.rows[:2])
+    assert not page.find_window.isVisible()
+    assert page.find_bar.isHidden()
+
+
+def test_closing_the_main_window_remembers_the_find_window_position(qtbot: QtBot, window: MainWindow) -> None:
+    page = window.translate_page
+    _open(qtbot, window)
+    page.find_window.move(131, 157)
+    assert window.settings.value(KEY_FIND_GEOMETRY) is None
+    window.dirty = False
+    window.close()
+    assert window.settings.value(KEY_FIND_GEOMETRY) is not None
+    assert not page.find_window.isVisible()
+
+
+def test_previous_open_row_works_while_the_search_is_closed(window: MainWindow) -> None:
+    page = window.translate_page
+    page.table.selectRow(1)
+    keys = [r.key for r in page.model.rows]
+    current = page.table.currentIndex().row()
+    assert not page.find_bar.isVisible()
+    window.menu_actions["edit.find_prev"].trigger()  # Shift+F3: F3'ün tersi
+    assert page.table.currentIndex().row() == (current - 1) % len(keys)
+    window.menu_actions["edit.find_prev"].trigger()
+    assert page.table.currentIndex().row() == (current - 2) % len(keys)

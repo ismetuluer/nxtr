@@ -1910,6 +1910,9 @@ class MainWindow(QMainWindow):
         if self.busy:
             return
         page = self.translate_page
+        if from_selection and not page.table.selectionModel().hasSelection():
+            page.show_notice("warning", "Önce çevirmek istediğiniz satırları seçin.")
+            return
         scopes = self._machine_scopes()
         chosen = self.ask_machine_settings(scopes, action, SCOPE_SELECTED if from_selection else SCOPE_ALL)
         if chosen is None or not self._remember_machine_settings(chosen):
@@ -2322,7 +2325,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, title, "Yazılacak bir değişiklik yok.\n\n" + "\n".join(lines))
             return
         lines.append(
-            f"Değişiklikler “{status_name}” durumuyla yazılır; “Son İşin Değişiklikleri” veya Ctrl+Z ile geri "
+            f"Değişiklikler “{status_name}” durumuyla yazılır; “Son İşin Değişiklikleri” veya Geri Al ile geri "
             "alabilirsiniz."
         )
         changed = dict(plan.changes)
@@ -2571,6 +2574,7 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard():
             event.ignore()
             return
+        self.translate_page.find_window.close()  # açık Bul penceresinin konumu kaybolmasın
         self._recovery_timer.stop()
         self.provider_probe.close()
         self.recovery.clear()

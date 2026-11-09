@@ -40,7 +40,7 @@ from nxceviri.core.translate.providers.ollama import DEFAULT_URL, RECOMMENDED_MO
 from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_REVISE, ACTION_TRANSLATE, target_rows
 from nxceviri.core.translate.terms import TermSuggestion
 from nxceviri.gui.icons import bind_icon
-from nxceviri.gui.settings_dialog import check_with_wait_cursor
+from nxceviri.gui.settings_dialog import check_with_wait_cursor, valid_ollama_url
 from nxceviri.gui.widgets import Banner, button, format_int, format_size, label, tip_html, title_row
 
 SCOPE_SELECTED = "selected"
@@ -510,8 +510,18 @@ class MachineDialog(QDialog):
             self.status.show_message("success", "")
         self.presets.setCurrentIndex(0)
 
+    def _ollama_url(self) -> str | None:
+        """Alandaki Ollama adresi (boşsa varsayılan); geçersizse durumu bildirir ve None döndürür."""
+        url = valid_ollama_url(self.url.text() or DEFAULT_URL)
+        if url is None:
+            self.status.show_message("danger", f"Geçerli bir Ollama adresi yazın, örneğin {DEFAULT_URL}.")
+            self.help.hide()
+        return url
+
     def refresh_models(self) -> None:
-        url = self.url.text().strip() or DEFAULT_URL
+        url = self._ollama_url()
+        if url is None:
+            return
         provider = OllamaProvider(self.model.currentText().strip(), url, timeout_s=15)
         QGuiApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
@@ -541,6 +551,8 @@ class MachineDialog(QDialog):
             self.help.show()
 
     def test_connection(self) -> bool:
+        if self.provider_name == PROVIDER_OLLAMA and self._ollama_url() is None:
+            return False
         try:
             provider = make_provider(self.settings(), self._secrets)
         except NxError as exc:

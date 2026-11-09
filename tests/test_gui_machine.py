@@ -617,3 +617,13 @@ def test_key_and_test_button_only_where_needed(window: MainWindow) -> None:
     keyed = _dialog(window, scopes, provider=PROVIDER_DEEPL)
     keyed.advanced_toggle.setChecked(True)
     assert keyed.test_button.isVisibleTo(keyed)
+
+
+def test_machine_dialog_rejects_invalid_ollama_address(window: MainWindow) -> None:
+    dialog = _dialog(window, window._machine_scopes())
+    dialog.url.setText("http://localhost:abc")
+    assert dialog.test_connection() is False
+    assert "adres" in dialog.status.text.text().lower()
+    dialog.refresh_models()
+    assert "adres" in dialog.status.text.text().lower()  # ağa gitmeden uyarır, istisna fırlatmaz
+    dialog.close()

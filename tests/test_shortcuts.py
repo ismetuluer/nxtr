@@ -10,7 +10,7 @@ from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import QWidget
 from pytestqt.qtbot import QtBot
 
-from nxceviri.gui.shortcuts import CATEGORIES, COMMANDS, COMMANDS_BY_ID, KEY_PREFIX, ShortcutRegistry
+from nxceviri.gui.shortcuts import CATEGORIES, COMMANDS, COMMANDS_BY_ID, KEY_PREFIX, ShortcutRegistry, reserved_reason
 
 
 def _settings(tmp_path: Path) -> QSettings:
@@ -130,3 +130,27 @@ def test_destroyed_target_is_forgotten(qtbot: QtBot) -> None:
     action.deleteLater()
     qtbot.waitUntil(lambda: not any(registry._bound.get("edit.find", [])))
     registry.set_sequence("edit.find", QKeySequence("Alt+F"))  # silinmiş nesneye yazmaya çalışmamalı
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        *("Ctrl+C", "Ctrl+V", "Ctrl+X", "Ctrl+A", "Alt+Up", "Alt+Down", "Esc", "Return", "Enter", "Tab", "Backspace"),
+        *("Delete", "F2", "Space", "A", "5", "Shift+A", "Left", "Up", "PgDown", "Home", "Ctrl+Insert"),
+    ],
+)
+def test_reserved_keys_are_reported(key: str) -> None:
+    reason = reserved_reason(QKeySequence(key))
+    assert reason is not None, key
+    assert reason
+
+
+@pytest.mark.parametrize("key", ["F1", "F3", "F12", "Shift+F3", "Ctrl+Shift+G", "Ctrl+Alt+S", "Ctrl+,", "Alt+F"])
+def test_ordinary_shortcuts_are_not_reserved(key: str) -> None:
+    assert reserved_reason(QKeySequence(key)) is None, key
+
+
+def test_default_keys_are_not_reserved() -> None:
+    for command in COMMANDS:
+        if command.default:
+            assert reserved_reason(QKeySequence(command.default)) is None, command.id

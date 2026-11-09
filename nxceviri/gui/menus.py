@@ -108,6 +108,12 @@ class Menus:
         self._help_menu()
         self.refresh()
 
+    def _track_selection(self, menu: QMenu) -> None:
+        """Menü açılırken seçime bağlı öğeler gerçek duruma getirilir; kapanınca kısayollar için yeniden açılır."""
+        menu.aboutToShow.connect(self.refresh)
+        menu.aboutToShow.connect(self.refresh_selection)
+        menu.aboutToHide.connect(self.refresh)
+
     def _file_menu(self) -> None:
         w = self.window
         menu = self._menu("&Dosya")
@@ -137,7 +143,7 @@ class Menus:
         menu = self._menu("Dü&zen", tips=True)
         w.undo_action = self._add(menu, "Geri Al", w.undo_last, command="edit.undo", icon="undo-2")
         menu.aboutToShow.connect(w._update_undo_action)
-        menu.aboutToShow.connect(self.refresh)
+        self._track_selection(menu)
         menu.addSeparator()
         self._add(menu, "Bul…", w._menu_find, command="edit.find", icon="search")
         self._add(menu, "Değiştir…", w._menu_find_replace, command="edit.replace", icon="replace")
@@ -157,7 +163,14 @@ class Menus:
             icon="chevron-down",
             tip="Bul çubuğu açıkken sonraki eşleşme; kapalıyken sonraki bakılacak satır.",
         )
-        self._add(menu, "Öncekini Bul", w._menu_find_previous, command="edit.find_prev", icon="chevron-up")
+        self._add(
+            menu,
+            "Öncekini Bul",
+            w._menu_find_previous,
+            command="edit.find_prev",
+            icon="chevron-up",
+            tip="Bul çubuğu açıkken önceki eşleşme; kapalıyken önceki bakılacak satır.",
+        )
         menu.addSeparator()
         self._add(
             menu,
@@ -251,7 +264,7 @@ class Menus:
         w = self.window
         page = w.translate_page
         menu = self._menu("&Çeviri", tips=True)
-        menu.aboutToShow.connect(self.refresh)
+        self._track_selection(menu)
         self._add(
             menu,
             "Otomatik Çeviri…",
@@ -349,41 +362,73 @@ class Menus:
 
     # --- etkinlik ------------------------------------------------------------------------
 
+    #: Seçime bağlı komutlar: kısayolla tetiklenebilsin diye "Çevir sayfası ve satır var" düzeyinde açık kalır;
+    #: yuvalar boş seçimi kendileri denetler. Gerçek duruma göre pasifleştirme menü açılırken yapılır.
+    _SELECTION_COMMANDS = (
+        "edit.reflow",
+        "edit.copy_source",
+        "edit.clear",
+        "translate.selected",
+        "translate.retranslate",
+        "translate.revise",
+        "translate.approve",
+        "translate.unapprove",
+        "translate.history",
+    )
+
+    #: İş sürerken de açık kalan seçime bağlı komutlar (satırların çevirisine dokunmazlar).
+    _ALLOWED_WHILE_BUSY = ("translate.approve", "translate.unapprove", "translate.history")
+
     def refresh(self) -> None:
-        """Öğelerin etkinliğini projenin, açık sayfanın, seçimin ve süren işin durumuna göre günceller."""
+        """Öğelerin etkinliğini projenin, açık sayfanın ve süren işin durumuna göre günceller (seçimi saymaz)."""
         w = self.window
         page = w.translate_page
         a = self.actions
         busy = w.busy
         has_rows = bool(page.model.rows)
-        on_page = w.pages.currentWidget() is page
-        counts = page.selection_counts() if on_page and has_rows else None
-        selected = counts.selected if counts else 0
+        selectable = w.pages.currentWidget() is page and has_rows
 
         w.save_action.setEnabled(not busy)
         w.cache_action.setEnabled(not busy)
         for command in ("edit.find", "edit.replace", "edit.filter", "edit.find_next", "edit.find_prev"):
             a[command].setEnabled(has_rows)
-        a["edit.reflow"].setEnabled(not busy and bool(counts and counts.with_translation))
-        a["edit.copy_source"].setEnabled(not busy and selected > 0)
-        a["edit.clear"].setEnabled(not busy and bool(counts and counts.with_translation))
+        for command in self._SELECTION_COMMANDS:
+            a[command].setEnabled(selectable and not (busy and command not in self._ALLOWED_WHILE_BUSY))
 
         a["translate.auto"].setEnabled(has_rows and not busy)
-        a["translate.selected"].setEnabled(not busy and bool(counts and counts.translate))
-        a["translate.retranslate"].setEnabled(not busy and bool(counts and counts.retranslate))
-        a["translate.revise"].setEnabled(not busy and bool(counts and counts.revise))
-        a["translate.approve"].setEnabled(bool(counts and counts.approvable))
-        a["translate.unapprove"].setEnabled(bool(counts and counts.approved))
         a["translate.glossary"].setEnabled(has_rows)
-        a["translate.history"].setEnabled(selected == 1)
         for action in self._needs_rows:
             action.setEnabled(has_rows and not busy)
 
         report = w.report
-        self.extract_candidates.setEnabled(not busy and report is not None and bool(report.text_candidates))
-        self.extract_all.setEnabled(not busy and report is not None)
-        self.diagnosis.setEnabled(not busy and report is not None)
+        ready = not busy and report is not None and w.keys is not None
+        self.extract_candidates.setEnabled(ready and report is not None and bool(report.text_candidates))
+        self.extract_all.setEnabled(ready)
+        self.diagnosis.setEnabled(ready)
 
         for step, (command, _icon) in enumerate(_GO_COMMANDS):
             unlocked = bool(w.nav.item(step).flags() & Qt.ItemFlag.ItemIsEnabled)
             a[command].setEnabled(unlocked and not busy)
+
+    def refresh_selection(self) -> None:
+        """Seçime bağlı öğeleri seçili satırların gerçek durumuna göre günceller (yalnızca menü açılırken çağrılır).
+
+        Seçili satırları saymak büyük seçimlerde pahalıdır; bu yüzden seçim ya da tablo her değiştiğinde değil,
+        yalnızca kullanıcı menüyü açınca yapılır.
+        """
+        w = self.window
+        page = w.translate_page
+        a = self.actions
+        if w.pages.currentWidget() is not page or not page.model.rows:
+            return
+        counts = page.selection_counts()
+        free = not w.busy
+        a["edit.reflow"].setEnabled(free and counts.with_translation > 0)
+        a["edit.copy_source"].setEnabled(free and counts.selected > 0)
+        a["edit.clear"].setEnabled(free and counts.with_translation > 0)
+        a["translate.selected"].setEnabled(free and counts.translate > 0)
+        a["translate.retranslate"].setEnabled(free and counts.retranslate > 0)
+        a["translate.revise"].setEnabled(free and counts.revise > 0)
+        a["translate.approve"].setEnabled(counts.approvable > 0)
+        a["translate.unapprove"].setEnabled(counts.approved > 0)
+        a["translate.history"].setEnabled(counts.selected == 1)

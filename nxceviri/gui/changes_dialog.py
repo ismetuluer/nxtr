@@ -295,7 +295,7 @@ class ChangesDialog(QDialog):
         buttons.addStretch(1)
         if preview:
             self.revert_button = button("Çevirilere Yaz", "primary")
-            self.revert_button.setToolTip("Değişiklikleri “Redakte” durumuyla yazar; Ctrl+Z ile geri alınabilir.")
+            self.revert_button.setToolTip("Değişiklikleri “Redakte” durumuyla yazar; Geri Al ile geri alınabilir.")
             self.revert_button.clicked.connect(self.accept)
         else:
             self.revert_button = button(
@@ -440,7 +440,7 @@ class ChangesDialog(QDialog):
             self.revert_button.setEnabled(n > 0)
             self.revert_button.setText(f"Çevirilere Yaz ({format_int(n)})")
             self.revert_button.setToolTip(
-                "Değişiklikleri “Redakte” durumuyla yazar; Ctrl+Z ile geri alınabilir."
+                "Değişiklikleri “Redakte” durumuyla yazar; Geri Al ile geri alınabilir."
                 if n
                 else "Yazılacak değişiklik yok: en az bir satırı işaretleyin ve “Yeni” metnini düzeltin."
             )

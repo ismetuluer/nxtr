@@ -227,7 +227,7 @@ class FindBar(QWidget):
         self.replace_button = button("Değiştir", icon="replace")
         self.replace_button.setToolTip("Gösterilen satırdaki eşleşmeleri değiştirir ve sonrakine geçer.")
         self.replace_all_button = button("Tümünü Değiştir", icon="replace-all")
-        self.replace_all_button.setToolTip("Kapsamdaki bütün eşleşmeleri değiştirir. Ctrl+Z hepsini geri alır.")
+        self.replace_all_button.setToolTip("Kapsamdaki bütün eşleşmeleri değiştirir. Geri Al hepsini geri alır.")
         self.status_label = label("", "muted")
         bottom.addWidget(self.replace_edit, 1)
         bottom.addWidget(self.preview_box)
@@ -707,19 +707,31 @@ class FindWindow(QWidget):
     def _fit_height(self) -> None:
         self.resize(self.width(), self.sizeHint().height())
 
+    def suspend(self) -> None:
+        """Sahibi (Çevir sayfası) görünmez olunca pencereyi gizler; arama açık kalır (`resume` geri getirir)."""
+        if self.isVisible():
+            self.remember()
+            self.hide()
+
+    def resume(self) -> None:
+        """Sahibi yeniden görününce, arama hâlâ açıksa pencereyi geri getirir (odağı çalmaz)."""
+        if not self._bar.isHidden() and not self.isVisible():
+            self.show()
+            self.raise_()
+
     def _hide_window(self) -> None:
         if self.isVisible():
-            self._remember()
+            self.remember()
         self.hide()
         owner = self.parentWidget()
         if owner is not None:
             owner.window().activateWindow()  # odak tabloya dönebilsin
 
-    def _remember(self) -> None:
+    def remember(self) -> None:
         if self._settings is not None:
             self._settings.setValue(KEY_FIND_GEOMETRY, self.saveGeometry())
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        self._remember()
+        self.remember()
         super().closeEvent(event)
         self._bar.close_bar()

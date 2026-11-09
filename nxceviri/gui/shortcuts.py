@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from PySide6.QtCore import QObject, QSettings, Signal
+from PySide6.QtCore import QObject, QSettings, Qt, Signal
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 
 log = logging.getLogger(__name__)
@@ -102,8 +102,56 @@ COMMANDS_BY_ID: dict[str, Command] = {c.id: c for c in COMMANDS}
 Bindable = QAction | QShortcut
 
 
+#: Uygulamada sabit çalışan tuşlar (tablo kopyalama, panel satır gezintisi, Bul çubuğu Esc, düzenleme…). Kayıt
+#: defterinde olmadıkları için çakışma denetimi görmez; bu yüzden komutlara atanamazlar.
+_RESERVED_NAMES = {
+    "Ctrl+C": "tabloda kopyalar",
+    "Ctrl+Insert": "kopyalar",
+    "Ctrl+V": "yapıştırır",
+    "Shift+Insert": "yapıştırır",
+    "Ctrl+X": "keser",
+    "Shift+Delete": "keser",
+    "Ctrl+A": "tümünü seçer",
+    "Alt+Up": "panelde önceki satıra geçer",
+    "Alt+Down": "panelde sonraki satıra geçer",
+    "Esc": "pencereyi ve aramayı kapatır",
+    "Return": "düzenlemeyi onaylar",
+    "Enter": "düzenlemeyi onaylar",
+    "Tab": "alanlar arasında gezdirir",
+    "Backtab": "alanlar arasında gezdirir",
+    "Backspace": "metin siler",
+    "Delete": "metin siler",
+    "F2": "hücreyi düzenler",
+    "Space": "metin yazar",
+}
+_PLAIN_REASON = "yazı yazmak ve gezinmek için kullanılıyor; Ctrl ya da Alt ile birlikte seçin"
+_FUNCTION_KEYS = tuple(getattr(Qt.Key, f"Key_F{n}") for n in range(1, 13))
+_MODIFIER_MASK = ~Qt.KeyboardModifier.KeypadModifier
+
+
+def reserved_reason(seq: QKeySequence) -> str | None:
+    """`seq` uygulamada sabit kullanılan bir tuşsa ne işe yaradığını ("tabloda kopyalar"), serbestse None döndürür.
+
+    Ayrılmışlar: sabit listedeki tuşlar (Ctrl+C/V/X/A, Alt+Up/Down, Esc, Return, Tab, Delete, F2, Space…) ve
+    değiştiricisiz (ya da yalnızca Shift'li) yazılabilir/gezinme tuşları. F1–F12 değiştiricisiz serbesttir.
+    """
+    if seq.isEmpty():
+        return None
+    first = seq[0]  # type: ignore[index]  # PySide6 çalışma anında QKeyCombination verir
+    fixed = _RESERVED_KEYS.get(_portable(QKeySequence(first)))
+    if fixed is not None:
+        return fixed
+    modifiers = first.keyboardModifiers() & _MODIFIER_MASK
+    plain = modifiers in (Qt.KeyboardModifier.NoModifier, Qt.KeyboardModifier.ShiftModifier)
+    return _PLAIN_REASON if plain and first.key() not in _FUNCTION_KEYS else None
+
+
 def _portable(seq: QKeySequence) -> str:
     return seq.toString(QKeySequence.SequenceFormat.PortableText)
+
+
+#: Ayrılmış tuşlar Qt'nin taşınabilir yazımıyla ("Ctrl+Ins", "Del") anahtarlanır.
+_RESERVED_KEYS = {_portable(QKeySequence(name)): reason for name, reason in _RESERVED_NAMES.items()}
 
 
 def display_text(seq: QKeySequence) -> str:
