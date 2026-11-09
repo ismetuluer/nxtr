@@ -514,9 +514,9 @@ def export_mod(
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_bytes(data)
                     result.files.append(rel.as_posix())
-        for title_id, extra in sorted(options.extra_files.items()):
+        for title_id, added in sorted(options.extra_files.items()):
             root = _mod_root(options.layout, title_id, options.mod_name)
-            for path, data in sorted(extra.items()):
+            for path, data in sorted(added.items()):
                 rel = root / safe_relative_path(path)
                 target = tmp / rel
                 target.parent.mkdir(parents=True, exist_ok=True)

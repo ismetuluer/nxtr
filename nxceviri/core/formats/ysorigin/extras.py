@@ -7,9 +7,10 @@ from __future__ import annotations
 
 from collections.abc import Callable, Collection
 from pathlib import Path
+from typing import Any
 
 from nxceviri.core.fontpatch import ys_fonts, ys_graphics
-from nxceviri.core.formats.derived import Derived
+from nxceviri.core.formats.derived import Derived, GraphicsSupport
 
 
 def derived_files(read: Callable[[str], bytes], files: Collection[str], game_dir: Path | None) -> Derived:
@@ -30,3 +31,13 @@ def derived_files(read: Callable[[str], bytes], files: Collection[str], game_dir
             out.notes.append(f"Grafik çevirisi ({len(notes)} resim): {', '.join(notes)}")
         out.warnings += problems
     return out
+
+
+def export_graphics(reader: Any, files: Collection[str], folder: Path) -> list[str]:
+    """Dışa Aktar → Görseller: çevrilebilir resimlerin özgünlerini `orijinal/`e PNG olarak yazar."""
+    archive = reader.nni(ys_graphics.ARCHIVE)
+    present = [path for path in ys_graphics.LOOSE.values() if path in files]
+    return ys_graphics.export_originals(reader.read, list(archive.entries), folder, present)
+
+
+GRAPHICS = GraphicsSupport(ys_graphics.FOLDER, export_graphics)

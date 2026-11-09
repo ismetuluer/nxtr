@@ -129,3 +129,30 @@ def test_export_with_box_reports_error_rows(
     open_action = next(a for a in window.notifier.history[0].actions if a.label == "Klasörü Aç")
     open_action.callback()  # bildirimdeki düğme gerçekten klasörü açar
     assert opened
+
+
+def test_full_folder_offers_overwrite_or_other_folder(
+    qtbot: QtBot, window: MainWindow, game: GameFiles, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from nxceviri.core.export.layeredfs import INFO_FILE
+    from nxceviri.gui.main_window import ask_full_folder
+
+    nxtr = tmp_path / "eski-mod"
+    nxtr.mkdir()
+    (nxtr / INFO_FILE).write_text("eski", encoding="utf-8")
+    other = tmp_path / "belgeler"
+    other.mkdir()
+    (other / "belge.txt").write_text("x", encoding="utf-8")
+    asked: list[tuple[str, list[str]]] = []
+
+    def fake(_parent: object, text: str, buttons: list[str]) -> str:
+        asked.append((text, buttons))
+        return buttons[0]
+
+    monkeypatch.setattr("nxceviri.gui.main_window.choose_button", fake)
+    assert ask_full_folder(window, nxtr) == "overwrite"
+    assert asked[-1][1] == ["Üzerine Yaz", "Başka Klasör…", "Vazgeç"]
+    assert ask_full_folder(window, other) == "other"  # NXTR modu değil: üzerine yazma önerilmez
+    assert asked[-1][1] == ["Başka Klasör…", "Vazgeç"]
+    assert "silinmez" in asked[-1][0]
+    assert ask_full_folder(window, tmp_path / "yok") == "empty"

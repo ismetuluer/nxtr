@@ -27,6 +27,8 @@ class ExportPage(QWidget):
     export_requested = Signal()
     include_errors_changed = Signal(bool)
     open_folder = Signal()
+    extract_graphics = Signal()
+    open_graphics = Signal()
     cancel = Signal()
 
     def __init__(self) -> None:
@@ -111,6 +113,23 @@ class ExportPage(QWidget):
         summary.body.addWidget(self.summary)
         fl.addWidget(summary)
 
+        # Görseller: yalnızca resim çevirisini destekleyen oyunlarda görünür (Ys Origin).
+        self.graphics_card = Card("Görseller")
+        self.graphics_status = label("", "muted", wrap=True)
+        self.graphics_card.body.addWidget(self.graphics_status)
+        graphics_row = QHBoxLayout()
+        self.graphics_extract = button("Orijinalleri Çıkar", icon="image")
+        self.graphics_extract.setToolTip("Yazı içeren resimleri klasöre PNG olarak çıkarır (orijinal/).")
+        self.graphics_extract.clicked.connect(self.extract_graphics)
+        self.graphics_open = button("Klasörü Aç", icon="folder-open")
+        self.graphics_open.clicked.connect(self.open_graphics)
+        graphics_row.addWidget(self.graphics_extract)
+        graphics_row.addWidget(self.graphics_open)
+        graphics_row.addStretch(1)
+        self.graphics_card.body.addLayout(graphics_row)
+        self.graphics_card.hide()
+        fl.addWidget(self.graphics_card)
+
         self.result = Banner()
         fl.addWidget(self.result)
         self.open_button = button("Mod Klasörünü Aç", icon="folder-open")
@@ -124,6 +143,22 @@ class ExportPage(QWidget):
         self.progress.cancel_requested.connect(self.cancel)
         self.stack.addWidget(self.progress)
         lay.addStretch(1)
+
+    def set_graphics(self, folder: Path | None, status: tuple[int, int]) -> None:
+        """Görseller kartı: klasör ve "hazır / özgün" sayısı; destek yoksa (folder None) kart gizlenir."""
+        self.graphics_card.setVisible(folder is not None)
+        if folder is None:
+            return
+        originals, ready = status
+        if originals:
+            text = (
+                f"Türkçe resim: {ready} / {originals}. Yazısını çevirdiğiniz resmi temiz/ klasörüne aynı adla koyun; "
+            )
+            text += "mod oluşturulurken kendiliğinden yerleşir."
+        else:
+            text = "Önce “Orijinalleri Çıkar” ile yazı içeren resimleri çıkarın."
+        self.graphics_status.setText(text)
+        self.graphics_status.setToolTip(str(folder))
 
     @property
     def layout_key(self) -> str:

@@ -27,7 +27,7 @@ from collections.abc import Mapping
 from html import unescape
 
 from nxceviri.core.formats.base import SOURCE_PATH, Context, ControlCode, FormatError, TextEntry
-from nxceviri.core.formats.ysorigin.extras import derived_files
+from nxceviri.core.formats.ysorigin.extras import GRAPHICS, derived_files
 from nxceviri.core.translate import markup, placeholders
 
 XSO_MAGIC = b"XSR\0"
@@ -247,6 +247,8 @@ class YsOriginPlugin:
     unsupported_letters = ""
 
     derived_files = staticmethod(derived_files)
+    #: Dışa Aktar → Görseller: resimlerdeki yazıların çevirisi.
+    graphics = GRAPHICS
 
     def detect(self, path: str, head: bytes) -> bool:
         return head.startswith(XSO_MAGIC) or _XML_HEAD.match(head) is not None

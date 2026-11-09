@@ -13,4 +13,5 @@ Bu klasördeki `*.svg` dosyaları [Lucide](https://lucide.dev) simge setindendir
 - Bul ve Değiştir çubuğu: `case-sensitive`, `whole-word`, `regex`, `replace`, `replace-all` (aynı sürüm, 1.66.0).
 - Ayarlar penceresi sayfa simgeleri: `palette`, `keyboard` (aynı sürüm, 1.66.0); `sparkles`, `refresh-cw` mevcut.
 - Bildirimler (D aşaması): `bell` (aynı sürüm, 1.66.0).
+- Görseller (F aşaması): `image` (aynı sürüm, 1.66.0).
 - Menü çubuğu ve bağlam menüsü (B aşaması): `file-plus`, `save-all`, `trash-2`, `log-out`, `wrap-text`, `copy`, `eraser`, `panel-left`, `pen-line`, `git-compare`, `file-up`, `file-down`, `circle-x`, `activity`, `spell-check`, `puzzle`, `info`, `folder-output` (aynı sürüm, 1.66.0).

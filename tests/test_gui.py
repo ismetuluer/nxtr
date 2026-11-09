@@ -403,10 +403,19 @@ def test_qa_and_export_flow(qtbot: QtBot, window: MainWindow, game: GameFiles, t
     from nxceviri.core.formats.msbt import MsbtPlugin
 
     assert MsbtPlugin().extract(written[0].read_bytes())[0].source == "Maceraya Basla"
-    # Aynı klasöre ikinci kez üretmek reddedilir (üzerine yazılmaz).
-    export.export_button.click()
-    _wait_idle(qtbot, window)
-    assert "boş değil" in export.result.text.text()
+    # Aynı klasöre ikinci kez üretmek sorulur: Vazgeç hiçbir şeye dokunmaz, Üzerine Yaz eski modu değiştirir.
+
+    answers = ["Vazgeç", "Üzerine Yaz"]
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr("nxceviri.gui.main_window.choose_button", lambda _p, _t, _b: answers.pop(0))
+        stamp = written[0].stat().st_mtime_ns
+        export.export_button.click()
+        assert window.task is None  # vazgeçildi: iş başlamadı
+        assert written[0].stat().st_mtime_ns == stamp
+        export.export_button.click()
+        _wait_idle(qtbot, window)
+    assert "Mod oluşturuldu" in export.result.text.text()
+    assert not answers
 
 
 def test_qt_standard_texts_are_turkish(qtbot: QtBot) -> None:

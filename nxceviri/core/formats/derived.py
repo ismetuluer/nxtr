@@ -7,7 +7,10 @@ Eklenti isteğe bağlı olarak `derived_files(read, files, game_dir) -> Derived`
 
 from __future__ import annotations
 
+from collections.abc import Callable, Collection
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -24,3 +27,32 @@ class Derived:
         self.font_notes += [n for n in other.font_notes if n not in self.font_notes]
         self.notes += [n for n in other.notes if n not in self.notes]
         self.warnings += [w for w in other.warnings if w not in self.warnings]
+
+
+#: Resim çevirisinde sayılan dosya türleri.
+_IMAGE_SUFFIXES = (".png", ".dds")
+
+
+@dataclass(frozen=True)
+class GraphicsSupport:
+    """Resim çevirisi desteği (Dışa Aktar → Görseller). Eklenti `graphics = GraphicsSupport(...)` sunar.
+
+    Klasör düzeni: `<oyun dosyalarının klasörü>/<folder_name>/orijinal/` (uygulama çıkarır) ve `temiz/` (kullanıcı aynı
+    adla Türkçe resmini koyar). `export(okuyucu, RomFS dosyaları, klasör)` özgünleri `orijinal/`e yazar ve adlarını
+    döndürür; okuyucu `archives.access.MemberReader`dır. Hazır resimler dışa aktarmada `derived_files` ile moda girer.
+    """
+
+    folder_name: str
+    export: Callable[[Any, Collection[str], Path], list[str]]
+
+
+def graphics_status(folder: Path) -> tuple[int, int]:
+    """(özgün resim sayısı, hazırlanmış Türkçe resim sayısı)."""
+
+    def count(sub: str) -> int:
+        target = folder / sub
+        if not target.is_dir():
+            return 0
+        return sum(1 for f in target.iterdir() if f.suffix.lower() in _IMAGE_SUFFIXES)
+
+    return count("orijinal"), count("temiz")

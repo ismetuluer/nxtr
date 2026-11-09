@@ -3,7 +3,8 @@ dönüştürme seçimi."""
 
 from __future__ import annotations
 
-from collections.abc import Callable, Collection, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
+from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import (
@@ -18,6 +19,7 @@ from PySide6.QtCore import (
     Qt,
     QTimer,
     Signal,
+    SignalInstance,
 )
 from PySide6.QtGui import QAction, QColor, QShowEvent
 from PySide6.QtWidgets import (
@@ -50,7 +52,7 @@ from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa import transliterate
 from nxceviri.core.qa.autofix import FIX_KINDS
 from nxceviri.core.qa.checks import KIND_LABELS, SEVERITY_ERROR, SEVERITY_LABELS, SEVERITY_WARNING, QaIssue
-from nxceviri.core.qa.fonts import FontReport
+from nxceviri.core.qa.fonts import FontReport, font_advice, is_editable_font
 from nxceviri.core.translate.codekinds import KIND_NAMES, CodeKinds
 from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, FitRules
 from nxceviri.core.translate.fitconfig import EACH_GROUP, GROUP_PREFIX, FitConfig, FitOptions
@@ -268,6 +270,10 @@ class QaPage(QWidget):
     report_requested = Signal()  # bildirimdeki "Raporu Gör"
     #: Düzeltme sonucu (durum, metin, düğme adı): ana pencere bildirim olarak gösterir.
     fix_notice = Signal(str, str, str)
+    #: Seçili serbest fontun RomFS yolu: dışa aktar / düzenlenmişi içe al / özgüne dön.
+    font_export_requested = Signal(str)
+    font_import_requested = Signal(str)
+    font_reset_requested = Signal(str)
     fit_changed = Signal()  # kullanıcı sığdırma sınırını, kod türünü veya bir seçeneği değiştirdi
     learn_rules_requested = Signal(str)  # kapsam: "" proje, dosya yolu, GROUP_PREFIX+grup ya da EACH_GROUP
     add_spelling_requested = Signal(list)  # seçili yazım bulgularındaki sözcükler
@@ -326,17 +332,42 @@ class QaPage(QWidget):
         self.font_banner = Banner()
         self.font_card.body.addWidget(self.font_banner)
         self.font_table = QTableWidget(0, 5)
-        self.font_table.setHorizontalHeaderLabels(["Font", "Tür", "Eksik Türkçe harfler", "Yamayla eklenir", "Dosya"])
+        self.font_table.setHorizontalHeaderLabels(["Font", "Tür", "Eksik Türkçe harfler", "Ne yapılabilir", "Dosya"])
+        self.font_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.font_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.font_table.setWordWrap(True)
         self.font_table.verticalHeader().hide()
         self.font_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         fh = self.font_table.horizontalHeader()
-        for c in range(4):
+        for c in (0, 1, 2, 4):
             fh.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
-        fh.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        fh.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.font_table.setMinimumHeight(180)
         self.font_table.setSortingEnabled(True)
         self.font_table.hide()
         self.font_card.body.addWidget(self.font_table)
+        # Serbest TTF/OTF fontlar dışarıda (FontForge vb.) düzenlenip moda konabilir.
+        self._font_overrides: dict[str, str] = {}
+        self._editable_fonts: set[str] = set()
+        font_row = QHBoxLayout()
+        self.font_export_button = button("Fontu Dışa Aktar…", icon="file-up")
+        self.font_export_button.setToolTip("Seçili fontu bir klasöre kaydeder; bir font düzenleyicide açabilirsiniz.")
+        self.font_import_button = button("Düzenlenmiş Fontu İçe Al…", icon="file-down")
+        self.font_import_button.setToolTip("Düzenlediğiniz TTF/OTF dosyası dışa aktarılan moda bu fontun yerine konur.")
+        self.font_reset_button = button("Özgün Fonta Dön", icon="undo-2")
+        self.font_reset_button.setToolTip("İçe alınan fontu bırakır; modda oyunun özgün fontu kalır.")
+        self.font_export_button.clicked.connect(lambda: self._emit_font(self.font_export_requested))
+        self.font_import_button.clicked.connect(lambda: self._emit_font(self.font_import_requested))
+        self.font_reset_button.clicked.connect(lambda: self._emit_font(self.font_reset_requested))
+        for b in (self.font_export_button, self.font_import_button, self.font_reset_button):
+            font_row.addWidget(b)
+        font_row.addStretch(1)
+        self.font_tools = QWidget()
+        self.font_tools.setLayout(font_row)
+        self.font_tools.hide()
+        self.font_card.body.addWidget(self.font_tools)
+        self.font_table.itemSelectionChanged.connect(self._update_font_buttons)
+        self._update_font_buttons()
 
         self.patch_box = QCheckBox("Eksik Türkçe harfleri fontlara ekle (font yaması)")
         self.patch_box.setToolTip(
@@ -891,16 +922,53 @@ class QaPage(QWidget):
             self.font_banner.show_message("warning", text)
         self.font_table.setSortingEnabled(False)  # doldurulurken satırlar yer değiştirmesin
         self.font_table.setRowCount(len(report.fonts))
+        self._editable_fonts = {f.source for f in report.fonts if is_editable_font(f)}
+        self._advice = {f.source: font_advice(f) for f in report.fonts}
         for r, f in enumerate(sorted(report.fonts, key=lambda x: (x.language_specific, x.name))):
             miss = "?" if f.chars is None else (f.missing() or "yok")
-            kind = f.kind + (" — dile özgü, hesaba katılmadı" if f.language_specific else "")
-            patch = " ".join(f.patchable) if f.patchable else "—"
-            for col, value in enumerate((f.name, kind, miss, patch, f.source.rsplit("/", 1)[-1])):
+            kind = f.kind + (" — dile özgü" if f.language_specific else "")
+            for col, value in enumerate((f.name, kind, miss, self._advice[f.source], f.source.rsplit("/", 1)[-1])):
                 item = QTableWidgetItem(value)
-                item.setToolTip(f.note or f.source)
+                item.setToolTip(f.source if col == 4 else (f.note or value))
+                item.setData(Qt.ItemDataRole.UserRole, f.source)
                 self.font_table.setItem(r, col, item)
         self.font_table.setSortingEnabled(True)
         self.font_table.setVisible(bool(report.fonts))
+        self.font_tools.setVisible(bool(self._editable_fonts))
+        self._show_overrides()
+        self._update_font_buttons()
+
+    def set_font_overrides(self, overrides: Mapping[str, str]) -> None:
+        """İçe alınmış düzenli fontlar (RomFS yolu → dosya yolu): tabloda gösterilir, düğmeler buna göre."""
+        self._font_overrides = dict(overrides)
+        self._show_overrides()
+        self._update_font_buttons()
+
+    def _show_overrides(self) -> None:
+        advice = getattr(self, "_advice", {})
+        for r in range(self.font_table.rowCount()):
+            item = self.font_table.item(r, 3)
+            if item is None:
+                continue
+            source = str(item.data(Qt.ItemDataRole.UserRole))
+            stored = self._font_overrides.get(source)
+            item.setText(f"İçe alındı: {Path(stored).name}" if stored else advice.get(source, item.text()))
+
+    def selected_font(self) -> str | None:
+        items = self.font_table.selectedItems()
+        return str(items[0].data(Qt.ItemDataRole.UserRole)) if items else None
+
+    def _update_font_buttons(self) -> None:
+        source = self.selected_font()
+        editable = source is not None and source in self._editable_fonts
+        self.font_export_button.setEnabled(editable)
+        self.font_import_button.setEnabled(editable)
+        self.font_reset_button.setEnabled(editable and source in self._font_overrides)
+
+    def _emit_font(self, signal: SignalInstance) -> None:
+        source = self.selected_font()
+        if source is not None:
+            signal.emit(source)
 
     def set_mode(self, mode: str, missing: str, patched: bool = False) -> None:
         rb = self.mode_buttons.get(mode) or self.mode_buttons[transliterate.MODE_NONE]

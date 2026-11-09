@@ -20,6 +20,7 @@ import logging
 import re
 import struct
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import UnityPy
@@ -316,3 +317,43 @@ def scan_fonts(view: GameView, report: ScanReport, ctx: TaskContext | None = Non
         result.fonts.append(FontInfo(f["name"], source, f["kind"], chars, lang, note, f.get("patchable", "")))
     ctx.report(len(targets), len(targets), "Font denetimi tamamlandı")
     return result
+
+
+#: Elle düzenlenebilen font dosyalarının başlık imzaları (TrueType, OpenType/CFF, Apple TrueType).
+_FONT_MAGIC = (b"\x00\x01\x00\x00", b"OTTO", b"true", b"ttcf")
+
+
+def is_editable_font(font: FontInfo) -> bool:
+    """RomFS'te serbest duran TTF/OTF dosyası mı? Yalnızca bunlar dışa aktarılıp düzenlenmiş hâli moda konabilir."""
+    return font.kind == KIND_TTF and ">" not in font.source and bool(_FONT_FILE.search(font.source))
+
+
+def looks_like_font(path: Path) -> bool:
+    """Dosya TTF/OTF başlığıyla mı başlıyor? (İçe alınan dosyanın yanlışlıkla başka bir şey olmasın.)"""
+    try:
+        with path.open("rb") as fh:
+            return fh.read(4) in _FONT_MAGIC
+    except OSError:
+        return False
+
+
+def font_advice(font: FontInfo) -> str:
+    """Fontun Türkçe harfler için ne yapılabileceği: neden yamanabilir/yamanamaz, hangi yol önerilir (kısa)."""
+    if font.language_specific:
+        return "Bu dile özgü font; Türkçe metinde kullanılmaz."
+    if font.kind == KIND_TMP_DYNAMIC:
+        return "Dinamik font: oyun eksik harfleri yedek fonttan çizer; görünüm biraz farklı olabilir."
+    missing = font.missing()
+    if font.chars is not None and not missing:
+        return "Türkçe harflerin hepsi var."
+    if font.kind == KIND_TMP_STATIC:
+        if font.patchable:
+            rest = "".join(c for c in missing if c not in font.patchable)
+            text = f"Font yaması {' '.join(font.patchable)} harflerini fontun kendi harflerinden üretir."
+            return text + (f" {' '.join(rest)} için harf dönüştürme kullanın." if rest else "")
+        return "Eksik harflerin parçaları fontta yok; harf dönüştürme kullanın."
+    if is_editable_font(font):
+        return "TTF/OTF dosyası: Fontu Dışa Aktar ile FontForge gibi bir araçta düzenleyip içe alın."
+    if font.kind == KIND_TTF:
+        return "Paket içindeki font dışarıda düzenlenemez; harf dönüştürme kullanın."
+    return "Bu font türü yamanamıyor; harf dönüştürme kullanın."
