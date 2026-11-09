@@ -17,9 +17,11 @@ from nxceviri.core.errors import NxError
 class ProviderError(NxError):
     """Sağlayıcıya ulaşılamadı veya istek reddedildi (ağ, zaman aşımı, kota, eksik model…)."""
 
-    def __init__(self, message: str, hint: str = "", *, retryable: bool = False) -> None:
+    def __init__(self, message: str, hint: str = "", *, retryable: bool = False, splittable: bool = False) -> None:
         super().__init__(message, hint)
         self.retryable = retryable
+        #: Yanıt uzunluk sınırında kesildi: aynı partiyi tekrar istemek yerine ikiye bölmek işe yarar.
+        self.splittable = splittable
 
 
 @dataclass(frozen=True)

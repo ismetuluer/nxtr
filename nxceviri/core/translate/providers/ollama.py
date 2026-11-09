@@ -648,6 +648,7 @@ class OllamaProvider:
                     'Model yanıttan önce uzun bir "düşünme" bölümü yazıyor olabilir. Ollama\'nın kütüphanesindeki '
                     "bir modeli (ör. gemma4:26b) deneyin ya da modelin düşünme modunu kapatın.",
                     retryable=True,
+                    splittable=True,
                 )
             raise ProviderError(
                 "Model istenen biçimde (JSON) yanıt vermedi.",

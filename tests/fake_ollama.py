@@ -65,6 +65,8 @@ class FakeOllama:
     #: Bu kadar /api/chat isteğinden sonra her istek 500 döner.
     fail_after: int | None = None
     down: bool = False
+    #: Bu kadar maddeden büyük partide yanıt uzunluk sınırında kesilir (yarım JSON, bitiş nedeni "length").
+    truncate_over: int | None = None
     #: Modelin sohbet şablonu (`ollama show --template`); verilmeyen modelde /api/show şablon alanı döndürmez.
     templates: dict[str, str] = field(default_factory=dict)
     #: Modelin bağlam uzunluğu (`model_info` içindeki `<aile>.context_length`).
@@ -117,6 +119,8 @@ class FakeOllama:
         if len(body["messages"]) == 1:  # sistem metni kullanıcı mesajına eklenmiş: "Instructions:…\n\nInput:\n{json}"
             content = content.rsplit("\n\nInput:\n", 1)[1]
         payload = json.loads(content)
+        if self.truncate_over is not None and len(payload.get("items", ())) > self.truncate_over:
+            return _chat_response(body, '{"translations": [{"id": "0", "te', done_reason="length")
         if "terms" in body["format"]["required"]:
             return _chat_response(body, json.dumps({"terms": self.suggest(payload)}, ensure_ascii=False))
         out = []
@@ -136,12 +140,16 @@ class FakeOllama:
         return OllamaProvider(model, client=httpx.Client(transport=httpx.MockTransport(self.handler)))
 
 
-def _chat_response(body: dict[str, Any], content: str) -> httpx.Response:
+def _chat_response(body: dict[str, Any], content: str, done_reason: str = "stop") -> httpx.Response:
     """Akış isteğinde Ollama gibi satır satır (NDJSON) parçalar, değilse tek yanıt döner."""
     if not body.get("stream"):
-        return httpx.Response(200, json={"message": {"role": "assistant", "content": content}, "done": True})
+        return httpx.Response(
+            200, json={"message": {"role": "assistant", "content": content}, "done": True, "done_reason": done_reason}
+        )
     step = max(1, len(content) // 3)
     pieces = [content[i : i + step] for i in range(0, len(content), step)] or [""]
     lines = [json.dumps({"message": {"role": "assistant", "content": p}, "done": False}) for p in pieces]
-    lines.append(json.dumps({"message": {"role": "assistant", "content": ""}, "done": True}))
+    lines.append(
+        json.dumps({"message": {"role": "assistant", "content": ""}, "done": True, "done_reason": done_reason})
+    )
     return httpx.Response(200, content="\n".join(lines).encode("utf-8"))

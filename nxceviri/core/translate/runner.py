@@ -102,6 +102,7 @@ class RunSummary:
     rejected: int = 0  # sonucu sorunlu geldiği için eski çevirisi korunan satır sayısı
     missing: int = 0  # sağlayıcının hiç döndürmediği satır sayısı
     retried: int = 0  # tek başına yeniden istenen metin sayısı
+    split: int = 0  # yanıtı yarım kaldığı için ikiye bölünüp yeniden istenen parti sayısı
     cleaned: int = 0  # modelin eklediği fazlalıkları temizlik katmanının attığı (yazılan) satır sayısı
     suspicious: int = 0  # yeniden istendiği hâlde uydurma belirtisi süren, yine de yazılan yeni çeviri sayısı
     warnings: list[str] = field(default_factory=list)  # sağlayıcının uyarıları (ör. sözlük kurulamadı)
@@ -190,6 +191,7 @@ class _Runner:
         self.targets = {r.id for r in job.rows}
         self.latest: dict[int, str] = {}  # bu işte yazılan çeviriler (sonraki partilerin bağlamı için)
         self.revise = job.action == ACTION_REVISE
+        self.splits = 0  # yarım yanıt yüzünden bölünen parti sayısı
 
     # --- partiler -------------------------------------------------------------------------
 
@@ -262,6 +264,12 @@ class _Runner:
                     items, self.job.source_lang, self.job.target_lang, self.job.notes, terms, scene=scene
                 )
             except ProviderError as exc:
+                if exc.splittable and len(items) > 1:
+                    # Yanıt yarım kaldı: aynı partiyi yeniden istemek yine kesilir; ikiye bölüp ayrı ayrı istenir.
+                    self.splits += 1
+                    half = len(items) // 2
+                    log.info("Yanıt yarım kaldı; %d maddelik parti ikiye bölündü", len(items))
+                    return self.call(items[:half], scene) + self.call(items[half:], scene)
                 if not exc.retryable or attempt >= len(RETRY_DELAYS_S):
                     raise
                 delay = RETRY_DELAYS_S[attempt]
@@ -483,4 +491,5 @@ def run_machine_translation(
         done_units += len(batch)
     ctx.report(len(units), len(units), _DONE[job.action])
     summary.warnings = list(getattr(provider, "warnings", []))
+    summary.split = runner.splits
     return summary
