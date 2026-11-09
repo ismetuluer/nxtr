@@ -60,6 +60,7 @@ def _project() -> Project:
         TextEntry("d", 3, "Start again", ()),
         TextEntry("e", 4, "Silver Pines", ()),
         TextEntry("f", 5, "Welcome to Silver Pines", ()),
+        TextEntry("g", 6, "Silver Pines", ()),  # terim en az iki satırda kendi başına geçmeli
     )
     p.import_texts([ImportedFile("Menu.tsv", "0100", "unity", "base", entries)])
     rows = {r.key: r for r in p.translation_rows()}
@@ -69,6 +70,7 @@ def _project() -> Project:
             (rows["b"].id, "Elara ile tanış"),
             (rows["d"].id, "Yine başlatt"),
             (rows["e"].id, "Gümüş Çamlar"),
+            (rows["g"].id, "Gümüş Çamlar"),
             (rows["f"].id, "Silver Pines'a hoş geldin"),
         ],
         machine=True,
@@ -88,6 +90,9 @@ def window(qtbot: QtBot, tmp_path: Path) -> Iterator[MainWindow]:
     w._replace_project(_project())
     w.show()
     yield w
+    if w.task is not None:
+        w.task.cancel()
+        w.task.wait()
     w.dirty = False
     w.close()
     w.deleteLater()
@@ -251,6 +256,7 @@ def test_replace_all_is_one_undoable_job_and_keeps_codes_and_approval(window: Ma
 def _term_rows() -> list[TranslationRow]:
     return [
         TranslationRow(1, "f", "k1", "Silver Pines", "Gümüş Çamlar", "machine", "", (), None),
+        TranslationRow(3, "f", "k3", "Silver Pines", "Gümüş Çamlar", "machine", "", (), None),
         TranslationRow(2, "f", "k2", "Welcome to Silver Pines", "Gümüş Çam'a hoş geldin", "machine", "", (), None),
     ]
 
@@ -293,13 +299,14 @@ def test_not_term_menu_item_emits_phrases(qtbot: QtBot) -> None:
     assert sig.args == [["Silver Pines"]]
 
 
-def test_not_term_persists_and_clears_finding(window: MainWindow) -> None:
+def test_not_term_persists_and_clears_finding(qtbot: QtBot, window: MainWindow) -> None:
     window.nav.setCurrentRow(STEP_QA)
     window.run_checks()
     page = window.qa_page
     assert [i.words for i in page.model.issues if i.kind == "term"] == [("Silver Pines",)]
     page.not_term_requested.emit(["Silver Pines"])
     assert json.loads(window.project.setting("terms_ignored")) == ["Silver Pines"]
+    qtbot.waitUntil(lambda: not window.busy)  # denetim arka planda yenilenir
     assert not [i for i in page.model.issues if i.kind == "term"]
     page.not_term_requested.emit(["Silver Pines"])  # tekrar eklemek listeyi çoğaltmaz
     assert json.loads(window.project.setting("terms_ignored")) == ["Silver Pines"]

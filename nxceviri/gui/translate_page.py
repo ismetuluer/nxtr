@@ -54,7 +54,7 @@ from nxceviri.core.qa.checks import (
     SEVERITY_WARNING,
     QaIssue,
 )
-from nxceviri.core.qa.live import LiveChecker, LiveContext
+from nxceviri.core.qa.live import LIVE_KINDS, LiveChecker, LiveContext
 from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.translate.codekinds import CodeKinds
 from nxceviri.core.translate.fitconfig import FitConfig
@@ -249,12 +249,18 @@ class TranslationModel(QAbstractTableModel):
         return next((found[k] for k in ROW_FLAG_KINDS if k in found), None)
 
     def _all_issues(self, r: TranslationRow) -> list[QaIssue]:
-        """Anlık denetim + çeviri değişmediyse son Kontrol Et sonucu (yinelenmeden), bilgi düzeyi dahil."""
+        """Anlık denetim + çeviri değişmediyse son Kontrol Et sonucunun anlık denetimin kapsamadığı türleri.
+
+        Anlık denetimin bildiği türler (`LIVE_KINDS`) her zaman canlı sonuçtan gelir: Kontrol Et'ten bu yana
+        değişen bağlam bayat ya da çift bulgu üretmez, Ayarlar'da kapatılan tür geri gelmez. Kontrol Et
+        sayfasındaki liste bundan bağımsızdır. Bilgi düzeyi dahil.
+        """
         out = {(i.kind, i.message): i for i in self.live.check(r)}
         qa = self._qa.get(r.id)
         if qa is not None and qa[0] == r.translation:
             for i in qa[1]:
-                out.setdefault((i.kind, i.message), i)
+                if i.kind not in LIVE_KINDS:
+                    out.setdefault((i.kind, i.message), i)
         return list(out.values())
 
     def issues(self, r: TranslationRow) -> list[QaIssue]:
@@ -297,14 +303,13 @@ class TranslationModel(QAbstractTableModel):
         self.endResetModel()
 
     def update_rows(self, rows: list[TranslationRow]) -> None:
-        peers: set[int] = set()
-        for r in rows:
-            i = self._pos.get(r.id)
-            if i is None:
-                continue
-            self.rows[i] = r
-            peers |= self.live.update_row(r)
-            self._row_changed(i)
+        known = [r for r in rows if r.id in self._pos]
+        for r in known:
+            self.rows[self._pos[r.id]] = r
+        # Dizin, hücreler yenilenmeden önce güncellenir (yenileme anlık denetimi okur).
+        peers = self.live.update_rows(known)
+        for r in known:
+            self._row_changed(self._pos[r.id])
         # Aynı kaynaklı öteki satırların "tutarsız" durumu değişmiş olabilir.
         self._ids_changed(peers)
 

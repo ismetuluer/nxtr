@@ -123,6 +123,7 @@ def test_qa_lists_spelling_and_adds_selected_words(
     page.spell_add_button.trigger()
     assert chosen == [["başlatt"]]
     assert window.user_dictionary.words() == frozenset({"başlatt"})
+    qtbot.waitUntil(lambda: not window.busy)  # denetim arka planda yenilenir
     assert not [i for i in page.model.issues if i.kind == "spelling" and "başlatt" in i.words]  # yeniden denetlendi
 
 

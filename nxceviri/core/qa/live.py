@@ -148,6 +148,26 @@ class LiveChecker:
             return set()
         return {i for i in group if i != row.id}
 
+    def update_rows(self, rows: Sequence[TranslationRow]) -> set[int]:
+        """Birçok satırı dizinde günceller; sonucu değişebilecek ÖTEKİ satırların kimliklerini tek seferde döndürür.
+
+        Aynı kaynaklı büyük gruplar ("???", "…") satır satır güncellenirse karesel iş çıkar; burada her grup bir kez
+        taranır.
+        """
+        sources: dict[str, None] = {}
+        for row in rows:
+            if not row.source.strip():
+                continue
+            self._groups.setdefault(row.source, {})[row.id] = row
+            self._group_issues.pop(row.source, None)
+            sources[row.source] = None
+        if "inconsistent" not in self._context.kinds:
+            return set()
+        peers: set[int] = set()
+        for source in sources:
+            peers.update(self._groups[source])
+        return peers - {row.id for row in rows}
+
     def _inconsistency(self, row: TranslationRow) -> list[QaIssue]:
         group = self._groups.get(row.source)
         if group is None or len(group) < 2 or not row.translation:

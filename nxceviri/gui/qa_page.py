@@ -54,6 +54,7 @@ from nxceviri.core.qa.fonts import FontReport
 from nxceviri.core.translate.codekinds import KIND_NAMES, CodeKinds
 from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, FitRules
 from nxceviri.core.translate.fitconfig import EACH_GROUP, GROUP_PREFIX, FitConfig, FitOptions
+from nxceviri.core.translate.limits import SCOPE_GROUP, SCOPE_KEY
 from nxceviri.gui.icons import bind_icon, icon
 from nxceviri.gui.issue_chips import ChipBar, Disclosure
 from nxceviri.gui.limits_table import LimitsTable
@@ -76,7 +77,10 @@ _FIT_KEPT_TEXT = "Sığdırma kapalı; sınırlar saklanıyor."
 #: Satırın çeviri ekranında nasıl açılacağı; hücre ipuçlarının sonuna eklenir.
 OPEN_HINT = "Çift tıklayın veya Enter'a basın: satır çeviri ekranında düzenlemeye açılır."
 #: Çeviri hücresi bu tabloda yerinde düzenlenir.
-EDIT_HINT = "Çift tıklayın veya F2'ye basın: çeviriyi burada düzenleyin (Enter kaydeder, Shift+Enter satır sonu)."
+EDIT_HINT = (
+    "Çift tıklayın veya F2'ye basın: çeviriyi burada düzenleyin "
+    "(Enter kaydeder ve satırı onaylar, Shift+Enter satır sonu)."
+)
 #: Bu genişliğin altında düzeltme paneli, kullanıcı seçim yapmadıysa kapalı başlar.
 _NARROW_WIDTH = 1100
 _FIX_PANEL_WIDTH = 260
@@ -267,6 +271,7 @@ class QaPage(QWidget):
     add_spelling_requested = Signal(list)  # seçili yazım bulgularındaki sözcükler
     not_term_requested = Signal(list)  # seçili terim bulgularındaki ifadeler: "terim değil"
     user_dictionary_requested = Signal()
+    fit_tab_shown = Signal()  # Sığdırma sekmesi görünür oldu (sınırlar tablosu ağır hesaplar ister)
 
     def __init__(self) -> None:
         super().__init__()
@@ -439,8 +444,19 @@ class QaPage(QWidget):
         check_lay.addWidget(self.check_bar)
         check_lay.addWidget(self.check_card, 1)
         self.tabs.addTab(check_tab, "Sorunlar")
-        self.tabs.addTab(self._build_fit_tab(), "Sığdırma")
+        self._fit_tab = self.tabs.addTab(self._build_fit_tab(), "Sığdırma")
         self.tabs.addTab(scroll, "Font ve harfler")
+        self.tabs.currentChanged.connect(self._tab_changed)
+
+    def fit_tab_index(self) -> int:
+        return self._fit_tab
+
+    def fit_tab_visible(self) -> bool:
+        return self.tabs.currentIndex() == self._fit_tab
+
+    def _tab_changed(self, index: int) -> None:
+        if index == self._fit_tab:
+            self.fit_tab_shown.emit()
 
     # --- satır sığdırma -----------------------------------------------------------------
 
@@ -564,7 +580,8 @@ class QaPage(QWidget):
         self.limits_card = Card("Grup ve anahtar sınırları")
         self.limits = LimitsTable()
         self.limits.setMinimumHeight(260)
-        self.limits.config_edited.connect(self._limits_edited)
+        self.limits.rule_edited.connect(self._limits_edited)
+        self.fit_changed.connect(self._sync_limits)
         self.limits.learn_all_requested.connect(
             lambda: self._commit_pending(lambda: self.learn_rules_requested.emit(EACH_GROUP))
         )
@@ -574,12 +591,27 @@ class QaPage(QWidget):
         self._apply_fit_widgets([], [], [])
         return scroll
 
-    def _limits_edited(self, config: FitConfig) -> None:
-        """Sınırlar tablosunda grup ya da anahtar deseni sınırı değişti: kart güncellenir ve kaydettirilir."""
-        self._per_group = dict(config.per_group)
-        self._per_key = dict(config.per_key)
+    def _limits_edited(self, scope: str, rules: FitRules | None) -> None:
+        """Sınırlar tablosunda bir grup ya da anahtar deseni sınırı değişti: yalnızca o girdi kartın ayarına işlenir."""
+        if scope.startswith(SCOPE_GROUP):
+            target, name = self._per_group, scope[len(SCOPE_GROUP) :]
+        else:
+            target, name = self._per_key, scope[len(SCOPE_KEY) :]
+        if rules is None:
+            target.pop(name, None)
+        else:
+            target[name] = rules
+            if not self.fit_enabled.isChecked():
+                # Sınır yazan kullanıcı onun uygulanmasını bekler: sığdırma açılır (proje sınırı eklenmez).
+                with _Blocked(self.fit_enabled):
+                    self.fit_enabled.setChecked(True)
+                self._enabled = True
         self._show_scope()
         self.fit_changed.emit()
+
+    def _sync_limits(self) -> None:
+        """Kartın ve tablonun ayarı tek kaynaktan (kart) beslenir: ayar değişince tabloya güncel hali verilir."""
+        self.limits.set_config(self.fit_config())
 
     def set_fit(self, config: FitConfig, files: list[str], labels: list[str], groups: Sequence[str] = ()) -> None:
         """Ayarı ve kapsam/kod listelerini gösterir; `fit_changed` yayılmaz. Seçili kapsam korunur.
@@ -700,7 +732,7 @@ class QaPage(QWidget):
         self._update_fit_enabled()
 
     def _has_rules(self) -> bool:
-        return self._default is not None or bool(self._per_file) or bool(self._per_group)
+        return self._default is not None or bool(self._per_file) or bool(self._per_group) or bool(self._per_key)
 
     def _update_fit_enabled(self) -> None:
         on = self.fit_enabled.isChecked()
@@ -886,11 +918,19 @@ class QaPage(QWidget):
 
         Seçim ve kaydırma konumu korunur; çipler, düzeltme sayıları ve özet güncellenir.
         """
-        was_selected = row_id in self._selected_row_ids()
+        self.replace_rows_issues({row_id: issues}, [row])
+
+    def replace_rows_issues(self, issues_by_row: dict[int, list[QaIssue]], rows: Sequence[TranslationRow]) -> None:
+        """Birkaç satırın bulgularını tek seferde yenisiyle değiştirir (düzenlenen satır ve eşdeşleri).
+
+        Özet, çipler ve düzeltme sayıları yalnızca bir kez hesaplanır; seçim ve kaydırma konumu korunur.
+        """
+        selected = set(self._selected_row_ids())
         scroll = self.table.verticalScrollBar().value()
-        self.model.replace_row(row_id, issues, row)
+        for row in rows:
+            self.model.replace_row(row.id, issues_by_row.get(row.id, []), row)
         self._issues_changed()
-        if was_selected:
+        for row_id in selected & issues_by_row.keys():
             self._select_row_id(row_id)
         self.table.verticalScrollBar().setValue(scroll)
 
@@ -1131,7 +1171,9 @@ class QaPage(QWidget):
             kinds = [k for k in FIX_KINDS if k in present]
             row_ids = sorted({i.row_id for i in issues})
             if kinds:
-                fix_row = menu.addAction(icon("refresh-cw"), "Bu satırı düzelt")
+                fix_row = menu.addAction(
+                    icon("refresh-cw"), "Bu satırları düzelt" if len(row_ids) > 1 else "Bu satırı düzelt"
+                )
                 fix_row.triggered.connect(lambda: self._fix_now(kinds, row_ids))
                 fix_kind = menu.addAction(icon("replace-all"), "Bu türdeki tümünü düzelt")
                 fix_kind.triggered.connect(lambda: self._fix_now(kinds, []))

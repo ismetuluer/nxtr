@@ -33,7 +33,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 
 from nxceviri.core.project import TranslationRow
@@ -282,8 +282,13 @@ def run_checks(
     spell: SpellChecker | None = None,
     ignored_terms: Collection[str] = (),
     spell_ignored: Collection[str] = (),
+    terms: Mapping[str, str] | None = None,
 ) -> list[QaIssue]:
-    from nxceviri.core.qa.terms import canonical_terms, term_issues  # noqa: PLC0415 - terms bu modülden QaIssue alır (döngüsel içe aktarma)
+    """Satırları denetler. `terms`: terim sözlüğü (`project_terms`); verilmezse `rows`tan çıkarılır.
+
+    Birkaç satırı yeniden denetlerken (yerinde düzenleme) terimler tüm projeden çıkarılıp `terms` ile verilir.
+    """
+    from nxceviri.core.qa.terms import project_terms, term_issues  # noqa: PLC0415 - terms bu modülden QaIssue alır (döngüsel içe aktarma)
 
     patterns = glossary_patterns(glossary)
     extra = spell_extra_words(glossary, spell_ignored) if spell is not None else frozenset()
@@ -291,10 +296,7 @@ def run_checks(
     for row in rows:
         out.extend(check_row(row, missing_letters, transliterated, patterns, fit, spell=spell, spell_extra=extra))
     out.extend(consistency_issues(rows))
-    # Sözlük terimlerini "glossary" denetimi zaten bildirir; burada yalnızca satırlardan çıkan terimler aranır.
-    listed = {turkish_lower(" ".join(t.term.split())) for t in glossary or ()}
-    canon = canonical_terms(rows, glossary or (), ignored_terms)
-    out.extend(term_issues(rows, {k: v for k, v in canon.items() if turkish_lower(" ".join(k.split())) not in listed}))
+    out.extend(term_issues(rows, project_terms(rows, glossary, ignored_terms) if terms is None else terms))
     return out
 
 
