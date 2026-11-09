@@ -2,6 +2,23 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.52.1] — 2026-11-09 — Eksiklerin tamamlanması (D ve önceki aşamalar)
+
+### Değişti
+- **Kontrol Et → Denetle arka planda çalışır:** büyük projede arayüz donmaz; iş sürerken düğme pasif, bitince
+  bildirim ("Denetim bitti · 12 hata · 340 uyarı" + Sorunları Gör).
+- **Düzeltme ve dışa aktarma sonuçları da bildirimde:** Sorunlar panosundaki sonuç bandı kalktı (kartta "Raporu Gör");
+  dışa aktarma bitince kart + **Klasörü Aç**, kurulum ayrıntıları "Ayrıntılar"da, sayfada yalnızca kısa durum.
+- **Otomatik Çeviri sadeleşti:** iş türü yan yana düğmeler (Çevir · Yeniden çevir · Redaksiyon), **Bağlantıyı Test
+  Et** sağlayıcının yanında (Gelişmiş'te değil), "Oyun notları" → **Oyun hakkında** (projede kalıcı, her işte modele
+  gider), talimat kutusunun başlığı **Bu iş için talimat**. Oyun hakkındaki notlar da **kitaplığa** kaydedilebilir.
+- **"Düzeltirken temizle" tek yerde:** Sığdırma sekmesinden Sorunlar → Düzeltmeler paneline taşındı ("Satır
+  sığdırırken ayrıca"); Çift boşluk / Fazla nokta düzeltmeleriyle karışmıyor.
+
+### Eklendi
+- Sığdırma sekmesinde **kod türü uyarısı:** "Diğer" sayılan ama sözcüklerin arasına boşluksuz giren kod (büyük
+  olasılıkla satır sonu) için uyarı; tıklayınca Gelişmiş → Kod türleri açılır.
+
 ## [0.52.0] — 2026-11-09 — Bildirimler, değişiklikler penceresi, talimat kitaplığı
 
 ### Eklendi

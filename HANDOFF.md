@@ -1,6 +1,7 @@
 # HANDOFF — oturum devri (2026-11-02, 0.47.0)
 
 ## Durum
+- **Sürüm 0.52.1** (2026-11-09): A–D hedef/sonuç kıyasındaki eksikler kapandı (Denetle arka planda, sonuç bildirimleri, Otomatik Çeviri sadeleşti, Düzeltirken temizle tek yerde, kod türü uyarısı). ARCHITECTURE §4.39. Bilinçli bırakılan: Ayarlar'da "Genel" sayfası (içerecek ayar yok). Sıradaki: E (Terminoloji).
 - **Sürüm 0.52.0** (2026-11-09): D aşaması — bildirim merkezi (kart, Windows bildirimi, ses, görev çubuğu, geçmiş; Ayarlar → Bildirimler), iş sonu sarı kutusu kalktı, güncelleme bildirimi, değişiklikler penceresinde kaydırma/yerinde düzenleme/bağlam, talimat kitaplığı, desen kapsamı, yarım yanıtta bölme. ARCHITECTURE §4.38. Kalan: TECH_DEBT 84 (Denetle arka plana), 87, 88. Sıradaki: E (Terminoloji).
 - **Sürüm 0.51.0** (2026-11-10): C aşaması — anlık denetim, Sorunlar panosu, Yazım Denetimi (F7), terim tutarsızlığı, grup/anahtar sınırları; güncelleme yardımcısı düzeltildi (0.48–0.50 bir kez elle güncellenmeli); Ollama şablon denetimi ve iş başına `num_ctx`. ARCHITECTURE §4.37. Sıradaki: D (Otomatik Çeviri + bildirimler). Gerçek pencerede ve gerçek Ollama'da elle denenmedi.
 - **Sürüm 0.50.0** (2026-11-09): B aşaması — menü çubuğu, Ayarlar penceresi (`Ctrl+,`), düzenlenebilir kısayollar, gruplu sağ tık menüsü, taşınabilir Bul ve Değiştir penceresi, isteğe bağlı hatalı satır vurgusu; ARCHITECTURE §4.36. Sıradaki: C (anlık denetim + Sorunlar panosu). Gerçek pencerede elle denenmedi.
