@@ -65,6 +65,12 @@ class FakeOllama:
     #: Bu kadar /api/chat isteğinden sonra her istek 500 döner.
     fail_after: int | None = None
     down: bool = False
+    #: Modelin sohbet şablonu (`ollama show --template`); verilmeyen modelde /api/show şablon alanı döndürmez.
+    templates: dict[str, str] = field(default_factory=dict)
+    #: Modelin bağlam uzunluğu (`model_info` içindeki `<aile>.context_length`).
+    context_lengths: dict[str, int] = field(default_factory=dict)
+    #: /api/show çağrılarının model adları (önbellek denetimi için).
+    show_calls: list[str] = field(default_factory=list)
     requests: list[dict[str, Any]] = field(default_factory=list)
 
     def handler(self, request: httpx.Request) -> httpx.Response:
@@ -80,7 +86,16 @@ class FakeOllama:
             caps = self.capabilities.get(body.get("model", ""))
             if caps is None:
                 return httpx.Response(404, json={"error": f"model '{body.get('model')}' not found"})
-            return httpx.Response(200, json={"capabilities": caps})
+            self.show_calls.append(body["model"])
+            info: dict[str, Any] = {"capabilities": caps}
+            if body["model"] in self.templates:
+                info["template"] = self.templates[body["model"]]
+            if body["model"] in self.context_lengths:
+                info["model_info"] = {
+                    "general.architecture": "gemma4",
+                    "gemma4.context_length": self.context_lengths[body["model"]],
+                }
+            return httpx.Response(200, json=info)
         if path == "/api/chat":
             return self._chat(request, body)
         return httpx.Response(404, json={"error": "not found"})
@@ -98,7 +113,10 @@ class FakeOllama:
         if self.bad_json > 0:
             self.bad_json -= 1
             return _chat_response(body, "Tabii! İşte çeviri:")
-        payload = json.loads(body["messages"][1]["content"])
+        content = body["messages"][-1]["content"]
+        if len(body["messages"]) == 1:  # sistem metni kullanıcı mesajına eklenmiş: "Instructions:…\n\nInput:\n{json}"
+            content = content.rsplit("\n\nInput:\n", 1)[1]
+        payload = json.loads(content)
         if "terms" in body["format"]["required"]:
             return _chat_response(body, json.dumps({"terms": self.suggest(payload)}, ensure_ascii=False))
         out = []

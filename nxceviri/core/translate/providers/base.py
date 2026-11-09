@@ -76,6 +76,15 @@ class BatchResult:
     error: str = ""
 
 
+@dataclass(frozen=True)
+class PlannedBatch:
+    """İşin bir partisi, gönderilmeden önce: sağlayıcı isteğin boyutunu önceden hesaplayabilsin diye."""
+
+    items: list[BatchItem]
+    scene: Scene
+    glossary: list[GlossaryTerm]
+
+
 class TranslationProvider(Protocol):
     name: str
     label: str

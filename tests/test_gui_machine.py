@@ -627,3 +627,29 @@ def test_machine_dialog_rejects_invalid_ollama_address(window: MainWindow) -> No
     dialog.refresh_models()
     assert "adres" in dialog.status.text.text().lower()  # ağa gitmeden uyarır, istisna fırlatmaz
     dialog.close()
+
+
+def test_machine_dialog_warns_when_model_template_ignores_system(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from nxceviri.gui import machine_dialogs
+
+    server = FakeOllama(
+        models=[
+            {"name": "gemma4:12b", "size": 1, "details": {}},
+            {"name": "ham:7b", "size": 1, "details": {}},
+        ],
+        capabilities={"gemma4:12b": ["completion"], "ham:7b": ["completion"]},
+        templates={"gemma4:12b": "{{ range .Messages }}{{ .Content }}{{ end }}", "ham:7b": "{{ .Prompt }}"},
+    )
+    monkeypatch.setattr(machine_dialogs, "OllamaProvider", lambda model, url, timeout_s=15: server.provider(model))
+    dialog = _dialog(window, window._machine_scopes())
+    assert dialog.template_note.isHidden()
+    dialog.refresh_models()
+    assert dialog.template_note.isHidden()  # gemma4:12b sistem mesajını kullanıyor
+    dialog.model.setCurrentIndex(dialog.model.findText("ham:7b"))
+    assert not dialog.template_note.isHidden()
+    assert "şablonu sistem talimatını yok sayıyor" in dialog.template_note.text()
+    dialog.model.setCurrentIndex(dialog.model.findText("gemma4:12b"))
+    assert dialog.template_note.isHidden()
+    dialog.close()

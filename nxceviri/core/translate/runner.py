@@ -47,6 +47,7 @@ from nxceviri.core.translate.providers.base import (
     BatchResult,
     ContextLine,
     GlossaryTerm,
+    PlannedBatch,
     ProviderError,
     Scene,
     TranslationProvider,
@@ -404,7 +405,25 @@ def run_machine_translation(
 
     verb = _VERBS[job.action]
     done_units = 0
-    for batch in runner.batches(units):
+    all_batches = runner.batches(units)
+    prepare = getattr(provider, "prepare_job", None)
+    if callable(prepare):
+        # İsteğe bağlı kanca (Ollama): istek boyutuna göre iş boyunca sabit bağlam penceresi seçilir;
+        # istem hiçbir şekilde sığmıyorsa iş başlamadan hata verilir.
+        prepare(
+            [
+                PlannedBatch(
+                    [runner.item(u) for u in b],
+                    runner.scene(b),
+                    relevant_terms(job.glossary, [u.source for u in b]),
+                )
+                for b in all_batches
+            ],
+            job.source_lang,
+            job.target_lang,
+            job.notes,
+        )
+    for batch in all_batches:
         ctx.report(done_units, len(units), f"{verb}: {len(units) - done_units} metin kaldı")
         scene = runner.scene(batch)
         items = {u.item_id: runner.item(u) for u in batch}
