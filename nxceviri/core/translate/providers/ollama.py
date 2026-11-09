@@ -20,8 +20,10 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 import threading
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -35,6 +37,7 @@ from nxceviri.core.translate.providers.base import (
     BatchResult,
     ContextLine,
     GlossaryTerm,
+    PlannedBatch,
     ProviderError,
     ProviderStatus,
     Scene,
@@ -50,6 +53,15 @@ OLLAMA_SEED = 42
 STALL_TIMEOUT_S = 300.0
 #: İptal isteğinin ne sıklıkla yoklandığı (saniye).
 _CANCEL_POLL_S = 0.2
+
+#: Bağlam penceresi (`num_ctx`) sınırları ve adımı; istem + yanıt payı bu aralığa sığmalıdır.
+MIN_NUM_CTX = 8192
+MAX_NUM_CTX = 32768
+#: Yanıt için ayrılan en çok belirteç (`num_predict`).
+NUM_PREDICT = 3072
+#: Karakterden belirteç tahmini (Türkçe/İngilizce/Japonca için ihtiyatlı ortalama) ve güvenlik payı.
+_CHARS_PER_TOKEN = 3
+_CTX_MARGIN = 1.15
 
 #: RTX A4000 (16 GB VRAM) için önerilen modeller, tercih sırasıyla (Ekim 2026 araştırması).
 RECOMMENDED_MODELS: tuple[tuple[str, str], ...] = (
@@ -178,11 +190,78 @@ class ModelInfo:
     parameters: str
     quantization: str
     capabilities: tuple[str, ...]
+    #: Sohbet şablonu sistem mesajını kullanmıyor mu? (`/api/show` okunamadıysa False.)
+    template_drops_system: bool = False
+    #: Modelin desteklediği en uzun bağlam (belirteç); bilinmiyorsa None.
+    context_length: int | None = None
 
     @property
     def can_chat(self) -> bool:
         # Eski Ollama sürümleri yetenek listesi döndürmez; o durumda gömme modeli olmadığını varsayarız.
         return not self.capabilities or "completion" in self.capabilities
+
+
+_TEMPLATE_USES_SYSTEM = re.compile(r"\.(System|Messages)\b|\bmessages\b")
+
+#: Sistem metni düşen modelde çeviri talimatının kullanıcı mesajına eklenme biçimi.
+_INLINE_SYSTEM = "Instructions:\n{system}\n\nInput:\n{user}"
+
+TEMPLATE_WARNING = (
+    "Bu modelin şablonu sistem talimatını yok sayıyor; talimatlar kullanıcı mesajına eklenecek. "
+    "En iyi sonuç için sohbet şablonu olan bir model seçin (ör. hf.co/… sürümü)."
+)
+
+
+def template_drops_system(template: str) -> bool:
+    """Şablon `/api/chat` sistem mesajını hiç kullanmıyor mu?
+
+    Ollama sistem mesajını Go şablonunda `.System` ya da `.Messages` ile, GGUF'tan gelen Jinja şablonunda
+    `messages` değişkeniyle modele iletir; hiçbiri yoksa (ör. yalnızca `{{ .Prompt }}` ya da boş şablon) yalnızca
+    son kullanıcı mesajı gider ve kurallar modele ulaşmaz.
+    """
+    return _TEMPLATE_USES_SYSTEM.search(template) is None
+
+
+def choose_num_ctx(prompt_chars: int, context_length: int | None = None) -> int:
+    """İstek için bağlam penceresi: tahmini istem + yanıt payı + %15, 8192'nin katına yuvarlanır.
+
+    Alt sınır 8192, üst sınır modelin bağlam uzunluğu ve 32768'dir. İstem üst sınıra sığmıyorsa Türkçe hata verir.
+    """
+    cap = min(context_length or MAX_NUM_CTX, MAX_NUM_CTX)
+    tokens = math.ceil(prompt_chars / _CHARS_PER_TOKEN)
+    needed = math.ceil((tokens + NUM_PREDICT) * _CTX_MARGIN)
+    if needed > cap:
+        fits = max(int(cap / _CTX_MARGIN) - NUM_PREDICT, 0) * _CHARS_PER_TOKEN
+        raise ProviderError(
+            f"İstem modelin bağlam penceresine ({cap} belirteç) sığmıyor: oyun notları veya talimat çok uzun.",
+            f"Oyun notlarını ve talimatı kısaltın: istem yaklaşık {max(prompt_chars - fits, 1)} karakter fazla.",
+        )
+    rounded = math.ceil(needed / MIN_NUM_CTX) * MIN_NUM_CTX
+    return min(max(rounded, MIN_NUM_CTX), cap)
+
+
+@dataclass(frozen=True)
+class _ShowInfo:
+    """`/api/show` yanıtından okunan, model başına önbelleğe alınan bilgiler."""
+
+    capabilities: tuple[str, ...] = ()
+    template_drops_system: bool = False
+    context_length: int | None = None
+
+
+def _parse_show(show: dict[str, Any]) -> _ShowInfo:
+    template = show.get("template")
+    context_length = None
+    for key, value in (show.get("model_info") or {}).items():
+        if str(key).endswith(".context_length") and isinstance(value, int) and value > 0:
+            context_length = value
+            break
+    return _ShowInfo(
+        tuple(str(c) for c in show.get("capabilities") or ()),
+        # Eski sürümler şablon alanı döndürmez: bilinmeyen şablon sistem mesajını kullanıyor sayılır.
+        isinstance(template, str) and template_drops_system(template),
+        context_length,
+    )
 
 
 def language_name(code: str) -> str:
@@ -286,6 +365,20 @@ def build_messages(
     ]
 
 
+def inline_system(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Sistem mesajlarını ilk kullanıcı mesajının başına ekler ("Instructions:…\n\nInput:\n…").
+
+    Şablonu `.System`/`.Messages` kullanmayan modelde sistem mesajı hiç iletilmez; böylece kurallar yine ulaşır.
+    Kullanıcı mesajının JSON'u olduğu gibi kalır (`Input:` satırından sonra).
+    """
+    system = "\n\n".join(m["content"] for m in messages if m["role"] == "system")
+    rest = [m for m in messages if m["role"] != "system"]
+    if not system or not rest:
+        return messages
+    first = {"role": rest[0]["role"], "content": _INLINE_SYSTEM.format(system=system, user=rest[0]["content"])}
+    return [first, *rest[1:]]
+
+
 class OllamaProvider:
     name = "ollama"
     label = "Ollama (yerel)"
@@ -309,7 +402,10 @@ class OllamaProvider:
         self.base_url = base_url.rstrip("/")
         self._client = client or httpx.Client(timeout=httpx.Timeout(timeout_s, connect=5.0))
         self._stall_timeout_s = stall_timeout_s
-        self._capabilities: tuple[str, ...] | None = None
+        self._show_cache: dict[str, _ShowInfo] = {}
+        #: İş başında hesaplanan bağlam penceresi (`prepare_job`); 0: hesaplanmadı. İş boyunca sabit kalır ki
+        #: Ollama modeli yeniden yüklemesin ve istem önek önbelleği korunsun.
+        self._job_num_ctx = 0
         #: Çalıştırıcı verir: iptal istenince süren istek hemen kesilir (yanıt beklenmez).
         self.cancel_token: CancelToken | None = None
         self._last_done_reason = ""  # son yanıtın bitiş nedeni ("stop", "length" …)
@@ -431,19 +527,16 @@ class OllamaProvider:
             if not name:
                 continue
             details = m.get("details") or {}
-            caps: tuple[str, ...] = ()
-            try:
-                show = self._request("POST", "/api/show", {"model": name})
-                caps = tuple(str(c) for c in show.get("capabilities") or ())
-            except ProviderError as exc:
-                log.info("Model yetenekleri okunamadı (%s): %s", name, exc.message)
+            info = self._model_info(name)
             models.append(
                 ModelInfo(
                     name=name,
                     size_bytes=int(m.get("size") or 0),
                     parameters=str(details.get("parameter_size", "")),
                     quantization=str(details.get("quantization_level", "")),
-                    capabilities=caps,
+                    capabilities=info.capabilities,
+                    template_drops_system=info.template_drops_system,
+                    context_length=info.context_length,
                 )
             )
         return models
@@ -467,34 +560,65 @@ class OllamaProvider:
             return ProviderStatus(
                 False, f"Ollama {version} çalışıyor ama '{self.model}' modeli yüklü değil. Listeden bir model seçin."
             )
-        self._capabilities = found.capabilities
-        return ProviderStatus(
-            True, f"Bağlantı başarılı: Ollama {version}, model {found.name} {found.parameters}".strip()
-        )
+        message = f"Bağlantı başarılı: Ollama {version}, model {found.name} {found.parameters}".strip()
+        if found.template_drops_system:
+            message += f". {TEMPLATE_WARNING}"
+        return ProviderStatus(True, message)
 
-    def _model_capabilities(self) -> tuple[str, ...]:
-        """Modelin yetenekleri; bağlantı sınanmadan çeviriye başlandıysa ilk istekte öğrenilir."""
-        if self._capabilities is None:
+    def _model_info(self, model: str | None = None) -> _ShowInfo:
+        """Modelin yetenekleri, şablon durumu ve bağlam uzunluğu (`/api/show`); model başına bir kez okunur."""
+        name = model or self.model
+        info = self._show_cache.get(name)
+        if info is None:
             try:
-                show = self._request("POST", "/api/show", {"model": self.model})
-                self._capabilities = tuple(str(c) for c in show.get("capabilities") or ())
+                info = _parse_show(self._request("POST", "/api/show", {"model": name}))
             except ProviderError as exc:
-                log.info("Model yetenekleri okunamadı (%s): %s", self.model, exc.message)
-                self._capabilities = ()
-        return self._capabilities
+                log.info("Model bilgisi okunamadı (%s): %s", name, exc.message)
+                info = _ShowInfo()
+            self._show_cache[name] = info
+            if info.template_drops_system:
+                log.info(
+                    "%s: model şablonu sistem mesajını kullanmıyor; talimatlar kullanıcı mesajına eklenecek.",
+                    name,
+                )
+        return info
+
+    def prepare_job(self, batches: Sequence[PlannedBatch], source_lang: str, target_lang: str, context: str) -> None:
+        """İşin bağlam penceresini en uzun partiye göre bir kez belirler (iş boyunca sabit kalır).
+
+        İstem sığmıyorsa iş başlamadan Türkçe hata verir (oyun notları/talimat çok uzun).
+        """
+        info = self._model_info()
+        longest = 0
+        for b in batches:
+            messages = build_messages(b.items, source_lang, target_lang, context, b.glossary, scene=b.scene)
+            longest = max(longest, sum(len(m["content"]) for m in messages))
+        self._job_num_ctx = choose_num_ctx(longest, info.context_length)
+        log.info(
+            "%s: bağlam penceresi (num_ctx) %d (en uzun istem ≈ %d karakter)", self.model, self._job_num_ctx, longest
+        )
 
     def chat_json(self, messages: list[dict[str, str]], schema: dict[str, Any]) -> str:
         """Modelden `schema` biçiminde JSON yanıt ister ve metni döndürür (çeviri ve sözlük önerisi bunu kullanır)."""
+        info = self._model_info()
+        if info.template_drops_system:
+            messages = inline_system(messages)
+        num_ctx = choose_num_ctx(sum(len(m["content"]) for m in messages), info.context_length)
+        if self._job_num_ctx:
+            if num_ctx > self._job_num_ctx:  # bağlam satırlarındaki çeviriler beklenenden uzun çıktı
+                log.info("%s: istem beklenenden uzun; num_ctx %d → %d", self.model, self._job_num_ctx, num_ctx)
+                self._job_num_ctx = num_ctx
+            num_ctx = self._job_num_ctx
         body: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
             "format": schema,
             # Düşük sıcaklık ve sabit tohum: aynı istem aynı çeviriyi verir (tutarlılık), model daha az uydurur.
             # Yeniden denemede istem değiştiği ("fix") için sonuç yine değişebilir.
-            "options": {"temperature": 0.2, "seed": OLLAMA_SEED, "num_ctx": 8192, "num_predict": 3072},
+            "options": {"temperature": 0.2, "seed": OLLAMA_SEED, "num_ctx": num_ctx, "num_predict": NUM_PREDICT},
             "keep_alive": "15m",
         }
-        if "thinking" in self._model_capabilities():
+        if "thinking" in info.capabilities:
             body["think"] = False  # düşünme modu çeviriyi yavaşlatır, katkısı yok
         return self._chat(body)
 

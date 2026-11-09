@@ -36,7 +36,12 @@ from nxceviri.core.secrets import DEEPL_API_KEY, SecretStore
 from nxceviri.core.translate.glossary_io import export_glossary_xlsx, merge_terms, read_glossary_xlsx
 from nxceviri.core.translate.providers.base import GlossaryTerm, ProviderError, TranslationProvider
 from nxceviri.core.translate.providers.deepl import DeepLProvider, plan_label
-from nxceviri.core.translate.providers.ollama import DEFAULT_URL, RECOMMENDED_MODELS, OllamaProvider
+from nxceviri.core.translate.providers.ollama import (
+    DEFAULT_URL,
+    RECOMMENDED_MODELS,
+    TEMPLATE_WARNING,
+    OllamaProvider,
+)
 from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_REVISE, ACTION_TRANSLATE, target_rows
 from nxceviri.core.translate.terms import TermSuggestion
 from nxceviri.gui.icons import bind_icon
@@ -267,6 +272,18 @@ class MachineDialog(QDialog):
         model_row.addWidget(self.model, 1)
         model_row.addWidget(refresh)
         of.addRow("Model:", model_row)
+        #: Şablonu sistem talimatını yok sayan modeller (Modelleri Listele ile öğrenilir).
+        self._template_ignores_system: set[str] = set()
+        self.template_note = label(
+            TEMPLATE_WARNING,
+            "muted",
+            wrap=True,
+            tip="Ollama sistem mesajını yalnızca şablonunda .System veya .Messages geçen modellere iletir. "
+            "Denetlemek için komut satırında: ollama show <model> --template",
+        )
+        self.template_note.hide()
+        of.addRow(self.template_note)
+        self.model.currentTextChanged.connect(self._update_template_note)
         form.addRow(self.ollama_box)
 
         self.deepl_box = QWidget()
@@ -510,6 +527,9 @@ class MachineDialog(QDialog):
             self.status.show_message("success", "")
         self.presets.setCurrentIndex(0)
 
+    def _update_template_note(self) -> None:
+        self.template_note.setVisible(self.model.currentText().strip() in self._template_ignores_system)
+
     def _ollama_url(self) -> str | None:
         """Alandaki Ollama adresi (boşsa varsayılan); geçersizse durumu bildirir ve None döndürür."""
         url = valid_ollama_url(self.url.text() or DEFAULT_URL)
@@ -533,6 +553,7 @@ class MachineDialog(QDialog):
             QGuiApplication.restoreOverrideCursor()
             provider.close()
         current = self.model.currentText()
+        self._template_ignores_system = {m.name for m in models if m.template_drops_system}
         self.model.clear()
         for m in models:
             detail = " · ".join(x for x in (m.parameters, m.quantization, format_size(m.size_bytes)) if x)
