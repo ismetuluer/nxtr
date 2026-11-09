@@ -2,6 +2,11 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.55.3] — 2026-11-10 — Yardım konuları pakete girdi
+
+### Düzeltildi
+- **Yardım (F1) konuları sürüm paketinde yoktu:** konu dosyaları paket verisi olarak bildirilmediği için `.exe`de yalnızca Kısayollar konusu görünüyordu (kaynak koddan çalışırken sorun yoktu). `pyproject.toml` paket verisine eklendi; her veri dosyasının bildirildiğini denetleyen test eklendi.
+
 ## [0.55.2] — 2026-11-10 — Çevir sayfa başlığı geri geldi
 
 ### Düzeltildi

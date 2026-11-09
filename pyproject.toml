@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nxceviri"
-version = "0.55.2"
+version = "0.55.3"
 description = "NXTR — Switch oyun metinlerini Türkçeye çevirme ve LayeredFS mod üretme aracı"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
@@ -35,7 +35,7 @@ nxceviri = "nxceviri.gui.app:main"
 include = ["nxceviri*"]
 
 [tool.setuptools.package-data]
-nxceviri = ["assets/fonts/*", "assets/spell/*", "assets/dmc1/*", "gui/icons/*", "gui/appicon/*"]  # OFL yazı tipleri (lisansları yanlarında) ve DMC1 düşman açıklamaları
+nxceviri = ["assets/fonts/*", "assets/spell/*", "assets/dmc1/*", "gui/icons/*", "gui/appicon/*", "gui/help/*"]  # OFL yazı tipleri (lisansları yanlarında) ve DMC1 düşman açıklamaları
 
 [tool.ruff]
 line-length = 120
