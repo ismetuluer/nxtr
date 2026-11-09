@@ -88,7 +88,9 @@ def test_choice_is_remembered_per_project(window: MainWindow) -> None:
     assert window.project.setting("export_include_errors") == ""
 
 
-def test_export_with_box_reports_error_rows(qtbot: QtBot, window: MainWindow, game: GameFiles, tmp_path: Path) -> None:
+def test_export_with_box_reports_error_rows(
+    qtbot: QtBot, window: MainWindow, game: GameFiles, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     window.load_keys_file(game.keys_path)
     window.add_files([game.base_nsp, game.update_nsp])
     qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
@@ -114,3 +116,11 @@ def test_export_with_box_reports_error_rows(qtbot: QtBot, window: MainWindow, ga
     assert window.notifier.history[0].title == "Mod oluşturuldu"
     text = window.notifier.history[0].text  # ayrıntılar bildirimde
     assert "Hatalı satırlar: 0 tanesi çevirisiyle yazıldı, 1 tanesi orijinal bırakıldı" in text
+    from PySide6.QtCore import QUrl
+    from PySide6.QtGui import QDesktopServices
+
+    opened: list[str] = []
+    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: opened.append(QUrl(url).toLocalFile()) or True)
+    open_action = next(a for a in window.notifier.history[0].actions if a.label == "Klasörü Aç")
+    open_action.callback()  # bildirimdeki düğme gerçekten klasörü açar
+    assert opened

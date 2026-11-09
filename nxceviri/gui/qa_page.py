@@ -543,7 +543,7 @@ class QaPage(QWidget):
         self.fit_kind_warning.setCursor(Qt.CursorShape.PointingHandCursor)
         self.fit_kind_warning.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         bind_icon(self.fit_kind_warning, "triangle-alert", size=14, tone="warning")
-        self.fit_kind_warning.clicked.connect(lambda: self.fit_advanced.toggle.setChecked(True))
+        self.fit_kind_warning.clicked.connect(self._open_fit_advanced)
         self.fit_kind_warning.hide()
         body.addWidget(self.fit_kind_warning, alignment=Qt.AlignmentFlag.AlignLeft)
         self.fit_advanced = Disclosure("Gelişmiş")
@@ -585,6 +585,9 @@ class QaPage(QWidget):
         lay.addStretch(1)
         self._apply_fit_widgets([], [], [])
         return scroll
+
+    def _open_fit_advanced(self) -> None:
+        self.fit_advanced.toggle.setChecked(True)
 
     def show_kind_warnings(self, labels: Sequence[str]) -> None:
         """Satır sonu olabilecek ama "Diğer" sayılan kodlar: tıklanınca Gelişmiş → Kod türleri açılır."""

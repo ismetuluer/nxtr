@@ -2082,7 +2082,7 @@ class MainWindow(QMainWindow):
                 LEVEL_WARNING if result.warnings else LEVEL_SUCCESS,
                 "Mod oluşturuldu",
                 message,
-                (NoticeAction("Klasörü Aç", page.open_folder),),
+                (NoticeAction("Klasörü Aç", page.open_folder.emit),),
             )
 
         def failed(text: str) -> None:

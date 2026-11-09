@@ -17,13 +17,15 @@ log = logging.getLogger(__name__)
 
 KIND_TRANSLATE = "translate"
 KIND_REVISE = "revise"
-_KINDS = (KIND_TRANSLATE, KIND_REVISE)
+#: Oyun hakkında notlar (tür, dönem, ton); talimat değil, her işte modele giden kalıcı bilgi.
+KIND_NOTES = "notes"
+_KINDS = (KIND_TRANSLATE, KIND_REVISE, KIND_NOTES)
 
 
 @dataclass(frozen=True)
 class SavedInstruction:
     name: str
-    kind: str  # KIND_TRANSLATE (çevir / yeniden çevir) ya da KIND_REVISE (redaksiyon)
+    kind: str  # KIND_TRANSLATE (çevir / yeniden çevir), KIND_REVISE (redaksiyon) ya da KIND_NOTES (oyun hakkında)
     text: str
 
 
