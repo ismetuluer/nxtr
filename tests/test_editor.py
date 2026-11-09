@@ -114,7 +114,7 @@ def test_next_open_skips_approved_and_wraps(window: MainWindow) -> None:
     assert current.key == "s01"  # başa döndü; s01 makine
     page.approve([_rows(window)["s01"], _rows(window)["s02"]])
     assert {_rows(window)[k].status for k in ("s01", "s02")} == {Status.APPROVED}
-    assert "2 satır onaylandı" in page.banner.text.text()
+    assert "2 satır onaylandı" in page.notice_text
     page.next_open()
     current = page.current_row()
     assert current is not None
@@ -157,7 +157,7 @@ def test_show_row_in_place_clears_filters(window: MainWindow) -> None:
     assert current is not None
     assert current.id == s03.id
     assert page.table.currentIndex().row() == page.model.position(s03.id)
-    assert "kendi yerinde gösteriliyor" in page.banner.text.text()
+    assert "kendi yerinde gösteriliyor" in page.notice_text
 
 
 def test_show_row_in_place_needs_a_single_row(window: MainWindow) -> None:
@@ -171,16 +171,14 @@ def test_show_row_in_place_needs_a_single_row(window: MainWindow) -> None:
     menu.close()
 
 
-def test_banner_can_be_closed(window: MainWindow) -> None:
+def test_page_notice_is_a_closable_card_not_a_page_box(window: MainWindow) -> None:
     page = window.translate_page
     page.show_notice("warning", "Uzun bir bildirim")
-    assert page.banner.isVisibleTo(window)
-    from PySide6.QtWidgets import QToolButton
-
-    close = page.banner.findChild(QToolButton)
-    assert close is not None
-    close.click()
-    assert not page.banner.isVisibleTo(window)
+    cards = window.notifier.stack.cards()
+    assert [c.title_label.text() for c in cards] == ["Uzun bir bildirim"]
+    cards[0].close_button.click()
+    assert window.notifier.stack.cards() == []
+    assert window.notifier.history[0].title == "Uzun bir bildirim"  # geçmişte kalır
 
 
 def test_minimum_window_keeps_layout(qtbot: QtBot, window: MainWindow) -> None:
@@ -265,7 +263,7 @@ def test_approved_rows_can_be_revised_and_unapproved(window: MainWindow) -> None
     menu.close()
     after = _rows(window)["s04"]
     assert (after.status, after.translation) == (Status.MACHINE, "Ben içmem.")
-    assert "onayı kaldırıldı" in page.banner.text.text()
+    assert "onayı kaldırıldı" in page.notice_text
 
 
 def test_ctrl_z_undoes_last_operation(qtbot: QtBot, window: MainWindow) -> None:
@@ -277,13 +275,13 @@ def test_ctrl_z_undoes_last_operation(qtbot: QtBot, window: MainWindow) -> None:
     page.table.setFocus()
     QTest.keyClick(page.table, Qt.Key.Key_Z, Qt.KeyboardModifier.ControlModifier)
     assert _rows(window)["s01"].status == Status.MACHINE
-    assert "Geri alındı (Elle düzenleme): 1 satır" in page.banner.text.text()
+    assert "Geri alındı (Elle düzenleme): 1 satır" in page.notice_text
     window._update_undo_action()
     assert window.undo_action.text() == "Geri Al: Elle düzenleme"  # projeyi kurarken yapılan onay
     window.undo_last()
     window.undo_last()
     window.undo_last()
-    assert "Geri alınacak bir işlem yok" in page.banner.text.text()
+    assert "Geri alınacak bir işlem yok" in page.notice_text
 
 
 @pytest.mark.parametrize("fmt", ["txt", "xlsx"])
@@ -317,7 +315,7 @@ def test_revision_export_and_import(
     monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **k: (str(target), ""))
     window.export_csv()
     assert target.exists()
-    assert "4 satır yazıldı" in page.banner.text.text()
+    assert "4 satır yazıldı" in page.notice_text
     assert "⟦1⟧" in QGuiApplication.clipboard().text()  # hazır istem panoda
 
     if fmt == "txt":
@@ -418,7 +416,7 @@ def test_translation_export_and_import_uses_translation_columns(
     assert seen["title"] == "Dış çeviri dosyasını kaydet"
     assert seen["start"].endswith("_ceviri.txt")
     assert target.exists()
-    assert "çeviri dosyasına yazıldı" in page.banner.text.text()
+    assert "çeviri dosyasına yazıldı" in page.notice_text
     assert "yeni çeviri" in target.read_text(encoding="utf-8-sig").splitlines()[0]
 
     text = target.read_text(encoding="utf-8-sig")

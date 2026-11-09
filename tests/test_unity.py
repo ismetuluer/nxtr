@@ -289,7 +289,7 @@ def test_gui_source_language_choice(qtbot: Any, unity_game: tuple[Inputs, Path])
         assert window.pages.currentIndex() == STEP_TRANSLATE
         rows = window.translate_page.model.rows
         assert [(r.key, r.source) for r in rows] == [("Dialogue_ja/101", "こんにちは")]
-        assert "1 dil dosyası atlandı" in window.translate_page.banner.text.text()
+        assert "1 dil dosyası atlandı" in window.translate_page.notice_text
     finally:
         window.dirty = False
         window.close()

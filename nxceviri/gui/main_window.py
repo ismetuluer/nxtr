@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import time
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
@@ -132,7 +133,7 @@ from nxceviri.gui.add_game_page import AddGamePage
 from nxceviri.gui.changes_dialog import ChangesDialog
 from nxceviri.gui.csv_dialog import FORMAT_TXT, MODE_REDACTION, MODE_TRANSLATION, CsvExportDialog
 from nxceviri.gui.export_page import ExportPage
-from nxceviri.gui.jobs import JOB_TITLES, describe_summary, new_job_id, run_and_close
+from nxceviri.gui.jobs import JOB_TITLES, describe_summary, new_job_id, run_and_close, short_summary
 from nxceviri.gui.machine_dialogs import (
     PROVIDER_DEEPL,
     PROVIDER_OLLAMA,
@@ -148,6 +149,17 @@ from nxceviri.gui.machine_dialogs import (
 )
 from nxceviri.gui.menus import Menus
 from nxceviri.gui.motion import animations_enabled
+from nxceviri.gui.notify import (
+    LEVEL_ERROR,
+    LEVEL_INFO,
+    LEVEL_SUCCESS,
+    LEVEL_WARNING,
+    LONG_TASK_S,
+    HistoryButton,
+    NoticeAction,
+    NotificationCenter,
+    split_notice,
+)
 from nxceviri.gui.plugins_dialog import PluginsDialog
 from nxceviri.gui.provider_probe import ProviderProbe
 from nxceviri.gui.qa_page import QaPage
@@ -215,6 +227,19 @@ def _preview(text: str) -> str:
     """Satır listesinde gösterilecek kısa çeviri metni (boşluklar tek, uzunsa kesilir)."""
     flat = " ".join(text.split())
     return flat if len(flat) <= PREVIEW_CHARS else flat[: PREVIEW_CHARS - 1] + "…"
+
+
+#: Arka plan işinin bildirimdeki adı ("<ad> bitti / başarısız / durduruldu"); yoksa işin açıklaması kullanılır.
+_TASK_LABELS = {
+    "Oyun dosyaları okunuyor": "Oyun dosyalarını okuma",
+    "Dosyalar çıkarılıyor": "Dosya çıkarma",
+    "Teşhis raporu hazırlanıyor": "Teşhis raporu",
+    "Fontlar taranıyor": "Font tarama",
+    "Denetim yenileniyor": "Denetim",
+    "Mod oluşturuluyor": "Dışa aktarma",
+    "Hazır çeviri okunuyor": "Hazır çeviriyi içe aktarma",
+    "Metinler çıkarılıyor": "Metin aktarma",
+}
 
 
 class MainWindow(QMainWindow):
@@ -340,6 +365,14 @@ class MainWindow(QMainWindow):
         self.status_segments.problems_clicked.connect(self._open_qa_from_status)
         self.status_segments.keys_clicked.connect(self._choose_keys)
         self.status_segments.bind_symbols_action(self.translate_page.view_actions.symbols)
+        #: Bütün işlerin ve hataların sonucu buradan bildirilir (kart, geçmiş; arkadayken Windows bildirimi ve ses).
+        self.notifier = NotificationCenter(self, self.settings)
+        self.notice_button = HistoryButton(self.notifier)
+        self.statusBar().addPermanentWidget(self.notice_button)
+        self.translate_page.notice_requested.connect(self._page_notice)
+        #: Bir işin sonucu işlenirken: bildirim gürültülü olsun mu (uzun iş) ve işleyici kendi bildirimini verdi mi.
+        self._outcome_loud: bool | None = None
+        self._outcome_noticed = False
         #: Testlerde sahte HTTP verebilmek için değiştirilebilir.
         self.probe_client_factory: Callable[[], httpx.Client] = lambda: httpx.Client(
             timeout=httpx.Timeout(PROBE_TIMEOUT_S)
@@ -669,11 +702,27 @@ class MainWindow(QMainWindow):
             return GitHubUpdater(token)
         return make_updater(self.app_root, token)
 
+    def _test_notification(self) -> None:
+        """Ayarlar → Bildirimler'deki deneme: seçili kanallarla (Windows bildirimi, ses) örnek bildirim."""
+        self.notifier.notify(LEVEL_SUCCESS, "Deneme bildirimi", "Bildirimler böyle görünür.", loud=True)
+
+    def notify_update_failure(self, reason: str) -> None:
+        """Önceki güncelleme kurulamadıysa açılışta bildirir; Tekrar Dene güncelleme penceresini açar."""
+        actions = (NoticeAction("Tekrar Dene", self.open_updates),) if self.update_action.isEnabled() else ()
+        self.notifier.notify(LEVEL_ERROR, "Güncelleme kurulamadı", reason, actions, loud=True)
+
     def _update_checked(self, result: object) -> None:
         assert isinstance(result, UpdateInfo)
         if result.newer:
             self.update_badge.setText(f"Yeni sürüm: {result.version} — Güncelle")
             self.update_badge.show()
+            self.notifier.notify(
+                LEVEL_INFO,
+                f"Yeni sürüm: {result.version}",
+                "Yenilikleri görmek ve kurmak için Şimdi Güncelle'ye basın.",
+                (NoticeAction("Şimdi Güncelle", self.open_updates), NoticeAction("Sonra", lambda: None)),
+                loud=True,
+            )
 
     # --- genel durum ---------------------------------------------------------------------
 
@@ -858,18 +907,65 @@ class MainWindow(QMainWindow):
     ) -> None:
         task = Task(fn, description)
         self.task = task
+        started = time.monotonic()
+        label = _TASK_LABELS.get(description, description)
+
+        def retry() -> None:
+            if not self.busy:
+                self._run(
+                    fn,
+                    description,
+                    on_success=on_success,
+                    on_failure=on_failure,
+                    on_progress=on_progress,
+                    on_cancel=on_cancel,
+                    on_partial=on_partial,
+                )
+
         if on_progress is not None:
             task.progress.connect(on_progress)
         if on_partial is not None:
             task.partial.connect(on_partial)
+        # Sonuç işleyicilerinden önce: işleyicinin vereceği bildirim uzun işte gürültülü olur.
+        for signal in (task.succeeded, task.failed, task.cancelled):
+            signal.connect(lambda *_a: self._begin_outcome(started))
         task.succeeded.connect(on_success)
         task.failed.connect(on_failure)
         if on_cancel is not None:
             task.cancelled.connect(on_cancel)
+        # İşleyici kendi bildirimini vermediyse genel bildirim.
+        task.succeeded.connect(lambda _r: self._end_outcome(LEVEL_SUCCESS, f"{label} bitti", ""))
+        task.failed.connect(
+            lambda text: self._end_outcome(
+                LEVEL_ERROR, f"{label} başarısız", text, (NoticeAction("Tekrar Dene", retry),)
+            )
+        )
+        task.cancelled.connect(lambda: self._end_outcome(LEVEL_WARNING, f"{label} durduruldu", ""))
         task.finished.connect(self._task_finished)
         self.statusBar().showMessage(description + "…")
         self._refresh()
         task.start()
+
+    def notify(self, level: str, title: str, text: str = "", actions: tuple[NoticeAction, ...] = ()) -> None:
+        """Kullanıcıya bildirim verir; bir işin sonucu işlenirken iş uzun sürdüyse gürültülüdür."""
+        self._outcome_noticed = True
+        self.notifier.notify(level, title, text, actions, loud=self._outcome_loud)
+
+    def _begin_outcome(self, started: float) -> None:
+        self._outcome_noticed = False
+        self._outcome_loud = True if time.monotonic() - started >= LONG_TASK_S else None
+
+    def _end_outcome(self, level: str, title: str, text: str, actions: tuple[NoticeAction, ...] = ()) -> None:
+        if not self._outcome_noticed:
+            self.notify(level, title, text, actions)
+        self._outcome_loud = None
+        self._outcome_noticed = False
+
+    def _page_notice(self, state: str, text: str) -> None:
+        """Sayfaların kısa sonuç mesajları: uzun metin kartta başlık + özet olur, tamamı geçmişte ve ipucunda."""
+        level = {"success": LEVEL_SUCCESS, "warning": LEVEL_WARNING, "danger": LEVEL_ERROR}.get(state, LEVEL_INFO)
+        title, rest = split_notice(text)
+        self.notify(level, title, rest)
 
     def _task_finished(self) -> None:
         if self.task is not None:
@@ -2208,6 +2304,8 @@ class MainWindow(QMainWindow):
             page=page or PAGE_VIEW,
         )
         dialog.live_kinds_changed.connect(self._set_live_kinds)
+        dialog.notify_option_changed.connect(lambda key, on: self.settings.setValue(key, "1" if on else "0"))
+        dialog.test_notification_requested.connect(self._test_notification)
         dialog.theme_changed.connect(self._set_theme)
         dialog.font_size_changed.connect(self._set_font_size)
         dialog.check_updates_requested.connect(self.open_updates)
@@ -2325,35 +2423,38 @@ class MainWindow(QMainWindow):
         set_running(True)
         report("success", "")
 
-        def finish(text: str, state: str) -> None:
+        def finish(level: str, title: str, text: str, details: str = "") -> None:
             set_running(False)
             self._reload_rows()  # filtrelere "Makine" durumu eklensin
             changed = self._set_last_job(job_id)
+            actions: list[NoticeAction] = []
+            if level == LEVEL_ERROR:
+                actions.append(NoticeAction("Tekrar Dene", lambda: self.start_machine_translation(job.action)))
             if changed:
-                text += (
-                    f"\n\n{format_int(changed)} satırın önceki çevirisi değişti. Değişiklikleri görmek veya geri "
-                    "almak için Çevir sayfasındaki “Son İşin Değişiklikleri” düğmesini kullanın."
-                )
-            report(state, text)
-            if changed and job.action != ACTION_TRANSLATE:
-                self.show_job_changes()
+                actions.append(NoticeAction("Değişiklikleri Gör", self.show_job_changes))
+            if details:
+                actions.append(NoticeAction("Ayrıntılar", lambda: QMessageBox.information(self, title, details)))
+            self.notify(level, title, text, tuple(actions))
 
         def done(result: object) -> None:
             assert isinstance(result, RunSummary)
-            finish(*describe_summary(job.action, result))
+            level, title, text = short_summary(job.action, result)
+            details, _state = describe_summary(job.action, result)
+            finish(level, title, text, details if level != LEVEL_SUCCESS else "")
 
         resume = (
-            "yeniden başlattığınızda kaldığı yerden devam eder."
+            "Yeniden başlatınca kaldığı yerden devam eder."
             if job.action == ACTION_TRANSLATE
-            else "kalan satırlar için işi yeniden başlatabilirsiniz."
+            else "Kalan satırlar için işi yeniden başlatabilirsiniz."
         )
+        name = JOB_TITLES[job.action]
         self._run(
             lambda ctx: run_and_close(provider, job, ctx),
-            JOB_TITLES[job.action],
+            name,
             on_success=done,
-            on_failure=lambda text: finish(text + f"\n\nO ana kadar yapılanlar kaydedildi; {resume}", "danger"),
+            on_failure=lambda text: finish(LEVEL_ERROR, f"{name} durdu", f"{text} Yapılanlar kaydedildi. {resume}"),
             on_progress=on_progress,
-            on_cancel=lambda: finish(f"İşlem durduruldu. O ana kadar yapılanlar kaydedildi; {resume}", "warning"),
+            on_cancel=lambda: finish(LEVEL_WARNING, f"{name} durduruldu", f"Yapılanlar kaydedildi. {resume}"),
             on_partial=lambda results: self._machine_results(results, chosen.include_approved, job_id),
         )
 

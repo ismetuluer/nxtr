@@ -81,7 +81,7 @@ from nxceviri.gui.table_columns import ColumnFitter, FitTableView, HeaderColumnM
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.value_filter import FilterHeader, FilterPopup, ValueFilter
 from nxceviri.gui.view_actions import PANE_RIGHT, ViewActions
-from nxceviri.gui.widgets import Banner, Card, EmptyState, button, format_int, label, tip_html, title_row
+from nxceviri.gui.widgets import Card, EmptyState, button, format_int, label, tip_html, title_row
 
 COL_SOURCE, COL_TRANSLATION, COL_STATUS, COL_FILE, COL_KEY, COL_PREVIOUS, COL_NO = range(7)
 _COLUMNS = ("Orijinal", "Çeviri", "Durum", "Dosya", "Anahtar", "Önceki çeviri", "No")
@@ -654,6 +654,8 @@ class TranslationDelegate(MarkedDelegate):
 
 class TranslatePage(QWidget):
     go_to_scan = Signal()
+    #: Kullanıcıya gösterilecek sonuç (durum, metin): ana pencere bildirim merkezine iletir.
+    notice_requested = Signal(str, str)
     #: Süzgeç değişti ya da satırlar yenilendi (durum çubuğundaki "N / M satır" güncellensin).
     view_changed = Signal()
     #: Kısa, geçici bilgi (durum çubuğunda birkaç saniye gösterilir).
@@ -708,8 +710,6 @@ class TranslatePage(QWidget):
         cl = QVBoxLayout(content)
         cl.setContentsMargins(0, 0, 0, 0)
         cl.setSpacing(12)
-        self.banner = Banner(closable=True)
-        cl.addWidget(self.banner)
         # Birincil eylem süzgeç satırının sağındadır; gerisi menü çubuğundadır.
         self.machine_button = button("Otomatik Çeviri", "primary", icon="sparkles")
         self.machine_button.clicked.connect(self.machine_requested)
@@ -873,6 +873,8 @@ class TranslatePage(QWidget):
         self.card.body.addWidget(self.table, 1)
         self.settings: QSettings | None = None
         self._machine_running = False
+        #: Son sonuç mesajı (bildirim merkezine gönderilen); testler ve yeniden gösterim için.
+        self.notice_text = ""
         self.fitter = ColumnFitter(self.table, _NARROW_COLUMNS, {**_FLEX_COLUMNS, COL_PREVIOUS: _PREVIOUS_FLEX})
         self.fitter.resized.connect(self._schedule_fit_rows)
         self.column_menu = HeaderColumnMenu(
@@ -929,7 +931,7 @@ class TranslatePage(QWidget):
         self.key_filter.changed.connect(self._filters_edited)
         self.model.dataChanged.connect(lambda *_args: self.find_bar.rows_changed())
         self.model.modelReset.connect(self.find_bar.rows_changed)
-        self.model.commit_failed.connect(lambda text: self.banner.show_message("danger", text))
+        self.model.commit_failed.connect(lambda text: self.show_notice("danger", text))
         self.model.commit_failed.connect(self._remember_commit_error)
         selection = self.table.selectionModel()
         selection.selectionChanged.connect(lambda *_args: self._sync_pane())
@@ -1314,12 +1316,15 @@ class TranslatePage(QWidget):
             if dropped:
                 self._save_filters()
         self.stack.setCurrentWidget(self.content if rows else self.empty)
-        self.banner.show_message("danger", "")
+        self.notice_text = ""
         self._refilter()
         self._schedule_fit_rows()
 
     def show_notice(self, state: str, text: str) -> None:
-        self.banner.show_message(state, text)
+        """Sonucu bildirim merkezine iletir (sayfada kalıcı kutu yok); boş metin yalnızca son bildirimi unutur."""
+        self.notice_text = text
+        if text:
+            self.notice_requested.emit(state, text)
 
     def _refilter(self) -> None:
         # Süzgeç gevşeyince görünüm başa dönmesin: seçili (geçerli) satır görünür kalırsa oraya dönülür.

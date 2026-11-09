@@ -165,7 +165,7 @@ def test_gui_import_flow(qtbot: QtBot, window: MainWindow, tmp_path: Path, monke
     qtbot.waitUntil(lambda: window.dirty and window.task is None, timeout=20_000)
     assert {r.key: r.translation for r in window.project.translation_rows()}["Dialogue_en/1"] == "Merhaba"
     assert window.translate_page.model.rows[0].translation == "Merhaba"
-    assert "aktarıldı" in window.translate_page.banner.text.text()
+    assert "aktarıldı" in window.translate_page.notice_text
 
     empty = tmp_path / "bos"
     empty.mkdir()

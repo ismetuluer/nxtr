@@ -96,6 +96,7 @@ def test_window_title_pages_and_close_button(qtbot: QtBot, env: Env) -> None:
         "Görünüm",
         "Kısayollar",
         "Anlık Denetimler",
+        "Bildirimler",
         "Çeviri",
         "Güncelleme",
     ]
@@ -114,7 +115,7 @@ def test_page_switching_and_show_page(qtbot: QtBot, env: Env) -> None:
     assert dialog.stack.currentIndex() == 1
     dialog.show_page(PAGE_UPDATES)
     assert dialog.current_page == PAGE_UPDATES
-    assert dialog.pages.currentRow() == 4
+    assert dialog.pages.currentRow() == 5
     dialog.show_page(PAGE_PROVIDERS)
     assert dialog.stack.currentWidget() is dialog.providers_page
 
@@ -622,3 +623,32 @@ def test_settings_dialog_does_not_write_theme_or_font_itself(qtbot: QtBot, env: 
     dialog.font_combo.setCurrentIndex(dialog.font_combo.findData(16))
     assert env.settings.value("ui/theme") is None  # yazma ana pencerenin işidir
     assert env.settings.value("ui/font_size") is None
+
+
+def test_notifications_page_emits_option_changes(qtbot: QtBot, env: Env) -> None:
+    from nxceviri.gui.notify import KEY_FLASH, KEY_SOUND, KEY_SYSTEM
+    from nxceviri.gui.settings_dialog import PAGE_NOTIFY
+
+    dialog = env.dialog(page=PAGE_NOTIFY)
+    qtbot.addWidget(dialog)
+    assert set(dialog.notify_checks) == {KEY_SOUND, KEY_SYSTEM, KEY_FLASH}
+    assert all(box.isChecked() for box in dialog.notify_checks.values())  # varsayılan açık
+    changed: list[tuple[str, bool]] = []
+    dialog.notify_option_changed.connect(lambda key, on: changed.append((key, on)))
+    dialog.notify_checks[KEY_SOUND].setChecked(False)
+    assert changed == [(KEY_SOUND, False)]
+    assert env.settings.value(KEY_SOUND) is None  # pencere ayar yazmaz; pencereyi açan yazar
+    tests: list[bool] = []
+    dialog.test_notification_requested.connect(lambda: tests.append(True))
+    dialog.notify_test_button.click()
+    assert tests == [True]
+
+
+def test_notifications_page_reads_saved_options(qtbot: QtBot, env: Env) -> None:
+    from nxceviri.gui.notify import KEY_SOUND
+    from nxceviri.gui.settings_dialog import PAGE_NOTIFY
+
+    env.settings.setValue(KEY_SOUND, "0")
+    dialog = env.dialog(page=PAGE_NOTIFY)
+    qtbot.addWidget(dialog)
+    assert not dialog.notify_checks[KEY_SOUND].isChecked()

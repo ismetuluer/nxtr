@@ -117,7 +117,7 @@ def test_last_jobs_and_labels(project: Project) -> None:
     assert mark_label("retranslate-x") == "yeniden çeviri"
     assert mark_label("translate-x") == mark_label(JOB_MANUAL) == mark_label(JOB_REVERT) == ""
     assert job_label(JOB_REVERT) == "Geri alma"
-    assert job_label("revise-2026") == "Talimatla düzeltme"
+    assert job_label("revise-2026") == "Redaksiyon"
     assert job_label("bilinmeyen") == "bilinmeyen"
 
 
