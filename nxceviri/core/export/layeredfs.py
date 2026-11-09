@@ -88,6 +88,10 @@ class ExportOptions:
     #: Ürün sahibinin bilinçli istisnası (CLAUDE.md §4.3): "Hatalı" satırlar da çevirileriyle yazılır; biçim
     #: eklentisi bir satırı reddederse o satır orijinal kalır. Yalnızca kullanıcı açıkça seçerse True olur.
     include_errors: bool = False
+    #: Hedef doluysa eski modun yerine yaz (yalnızca NXTR'nin ürettiği, bilgi dosyası olan bir mod klasörüyse).
+    overwrite: bool = False
+    #: Moda olduğu gibi eklenecek dosyalar: TitleID (16 hane) → {RomFS yolu: içerik} (ör. elle düzenlenmiş font).
+    extra_files: Mapping[str, Mapping[str, bytes]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -339,11 +343,19 @@ def export_mod(
 ) -> ExportResult:
     ctx = ctx or TaskContext()
     dest = options.dest
+    replace_old = False
     if dest.exists() and (not dest.is_dir() or any(dest.iterdir())):
-        raise ExportError(
-            f"Hedef klasör boş değil: {dest}",
-            "Modu yeni veya boş bir klasöre üretin; var olan dosyaların üzerine yazılmaz.",
-        )
+        if not options.overwrite:
+            raise ExportError(
+                f"Hedef klasör boş değil: {dest}",
+                "Modu yeni veya boş bir klasöre üretin ya da eski modun üzerine yazmayı seçin.",
+            )
+        if not (dest / INFO_FILE).is_file():
+            raise ExportError(
+                f"Bu klasör NXTR'nin ürettiği bir mod değil: {dest}",
+                "Güvenlik için silinmez. Boş ya da yeni bir klasör seçin.",
+            )
+        replace_old = True
     soft: dict[str, set[str]] = {}
     reordered: dict[str, set[str]] = {}
     translations, written, errors, untranslated = collect_translations(
@@ -502,6 +514,15 @@ def export_mod(
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_bytes(data)
                     result.files.append(rel.as_posix())
+        for title_id, extra in sorted(options.extra_files.items()):
+            root = _mod_root(options.layout, title_id, options.mod_name)
+            for path, data in sorted(extra.items()):
+                rel = root / safe_relative_path(path)
+                target = tmp / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+                if rel.as_posix() not in result.files:
+                    result.files.append(rel.as_posix())
         for rel, data in support_files(list(refs.values()), options.layout, options.mod_name):
             target = tmp / rel
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -519,9 +540,20 @@ def export_mod(
             result.rows_error_kept = result.rows_error - result.rows_error_written
         (tmp / INFO_FILE).write_text(_info_text(info, options, result), encoding="utf-8")
         ctx.check()
-        if dest.exists():
-            dest.rmdir()
-        os.replace(tmp, dest)
+        if replace_old:
+            # Eski mod önce yedeğe taşınır; yeni yerine konamazsa geri gelir, konunca silinir (kalıntı karışmaz).
+            backup = dest.parent / f".{dest.name}.{uuid.uuid4().hex[:8]}.eski"
+            os.replace(dest, backup)
+            try:
+                os.replace(tmp, dest)
+            except BaseException:
+                os.replace(backup, dest)
+                raise
+            shutil.rmtree(backup, ignore_errors=True)
+        else:
+            if dest.exists():
+                dest.rmdir()
+            os.replace(tmp, dest)
     except BaseException:
         shutil.rmtree(tmp, ignore_errors=True)
         raise

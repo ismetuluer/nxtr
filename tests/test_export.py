@@ -19,6 +19,7 @@ from nxceviri.core.export.layeredfs import (
     ExportError,
     ExportInfo,
     ExportOptions,
+    ExportResult,
     TextFileRef,
     collect_translations,
     export_mod,
@@ -589,3 +590,46 @@ def test_export_patches_addressables_catalog(tmp_path: Path) -> None:
     assert catalog_records(patched)[0]["m_Crc"] == 0
     info = (dest / INFO_FILE).read_text(encoding="utf-8")
     assert "katalog CRC düzeltmesi" in info
+
+
+def _export(project: Project, inputs: Inputs, dest: Path, **options: object) -> ExportResult:
+    return export_mod(
+        inputs,
+        _refs(project),
+        project.translation_rows(),
+        options=ExportOptions(LAYOUT_ATMOSPHERE, dest, "x", **options),  # type: ignore[arg-type]
+        info=INFO,
+    )
+
+
+def test_overwrite_replaces_an_earlier_nxtr_mod(msbt_project: tuple[Inputs, Project], tmp_path: Path) -> None:
+    inputs, project = msbt_project
+    dest = tmp_path / "mod"
+    _export(project, inputs, dest)
+    (dest / "eski-kalinti.txt").write_text("eski", encoding="utf-8")
+    result = _export(project, inputs, dest, overwrite=True)
+    assert not (dest / "eski-kalinti.txt").exists()  # eski mod silindi, kalıntı karışmadı
+    assert result.files
+    assert (dest / INFO_FILE).is_file()
+    assert not list(tmp_path.glob(".mod*"))  # yedek ve geçici klasör kalmadı
+
+
+def test_overwrite_never_deletes_a_folder_nxtr_did_not_make(
+    msbt_project: tuple[Inputs, Project], tmp_path: Path
+) -> None:
+    inputs, project = msbt_project
+    dest = tmp_path / "Masaustu"
+    dest.mkdir()
+    (dest / "belge.txt").write_text("önemli", encoding="utf-8")
+    with pytest.raises(ExportError, match="NXTR"):
+        _export(project, inputs, dest, overwrite=True)
+    assert (dest / "belge.txt").read_text(encoding="utf-8") == "önemli"
+
+
+def test_extra_files_are_written_into_the_mod(msbt_project: tuple[Inputs, Project], tmp_path: Path) -> None:
+    inputs, project = msbt_project
+    dest = tmp_path / "fontlu"
+    result = _export(project, inputs, dest, extra_files={f"{BASE_TID:016X}": {"Font/oyun.ttf": b"yeni-font"}})
+    written = [f for f in result.files if f.endswith("Font/oyun.ttf")]
+    assert len(written) == 1
+    assert (dest / written[0]).read_bytes() == b"yeni-font"
