@@ -23,7 +23,7 @@ from PySide6.QtCore import (
     QTimer,
     Signal,
 )
-from PySide6.QtGui import QAction, QColor, QKeyEvent, QKeySequence, QResizeEvent, QShortcut, QShowEvent
+from PySide6.QtGui import QAction, QColor, QHideEvent, QKeyEvent, QKeySequence, QResizeEvent, QShortcut, QShowEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -267,7 +267,10 @@ class TranslationModel(QAbstractTableModel):
             by_row.setdefault(i.row_id, []).append(i)
         self._qa = {r.id: (r.translation, by_row[r.id]) for r in checked if r.id in by_row}
         if self.rows:
-            self.dataChanged.emit(self.index(0, COL_STATUS), self.index(len(self.rows) - 1, COL_STATUS))
+            # "Hatalı satırları vurgula" açıkken satırın bütün hücreleri hata rengine boyanır.
+            first = 0 if self.error_rows else COL_STATUS
+            last = self.columnCount() - 1 if self.error_rows else COL_STATUS
+            self.dataChanged.emit(self.index(0, first), self.index(len(self.rows) - 1, last))
 
     def _issue_summary(self, r: TranslationRow) -> str:
         found = self.issues(r)
@@ -949,8 +952,13 @@ class TranslatePage(QWidget):
         """Projenin kayıtlı "Elle sınır"ını panele yükler (0: kapalı); sinyal yaymaz."""
         self.pane.set_manual_limit(limit)
 
+    def hideEvent(self, event: QHideEvent) -> None:
+        super().hideEvent(event)
+        self.find_window.suspend()  # sayfa görünmezken gizli tabloda arama/değiştirme yapılmasın
+
     def showEvent(self, event: QShowEvent) -> None:
         super().showEvent(event)
+        self.find_window.resume()
         self.fitter.fit()
         self._schedule_fit_rows()
         self._pane_timer.start()
@@ -1246,6 +1254,7 @@ class TranslatePage(QWidget):
     # --- veri --------------------------------------------------------------------------
 
     def set_rows(self, rows: list[TranslationRow]) -> None:
+        self.find_bar.close_bar()  # eski satırlardaki arama yeni proje/satırlarda anlamsızdır
         self.pane.flush()  # kaydedilmemiş panel metni satırlar yenilenmeden önce kaydedilir (kimlikle)
         # Satırlar yeniden kurulurken önceki süzgeçten kalan "seçili satıra dön" isteği geçersizdir.
         self._scroll_row_id = None
@@ -1401,8 +1410,18 @@ class TranslatePage(QWidget):
             self.table.scrollTo(index, QAbstractItemView.ScrollHint.EnsureVisible)
 
     def selected_rows(self) -> list[TranslationRow]:
-        indexes = self.table.selectionModel().selectedRows()
-        return [self.model.rows[self.proxy.mapToSource(i).row()] for i in indexes]
+        """Seçili satırlar (tablodaki sırayla). Tüm satır seçimi olduğundan seçim aralıkları gezilir;
+        `selectedRows()` her satırı sütun sütun sorguladığından 50.000 satırda saniyelerce sürer."""
+        rows = self.model.rows
+        proxy = self.proxy
+        found: list[TranslationRow] = []
+        seen: set[int] = set()
+        for part in self.table.selectionModel().selection():  # type: ignore[attr-defined]
+            for r in range(part.top(), part.bottom() + 1):
+                if r not in seen:
+                    seen.add(r)
+                    found.append(rows[proxy.mapToSource(proxy.index(r, 0)).row()])
+        return found
 
     def filtered_rows(self) -> list[TranslationRow]:
         """Arama ve filtrelere uyan (tabloda görünen) satırlar."""
@@ -1425,15 +1444,17 @@ class TranslatePage(QWidget):
 
     def find_next(self) -> None:
         """Bul çubuğu açıkken sonraki eşleşme; değilse sonraki bakılacak satır."""
-        if self.find_bar.isVisible():
+        if not self.find_bar.isHidden():
             self.find_bar.next()
         else:
             self.next_open()
 
     def find_previous(self) -> None:
-        """Bul çubuğu açıkken önceki eşleşme."""
-        if self.find_bar.isVisible():
+        """Bul çubuğu açıkken önceki eşleşme; değilse önceki bakılacak satır."""
+        if not self.find_bar.isHidden():
             self.find_bar.previous()
+        else:
+            self.next_open(-1)
 
     def find_rows(self, scope: int) -> list[TranslationRow]:
         if scope == SCOPE_VISIBLE:
@@ -1497,12 +1518,13 @@ class TranslatePage(QWidget):
             return None
         return self.model.rows[self.proxy.mapToSource(index).row()]
 
-    def next_open(self) -> None:
-        """Sonraki bakılacak satır: onaylanmamış (çevrilmemiş, makine, redakte, hatalı), sona gelince başa döner."""
+    def next_open(self, step: int = 1) -> None:
+        """Sonraki (`step` = -1: önceki) bakılacak satır: onaylanmamış (çevrilmemiş, makine, redakte, hatalı),
+        uca gelince öbür uca döner."""
         total = self.proxy.rowCount()
         start = self.table.currentIndex().row()
-        for step in range(1, total + 1):
-            i = (start + step) % total
+        for offset in range(1, total + 1):
+            i = (start + step * offset) % total
             r = self.model.rows[self.proxy.mapToSource(self.proxy.index(i, 0)).row()]
             if r.status != Status.APPROVED and r.source.strip():
                 self._select_proxy_row(i)
@@ -1642,14 +1664,15 @@ class TranslatePage(QWidget):
         reflow.setToolTip(
             "Çevirideki satır sonlarını kaldırıp satırı sınıra ya da orijinale göre dengeli yeniden böler."
         )
-        reflow.setEnabled(counts.with_translation > 0)
+        reflow.setEnabled(counts.with_translation > 0 and not self._machine_running)
         reflow.triggered.connect(self.reflow_selected)
         source = self._menu_action(edit, "Orijinali yaz", "copy", "edit.copy_source")
         source.setToolTip("Orijinal metni çeviri olarak yazar. Çevrilmeyecek metinler (özel adlar, sayılar) için.")
+        source.setEnabled(not self._machine_running)
         source.triggered.connect(self.copy_source_selected)
         clear = self._menu_action(edit, "Temizle", "eraser", "edit.clear")
         clear.setToolTip("Seçili satırların çevirisini siler.")
-        clear.setEnabled(counts.with_translation > 0)
+        clear.setEnabled(counts.with_translation > 0 and not self._machine_running)
         clear.triggered.connect(self.clear_selected)
 
         copy_menu = self._submenu(menu, "Kopyala", "copy")

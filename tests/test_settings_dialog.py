@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QAbstractButton, QMessageBox, QTreeWidgetItem
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.secrets import DEEPL_API_KEY, MemoryStore
-from nxceviri.core.translate.providers.base import ProviderStatus
+from nxceviri.core.translate.providers.base import ProviderError, ProviderStatus
 from nxceviri.core.translate.providers.deepl import DeepLProvider
 from nxceviri.core.translate.providers.ollama import DEFAULT_URL, OllamaProvider
 from nxceviri.gui.settings_dialog import (
@@ -22,6 +22,7 @@ from nxceviri.gui.settings_dialog import (
     PAGE_UPDATES,
     PAGE_VIEW,
     SettingsDialog,
+    valid_ollama_url,
 )
 from nxceviri.gui.shortcuts import COMMANDS_BY_ID, ShortcutRegistry
 from nxceviri.gui.theme import DEFAULT_FONT_SIZE, THEME_LABELS, ThemeMode
@@ -145,8 +146,6 @@ def test_theme_and_font_signals_and_persistence(qtbot: QtBot, env: Env) -> None:
     with qtbot.waitSignal(dialog.font_size_changed) as font_signal:
         dialog.font_combo.setCurrentIndex(dialog.font_combo.findData(16))
     assert font_signal.args == [16]
-    assert env.settings.value("ui/theme") == "dark"
-    assert int(str(env.settings.value("ui/font_size"))) == 16
 
 
 def test_initial_values_do_not_emit_signals(qtbot: QtBot, env: Env) -> None:
@@ -561,3 +560,64 @@ def test_error_rows_check_is_two_way(qtbot: QtBot, env: Env) -> None:
     assert env.error_rows.isChecked()
     env.error_rows.setChecked(False)
     assert not dialog.error_rows_check.isChecked()
+
+
+# --- B aşaması inceleme düzeltmeleri -----------------------------------------------------------
+
+
+def test_reserved_key_is_refused_in_settings(qtbot: QtBot, env: Env, monkeypatch: pytest.MonkeyPatch) -> None:
+    dialog = env.dialog()
+    qtbot.addWidget(dialog)
+    shown: list[str] = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda _p, _t, text, *_a: shown.append(text))
+    for key in ("Ctrl+C", "Alt+Down", "Esc", "Delete", "A"):
+        assert not dialog.assign_shortcut("translate.glossary", QKeySequence(key))
+    assert env.registry.text("translate.glossary") == "Ctrl+Shift+G"
+    assert len(shown) == 5
+    assert all(text.startswith("Bu tuş uygulamada ayrılmış: ") for text in shown)
+
+
+def test_assign_button_needs_a_key(qtbot: QtBot, env: Env) -> None:
+    from nxceviri.gui.settings_dialog import KeyEntryDialog
+
+    entry = KeyEntryDialog(None, "Sözlük")
+    qtbot.addWidget(entry)
+    assert not entry.ok.isEnabled()  # boş tuşla "Ata" kısayolu sessizce silmesin
+    entry.editor.setKeySequence(QKeySequence("Ctrl+Shift+Y"))
+    assert entry.ok.isEnabled()
+    entry.editor.clear()
+    assert not entry.ok.isEnabled()
+
+
+@pytest.mark.parametrize(
+    "bad",
+    ["http://localhost:abc", "http://localhost:99999", "http://exa mple.com", "http://host/ path", "http://h:11434a"],
+)
+def test_ollama_address_with_bad_port_or_spaces_is_rejected(qtbot: QtBot, env: Env, bad: str) -> None:
+    env.settings.setValue("ollama/url", "http://sunucu:11434")
+    dialog = env.dialog(page=PAGE_PROVIDERS)
+    qtbot.addWidget(dialog)
+    dialog.ollama_url.setText(bad)
+    dialog.ollama_url.editingFinished.emit()
+    assert env.settings.value("ollama/url") == "http://sunucu:11434"
+    assert valid_ollama_url(bad) is None
+
+
+def test_ollama_provider_turns_invalid_address_into_provider_error() -> None:
+    provider = OllamaProvider("m", "http://localhost:abc")
+    with pytest.raises(ProviderError) as info:
+        provider.list_models()
+    assert "adres" in info.value.user_text().lower()
+    status = provider.test_connection()
+    assert not status.ok
+    assert "adres" in status.message.lower()
+    provider.close()
+
+
+def test_settings_dialog_does_not_write_theme_or_font_itself(qtbot: QtBot, env: Env) -> None:
+    dialog = env.dialog()
+    qtbot.addWidget(dialog)
+    dialog.theme_combo.setCurrentIndex(dialog.theme_combo.findData(ThemeMode.DARK))
+    dialog.font_combo.setCurrentIndex(dialog.font_combo.findData(16))
+    assert env.settings.value("ui/theme") is None  # yazma ana pencerenin işidir
+    assert env.settings.value("ui/font_size") is None

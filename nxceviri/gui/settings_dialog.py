@@ -38,7 +38,14 @@ from nxceviri.core.translate.providers.base import ProviderError, ProviderStatus
 from nxceviri.core.translate.providers.deepl import DeepLProvider, plan_label
 from nxceviri.core.translate.providers.ollama import DEFAULT_URL, RECOMMENDED_MODELS, OllamaProvider
 from nxceviri.gui.icons import icon
-from nxceviri.gui.shortcuts import CATEGORIES, COMMANDS, COMMANDS_BY_ID, ShortcutRegistry, display_text
+from nxceviri.gui.shortcuts import (
+    CATEGORIES,
+    COMMANDS,
+    COMMANDS_BY_ID,
+    ShortcutRegistry,
+    display_text,
+    reserved_reason,
+)
 from nxceviri.gui.theme import FONT_SIZES, THEME_LABELS, ThemeMode, clamp_font_size
 from nxceviri.gui.update_dialog import AUTO_CHECK_KEY, auto_check_enabled
 from nxceviri.gui.view_actions import ALIGN_CENTER, ALIGN_LEFT, ALIGN_RIGHT, PANE_BOTTOM, PANE_RIGHT, ViewActions
@@ -57,8 +64,6 @@ _PAGES = (
     (PAGE_UPDATES, "Güncelleme", "refresh-cw"),
 )
 
-KEY_THEME = "ui/theme"
-KEY_FONT_SIZE = "ui/font_size"
 KEY_OLLAMA_URL = "ollama/url"
 KEY_OLLAMA_MODEL = "ollama/model"
 
@@ -78,11 +83,15 @@ def check_with_wait_cursor(provider: TranslationProvider) -> ProviderStatus:
 
 
 def valid_ollama_url(text: str) -> str | None:
-    """Ollama adresi geçerliyse (http/https ve bir ana makine adı) kırpılmış hâli, değilse None."""
+    """Ollama adresi geçerliyse (http/https, ana makine adı, varsa sayısal bağlantı noktası, boşluksuz) kırpılmış
+    hâli, değilse None."""
     value = text.strip()
+    if any(ch.isspace() or ord(ch) < 32 for ch in value):
+        return None
     try:
         parts = urlsplit(value)
         host = parts.hostname
+        _port = parts.port  # geçersiz ya da aralık dışı bağlantı noktası ValueError verir
     except ValueError:
         return None
     if parts.scheme not in ("http", "https") or not host:
@@ -226,7 +235,9 @@ class KeyEntryDialog(QDialog):
         lay.addWidget(label("Vazgeçmek için Esc tuşuna basın.", "muted"))
         row = QHBoxLayout()
         self.ok = button("Ata", "primary")
+        self.ok.setEnabled(False)  # tuş yazılmadan "Ata" kısayolu sessizce silmesin
         self.ok.clicked.connect(self.accept)
+        self.editor.keySequenceChanged.connect(lambda _seq: self.ok.setEnabled(not self.sequence().isEmpty()))
         cancel = button("Vazgeç", icon="x")
         cancel.clicked.connect(self.reject)
         row.addStretch(1)
@@ -406,14 +417,10 @@ class SettingsDialog(QDialog):
         return check
 
     def _on_theme(self) -> None:
-        mode = ThemeMode(str(self.theme_combo.currentData()))
-        self._settings.setValue(KEY_THEME, mode.value)
-        self.theme_changed.emit(mode)
+        self.theme_changed.emit(ThemeMode(str(self.theme_combo.currentData())))
 
     def _on_font_size(self) -> None:
-        size = int(self.font_combo.currentData())
-        self._settings.setValue(KEY_FONT_SIZE, size)
-        self.font_size_changed.emit(size)
+        self.font_size_changed.emit(int(self.font_combo.currentData()))
 
     def _on_align(self) -> None:
         self._view.align_actions[str(self.align_combo.currentData())].trigger()
@@ -548,7 +555,12 @@ class SettingsDialog(QDialog):
             self.assign_shortcut(command_id, seq)
 
     def assign_shortcut(self, command_id: str, seq: QKeySequence) -> bool:
-        """Tuşu atar. Başka komutla çakışırsa sorar: "Yine de ata" ötekini kısayolsuz bırakır. Atandıysa True."""
+        """Tuşu atar. Ayrılmış tuşlar reddedilir. Başka komutla çakışırsa sorar ("Yine de ata" ötekini kısayolsuz
+        bırakır). Atandıysa True."""
+        reserved = reserved_reason(seq)
+        if reserved is not None:
+            QMessageBox.warning(self, "Ayarlar", f"Bu tuş uygulamada ayrılmış: {display_text(seq)} {reserved}.")
+            return False
         clashes = self._registry.conflicts(command_id, seq)
         if clashes:
             names = ", ".join(f"“{c.label}”" for c in clashes)

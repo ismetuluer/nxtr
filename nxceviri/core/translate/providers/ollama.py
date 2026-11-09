@@ -323,6 +323,8 @@ class OllamaProvider:
         url = f"{self.base_url}{path}"
         try:
             response = self._client.request(method, url, json=body)
+        except httpx.InvalidURL:
+            raise _invalid_url_error(self.base_url) from None
         except httpx.ConnectError:
             raise _connect_error(self.base_url) from None
         except httpx.TimeoutException:
@@ -374,6 +376,8 @@ class OllamaProvider:
                     if chunk.get("done"):
                         self._last_done_reason = str(chunk.get("done_reason") or "")
                         break
+        except httpx.InvalidURL:
+            raise _invalid_url_error(self.base_url) from None
         except httpx.ConnectError:
             raise _connect_error(self.base_url) from None
         except httpx.TimeoutException:
@@ -537,6 +541,14 @@ class OllamaProvider:
 
     def estimate_cost(self, items: list[BatchItem]) -> str | None:
         return None  # yerel model: ücretsiz
+
+
+def _invalid_url_error(base_url: str) -> ProviderError:
+    return ProviderError(
+        f"Ollama adresi geçersiz ({base_url}).",
+        "Adres http:// ya da https:// ile başlamalı ve bağlantı noktası sayı olmalıdır, ör. http://localhost:11434.",
+        retryable=False,
+    )
 
 
 def _connect_error(base_url: str) -> ProviderError:

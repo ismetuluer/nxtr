@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ast
 import re
+import time
 from collections.abc import Iterator
 from itertools import chain
 from pathlib import Path
@@ -14,11 +16,16 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QDialog, QFileDialog, QMenu, QMessageBox
 from pytestqt.qtbot import QtBot
 
+from nxceviri.core.formats.scanner import EngineGuess, ScanReport
+from nxceviri.core.keys import KeySet
+from nxceviri.core.project import TranslationRow
 from nxceviri.gui import icons
 from nxceviri.gui.main_window import STEP_ADD, STEP_EXPORT, STEP_QA, STEP_SCAN, STEP_TRANSLATE, MainWindow
 from nxceviri.gui.scan_page import ScanPage
+from nxceviri.gui.settings_dialog import SettingsDialog
 from nxceviri.gui.shortcuts import COMMANDS
-from nxceviri.gui.translate_page import TranslatePage
+from nxceviri.gui.theme import ThemeMode
+from nxceviri.gui.translate_page import COL_STATUS, TranslatePage
 from tests.test_statusbar import _make_window, _project
 
 pytestmark = pytest.mark.gui
@@ -249,20 +256,20 @@ def test_scan_page_has_no_more_menu(qtbot: QtBot) -> None:
 def test_selection_dependent_items_follow_selection(window: MainWindow) -> None:
     names = ["translate.selected", "translate.retranslate", "translate.revise", "edit.reflow", "edit.copy_source"]
     window.translate_page.table.clearSelection()
-    window.update_menu_state()
+    _open_selection_menus(window)
     assert not any(window.menu_actions[n].isEnabled() for n in names)
     assert window.menu_actions["translate.auto"].isEnabled()
     _select(window, {"d02"})  # çevrilmemiş tek satır
-    window.update_menu_state()
+    _open_selection_menus(window)
     assert window.menu_actions["translate.selected"].isEnabled()
     assert window.menu_actions["translate.history"].isEnabled()
     assert not window.menu_actions["edit.reflow"].isEnabled()  # çevirisi olmayan satır bölünmez
     _select(window, {"d01", "d02"})
-    window.update_menu_state()
+    _open_selection_menus(window)
     assert not window.menu_actions["translate.history"].isEnabled()  # geçmiş tek satır ister
     # Çevir sayfası açık değilken seçime bağlı öğeler pasiftir.
     window.nav.setCurrentRow(STEP_ADD)
-    window.update_menu_state()
+    _open_selection_menus(window)
     assert not window.menu_actions["translate.selected"].isEnabled()
 
 
@@ -444,3 +451,142 @@ def test_align_shortcuts_moved_and_revise_owns_ctrl_r(window: MainWindow) -> Non
         "view.align_right": "Ctrl+Shift+R",
     }
     assert window.menu_actions["translate.revise"].shortcut().toString() == "Ctrl+R"
+
+
+def _open_selection_menus(w: MainWindow) -> None:
+    """Düzen ve Çeviri menüleri açılırken seçime bağlı öğeler yenilenir (menü çubuğundan açılış taklidi)."""
+    for title in ("Düzen", "Çeviri"):
+        _menu(w, title).aboutToShow.emit()
+
+
+def _synthetic_rows(count: int) -> list[TranslationRow]:
+    return [
+        TranslationRow(i + 1, "Dialogue.tsv", f"k{i}", f"Source {i}", "", "untranslated", "", (), None)
+        for i in range(count)
+    ]
+
+
+def test_selection_counts_are_computed_only_when_a_menu_opens(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page = window.translate_page
+    calls: list[int] = []
+    original = page.selection_counts
+
+    def counting() -> object:
+        calls.append(1)
+        return original()
+
+    monkeypatch.setattr(page, "selection_counts", counting)
+    _select(window, {"d01", "d02"})
+    window.update_menu_state()
+    page.model.dataChanged.emit(page.model.index(0, 0), page.model.index(0, 0))
+    window._refresh_derived()
+    assert calls == []  # seçim ve tablo değişiklikleri yolunda sayım yok
+    _open_selection_menus(window)
+    assert calls  # menü açılırken sayılır
+
+
+def test_shortcut_actions_stay_enabled_without_selection_until_a_menu_opens(window: MainWindow) -> None:
+    window.translate_page.table.clearSelection()
+    window.update_menu_state()
+    for name in ("translate.selected", "translate.retranslate", "translate.revise", "edit.copy_source", "edit.reflow"):
+        assert window.menu_actions[name].isEnabled(), name  # kısayolla tetiklenebilir; yuva boş seçimi denetler
+    _open_selection_menus(window)
+    assert not window.menu_actions["translate.selected"].isEnabled()  # menüde gerçek duruma göre pasif
+    window.update_menu_state()
+    assert window.menu_actions["translate.selected"].isEnabled()  # menü kapanınca kısayol yeniden kullanılabilir
+
+
+def test_selected_scope_actions_ignore_an_empty_selection(window: MainWindow) -> None:
+    asked: list[str] = []
+    window.ask_machine_settings = lambda *_a, **_k: asked.append("soruldu")  # type: ignore[method-assign]
+    window.translate_page.table.clearSelection()
+    window.menu_actions["translate.selected"].trigger()
+    assert asked == []
+    assert window.statusBar().currentMessage() or window.translate_page.banner.isVisibleTo(window.translate_page)
+
+
+def test_menu_state_updates_stay_fast_with_50k_selected_rows(window: MainWindow) -> None:
+    page = window.translate_page
+    page.set_rows(_synthetic_rows(50_000))
+    page.table.selectAll()
+    QApplication.processEvents()
+    started = time.perf_counter()
+    window.update_menu_state()  # seçim değişikliği yolu
+    page.model.dataChanged.emit(page.model.index(0, 0), page.model.index(49_999, 0))
+    window._refresh_derived()  # tablo değişikliği yolu
+    assert time.perf_counter() - started < 0.2
+
+
+def test_settings_dialog_signals_are_persisted_by_the_main_window(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fake_exec(dialog: SettingsDialog) -> int:
+        dialog.theme_changed.emit(ThemeMode.DARK)
+        dialog.font_size_changed.emit(16)
+        return 0
+
+    monkeypatch.setattr(SettingsDialog, "exec", fake_exec)
+    window.open_settings()
+    assert window.settings.value("ui/theme") == "dark"
+    assert int(str(window.settings.value("ui/font_size"))) == 16
+
+
+def test_extract_tools_need_the_key_file(window: MainWindow) -> None:
+    window.report = ScanReport("Oyun", "0100", None, None, EngineGuess("unknown", "?", "none", ()), [])
+    window.keys = None
+    window.update_menu_state()
+    tools = _menu(window, "Araçlar")
+    for text in ("Tüm RomFS'i Çıkar…", "Teşhis Raporu…"):
+        assert not _by_text(tools, text).isEnabled(), text  # anahtarsız yuva sessizce dönerdi
+    window.keys = KeySet({})
+    window.update_menu_state()
+    for text in ("Tüm RomFS'i Çıkar…", "Teşhis Raporu…"):
+        assert _by_text(tools, text).isEnabled(), text
+
+
+def test_context_menu_edit_group_follows_running_machine_job(window: MainWindow) -> None:
+    page = window.translate_page
+    page.set_machine_running(True)
+    menu = _open_context_menu(window, {"d01"})
+    assert [a.isEnabled() for a in _group(menu, "Düzenle")] == [False, False, False]
+    menu.close()
+    page.set_machine_running(False)
+    menu = _open_context_menu(window, {"d01"})
+    assert _group(menu, "Düzenle")[1].isEnabled()  # orijinali yaz
+    menu.close()
+
+
+def test_error_rows_repaint_all_columns_when_qa_results_arrive(window: MainWindow) -> None:
+    page = window.translate_page
+    page.error_rows_box.setChecked(True)
+    seen: list[tuple[int, int]] = []
+    page.model.dataChanged.connect(lambda top, bottom, *_r: seen.append((top.column(), bottom.column())))
+    page.model.set_qa_issues([], page.model.rows)
+    assert seen[-1] == (0, page.model.columnCount() - 1)
+    page.error_rows_box.setChecked(False)
+    page.model.set_qa_issues([], page.model.rows)
+    assert seen[-1] == (COL_STATUS, COL_STATUS)
+
+
+def test_no_user_facing_text_hard_codes_the_undo_key() -> None:
+    """Geri Al tuşu değiştirilebilir; ipuçları ve iletiler "Ctrl+Z" yazmaz (belge dizeleri hariç)."""
+    offenders: list[str] = []
+    for path in sorted(GUI_DIR.glob("*.py")):
+        if path.name == "shortcuts.py":
+            continue  # komut kataloğu varsayılan tuşları tutar
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        docstrings = {
+            id(node.body[0].value)
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+            and node.body
+            and isinstance(node.body[0], ast.Expr)
+            and isinstance(node.body[0].value, ast.Constant)
+        }
+        for node in ast.walk(tree):
+            is_text = isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docstrings
+            if is_text and "Ctrl+Z" in node.value:  # type: ignore[attr-defined]
+                offenders.append(f"{path.name}:{node.lineno}")  # type: ignore[attr-defined]
+    assert offenders == []
