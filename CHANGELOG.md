@@ -2,6 +2,35 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.50.0] — 2026-11-09 — Menüler, Ayarlar ve kısayollar
+
+### Eklendi
+- **Ayarlar penceresi** (Dosya → Ayarlar…, `Ctrl+,`): Görünüm (tema, yazı boyutu, semboller, hiza, panel, metin
+  kaydırma, sorun renkleri), **Kısayollar**, Çeviri (DeepL API anahtarı, Ollama adresi ve bağlantı testi), Güncelleme.
+  Değişiklikler anında uygulanır.
+- **Kısayol düzenleyici:** her komutun tuşu değiştirilebilir, kaldırılabilir, varsayılana döndürülebilir; çakışmada
+  uyarı ve "Yine de ata". Uygulamanın ayrılmış tuşları (Ctrl+C/V/X/A, Alt+↑/↓, Esc, Enter, Tab, Delete …) atanamaz.
+- **Git menüsü:** beş adım `Ctrl+1…5`.
+- **Hatalı Satırları Vurgula** (Görünüm, isteğe bağlı): hatası olan satırın bütün hücreleri hata rengine boyanır.
+
+### Değişti
+- **Bul ve Değiştir artık ayrı, taşınabilir bir pencere** (Word'deki gibi): tablonun üstünde yer kaplamaz, istediğiniz
+  yere sürüklenir, konumu ve boyutu hatırlanır. Çevir sayfasından çıkınca gizlenir, dönünce geri gelir. Pencere öndeyken
+  de F3 / Shift+F3 çalışır; arama kapalıyken F3 sonraki, Shift+F3 önceki bakılacak satıra gider.
+- **Menü çubuğu yeniden düzenlendi ve simgelendi:** Dosya, Düzen, Görünüm, Çeviri, Git, Araçlar, Yardım. Çevir
+  sayfasındaki "Daha Fazla" ve "Görünüm" düğmeleri ile Metinleri Tara'daki "Daha Fazla" kalktı; işleri menülerde.
+  Sayfada tek birincil düğme kaldı: **Otomatik Çeviri** (`Ctrl+T`; eski adı Makine Çevirisi).
+- **Sağ tık menüsü gruplu ve simgeli:** Çevir ▸, Onayla / Onayı kaldır, Düzenle ▸, Kopyala ▸, Dışa aktar ▸, Büyük harf ▸,
+  Geçmiş, Yerinde göster; kısayollar menüde görünür.
+- Yeni kısayollar: Redaksiyon `Ctrl+R`, Seçili satırları yeniden çevir `Ctrl+Shift+T`, Onayla `Ctrl+Shift+A`, Sözlük
+  `Ctrl+Shift+G`, Satırları yeniden böl `Ctrl+Shift+B`, Orijinali çeviri olarak yaz `Ctrl+Shift+O`. Hizalama
+  `Ctrl+Shift+L/E/R`'ye taşındı.
+- Çok satır seçiliyken (50.000) seçim ve menü işlemleri artık donmuyor.
+- Ollama adresi kaydedilmeden önce doğrulanır (geçersiz port reddedilir, bağlantı testi hatayı Türkçe söyler).
+
+### Kaldırıldı
+- Araçlar → Çeviri Ayarları penceresi (yerine Dosya → Ayarlar → Çeviri).
+
 ## [0.49.0] — 2026-11-09 — Çevir ekranı: küçük ekran, sütunlar, Bul ve Değiştir
 
 ### Eklendi

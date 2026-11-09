@@ -1414,14 +1414,10 @@ class TranslatePage(QWidget):
         `selectedRows()` her satırı sütun sütun sorguladığından 50.000 satırda saniyelerce sürer."""
         rows = self.model.rows
         proxy = self.proxy
-        found: list[TranslationRow] = []
-        seen: set[int] = set()
+        picked: set[int] = set()
         for part in self.table.selectionModel().selection():  # type: ignore[attr-defined]
-            for r in range(part.top(), part.bottom() + 1):
-                if r not in seen:
-                    seen.add(r)
-                    found.append(rows[proxy.mapToSource(proxy.index(r, 0)).row()])
-        return found
+            picked.update(range(part.top(), part.bottom() + 1))
+        return [rows[proxy.mapToSource(proxy.index(r, 0)).row()] for r in sorted(picked)]
 
     def filtered_rows(self) -> list[TranslationRow]:
         """Arama ve filtrelere uyan (tabloda görünen) satırlar."""

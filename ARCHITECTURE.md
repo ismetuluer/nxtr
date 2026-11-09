@@ -790,6 +790,20 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     sonra satırlar arası süre bütçesi (500 ms; Tümünü Değiştir 2 sn). Yeni bağımlılık yok.
 138. **Elle sınır proje ayarıdır** (`translate_manual_limit`); oyunun gerçek sınırının (kural/`max_length`) aşımını gizlemez.
 
+### 4.36 0.50.0 kararları (menüler, Ayarlar, kısayollar)
+
+139. **Kısayolların tek kaynağı `gui/shortcuts.py`:** `COMMANDS` kataloğu + `ShortcutRegistry.bind(id, QAction|QShortcut,
+    tip)`. Tuş koda yazılmaz (test denetler); kullanıcı tuşları `shortcuts/<kimlik>` altında, varsayılana dönen kayıt
+    silinir. Ayrılmış tuşlar (`reserved_reason`) atanamaz; kayıt dışındaki sabit tuşlarla belirsizlik böyle önlenir.
+140. **Menüler `gui/menus.py`'de, eylemler ana pencerede (WindowShortcut).** Ebeveynli `Qt.Tool` pencere (Bul) etkinken
+    de Qt ebeveynin pencere kısayollarını çalıştırır; sayfaya ayrıca `QShortcut` bağlanmaz (aynı tuş iki kez → belirsiz).
+141. **Seçime bağlı menü durumu yalnızca menü açılırken hesaplanır;** kısayolla gelen yuvalar boş seçimi kendileri
+    denetler. Seçili satırlar seçim aralıklarından okunur (`selectedRows()` 50k satırda saniyeler sürüyordu).
+142. **Bul ve Değiştir `FindWindow` (Qt.Tool) içindedir;** arama mantığı `FindBar`da kaldı. Konum `translate/find_geometry`;
+    sayfa gizlenince pencere gizlenir, yeni satırlar gelince arama kapanır.
+143. **Ayarlar penceresi ayar yazmaz, sinyal yayar** (tema/boyut ana pencerede uygulanır ve yazılır); görünüm seçenekleri
+    aynı `QAction`larla iki yönlü eşlenir. DeepL anahtarı yalnızca kimlik bilgisi deposunda.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.
