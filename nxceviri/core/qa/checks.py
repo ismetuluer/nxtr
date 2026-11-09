@@ -30,6 +30,8 @@ Denetimler satır başınadır ve yalnızca bulguları döndürür; satırları 
 
 from __future__ import annotations
 
+import json
+import logging
 import re
 from collections.abc import Collection
 from dataclasses import dataclass
@@ -52,6 +54,8 @@ from nxceviri.core.translate.fitconfig import FitConfig, FitOptions
 from nxceviri.core.translate.guards import translation_problems
 from nxceviri.core.translate.providers.base import GlossaryTerm
 from nxceviri.core.translate.status import Status
+
+log = logging.getLogger(__name__)
 
 SEVERITY_ERROR = "error"
 SEVERITY_WARNING = "warning"
@@ -246,6 +250,28 @@ def glossary_words(glossary: list[GlossaryTerm] | None) -> frozenset[str]:
     return frozenset(out)
 
 
+def parse_word_list(raw: str, key: str) -> list[str]:
+    """Proje ayarındaki JSON metin listesini (yoksayılan sözcükler / terimler) okur; yok ya da bozuksa boş liste.
+
+    Bozuk değer sessizce yutulmaz: `key` adıyla günlüğe uyarı yazılır.
+    """
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        data = None
+    if not isinstance(data, list) or not all(isinstance(i, str) for i in data):
+        log.warning("Proje ayarı %s bozuk: boş liste kullanılıyor.", key)
+        return []
+    return list(dict.fromkeys(data))
+
+
+def spell_extra_words(glossary: list[GlossaryTerm] | None, ignored: Collection[str] = ()) -> frozenset[str]:
+    """Yazım denetiminde doğru kabul edilen ek sözcükler: oyun sözlüğü ve projede yoksayılanlar."""
+    return glossary_words(glossary) | frozenset(turkish_lower(w) for w in ignored)
+
+
 def run_checks(
     rows: list[TranslationRow],
     missing_letters: str,
@@ -255,11 +281,12 @@ def run_checks(
     *,
     spell: SpellChecker | None = None,
     ignored_terms: Collection[str] = (),
+    spell_ignored: Collection[str] = (),
 ) -> list[QaIssue]:
     from nxceviri.core.qa.terms import canonical_terms, term_issues  # noqa: PLC0415 - terms bu modülden QaIssue alır (döngüsel içe aktarma)
 
     patterns = glossary_patterns(glossary)
-    extra = glossary_words(glossary) if spell is not None else frozenset()
+    extra = spell_extra_words(glossary, spell_ignored) if spell is not None else frozenset()
     out: list[QaIssue] = []
     for row in rows:
         out.extend(check_row(row, missing_letters, transliterated, patterns, fit, spell=spell, spell_extra=extra))

@@ -265,6 +265,7 @@ class QaPage(QWidget):
     fit_changed = Signal()  # kullanıcı sığdırma sınırını, kod türünü veya bir seçeneği değiştirdi
     learn_rules_requested = Signal(str)  # kapsam: "" proje, dosya yolu, GROUP_PREFIX+grup ya da EACH_GROUP
     add_spelling_requested = Signal(list)  # seçili yazım bulgularındaki sözcükler
+    not_term_requested = Signal(list)  # seçili terim bulgularındaki ifadeler: "terim değil"
     user_dictionary_requested = Signal()
 
     def __init__(self) -> None:
@@ -1139,6 +1140,11 @@ class QaPage(QWidget):
             menu.addSeparator()
         if self.spell_add_button.isEnabled():
             menu.addAction(self.spell_add_button)
+        phrases = self._selected_term_phrases()
+        if phrases:
+            not_term = menu.addAction(icon("x"), "Terim değil")
+            not_term.setToolTip("Seçili ifadeler bu projede terim sayılmaz; tutarsızlık aranmaz.")
+            not_term.triggered.connect(lambda: self.not_term_requested.emit(phrases))
         menu.addAction(self.user_dict_button)
         return menu
 
@@ -1156,6 +1162,14 @@ class QaPage(QWidget):
             if issue.kind == "spelling":
                 words.update(dict.fromkeys(issue.words))
         return list(words)
+
+    def _selected_term_phrases(self) -> list[str]:
+        """Seçili terim bulgularındaki ifadeler (tekrarsız)."""
+        phrases: dict[str, None] = {}
+        for issue in self._selected_issues():
+            if issue.kind == "term":
+                phrases.update(dict.fromkeys(issue.words))
+        return list(phrases)
 
     def _add_spelling(self) -> None:
         words = self._selected_spelling_words()

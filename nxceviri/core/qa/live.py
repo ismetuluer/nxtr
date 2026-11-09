@@ -18,7 +18,7 @@ from nxceviri.core.qa.checks import (
     check_row,
     consistency_issues,
     glossary_patterns,
-    glossary_words,
+    spell_extra_words,
 )
 from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.translate.fitconfig import FitConfig
@@ -109,6 +109,8 @@ class LiveContext:
     fit: FitConfig | None = None
     spell: SpellChecker | None = None
     kinds: frozenset[str] = DEFAULT_LIVE_KINDS
+    #: Projede yazım bulgusu üretmeyecek sözcükler (Yazım Denetimi penceresinde "Yoksay").
+    spell_ignored: frozenset[str] = frozenset()
 
 
 class LiveChecker:
@@ -124,7 +126,7 @@ class LiveChecker:
         self._context = context
         glossary = list(context.glossary)
         self._patterns = glossary_patterns(glossary)
-        self._extra = glossary_words(glossary) if context.spell is not None else frozenset()
+        self._extra = spell_extra_words(glossary, context.spell_ignored) if context.spell is not None else frozenset()
         self._cache.clear()
 
     def set_rows(self, rows: Sequence[TranslationRow]) -> None:

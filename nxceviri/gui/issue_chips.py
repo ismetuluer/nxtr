@@ -87,6 +87,7 @@ class ChipBar(QWidget):
         flow = FlowLayout(self)
         for kind in KIND_LABELS:
             chip = QToolButton()
+            chip.setProperty("role", "chip")
             chip.setCheckable(True)
             chip.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
             chip.setCursor(Qt.CursorShape.PointingHandCursor)
