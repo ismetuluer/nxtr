@@ -11,7 +11,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import httpx
-from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QTimer, QUrl, QVariantAnimation
+from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, QUrl, QVariantAnimation
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QGuiApplication
 from PySide6.QtWidgets import (
     QApplication,
@@ -133,6 +133,7 @@ from nxceviri.core.update import (
     make_updater,
     relaunch,
 )
+from nxceviri.gui import motion
 from nxceviri.gui.add_game_page import AddGamePage
 from nxceviri.gui.changes_dialog import ChangesDialog
 from nxceviri.gui.csv_dialog import FORMAT_TXT, MODE_REDACTION, MODE_TRANSLATION, CsvExportDialog
@@ -308,25 +309,11 @@ def _clip(text: str) -> str:
     return text if len(text) <= _CLIP_CHARS else text[: _CLIP_CHARS - 1].rstrip() + "…"
 
 
-#: Maskot: "bitti" ve "hata" hâllerinin süresi, ve kullanıcı dokunmadan uykuya dalma süresi (ms).
+#: Maskot: "bitti" ve "hata" hâllerinin süresi (ms); sistem bu kadar saniye boştaysa uyur; boşta denetim aralığı (ms).
 MASCOT_DONE_MS = 4000
 MASCOT_ERROR_MS = 10000
-MASCOT_SLEEP_MS = 5 * 60 * 1000
-
-
-class _ActivityWatcher(QObject):
-    """Uygulamadaki tuş ve fare tıklamalarını izler (maskot uyanır, uyku sayacı baştan başlar)."""
-
-    _KINDS = frozenset({QEvent.Type.KeyPress, QEvent.Type.MouseButtonPress, QEvent.Type.Wheel})
-
-    def __init__(self, on_activity: Callable[[], None], parent: QObject) -> None:
-        super().__init__(parent)
-        self._on_activity = on_activity
-
-    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        if event.type() in self._KINDS:
-            self._on_activity()
-        return False
+MASCOT_SLEEP_S = 5 * 60
+MASCOT_POLL_MS = 5000
 
 
 class MainWindow(QMainWindow):
@@ -464,15 +451,11 @@ class MainWindow(QMainWindow):
         self._mascot_rest = QTimer(self)
         self._mascot_rest.setSingleShot(True)
         self._mascot_rest.timeout.connect(self._mascot_settle)
-        self._mascot_sleep = QTimer(self)
-        self._mascot_sleep.setSingleShot(True)
-        self._mascot_sleep.setInterval(MASCOT_SLEEP_MS)
-        self._mascot_sleep.timeout.connect(self._mascot_doze)
-        self._mascot_sleep.start()
-        self._activity = _ActivityWatcher(self._user_active, self)
-        app = QApplication.instance()
-        if app is not None:
-            app.installEventFilter(self._activity)
+        #: Uyku/uyanma: sistemin boşta süresine birkaç saniyede bir bakılır (Qt olay süzgeci yok).
+        self._mascot_poll = QTimer(self)
+        self._mascot_poll.setInterval(MASCOT_POLL_MS)
+        self._mascot_poll.timeout.connect(self._mascot_check_idle)
+        self._mascot_poll.start()
         self.translate_page.notice_requested.connect(self._page_notice)
         self.translate_page.add_terms_requested.connect(self.add_rows_to_terminology)
         #: Bir işin sonucu işlenirken: bildirim gürültülü olsun mu (uzun iş) ve işleyici kendi bildirimini verdi mi.
@@ -1101,20 +1084,18 @@ class MainWindow(QMainWindow):
             self._mascot_rest.start(MASCOT_DONE_MS)
         elif mood == MOOD_ERROR:
             self._mascot_rest.start(MASCOT_ERROR_MS)
-        self._mascot_sleep.start()
 
     def _mascot_settle(self) -> None:
         self._set_mascot(MOOD_WORKING if self.busy else MOOD_IDLE)
 
-    def _mascot_doze(self) -> None:
-        """Uzun süre boşta (iş yok, kullanıcı dokunmadı): uyur."""
-        if not self.busy and self.mascot.mood == MOOD_IDLE:
-            self.mascot.set_mood(MOOD_SLEEP)
-
-    def _user_active(self) -> None:
+    def _mascot_check_idle(self) -> None:
+        """Sistem uzun süre boştaysa (iş yok) maskot uyur; kullanıcı dokununca uyanır."""
+        idle = motion.idle_seconds()
         if self.mascot.mood == MOOD_SLEEP:
-            self.mascot.set_mood(MOOD_IDLE)
-        self._mascot_sleep.start()
+            if idle < MASCOT_POLL_MS / 1000:
+                self.mascot.set_mood(MOOD_IDLE)
+        elif idle >= MASCOT_SLEEP_S and not self.busy and self.mascot.mood == MOOD_IDLE:
+            self.mascot.set_mood(MOOD_SLEEP)
 
     def _fix_notice(self, state: str, text: str, action: str) -> None:
         level = {"success": LEVEL_SUCCESS, "warning": LEVEL_WARNING, "danger": LEVEL_ERROR}.get(state, LEVEL_INFO)
@@ -3531,10 +3512,7 @@ class MainWindow(QMainWindow):
         self.translate_page.find_window.close()  # açık Bul penceresinin konumu kaybolmasın
         self._recovery_timer.stop()
         self._mascot_rest.stop()
-        self._mascot_sleep.stop()
-        app = QApplication.instance()
-        if app is not None:
-            app.removeEventFilter(self._activity)  # kapanan pencere her olayda çağrılmasın
+        self._mascot_poll.stop()
         self.provider_probe.close()
         self.recovery.clear()
         self.project.close()

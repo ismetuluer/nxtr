@@ -2,6 +2,20 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.55.4] — 2026-11-10 — Çeviri sırasında çökme
+
+### Düzeltildi
+- **Ollama ile çevirirken program kapanıyordu** (Windows hata kaydı: `ucrtbase.dll`, `abort`, 0xC0000409). Dump'ta
+  çöken iş parçacığı Qt olay dağıtımı ve Python yuvası içindeydi. 0.55.0'da eklenen, uygulamadaki her tuş/fare olayında
+  Python'a giren olay süzgeci (maskotun uyuması için) kaldırıldı; uyku artık sistemin boşta süresine (`GetLastInputInfo`)
+  5 saniyede bir bakılarak yapılıyor. **Kesin neden henüz doğrulanmadı**: aşağıdaki çökme günlüğü bir sonraki çökmede
+  hangi kodda olduğunu gösterecek.
+
+### Eklendi
+- **Çökme günlüğü** (`%LOCALAPPDATA%/NXCeviri/logs/cokme.log`): uygulama sert çökerse tüm iş parçacıklarının Python
+  yığını bu dosyaya yazılır (`faulthandler`). Pencereli `.exe`de başka hiçbir çıktı yoktur; dosya olmadan çökmenin
+  nerede olduğu bilinemiyordu. Normal kapanışta dosya kapatılır.
+
 ## [0.55.3] — 2026-11-10 — Yardım konuları pakete girdi
 
 ### Düzeltildi

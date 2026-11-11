@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import faulthandler
 import logging
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from typing import TextIO
 
 from PySide6.QtCore import QLibraryInfo, QSettings, QTranslator
 from PySide6.QtGui import QIcon
@@ -37,6 +39,25 @@ def setup_logging() -> Path:
     root.setLevel(logging.INFO)
     root.addHandler(handler)
     return path
+
+
+def enable_crash_log() -> TextIO | None:
+    """Sert çökmelerde (abort, erişim ihlali) tüm iş parçacıklarının Python yığınını `cokme.log` dosyasına yazar.
+
+    Pencereli `.exe`de hata çıktısı yoktur; bu dosya olmadan çökmenin hangi kodda olduğu bilinemez. Dönen dosya
+    uygulama kapanana dek açık tutulmalıdır. Klasör yazılamıyorsa None döner ve uygulama yine açılır.
+    """
+    try:
+        folder = log_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        handle = (folder / "cokme.log").open("a", encoding="utf-8")
+    except OSError as exc:
+        logging.getLogger(__name__).warning("Çökme günlüğü açılamadı: %s", exc)
+        return None
+    handle.write(f"--- {__version__} başlatıldı ---\n")
+    handle.flush()
+    faulthandler.enable(file=handle, all_threads=True)
+    return handle
 
 
 def install_qt_translations(app: QApplication) -> QTranslator | None:
@@ -76,6 +97,7 @@ def main(argv: list[str] | None = None) -> int:
     args = sys.argv if argv is None else argv
     setup_logging()
     logging.getLogger(__name__).info("%s %s başlatıldı", APP_TITLE, __version__)
+    crash_log = enable_crash_log()  # sert çökmede Python yığını cokme.log'a yazılır (kapanana dek açık kalır)
     restart, update_error = apply_pending_update()
     if restart:
         return 0
@@ -110,7 +132,11 @@ def main(argv: list[str] | None = None) -> int:
     else:
         window.offer_recovery()
     window.check_updates_in_background()
-    return app.exec()
+    code = app.exec()
+    if crash_log is not None:
+        faulthandler.disable()
+        crash_log.close()  # normal çıkış: dosya uygulama kapanana dek açık kaldı
+    return code
 
 
 if __name__ == "__main__":

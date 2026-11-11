@@ -901,6 +901,15 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     bakar (`autofix.Tidy`). `fit_config` JSON'undaki eski `options` anahtarı okunurken yok sayılır, yazılmaz.
 172. **Arama yalnızca görünen metin** (`TranslationFilter.filterAcceptsRow`): anahtar ve dosya adı eşleşmeye girmez.
 
+### 4.44 0.55.4 kararları (çökme)
+
+173. **Uygulama çapında Python olay süzgeci yasak:** `QApplication.installEventFilter` ile Python `eventFilter` her Qt
+    olayında (zamanlayıcı, boyama, iş parçacığı sinyali) Python'a girer; PySide6'da yarış ve çökme kaynağıdır. Maskotun
+    uyku/uyanması `motion.idle_seconds()` (Windows `GetLastInputInfo`) ile 5 sn'de bir yoklanır; testle süzgeç
+    kurulmadığı denetlenir.
+174. **Çökme günlüğü** (`app.enable_crash_log`, `cokme.log`): `faulthandler` dosyaya yazar; dosya `main()` boyunca açık
+    tutulur, normal çıkışta kapatılır. Klasör yazılamazsa açılış bozulmaz.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

@@ -6,13 +6,11 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtTest import QTest
 from pytestqt.qtbot import QtBot
 
 from nxceviri.gui import main_window as mw
-from nxceviri.gui import mascot
-from nxceviri.gui.main_window import MainWindow
+from nxceviri.gui import mascot, motion
+from nxceviri.gui.main_window import MASCOT_SLEEP_S, MainWindow
 from nxceviri.gui.mascot import (
     KEY_MASCOT,
     MOOD_DONE,
@@ -63,17 +61,45 @@ def test_error_notice_worries_and_info_does_not(window: MainWindow) -> None:
     assert window.mascot.mood == MOOD_ERROR
 
 
-def test_long_idle_sleeps_and_any_key_wakes(qtbot: QtBot, window: MainWindow) -> None:
-    window._mascot_doze()
+def test_long_system_idle_sleeps_and_activity_wakes(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(motion, "idle_seconds", lambda: MASCOT_SLEEP_S + 1)
+    window._mascot_check_idle()
     assert window.mascot.mood == MOOD_SLEEP
-    QTest.keyClick(window, Qt.Key.Key_Shift)
+    monkeypatch.setattr(motion, "idle_seconds", lambda: 0.5)  # kullanıcı bir tuşa bastı
+    window._mascot_check_idle()
     assert window.mascot.mood == MOOD_IDLE
 
 
-def test_does_not_sleep_while_a_job_runs(window: MainWindow) -> None:
+def test_does_not_sleep_while_a_job_runs(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
     window.mascot.set_mood(MOOD_WORKING)
-    window._mascot_doze()
+    monkeypatch.setattr(motion, "idle_seconds", lambda: MASCOT_SLEEP_S + 1)
+    window._mascot_check_idle()
     assert window.mascot.mood == MOOD_WORKING
+
+
+def test_no_application_wide_python_event_filter(qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Uygulama çapında Python olay süzgeci yok: her Qt olayında Python'a girmek çeviri sürerken çökmelere yol açtı."""
+    from PySide6.QtWidgets import QApplication
+
+    installed: list[object] = []
+    real = QApplication.installEventFilter
+
+    def spy(self: QApplication, flt: object) -> None:
+        installed.append(flt)
+        real(self, flt)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(QApplication, "installEventFilter", spy)
+    w = _make_window(qtbot, tmp_path, _project())
+    assert not [f for f in installed if type(f).__module__.startswith("nxceviri")]
+    assert w._mascot_poll.isActive()
+    w.dirty = False
+    w.close()
+
+
+def test_idle_seconds_is_a_small_non_negative_number() -> None:
+    value = motion.idle_seconds()
+    assert isinstance(value, float)
+    assert 0.0 <= value < 10 * 365 * 24 * 3600
 
 
 def test_settings_switch_hides_all_mascots_and_is_saved(qtbot: QtBot, window: MainWindow) -> None:
