@@ -140,6 +140,11 @@ _RESIZE_DELAY_MS = 60
 _UPPERCASE_MARK = "⇧ "
 #: Görünen satırların üstünde/altında da ölçülen satır sayısı (kaydırırken boşluk görünmesin).
 _ROW_MARGIN = 8
+#: "Satıra git"ten sonra hedefin görünürlüğünün doğrulandığı satır ölçüm turu sayısı.
+_GOTO_PASSES = 3
+#: Bu kadar satırdan büyük tabloda arama kutusu her tuşta değil, yazma durunca süzer (milisaniye / satır sayısı).
+SEARCH_DEBOUNCE_MS = 250
+SEARCH_DEBOUNCE_ROWS = 5000
 #: Görünür alan bilinmiyorken (yerleşim oturmadan) önizlenecek en çok satır sayısı.
 _VIEW_ROWS_CAP = 200
 
@@ -579,6 +584,10 @@ class TranslationFilter(QSortFilterProxyModel):
         self.groups: frozenset[str] | None = None  # None: grup süzgeci yok
         self.keys: frozenset[str] | None = None  # None: anahtar süzgeci yok
         self.text = ""
+        # Satır kimliği → (kaynak, çeviri, küçük harfli kaynak, küçük harfli çeviri). Metin değişmediyse her tuşta
+        # onbinlerce metni yeniden küçültmemek için; metin nesnesi değiştiyse (düzenleme) satır yeniden hesaplanır.
+        self._folded: dict[int, tuple[str, str, str, str]] = {}
+        self.modelReset.connect(self._folded.clear)
         # Düzenleme sırasında satırlar süzgeçten çıkıp yer değiştirmesin: süzgeç yalnızca süzgeç
         # değişince yeniden uygulanır. Sıralama proxy'de değil modelde yapılır (bkz. TranslationModel.sort_by).
         self.setDynamicSortFilter(False)
@@ -609,7 +618,11 @@ class TranslationFilter(QSortFilterProxyModel):
         if not self.text:
             return True
         # Yalnızca orijinal ve çeviri sütunları: anahtar ve dosya adı aramaya karışmaz (ör. "/(" hepsini getirirdi).
-        return self.text in r.source.casefold() or self.text in r.translation.casefold()
+        cached = self._folded.get(r.id)
+        if cached is None or cached[0] is not r.source or cached[1] is not r.translation:
+            cached = (r.source, r.translation, r.source.casefold(), r.translation.casefold())
+            self._folded[r.id] = cached
+        return self.text in cached[2] or self.text in cached[3]
 
 
 class _Editor(QPlainTextEdit):
@@ -913,6 +926,9 @@ class TranslatePage(QWidget):
         self._resize_timer.setSingleShot(True)
         self._resize_timer.timeout.connect(self._fit_rows)
         # Süzgeç değişince görünümün başa dönmemesi için seçili satıra dönüş, yerleşim oturduktan sonra yapılır.
+        # "Satıra git" sonrası: satır yükseklikleri oturunca satırın hâlâ görünür olduğunu doğrulamak için.
+        self._goto_row_id: int | None = None
+        self._goto_passes = 0
         self._scroll_row_id: int | None = None
         self._scroll_timer = QTimer(self)
         self._scroll_timer.setSingleShot(True)
@@ -945,7 +961,12 @@ class TranslatePage(QWidget):
         self.stack.addWidget(content)
         self.content = content
 
-        self.search.textChanged.connect(self._refilter)
+        self._search_timer = QTimer(self)
+        self._search_timer.setSingleShot(True)
+        self._search_timer.setInterval(SEARCH_DEBOUNCE_MS)
+        self._search_timer.timeout.connect(self._refilter)
+        self.search.textChanged.connect(self._search_edited)
+        self.search.returnPressed.connect(self._apply_search_now)
         self.status_filter.currentIndexChanged.connect(self._refilter)
         self.group_filter.changed.connect(self._filters_edited)
         self.key_filter.changed.connect(self._filters_edited)
@@ -1287,6 +1308,27 @@ class TranslatePage(QWidget):
                 self.table.resizeRowToContents(row)
             else:
                 self.table.setRowHeight(row, single)
+        self._settle_goto()
+
+    def _settle_goto(self) -> None:
+        """ "Satıra git"ten sonra satırı görünür tutar: ekrana gelen satırların yüksekliği ölçülünce üstteki satırlar
+        uzayıp hedefi görünür alanın dışına itebilir. Hedef kaymışsa ortalanır; birkaç ölçüm turu sonra bırakılır."""
+        row_id = self._goto_row_id
+        if row_id is None:
+            return
+        self._goto_passes -= 1
+        if self._goto_passes <= 0:
+            self._goto_row_id = None
+        source = self.model.position(row_id)
+        if source is None:
+            self._goto_row_id = None
+            return
+        index = self.proxy.mapFromSource(self.model.index(source, COL_TRANSLATION))
+        if not index.isValid():
+            self._goto_row_id = None
+            return
+        if not self.table.viewport().rect().intersects(self.table.visualRect(index)):
+            self.table.scrollTo(index, QAbstractItemView.ScrollHint.PositionAtCenter)
 
     # --- veri --------------------------------------------------------------------------
 
@@ -1346,7 +1388,23 @@ class TranslatePage(QWidget):
         if text:
             self.notice_requested.emit(state, text)
 
+    def _search_edited(self, text: str) -> None:
+        """Arama kutusu değişti: küçük tabloda hemen, büyükte yazma durunca süzer (60.000 satırda her tuş donduruyordu).
+        Kutuyu boşaltmak her zaman hemen uygulanır."""
+        if not text or len(self.model.rows) <= SEARCH_DEBOUNCE_ROWS:
+            self._search_timer.stop()
+            self._refilter()
+        else:
+            self._search_timer.start()
+
+    def _apply_search_now(self) -> None:
+        """Enter: bekleyen aramayı beklemeden uygular."""
+        if self._search_timer.isActive():
+            self._search_timer.stop()
+            self._refilter()
+
     def _refilter(self) -> None:
+        self._search_timer.stop()  # bekleyen yazma süzgeci bu çağrıyla zaten uygulanır
         # Süzgeç gevşeyince görünüm başa dönmesin: seçili (geçerli) satır görünür kalırsa oraya dönülür.
         current = self.current_row()
         self.proxy.update(
@@ -1633,6 +1691,9 @@ class TranslatePage(QWidget):
         self.table.selectRow(i)
         hint = QAbstractItemView.ScrollHint.PositionAtCenter if center else QAbstractItemView.ScrollHint.EnsureVisible
         self.table.scrollTo(index, hint)
+        self._goto_row_id = self.model.rows[self.proxy.mapToSource(index).row()].id
+        self._goto_passes = _GOTO_PASSES
+        self._schedule_fit_rows()
 
     def approve(self, rows: list[TranslationRow]) -> None:
         """Makine veya dış redaksiyondan gelen çevirileri değiştirmeden onaylar."""

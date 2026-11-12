@@ -652,3 +652,28 @@ def test_notifications_page_reads_saved_options(qtbot: QtBot, env: Env) -> None:
     dialog = env.dialog(page=PAGE_NOTIFY)
     qtbot.addWidget(dialog)
     assert not dialog.notify_checks[KEY_SOUND].isChecked()
+
+
+def test_notifications_page_card_seconds(qtbot: QtBot, env: Env) -> None:
+    from nxceviri.gui.notify import KEY_CARD_SECONDS
+    from nxceviri.gui.settings_dialog import PAGE_NOTIFY
+
+    env.settings.setValue(KEY_CARD_SECONDS, "20")
+    dialog = env.dialog(page=PAGE_NOTIFY)
+    qtbot.addWidget(dialog)
+    assert dialog.notify_card_seconds.value() == 20
+    assert dialog.notify_card_seconds.minimum() == 0
+    assert dialog.notify_card_seconds.maximum() == 120
+    changed: list[int] = []
+    dialog.notify_card_seconds_changed.connect(changed.append)
+    dialog.notify_card_seconds.setValue(0)
+    assert changed == [0]
+    assert dialog.notify_card_seconds.specialValueText() == "Kaybolmaz"
+
+
+def test_notifications_page_card_seconds_default(qtbot: QtBot, env: Env) -> None:
+    from nxceviri.gui.settings_dialog import PAGE_NOTIFY
+
+    dialog = env.dialog(page=PAGE_NOTIFY)
+    qtbot.addWidget(dialog)
+    assert dialog.notify_card_seconds.value() == 8

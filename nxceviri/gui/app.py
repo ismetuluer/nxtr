@@ -9,7 +9,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import TextIO
 
-from PySide6.QtCore import QLibraryInfo, QSettings, QTranslator
+from PySide6.QtCore import QLibraryInfo, QObject, QSettings, QTranslator
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
@@ -61,15 +61,44 @@ def enable_crash_log() -> TextIO | None:
     return handle
 
 
+#: Menülerde ve ipuçlarında Windows alışkanlığıyla İngilizce kalan tuş adları (Qt "Kontrol", "Üst Karakter" derdi).
+_KEY_NAMES = frozenset(
+    {
+        "Ctrl", "Shift", "Alt", "Meta", "Esc", "Escape", "Del", "Delete", "Ins", "Insert", "Home", "End",
+        "PgUp", "PgDown", "Return", "Enter", "Space", "Backspace", "Tab", "Backtab", "Left", "Right", "Up", "Down",
+    }
+)  # fmt: skip
+
+
+class QtTurkishTranslator(QTranslator):
+    """`qtbase_tr` çevirisi; yalnızca kısayol tuş adları (bağlam "QShortcut") özgün İngilizce metinde bırakılır."""
+
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._base = QTranslator(self)
+
+    def load_base(self, folder: str) -> bool:
+        return self._base.load("qtbase_tr", folder)
+
+    def isEmpty(self) -> bool:
+        return False
+
+    def translate(self, context: str, source: str, disambiguation: str | None = None, n: int = -1) -> str | None:
+        if context == "QShortcut" and source in _KEY_NAMES:
+            return source
+        return self._base.translate(context, source, disambiguation, n)
+
+
 def install_qt_translations(app: QApplication) -> QTranslator | None:
     """Qt'nin kendi metinlerini (Kes/Kopyala/Yapıştır, Evet/Hayır, dosya penceresi) Türkçeleştirir.
 
     PySide6 ile gelen `qtbase_tr.qm` yüklenir. Dosya bulunamazsa arayüz çalışır, yalnızca bu
-    standart metinler İngilizce kalır; bu durum günlüğe yazılır.
+    standart metinler İngilizce kalır; bu durum günlüğe yazılır. Kısayol tuş adları (Ctrl, Shift, Alt …)
+    Windows alışkanlığıyla İngilizce gösterilir.
     """
     folder = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
-    translator = QTranslator(app)
-    if translator.load("qtbase_tr", folder):
+    translator = QtTurkishTranslator(app)
+    if translator.load_base(folder):
         app.installTranslator(translator)
         return translator
     logging.getLogger(__name__).warning("Qt Türkçe çeviri dosyası bulunamadı: %s", folder)

@@ -444,6 +444,30 @@ def test_qt_standard_texts_are_turkish(qtbot: QtBot) -> None:
         app.removeTranslator(translator)
 
 
+def test_shortcut_key_names_stay_short_english(qtbot: QtBot) -> None:
+    """Menü kısayollarında "Kontrol+Üst Karakter" yerine Windows'taki gibi "Ctrl+Shift" görünür."""
+    from PySide6.QtGui import QKeySequence
+
+    from nxceviri.gui.app import install_qt_translations
+
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
+    translator = install_qt_translations(app)
+    assert translator is not None
+    try:
+        native = QKeySequence.SequenceFormat.NativeText
+        assert QKeySequence("Ctrl+Shift+A").toString(native) == "Ctrl+Shift+A"
+        assert QKeySequence("Alt+Del").toString(native) == "Alt+Del"
+        assert QKeySequence("PgDown").toString(native) == "PgDown"
+        from nxceviri.gui.shortcuts import display_text
+
+        assert display_text(QKeySequence("Ctrl+Shift+T")) == "Ctrl+Shift+T"
+        # Tuş adı olmayan Qt metinleri Türkçe kalır.
+        assert QApplication.translate("QShortcut", "Print") != "Print"
+    finally:
+        app.removeTranslator(translator)
+
+
 def test_row_context_menu_translates_selected(
     qtbot: QtBot, window: MainWindow, game: GameFiles, monkeypatch: pytest.MonkeyPatch
 ) -> None:

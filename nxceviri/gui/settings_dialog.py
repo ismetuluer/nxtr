@@ -21,11 +21,13 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QKeySequenceEdit,
+    QLabel,
     QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
     QScrollArea,
+    QSpinBox,
     QStackedWidget,
     QTreeWidget,
     QTreeWidgetItem,
@@ -42,7 +44,7 @@ from nxceviri.core.translate.providers.deepl import DeepLProvider, plan_label
 from nxceviri.core.translate.providers.ollama import DEFAULT_URL, RECOMMENDED_MODELS, OllamaProvider
 from nxceviri.gui.icons import icon
 from nxceviri.gui.mascot import mascot_setting, save_mascot_setting
-from nxceviri.gui.notify import KEY_FLASH, KEY_SOUND, KEY_SYSTEM
+from nxceviri.gui.notify import DEFAULT_CARD_SECONDS, KEY_CARD_SECONDS, KEY_FLASH, KEY_SOUND, KEY_SYSTEM
 from nxceviri.gui.shortcuts import (
     CATEGORIES,
     COMMANDS,
@@ -59,6 +61,8 @@ from nxceviri.gui.widgets import Banner, button, label
 PAGE_VIEW = "view"
 PAGE_SHORTCUTS = "shortcuts"
 PAGE_LIVE = "live"
+#: Yazım denetimi orijinalden aynen kopyalanan sözcükleri de işaretlesin ("1" / "0"; varsayılan kapalı).
+KEY_SPELL_COPIED = "spell/flag_copied"
 PAGE_NOTIFY = "notify"
 PAGE_PROVIDERS = "providers"
 PAGE_UPDATES = "updates"
@@ -288,6 +292,8 @@ class SettingsDialog(QDialog):
     check_updates_requested = Signal()
     #: Bildirim kanalı açıldı/kapandı (ayar anahtarı, açık mı); yazmak pencereyi açanın işidir.
     notify_option_changed = Signal(str, bool)
+    notify_card_seconds_changed = Signal(int)
+    spell_copied_changed = Signal(bool)
     test_notification_requested = Signal()
     live_kinds_changed = Signal(list)  # seçili türler, gösterim sırasıyla; yazmak ve uygulamak pencereyi açanın işidir
 
@@ -649,6 +655,20 @@ class SettingsDialog(QDialog):
             self.live_checks[kind] = box
             lay.addWidget(box)
             lay.addWidget(label(KIND_HINTS[kind], "muted", wrap=True))
+        self.spell_copied_box = QCheckBox("Orijinalden aynen kopyalanan sözcükleri de işaretle")
+        self.spell_copied_box.setChecked(str(self._settings.value(KEY_SPELL_COPIED, "0")) == "1")
+        self.spell_copied_box.toggled.connect(self.spell_copied_changed)
+        lay.addSpacing(8)
+        lay.addWidget(self.spell_copied_box)
+        lay.addWidget(
+            label(
+                "Yazım denetimi varsayılan olarak orijinalde de geçen sözcükleri (korunan özel adlar) işaretlemez. "
+                "Açarsanız çeviride İngilizce kalmış terimlerin de altı çizilir; "
+                "gerçek adlar için yazım sözlüğüne ekleyin.",
+                "muted",
+                wrap=True,
+            )
+        )
         lay.addStretch(1)
         return page
 
@@ -692,6 +712,24 @@ class SettingsDialog(QDialog):
             self.notify_checks[key] = box
             lay.addWidget(box)
             lay.addWidget(label(hint, "muted", wrap=True))
+        seconds_row = QHBoxLayout()
+        seconds_row.addWidget(QLabel("Kartlar şu kadar sonra kaybolur:"))
+        self.notify_card_seconds = QSpinBox()
+        self.notify_card_seconds.setRange(0, 120)
+        self.notify_card_seconds.setSuffix(" saniye")
+        self.notify_card_seconds.setSpecialValueText("Kaybolmaz")
+        self.notify_card_seconds.setToolTip(
+            "Fare kartın üstündeyken sayım durur. Kaybolan kart bildirim geçmişinde kalır."
+        )
+        try:
+            saved = int(float(str(self._settings.value(KEY_CARD_SECONDS, DEFAULT_CARD_SECONDS))))
+        except ValueError:
+            saved = DEFAULT_CARD_SECONDS
+        self.notify_card_seconds.setValue(saved)
+        self.notify_card_seconds.valueChanged.connect(self.notify_card_seconds_changed)
+        seconds_row.addWidget(self.notify_card_seconds)
+        seconds_row.addStretch(1)
+        lay.addLayout(seconds_row)
         row = QHBoxLayout()
         self.notify_test_button = button("Deneme Bildirimi Gönder", icon="bell")
         self.notify_test_button.setToolTip("Seçili kanallarla örnek bir bildirim gösterir.")

@@ -232,3 +232,17 @@ def test_find_preview_row_is_drawn_with_new_text_and_no_stale_spans(qtbot: QtBot
     assert "iki" not in plain(out)
     assert f"background-color:{current_tokens()['accent']}" not in out  # eski metne ait aralıklar boyanmaz
     assert page.model.rows[0].translation == "Bir iki üç"  # yazılmadı
+
+
+def test_delegate_underlines_copied_words_only_when_flagged(qtbot: QtBot) -> None:
+    from nxceviri.core.spell.bloom import BloomFilter
+    from nxceviri.core.spell.checker import SpellChecker
+
+    spell = SpellChecker(BloomFilter.build(["merhaba", "oyun"], error_rate=0.0001))
+    page = make_page(qtbot, [make_row(1, "Sunflare Spike", "Merhaba Sunflare Spike")])
+    page.set_spell(spell, frozenset())
+    index = page.proxy.index(0, COL_TRANSLATION)
+    assert "text-decoration:underline" not in page.translation_delegate.html_for(index)
+    spell.flag_copied = True
+    page.set_spell(spell, frozenset())  # ayar değişince ana pencere yeniden bağlar
+    assert "text-decoration:underline" in page.translation_delegate.html_for(index)

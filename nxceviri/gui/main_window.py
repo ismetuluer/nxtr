@@ -171,6 +171,7 @@ from nxceviri.gui.mascot import (
 from nxceviri.gui.menus import Menus
 from nxceviri.gui.motion import animations_enabled
 from nxceviri.gui.notify import (
+    KEY_CARD_SECONDS,
     LEVEL_ERROR,
     LEVEL_INFO,
     LEVEL_SUCCESS,
@@ -188,7 +189,7 @@ from nxceviri.gui.qa_page import QaPage
 from nxceviri.gui.recent import RecentProjects
 from nxceviri.gui.recovery import RecoveryFile, RecoveryKeeper, default_recovery_dir, discard, leftover_files
 from nxceviri.gui.scan_page import ScanPage
-from nxceviri.gui.settings_dialog import PAGE_PROVIDERS, PAGE_VIEW, SettingsDialog
+from nxceviri.gui.settings_dialog import KEY_SPELL_COPIED, PAGE_PROVIDERS, PAGE_VIEW, SettingsDialog
 from nxceviri.gui.shortcuts import ShortcutRegistry
 from nxceviri.gui.spell_dialogs import AddSpellWordsDialog, UserDictionaryDialog
 from nxceviri.gui.spell_window import SpellWindow
@@ -369,6 +370,7 @@ class MainWindow(QMainWindow):
         #: Kalıcı kullanıcı sözlüğü ve Türkçe yazım denetleyicisi (paketlenen süzgeç eksikse None: denetim kapalı).
         self.user_dictionary = UserDictionary(default_user_dictionary_path())
         self.spell: SpellChecker | None = load_spell_checker(self.user_dictionary)
+        self._apply_spell_copied()
         self._live_kinds = self._load_live_kinds()
         #: Testlerde sahte sağlayıcı verebilmek için değiştirilebilir.
         self.secrets: SecretStore = KeyringStore()
@@ -1672,6 +1674,17 @@ class MainWindow(QMainWindow):
         self._live_context = context
         self.translate_page.set_live_context(context)
 
+    def _apply_spell_copied(self) -> None:
+        """Kayıtlı "orijinalden kopyalanan sözcükleri de işaretle" tercihini yazım denetleyicisine uygular."""
+        if self.spell is not None:
+            self.spell.flag_copied = str(self.settings.value(KEY_SPELL_COPIED, "0")) == "1"
+
+    def _set_spell_copied(self, on: bool) -> None:
+        self.settings.setValue(KEY_SPELL_COPIED, "1" if on else "0")
+        self._apply_spell_copied()
+        self._sync_spell()
+        self._recheck_if_done()
+
     def _set_live_kinds(self, kinds: list[str]) -> None:
         self._live_kinds = frozenset(kinds)
         self.settings.setValue(LIVE_KINDS_KEY, format_live_kinds(kinds))
@@ -1830,8 +1843,9 @@ class MainWindow(QMainWindow):
             errors = sum(1 for i in result if i.severity == SEVERITY_ERROR)
             warnings = sum(1 for i in result if i.severity == SEVERITY_WARNING)
             if errors or warnings:
+                # Bulgu uygulamanın değil oyun metinlerinin sorunudur; hata simgesi yanıltıp "çöktü" sanılmasın.
                 self.notify(
-                    LEVEL_ERROR if errors else LEVEL_WARNING,
+                    LEVEL_INFO,
                     "Denetim bitti",
                     f"{format_int(errors)} hata · {format_int(warnings)} uyarı",
                     (NoticeAction("Sorunları Gör", lambda: self.nav.setCurrentRow(STEP_QA)),),
@@ -2099,6 +2113,7 @@ class MainWindow(QMainWindow):
         dialog.exec()
         if dialog.removed:
             self.spell = load_spell_checker(self.user_dictionary)
+            self._apply_spell_copied()
             self._sync_spell()
             self._recheck_if_done()
 
@@ -2759,7 +2774,9 @@ class MainWindow(QMainWindow):
             page=page or PAGE_VIEW,
         )
         dialog.live_kinds_changed.connect(self._set_live_kinds)
+        dialog.spell_copied_changed.connect(self._set_spell_copied)
         dialog.notify_option_changed.connect(lambda key, on: self.settings.setValue(key, "1" if on else "0"))
+        dialog.notify_card_seconds_changed.connect(lambda sec: self.settings.setValue(KEY_CARD_SECONDS, sec))
         dialog.test_notification_requested.connect(self._test_notification)
         dialog.theme_changed.connect(self._set_theme)
         dialog.font_size_changed.connect(self._set_font_size)
@@ -3420,6 +3437,9 @@ class MainWindow(QMainWindow):
         self._refresh_marks()
         self._push_fit_to_page()
         self.translate_page.set_qa_issues([], [])  # önceki projenin denetim sonuçları taşınmaz
+        self.qa_page.reset()
+        self._qa_count = None
+        self._qa_errors = False
         self.translate_page.set_project_key(
             str(project.path) if project.path else None
         )  # süzgeçler projeye göre hatırlanır

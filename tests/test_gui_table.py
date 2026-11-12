@@ -133,6 +133,8 @@ def test_sort_keeps_filter_and_is_fast_on_large_tables(qtbot: QtBot) -> None:
     assert time.perf_counter() - start < 3.0
     assert p.proxy.index(0, COL_SOURCE).data() == "Line 19999"
     p.search.setText("Line 0000")
+    assert p.proxy.rowCount() == 30000  # büyük tabloda yazarken süzülmez (gecikmeli)
+    QTest.keyClick(p.search, Qt.Key.Key_Return)  # Enter hemen uygular
     assert 0 < p.proxy.rowCount() < 30000
 
 

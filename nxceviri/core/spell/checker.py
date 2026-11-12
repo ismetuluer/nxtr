@@ -4,6 +4,9 @@ Yanlış alarmı azaltmak için sayılmayan sözcükler: kontrol kodları, sayı
 (özel ad + ek: Eddie'ye), tamamı büyük harf olanlar (kısaltma), cümle ortasında büyük harfle başlayanlar (özel ad),
 orijinal metinde de geçenler (korunan adlar), ses efektleri (hihihi, ahhh), kullanıcı sözlüğündekiler ve çağıranın
 verdiği ek sözcükler (ör. oyun sözlüğündeki terimler).
+
+`flag_copied` açıksa orijinalden aynen kopyalanan sözcükler (büyük harfli olsalar da) atlanmaz; yalnızca bilinen
+sözcükler, kullanıcı sözlüğü, kısaltmalar ve ses efektleri yine işaretlenmez.
 """
 
 from __future__ import annotations
@@ -45,6 +48,8 @@ class SpellChecker:
     def __init__(self, bloom: BloomFilter, user_words: Iterable[str] = ()) -> None:
         self._bloom = bloom
         self._user = {turkish_lower(w) for w in user_words}
+        #: Orijinal metinde de geçen sözcükler de denetlensin (varsayılan: korunan ad sayılıp atlanır).
+        self.flag_copied = False
 
     def add_user_words(self, words: Iterable[str]) -> None:
         self._user |= {turkish_lower(w) for w in words}
@@ -67,10 +72,11 @@ class SpellChecker:
         found: list[tuple[int, int, str]] = []
         for word, start in words_of(text):
             low = turkish_lower(word)
-            if low in from_source or (len(word) > 1 and word.isupper()) or _SOUND_EFFECT.fullmatch(low):
+            copied = low in from_source
+            if (copied and not self.flag_copied) or (len(word) > 1 and word.isupper()) or _SOUND_EFFECT.fullmatch(low):
                 continue
-            if word[0].isupper() and not _sentence_start(text, start):
-                continue  # cümle ortasında büyük harf: özel ad
+            if word[0].isupper() and not copied and not _sentence_start(text, start):
+                continue  # cümle ortasında büyük harf: özel ad (orijinalden kopya işaretlenecekse bu kural uygulanmaz)
             if not self.is_known(word, extra):
                 found.append((start, start + len(word), low))
         return found

@@ -6,11 +6,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from PySide6.QtCore import QSettings
-from PySide6.QtWidgets import QMainWindow, QWidget
+from PySide6.QtCore import QEvent, QPointF, QSettings
+from PySide6.QtGui import QEnterEvent
+from PySide6.QtWidgets import QApplication, QMainWindow, QWidget
 from pytestqt.qtbot import QtBot
 
 from nxceviri.gui.notify import (
+    KEY_CARD_SECONDS,
     KEY_FLASH,
     KEY_SOUND,
     KEY_SYSTEM,
@@ -107,12 +109,38 @@ def test_close_button_removes_card_but_keeps_history(env: Env) -> None:
     assert [n.title for n in env.center.history] == ["Bitti"]
 
 
-def test_success_card_hides_itself_errors_stay(qtbot: QtBot, env: Env) -> None:
-    env.center.auto_hide_ms = 50
+def test_cards_hide_themselves_after_configured_time(qtbot: QtBot, env: Env) -> None:
+    env.settings.setValue(KEY_CARD_SECONDS, "0.05")
     env.center.notify(LEVEL_SUCCESS, "Bitti", loud=False)
     env.center.notify(LEVEL_ERROR, "Hata", loud=False)
-    qtbot.waitUntil(lambda: len(env.center.stack.cards()) == 1, timeout=2000)
-    assert env.center.stack.cards()[0].title_label.text() == "Hata"
+    env.center.notify(LEVEL_ERROR, "Eylemli", actions=(NoticeAction("Aç", lambda: None),), loud=False)
+    assert len(env.center.stack.cards()) == 3
+    qtbot.waitUntil(lambda: env.center.stack.cards() == [], timeout=2000)
+    assert [n.title for n in env.center.history] == ["Eylemli", "Hata", "Bitti"]  # geçmişte kalır
+
+
+def test_zero_seconds_keeps_cards(qtbot: QtBot, env: Env) -> None:
+    env.settings.setValue(KEY_CARD_SECONDS, "0")
+    env.center.notify(LEVEL_SUCCESS, "Bitti", loud=False)
+    qtbot.wait(150)
+    assert len(env.center.stack.cards()) == 1
+
+
+def test_default_card_seconds_is_eight(env: Env) -> None:
+    assert env.center.card_ms() == 8000
+    env.settings.setValue(KEY_CARD_SECONDS, "12")
+    assert env.center.card_ms() == 12000
+
+
+def test_hover_pauses_countdown(qtbot: QtBot, env: Env) -> None:
+    env.settings.setValue(KEY_CARD_SECONDS, "0.1")
+    env.center.notify(LEVEL_SUCCESS, "Bitti", loud=False)
+    card = env.center.stack.cards()[0]
+    QApplication.sendEvent(card, QEnterEvent(QPointF(5, 5), QPointF(5, 5), QPointF(5, 5)))
+    qtbot.wait(400)
+    assert env.center.stack.cards() == [card]  # fare üstündeyken kaybolmaz
+    QApplication.sendEvent(card, QEvent(QEvent.Type.Leave))
+    qtbot.waitUntil(lambda: env.center.stack.cards() == [], timeout=2000)
 
 
 def test_history_is_newest_first_and_bounded(env: Env) -> None:

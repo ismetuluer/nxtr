@@ -982,6 +982,16 @@ class QaPage(QWidget):
         self.model.set_issues(issues, {r.id: r for r in rows})
         self._issues_changed()
 
+    def reset(self) -> None:
+        """Denetim sonuçlarını siler (başka proje açıldı): liste, özet, çipler ve düzeltme sayıları boşalır."""
+        self.model.set_issues([])
+        self.chip_bar.set_counts({}, {})
+        self._update_fix_counts([])
+        self._refilter()
+        self.summary.setText("Henüz denetlenmedi.")
+        self.summary_icon.hide()
+        self.last_fix_text = ""
+
     def replace_row_issues(self, row_id: int, issues: list[QaIssue], row: TranslationRow) -> None:
         """Tek satırın bulgularını yenisiyle değiştirir (yerinde düzenleme sonrası); bulgu kalmadıysa satır düşer.
 

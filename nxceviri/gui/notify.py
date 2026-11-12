@@ -18,6 +18,7 @@ from datetime import datetime
 from typing import Protocol
 
 from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QTimer, Signal
+from PySide6.QtGui import QEnterEvent
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -46,6 +47,7 @@ LEVEL_INFO = "info"
 KEY_SOUND = "notify/sound"
 KEY_SYSTEM = "notify/system"
 KEY_FLASH = "notify/flash"
+KEY_CARD_SECONDS = "notify/card_seconds"
 
 #: Geçmişte tutulan en çok bildirim.
 MAX_HISTORY = 50
@@ -53,8 +55,8 @@ MAX_HISTORY = 50
 MAX_CARDS = 4
 #: Kartın genişliği (piksel).
 CARD_WIDTH = 380
-#: Başarı ve bilgi kartlarının kendiliğinden kapanma süresi.
-AUTO_HIDE_MS = 8000
+#: Kartların kendiliğinden kapanma süresi (saniye); 0 ise kapanmaz. Ayarlar → Bildirimler'den değişir.
+DEFAULT_CARD_SECONDS = 8
 #: Bu süreden uzun süren iş, pencere önde olsa da gürültülü bildirilir (kullanıcı başka işe dönmüş olabilir).
 LONG_TASK_S = 2.0
 
@@ -216,6 +218,27 @@ class NoticeCard(QFrame):
         bind_icon(self.close_button, "x", size=14)
         self.close_button.clicked.connect(self.dismiss)
         lay.addWidget(self.close_button, alignment=Qt.AlignmentFlag.AlignTop)
+        self._hide_ms = 0
+        self._hide_timer = QTimer(self)
+        self._hide_timer.setSingleShot(True)
+        self._hide_timer.timeout.connect(self.dismiss)
+
+    def auto_hide(self, ms: int) -> None:
+        """Kart `ms` milisaniye sonra kendiliğinden kapanır (0: kapanmaz). Fare kartın üstündeyken sayım durur."""
+        self._hide_ms = ms
+        if ms > 0 and not self.underMouse():
+            self._hide_timer.start(ms)
+        else:
+            self._hide_timer.stop()
+
+    def enterEvent(self, event: QEnterEvent) -> None:
+        self._hide_timer.stop()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event: QEvent) -> None:
+        if self._hide_ms > 0:
+            self._hide_timer.start(self._hide_ms)
+        super().leaveEvent(event)
 
     def _run(self, action: NoticeAction) -> None:
         self.dismiss()
@@ -312,7 +335,21 @@ class NotificationCenter(QObject):
         self.stack = NoticeStack(window)
         self.history: list[Notice] = []
         self.unread = 0
-        self.auto_hide_ms = AUTO_HIDE_MS
+
+    def card_ms(self) -> int:
+        """Kartın kapanma süresi (ms); 0 ise kart kendiliğinden kapanmaz."""
+        raw = DEFAULT_CARD_SECONDS if self._settings is None else self._settings.value(KEY_CARD_SECONDS)
+        try:
+            seconds = float(raw) if raw is not None else DEFAULT_CARD_SECONDS
+        except (TypeError, ValueError):
+            seconds = DEFAULT_CARD_SECONDS
+        return max(0, round(seconds * 1000))
+
+    def show_card(self, notice: Notice) -> None:
+        """Bildirimi kart olarak gösterir; süre dolunca kart kapanır, bildirim geçmişte kalır."""
+        card = NoticeCard(notice)
+        self.stack.add(card)
+        card.auto_hide(self.card_ms())
 
     def enabled(self, key: str) -> bool:
         if self._settings is None:
@@ -333,10 +370,7 @@ class NotificationCenter(QObject):
         self.history.insert(0, notice)
         del self.history[MAX_HISTORY:]
         self.unread = min(self.unread + 1, MAX_HISTORY)
-        card = NoticeCard(notice)
-        self.stack.add(card)
-        if level in (LEVEL_SUCCESS, LEVEL_INFO) and not notice.actions:
-            QTimer.singleShot(self.auto_hide_ms, card, card.dismiss)
+        self.show_card(notice)
         if loud is None:
             loud = not self._window.isActiveWindow()
         if loud:
@@ -389,7 +423,7 @@ class HistoryButton(QToolButton):
             bind_icon(action, _ICONS[notice.level], size=14, tone=_TONES[notice.level])
             if notice.text:
                 action.setToolTip(notice.text)
-            action.triggered.connect(lambda _c=False, n=notice: self._center.stack.add(NoticeCard(n)))
+            action.triggered.connect(lambda _c=False, n=notice: self._center.show_card(n))
         if history:
             menu.addSeparator()
             menu.addAction("Geçmişi Temizle").triggered.connect(self._clear)

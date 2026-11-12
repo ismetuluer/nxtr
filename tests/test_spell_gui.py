@@ -138,3 +138,46 @@ def test_user_dictionary_dialog_removes_words(qtbot: QtBot, tmp_path: Path) -> N
     assert user.words() == frozenset({"elara", "mara"})
     assert dialog.list.count() == 2
     assert main_window_module  # içe aktarma: arayüz testleri aynı modülü kullanır
+
+
+def test_copied_words_setting_flags_original_words(qtbot: QtBot, window: MainWindow) -> None:
+    from nxceviri.gui.settings_dialog import KEY_SPELL_COPIED
+
+    page = window.translate_page
+    page.table.selectRow(1)  # "Elara ile tanış": Elara kaynakta da var
+    qtbot.waitUntil(lambda: page.pane.translation_edit.toPlainText() == "Elara ile tanış", timeout=5000)
+    assert _underlined(page.pane) == []
+    window._set_spell_copied(True)
+    assert str(window.settings.value(KEY_SPELL_COPIED)) == "1"
+    assert window.spell is not None
+    assert window.spell.unknown_words("Elara ile tanış", "Meet Elara") == ["elara"]
+    window._set_spell_copied(False)
+    assert window.spell.unknown_words("Elara ile tanış", "Meet Elara") == []
+    assert str(window.settings.value(KEY_SPELL_COPIED)) == "0"
+
+
+def test_live_settings_page_has_copied_words_option(qtbot: QtBot, window: MainWindow, tmp_path: Path) -> None:
+    from nxceviri.gui.settings_dialog import KEY_SPELL_COPIED, PAGE_LIVE, SettingsDialog
+
+    window.settings.setValue(KEY_SPELL_COPIED, "1")
+    dialog = SettingsDialog(
+        window,
+        window.settings,
+        window.shortcuts,
+        window.translate_page.view_actions,
+        window.secrets,
+        theme=window._theme_mode(),
+        font_size=window._font_size(),
+        wrap=window.translate_page.wrap_box,
+        issue_colors=window.translate_page.colors_box,
+        error_rows=window.translate_page.error_rows_box,
+        updates_available=False,
+        page=PAGE_LIVE,
+    )
+    qtbot.addWidget(dialog)
+    assert dialog.spell_copied_box.text() == "Orijinalden aynen kopyalanan sözcükleri de işaretle"
+    assert dialog.spell_copied_box.isChecked()
+    seen: list[bool] = []
+    dialog.spell_copied_changed.connect(seen.append)
+    dialog.spell_copied_box.setChecked(False)
+    assert seen == [False]

@@ -134,3 +134,28 @@ def test_bundled_filter_matches_real_turkish() -> None:
 def test_unknown_spans_give_positions() -> None:
     spell = _checker()
     assert spell.unknown_spans("kitap yanlışş iyi", "") == [(6, 13, "yanlışş")]
+
+
+def test_words_copied_from_source_are_skipped_unless_flagged() -> None:
+    spell = _checker()
+    spell.add_user_words(["ve", "aç"])
+    source = "Use Sunflare Spike and Honor Pivot"
+    text = "Sunflare Spike ve Honor Pivot kullan, merhaba Pivot"
+    # Varsayılan: orijinalden aynen kopyalanan sözcükler (korunan adlar) işaretlenmez.
+    assert spell.unknown_words(text, source) == ["kullan"]
+    spell.flag_copied = True
+    flagged = spell.unknown_words(text, source)
+    assert {"sunflare", "spike", "honor", "pivot"} <= set(flagged)  # büyük harfli olsalar da işaretlenir
+    # Sözlükteki, ses efekti ve kısaltmalar yine işaretlenmez; kullanıcı sözlüğü hâlâ işe yarar.
+    spell.add_user_words(["Sunflare"])
+    assert "sunflare" not in spell.unknown_words(text, source)
+    assert spell.unknown_words("Merhaba OYUN hihihi", "Merhaba OYUN hihihi") == []
+
+
+def test_flag_copied_applies_to_spans_and_report() -> None:
+    spell = _checker()
+    spell.add_user_words(["aç"])
+    source, text = "Open the Gate", "Gate aç"
+    assert spell.unknown_spans(text, source) == []
+    spell.flag_copied = True
+    assert [(a, b, low) for a, b, low in spell.unknown_spans(text, source)] == [(0, 4, "gate")]
