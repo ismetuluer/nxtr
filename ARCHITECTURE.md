@@ -910,6 +910,15 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
 174. **Çökme günlüğü** (`app.enable_crash_log`, `cokme.log`): `faulthandler` dosyaya yazar; dosya `main()` boyunca açık
     tutulur, normal çıkışta kapatılır. Klasör yazılamazsa açılış bozulmaz.
 
+### 4.45 0.55.5 kararları (çöp toplayıcı)
+
+175. **Döngü toplayıcı ana döngüden** (`gui/gcguard.GarbageCollector`): `gc.disable()`; 500 ms'de bir kuşak sayaçlarına
+    bakılır, eşik aşıldıysa yalnızca o kuşak toplanır (pyqtgraph yaklaşımı). Böylece Qt sarmalayıcılarının yok
+    edilmesi Qt çağrılarının ortasında ya da iş parçacığında olmaz. `cokme.log`'daki iki çökme de "Garbage-collecting"
+    sırasındaydı. Testlerde (uygulama `main()` çalışmadığı için) otomatik toplayıcı açıktır.
+176. **İş parçacığı bırakma** (`tasks.release_thread`): `wait()` sonra `deleteLater()`; `Task`, sağlayıcı yoklaması ve
+    yazım taraması bu yolu kullanır. Pencereler `exec()` sonrası `deleteLater()` ile silinir.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

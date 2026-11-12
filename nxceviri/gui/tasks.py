@@ -17,6 +17,14 @@ log = logging.getLogger(__name__)
 _PROGRESS_INTERVAL_S = 0.05
 
 
+def release_thread(thread: QThread) -> None:
+    """Biten iş parçacığını güvenle bırakır: `finished` yayıldığında iş parçacığı henüz tamamen durmamış olabilir;
+    önce durması beklenir (anlık), sonra C++ nesnesi olay döngüsünde silinir. Beklemeden bırakılan nesne çöp
+    toplayıcıda yok edilirse Qt "çalışırken yok edildi" diye uygulamayı sonlandırır."""
+    thread.wait()
+    thread.deleteLater()
+
+
 class Task(QThread):
     """`fn(ctx)`'i ayrı iş parçacığında çalıştırır; sonuçları sinyallerle bildirir."""
 

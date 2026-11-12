@@ -12,7 +12,7 @@ from collections.abc import Callable
 import httpx
 from PySide6.QtCore import QObject, Signal
 
-from nxceviri.gui.tasks import Task
+from nxceviri.gui.tasks import Task, release_thread
 
 #: Aynı sağlayıcı için iki sorgu arasındaki en kısa süre (saniye).
 TTL_S = 30.0
@@ -78,7 +78,7 @@ class ProviderProbe(QObject):
     def _release(self) -> None:
         task, self._task = self._task, None
         if task is not None:
-            task.deleteLater()
+            release_thread(task)
         queued, self._queued = self._queued, None
         if queued is not None:
             self.request(*queued)

@@ -192,7 +192,7 @@ from nxceviri.gui.spell_dialogs import AddSpellWordsDialog, UserDictionaryDialog
 from nxceviri.gui.spell_window import SpellWindow
 from nxceviri.gui.statusbar import StatusSegments
 from nxceviri.gui.step_nav import COLLAPSED_WIDTH, ProjectHeader, StepNav
-from nxceviri.gui.tasks import Task
+from nxceviri.gui.tasks import Task, release_thread
 from nxceviri.gui.theme import (
     DEFAULT_FONT_SIZE,
     FONT_SIZES,
@@ -1111,7 +1111,7 @@ class MainWindow(QMainWindow):
 
     def _task_finished(self) -> None:
         if self.task is not None:
-            self.task.deleteLater()
+            release_thread(self.task)
         self.task = None
         self.statusBar().showMessage("Hazır")
         if self.mascot.mood == MOOD_WORKING:
@@ -2003,7 +2003,7 @@ class MainWindow(QMainWindow):
     def _spell_scan_finished(self) -> None:
         scan, self._spell_scan = self._spell_scan, None
         if scan is not None:
-            scan.deleteLater()
+            release_thread(scan)
         if self._spell_scan_ok:
             self._refresh_spell_window()  # tarama sürerken değişen satırlar için
         elif self._spell_window is not None:
@@ -2758,9 +2758,12 @@ class MainWindow(QMainWindow):
             instruction=self.project.setting(REVISE_INSTRUCTION_KEY),
             translate_instruction=self.project.setting(TRANSLATE_INSTRUCTION_KEY),
         )
-        if dialog.exec() != MachineDialog.DialogCode.Accepted:
-            return None
-        return dialog.settings()
+        try:
+            if dialog.exec() != MachineDialog.DialogCode.Accepted:
+                return None
+            return dialog.settings()
+        finally:
+            dialog.deleteLater()  # her açılışta ana pencerenin çocuğu olarak kalıyordu (sızıntı)
 
     def _machine_scopes(self) -> dict[str, list[TranslationRow]]:
         """Pencerede sunulan kapsamlar: seçili satırlar, onların grupları, filtrelenen satırlar, tümü."""

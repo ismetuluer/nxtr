@@ -2,6 +2,16 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.55.5] — 2026-11-12 — Çeviri başlarken çökme (asıl neden)
+
+### Düzeltildi
+- **Çeviri başlarken program kapanıyordu (DeepL ve Ollama).** 0.55.4'te eklenen çökme günlüğü nedeni gösterdi: her
+  iki çökmede de uygulama Python'un **çöp toplayıcısı** çalışırken sonlanmış ("Garbage-collecting", ardından abort ve
+  erişim ihlali); toplayıcı rastgele bir satırda (ör. satırlar okunurken) tetiklenip içindeki Qt nesnelerini o anda
+  yok ediyordu. Artık otomatik toplama kapalı; aynı kurallarla, ana olay döngüsünden güvenli bir noktada yapılıyor.
+- Biten arka plan işleri (iş parçacıkları) durmaları beklenmeden bırakılıyordu; artık önce bekleniyor.
+- **Otomatik Çeviri penceresi** her açılışta silinmeyip bellekte kalıyordu; artık kapanınca siliniyor.
+
 ## [0.55.4] — 2026-11-10 — Çeviri sırasında çökme
 
 ### Düzeltildi

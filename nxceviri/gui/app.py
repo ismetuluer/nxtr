@@ -17,6 +17,7 @@ from nxceviri import __version__
 from nxceviri.core.formats.registry import load_user_plugins
 from nxceviri.core.selfupdate import take_install_failure
 from nxceviri.core.update import UpdateError, app_root, apply_staged, relaunch
+from nxceviri.gui.gcguard import GarbageCollector
 from nxceviri.gui.main_window import APP_TITLE, MainWindow, log_dir
 from nxceviri.gui.theme import DEFAULT_FONT_SIZE, ThemeMode, apply_theme
 
@@ -102,6 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     if restart:
         return 0
     app = QApplication(args)
+    collector = GarbageCollector(app)  # döngü toplayıcı yalnızca ana döngüden çalışır (çökme önlemi)
     app.setApplicationName("NXCeviri")
     app.setOrganizationName("NXCeviri")
     app.setApplicationDisplayName(APP_TITLE)
@@ -133,6 +135,7 @@ def main(argv: list[str] | None = None) -> int:
         window.offer_recovery()
     window.check_updates_in_background()
     code = app.exec()
+    collector.stop()
     if crash_log is not None:
         faulthandler.disable()
         crash_log.close()  # normal çıkış: dosya uygulama kapanana dek açık kaldı
