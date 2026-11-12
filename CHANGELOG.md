@@ -2,6 +2,18 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.56.0] — 2026-11-12 — Kenar çubuğu: yay animasyonu ve görünür düğme
+
+### Eklendi
+- **Kenar çubuğunda görünür daralt/genişlet düğmesi** (sol altta). Yalnızca menüden (Görünüm → Kenar Çubuğu) ve
+  `Ctrl+Alt+S`'den yapılabiliyordu. Düğme daralmış hâlde de görünür; ipucu o an ne yapacağını ve kısayolunu söyler.
+- **Yay animasyonu** (designbookmark.com "Sidebar collapse"): daralma/açılma artık sabit süreli doğrusal geçiş yerine
+  yayla yapılıyor. Çözücü sitenin `motion.js`indeki yarı örtük Euler çözücüsünün birebir taşınmasıdır (kütle 1, 4 alt adım,
+  kare başına en çok 1/30 s); yay değerleri `tokens.css`ten (`--spring-soft`: sertlik 260, sönüm 24). Açılırken hedefi
+  hafif aşıp döner; daralırken simge genişliğinin altına inilmez. Windows "animasyonları azalt" açıksa anında olur.
+- Sitenin kenar çubuğuna özel dosyaları (genişlikler, etiket solması) okunamadığı için yalnızca genişlik yayla
+  hareket eder; etiket/simge sırası ve gecikmeleri bu sürümde yok.
+
 ## [0.55.5] — 2026-11-12 — Çeviri başlarken çökme (asıl neden)
 
 ### Düzeltildi

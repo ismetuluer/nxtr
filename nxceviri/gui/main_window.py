@@ -11,7 +11,7 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import httpx
-from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, QUrl, QVariantAnimation
+from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, QUrl
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QGuiApplication
 from PySide6.QtWidgets import (
     QApplication,
@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QStackedWidget,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -139,6 +140,7 @@ from nxceviri.gui.changes_dialog import ChangesDialog
 from nxceviri.gui.csv_dialog import FORMAT_TXT, MODE_REDACTION, MODE_TRANSLATION, CsvExportDialog
 from nxceviri.gui.export_page import ExportPage
 from nxceviri.gui.help_window import STEP_TOPICS, TOPIC_START, HelpWindow
+from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.jobs import JOB_TITLES, describe_summary, new_job_id, run_and_close, short_summary
 from nxceviri.gui.machine_dialogs import (
     PROVIDER_DEEPL,
@@ -190,6 +192,7 @@ from nxceviri.gui.settings_dialog import PAGE_PROVIDERS, PAGE_VIEW, SettingsDial
 from nxceviri.gui.shortcuts import ShortcutRegistry
 from nxceviri.gui.spell_dialogs import AddSpellWordsDialog, UserDictionaryDialog
 from nxceviri.gui.spell_window import SpellWindow
+from nxceviri.gui.spring import SPRING_SOFT, SpringAnimator
 from nxceviri.gui.statusbar import StatusSegments
 from nxceviri.gui.step_nav import COLLAPSED_WIDTH, ProjectHeader, StepNav
 from nxceviri.gui.tasks import Task, release_thread
@@ -233,7 +236,9 @@ PREVIEW_CHARS = 80
 #: Bu genişlikten dar pencerede kenar çubuğu ilk açılışta daralmış başlar.
 NAV_AUTO_COLLAPSE_BELOW = 1000
 #: Kenar çubuğu daralma/açılma animasyonunun süresi (ms).
-NAV_ANIMATION_MS = 150
+#: Kenar çubuğu daralt/genişlet düğmesinin boyu ve kenar boşluğu (simgelerle hizalı).
+NAV_TOGGLE_SIZE = 32
+NAV_TOGGLE_MARGIN = 14
 #: Sağlayıcı durumu sorgularının zaman aşımı (sn); arka plandadır ama ipucunu uzun bekletmez.
 PROBE_TIMEOUT_S = 2.0
 
@@ -405,13 +410,26 @@ class MainWindow(QMainWindow):
         column.setSpacing(0)
         self.nav_header = ProjectHeader()
         self.nav = StepNav()
-        self._nav_anim: QVariantAnimation | None = None
+        self._nav_anim: SpringAnimator | None = None
         self._nav_collapsed = self._initial_nav_collapsed()
         self.nav.set_collapsed(self._nav_collapsed)
         self.nav_header.setVisible(not self._nav_collapsed)
         self.nav.preferred_width_changed.connect(self._update_nav_width)
         column.addWidget(self.nav_header)
         column.addWidget(self.nav, 1)
+        # Görünür daralt/genişlet düğmesi (menü ve Ctrl+Alt+S'nin yanında): daralmış hâlde de görünür kalır.
+        self.nav_toggle = QToolButton()
+        self.nav_toggle.setProperty("role", "viewTool")
+        self.nav_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.nav_toggle.setFixedSize(NAV_TOGGLE_SIZE, NAV_TOGGLE_SIZE)
+        bind_icon(self.nav_toggle, "panel-left", size=18)
+        self.nav_toggle.clicked.connect(lambda: self.set_nav_collapsed(not self._nav_collapsed))
+        toggle_row = QHBoxLayout()
+        toggle_row.setContentsMargins(NAV_TOGGLE_MARGIN, 4, NAV_TOGGLE_MARGIN, 12)
+        toggle_row.addWidget(self.nav_toggle)
+        toggle_row.addStretch(1)
+        column.addLayout(toggle_row)
+        self._refresh_nav_toggle()
         root.addWidget(self.nav_column)
         self._update_nav_width()
         self.pages = QStackedWidget()
@@ -590,6 +608,7 @@ class MainWindow(QMainWindow):
             self._nav_anim.deleteLater()  # durdurulan animasyon nesnesi pencereyle birlikte birikmesin
             self._nav_anim = None
         self._nav_collapsed = collapsed
+        self._refresh_nav_toggle()
         target = self._nav_width()
         start = self.nav_column.width()
         if not (animate and self.isVisible() and animations_enabled()) or start == target:
@@ -598,12 +617,16 @@ class MainWindow(QMainWindow):
         if not collapsed:  # açılırken önce ad ve başlık görünür, sonra genişlik büyür
             self.nav.set_collapsed(False)
             self.nav_header.setVisible(True)
-        anim = QVariantAnimation(self)
-        anim.setDuration(NAV_ANIMATION_MS)
-        anim.setStartValue(start)
-        anim.setEndValue(target)
-        anim.valueChanged.connect(lambda value: self.nav_column.setFixedWidth(int(value)))
-        anim.finished.connect(lambda: self._finish_nav(collapsed))
+        # Yay (designbookmark "Sidebar collapse"): süre yok, hareket yay dengeye gelince biter; az sönümlü olduğundan
+        # hedefi hafif aşıp döner. Daralırken simge genişliğinin altına inilmez (simgeler kırpılmasın).
+        anim = SpringAnimator(
+            self,
+            float(start),
+            float(target),
+            *SPRING_SOFT,
+            on_value=lambda value: self.nav_column.setFixedWidth(max(COLLAPSED_WIDTH, round(value))),
+            on_done=lambda: self._finish_nav(collapsed),
+        )
         self._nav_anim = anim
         anim.start()
 
@@ -614,6 +637,12 @@ class MainWindow(QMainWindow):
         self.nav.set_collapsed(collapsed)
         self.nav_header.setVisible(not collapsed)
         self.nav_column.setFixedWidth(self._nav_width())
+
+    def _refresh_nav_toggle(self) -> None:
+        """Düğmenin ipucu: şu an ne yapacağını ve kısayolunu söyler."""
+        key = self.shortcuts.text("view.nav")
+        action = "Kenar çubuğunu genişlet" if self._nav_collapsed else "Kenar çubuğunu daralt"
+        self.nav_toggle.setToolTip(f"{action} ({key})" if key else action)
 
     def changeEvent(self, event: QEvent) -> None:
         super().changeEvent(event)

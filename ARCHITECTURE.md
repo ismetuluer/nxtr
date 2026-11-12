@@ -919,6 +919,14 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
 176. **İş parçacığı bırakma** (`tasks.release_thread`): `wait()` sonra `deleteLater()`; `Task`, sağlayıcı yoklaması ve
     yazım taraması bu yolu kullanır. Pencereler `exec()` sonrası `deleteLater()` ile silinir.
 
+### 4.46 0.56.0 kararları (yay animasyonu)
+
+177. **Yay çözücü** (`gui/spring.py`): `shared/motion.js`teki çözücü birebir (yarı örtük Euler, kütle 1, 4 alt adım,
+    dt ≤ 1/30 s). Süre yok; denge eşiği 0,4 birim ve 8 birim/s. `SpringAnimator` Qt zamanlayıcısıyla sürer; `retarget`
+    hızı korur (yön değişimi sıçramaz). Yeni bağımlılık yok. Kenar çubuğu `--spring-soft` (260, 24) kullanır.
+178. **Düğme daralmış sütuna sığmalı** (`NAV_TOGGLE_SIZE`/`MARGIN`): daralmış genişlik simge sütunudur; yay taşsa da genişlik
+    `COLLAPSED_WIDTH`in altına inmez.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

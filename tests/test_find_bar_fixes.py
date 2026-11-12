@@ -298,15 +298,16 @@ def test_manual_limit_is_saved_per_project(window: MainWindow) -> None:
 def test_stopped_sidebar_animations_do_not_pile_up(
     window: MainWindow, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from PySide6.QtCore import QCoreApplication, QEvent, QVariantAnimation
+    from PySide6.QtCore import QCoreApplication, QEvent
 
     from nxceviri.gui import main_window
+    from nxceviri.gui.spring import SpringAnimator
 
     monkeypatch.setattr(main_window, "animations_enabled", lambda: True)
     for _ in range(6):  # her çağrı öncekini durdurur
         window.set_nav_collapsed(not window._nav_collapsed)
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-    assert len(window.findChildren(QVariantAnimation)) <= 1
+    assert len(window.findChildren(SpringAnimator)) <= 1
     qtbot.waitUntil(lambda: window._nav_anim is None, timeout=3000)
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
-    assert window.findChildren(QVariantAnimation) == []
+    assert window.findChildren(SpringAnimator) == []

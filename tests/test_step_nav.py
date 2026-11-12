@@ -312,3 +312,21 @@ def test_small_window_starts_collapsed_without_saved_choice(
         w.dirty = False
         w.close()
         w.deleteLater()
+
+
+@pytest.mark.gui
+def test_visible_toggle_button_collapses_and_expands(qtbot: QtBot, window: MainWindow) -> None:
+    """Menüden ve Ctrl+Alt+S'den başka, kenar çubuğunda görünür bir düğme de var; daralmışken de görünür kalır."""
+    window.show()
+    button = window.nav_toggle
+    assert button.isVisibleTo(window)
+    assert "daralt" in button.toolTip()
+    assert "Ctrl+Alt+S" in button.toolTip()  # kısayol ipucunda yazar
+    button.click()
+    assert _collapsed(window)
+    assert button.isVisibleTo(window)  # simge sütununda da görünür
+    assert "genişlet" in button.toolTip()
+    assert window.nav_column.width() >= button.width()  # düğme daralmış sütuna sığar
+    button.click()
+    assert not _collapsed(window)
+    assert "daralt" in button.toolTip()
