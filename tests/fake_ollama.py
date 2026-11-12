@@ -67,6 +67,10 @@ class FakeOllama:
     down: bool = False
     #: Bu kadar maddeden büyük partide yanıt uzunluk sınırında kesilir (yarım JSON, bitiş nedeni "length").
     truncate_over: int | None = None
+    #: Bu metinlerden birini içeren her istekte yanıt uzunluk sınırında kesilir (modelin takılıp döngüye girmesi).
+    truncate_texts: frozenset[str] = frozenset()
+    #: Bu metinlerden birini içeren her istekte Ollama akış ortasında "token repeat limit" hatası bildirir.
+    repeat_abort_texts: frozenset[str] = frozenset()
     #: Modelin sohbet şablonu (`ollama show --template`); verilmeyen modelde /api/show şablon alanı döndürmez.
     templates: dict[str, str] = field(default_factory=dict)
     #: Modelin bağlam uzunluğu (`model_info` içindeki `<aile>.context_length`).
@@ -121,6 +125,13 @@ class FakeOllama:
         payload = json.loads(content)
         if self.truncate_over is not None and len(payload.get("items", ())) > self.truncate_over:
             return _chat_response(body, '{"translations": [{"id": "0", "te', done_reason="length")
+        texts = {it["text"] for it in payload.get("items", ())}
+        if texts & self.truncate_texts:
+            return _chat_response(body, '{"translations": [{"id": "0", "te', done_reason="length")
+        if texts & self.repeat_abort_texts:
+            return httpx.Response(
+                200, content=json.dumps({"error": "prediction aborted, token repeat limit reached"}).encode()
+            )
         if "terms" in body["format"]["required"]:
             return _chat_response(body, json.dumps({"terms": self.suggest(payload)}, ensure_ascii=False))
         out = []

@@ -9,9 +9,9 @@ import pytest
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.progress import TaskContext
-from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_TRANSLATE, Rejection, RunSummary
+from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_TRANSLATE, Rejection, RunSummary, SkippedLine
 from nxceviri.core.update import UpdateInfo
-from nxceviri.gui.jobs import short_summary
+from nxceviri.gui.jobs import describe_summary, short_summary
 from nxceviri.gui.main_window import MainWindow
 from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_SUCCESS, LEVEL_WARNING, split_notice
 from tests.test_statusbar import _make_window, _project
@@ -149,3 +149,14 @@ def test_check_button_runs_in_background_and_notifies(qtbot: QtBot, window: Main
     assert window.qa_page.summary.text() not in ("", "Denetleniyor…")  # sonuç özeti yazıldı
     assert window.notifier.history[0].title.startswith("Denetim")
     assert window.qa_page.check_button.isEnabled()
+
+
+def test_skipped_lines_are_reported() -> None:
+    summary = RunSummary(translated=5, skipped=12, skips=[SkippedLine("Line_007", "Model takıldı.")])
+    level, _title, text = short_summary(ACTION_TRANSLATE, summary)
+    assert level == "warning"
+    assert "12 satır atlandı (model takıldı); elle çevirin" in text
+    message, state = describe_summary(ACTION_TRANSLATE, summary)
+    assert state == "warning"
+    assert "• Line_007: Model takıldı." in message
+    assert "• …" in message

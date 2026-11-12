@@ -59,6 +59,8 @@ MIN_NUM_CTX = 8192
 MAX_NUM_CTX = 32768
 #: Yanıt için ayrılan en çok belirteç (`num_predict`).
 NUM_PREDICT = 3072
+#: Tekrar cezası (`repeat_penalty`): 1.0 kapalı; hafif değer döngüye girmeyi azaltır, çeviriyi bozmaz.
+REPEAT_PENALTY = 1.1
 #: Karakterden belirteç tahmini (Türkçe/İngilizce/Japonca için ihtiyatlı ortalama) ve güvenlik payı.
 _CHARS_PER_TOKEN = 3
 _CTX_MARGIN = 1.15
@@ -479,7 +481,14 @@ class OllamaProvider:
                     except ValueError:
                         raise ProviderError("Ollama anlaşılmayan bir yanıt döndürdü.", retryable=True) from None
                     if chunk.get("error"):
-                        raise ProviderError(f"Ollama hata bildirdi: {chunk['error']}", retryable=True)
+                        error = str(chunk["error"])
+                        if _is_generation_abort(error):
+                            raise ProviderError(
+                                f"Model aynı şeyi tekrarlayıp takıldı; Ollama üretimi kesti ({error}).",
+                                retryable=True,
+                                per_item=True,
+                            )
+                        raise ProviderError(f"Ollama hata bildirdi: {error}", retryable=True)
                     parts.append(str((chunk.get("message") or {}).get("content", "")))
                     if chunk.get("done"):
                         self._last_done_reason = str(chunk.get("done_reason") or "")
@@ -627,7 +636,14 @@ class OllamaProvider:
             "format": schema,
             # Düşük sıcaklık ve sabit tohum: aynı istem aynı çeviriyi verir (tutarlılık), model daha az uydurur.
             # Yeniden denemede istem değiştiği ("fix") için sonuç yine değişebilir.
-            "options": {"temperature": 0.2, "seed": OLLAMA_SEED, "num_ctx": num_ctx, "num_predict": NUM_PREDICT},
+            "options": {
+                "temperature": 0.2,
+                "seed": OLLAMA_SEED,
+                "num_ctx": num_ctx,
+                "num_predict": NUM_PREDICT,
+                # Aynı sözcüğü/harfi döngüyle tekrarlayan satırlarda ("Nooo!!!") modelin takılmasını azaltır.
+                "repeat_penalty": REPEAT_PENALTY,
+            },
             "keep_alive": "15m",
         }
         if "thinking" in info.capabilities:
@@ -661,12 +677,14 @@ class OllamaProvider:
                     "bir modeli (ör. gemma4:26b) deneyin ya da modelin düşünme modunu kapatın.",
                     retryable=True,
                     splittable=True,
+                    per_item=True,
                 )
             raise ProviderError(
                 "Model istenen biçimde (JSON) yanıt vermedi.",
                 "Parti tekrar denenecek; sorun sürerse başka bir model seçin. Modelin ne yazdığı günlükte "
                 "(Yardım → Log Klasörünü Aç).",
                 retryable=True,
+                per_item=True,
             )
         got: dict[str, str] = {}
         for row in rows:
@@ -678,6 +696,12 @@ class OllamaProvider:
 
     def estimate_cost(self, items: list[BatchItem]) -> str | None:
         return None  # yerel model: ücretsiz
+
+
+def _is_generation_abort(error: str) -> bool:
+    """Ollama üretimi modelin döngüye girmesi yüzünden kesti mi? (Bağlantı/sunucu hatası değil, o metne özgü sorun.)"""
+    low = error.lower()
+    return "repeat limit" in low or "prediction aborted" in low
 
 
 def _invalid_url_error(base_url: str) -> ProviderError:

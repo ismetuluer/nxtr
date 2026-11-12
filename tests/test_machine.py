@@ -423,10 +423,75 @@ def test_truncated_answer_splits_the_batch_and_retries(project: Project) -> None
     assert summary.split >= 1
 
 
-def test_truncated_single_item_still_fails_clearly(project: Project) -> None:
-    server = FakeOllama(truncate_over=0)
-    with pytest.raises(ProviderError, match="kesildi"):
+def test_truncated_single_item_is_skipped(project: Project) -> None:
+    """Tek satırlık yanıt bile kesiliyorsa satır atlanır; iş sürer, diğer satırlar çevrilir."""
+    server = FakeOllama(truncate_texts=frozenset({"Hello ⟦1⟧Link⟦2⟧!"}))
+    summary = run_machine_translation(server.provider(), _job(project), TaskContext(), _write(project))
+    rows = {r.key: r for r in project.translation_rows()}
+    assert summary.skipped == 1
+    assert rows["Menu_Hello"].status == Status.UNTRANSLATED
+    assert summary.skips[0].key == "Menu_Hello"
+    assert "uzunluk sınırında" in summary.skips[0].reason
+    assert rows["Menu_Start"].status == Status.MACHINE
+
+
+def test_looping_lines_are_skipped_and_job_finishes(project: Project) -> None:
+    """Kesilen ve "token repeat limit" ile yarıda bırakılan satırlar atlanır; geri kalan her şey çevrilir."""
+    server = FakeOllama(truncate_texts=frozenset({"Start Game"}), repeat_abort_texts=frozenset({"Line number 7"}))
+    summary = run_machine_translation(server.provider(), _job(project), TaskContext(), _write(project))
+    rows = {r.key: r for r in project.translation_rows()}
+    assert summary.skipped == 2
+    assert {s.key for s in summary.skips} == {"Menu_Start", "Line_007"}
+    assert any("tekrar" in s.reason for s in summary.skips)
+    assert rows["Menu_Start"].status == Status.UNTRANSLATED
+    assert rows["Line_007"].status == Status.UNTRANSLATED
+    assert rows["Line_008"].status == Status.MACHINE
+    assert rows["Line_006"].status == Status.MACHINE
+    # Yeniden başlatınca atlanan satırlar yine denenir (yalnızca onlar kalmıştır).
+    healthy = FakeOllama()
+    again = run_machine_translation(healthy.provider(), _job(project), TaskContext(), _write(project))
+    assert again.skipped == 0
+    assert again.translated == 2
+
+
+def test_skip_samples_are_limited(project: Project) -> None:
+    server = FakeOllama(truncate_texts=frozenset(f"Line number {i}" for i in range(20)))
+    summary = run_machine_translation(server.provider(), _job(project), TaskContext(), _write(project))
+    assert summary.skipped == 20
+    assert len(summary.skips) == runner_module.MAX_SKIP_SAMPLES
+
+
+def test_connection_error_mid_job_still_stops(project: Project) -> None:
+    """Bağlantı düzeyindeki hata (HTTP 500) satır atlama sayılmaz: iş durur."""
+    server = FakeOllama(fail_after=2, truncate_texts=frozenset({"Start Game"}))
+    with pytest.raises(ProviderError, match="HTTP 500"):
         run_machine_translation(server.provider(), _job(project), TaskContext(), _write(project))
+
+
+def test_model_problem_errors_are_per_item() -> None:
+    truncated = FakeOllama(truncate_texts=frozenset({"a"})).provider()
+    with pytest.raises(ProviderError, match="kesildi") as exc:
+        truncated.translate_batch([BatchItem("0", "a")], "en", "tr", "", [])
+    assert exc.value.per_item
+    looping = FakeOllama(repeat_abort_texts=frozenset({"a"})).provider()
+    with pytest.raises(ProviderError, match="tekrar") as exc:
+        looping.translate_batch([BatchItem("0", "a")], "en", "tr", "", [])
+    assert exc.value.per_item
+    with pytest.raises(ProviderError, match="JSON") as exc:
+        FakeOllama(bad_json=1).provider().translate_batch([BatchItem("0", "a")], "en", "tr", "", [])
+    assert exc.value.per_item
+    with pytest.raises(ProviderError, match="HTTP 500") as exc:
+        FakeOllama(fail_after=0).provider().translate_batch([BatchItem("0", "a")], "en", "tr", "", [])
+    assert not exc.value.per_item
+
+
+def test_request_discourages_repetition() -> None:
+    server = FakeOllama()
+    server.provider().translate_batch([BatchItem("0", "a")], "en", "tr", "", [])
+    options = server.requests[0]["options"]
+    assert options["repeat_penalty"] == 1.1
+    assert options["temperature"] == 0.2
+    assert options["seed"] == OLLAMA_SEED
 
 
 def test_key_hint_has_no_code_like_text() -> None:

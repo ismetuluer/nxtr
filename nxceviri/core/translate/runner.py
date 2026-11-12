@@ -108,10 +108,20 @@ class RunSummary:
     warnings: list[str] = field(default_factory=list)  # sağlayıcının uyarıları (ör. sözlük kurulamadı)
     #: Reddedilen (eski çevirisi korunan) satırlardan örnekler: kullanıcı nedenini ve öneriyi görsün.
     rejections: list[Rejection] = field(default_factory=list)
+    skipped: int = 0  # model takıldığı için (kesilme, döngü, bozuk yanıt) atlanan, olduğu gibi bırakılan satır sayısı
+    skips: list[SkippedLine] = field(default_factory=list)  # atlanan satırlardan örnekler
 
 
 #: `RunSummary.rejections` içinde tutulan en çok örnek sayısı.
 MAX_REJECTION_SAMPLES = 5
+#: `RunSummary.skips` içinde tutulan en çok örnek sayısı.
+MAX_SKIP_SAMPLES = 10
+
+
+@dataclass(frozen=True)
+class SkippedLine:
+    key: str  # satırın okunur adı
+    reason: str
 
 
 @dataclass(frozen=True)
@@ -192,6 +202,8 @@ class _Runner:
         self.latest: dict[int, str] = {}  # bu işte yazılan çeviriler (sonraki partilerin bağlamı için)
         self.revise = job.action == ACTION_REVISE
         self.splits = 0  # yarım yanıt yüzünden bölünen parti sayısı
+        #: Tek satıra inildiği hâlde modelin başaramadığı maddeler: madde kimliği → neden. `call` doldurur.
+        self.stuck: dict[str, str] = {}
 
     # --- partiler -------------------------------------------------------------------------
 
@@ -271,7 +283,16 @@ class _Runner:
                     log.info("Yanıt yarım kaldı; %d maddelik parti ikiye bölündü", len(items))
                     return self.call(items[:half], scene) + self.call(items[half:], scene)
                 if not exc.retryable or attempt >= len(RETRY_DELAYS_S):
-                    raise
+                    if not exc.per_item:
+                        raise
+                    if len(items) > 1:
+                        # Model bu partide takılıyor: hangi satırın sorunlu olduğu bölünerek bulunur.
+                        half = len(items) // 2
+                        return self.call(items[:half], scene) + self.call(items[half:], scene)
+                    # Tek satıra inildi ve model yine başaramadı: satır atlanır, iş sürer.
+                    self.stuck[items[0].id] = exc.message
+                    log.warning("Satır atlandı (%s): %s", items[0].id, exc.message)
+                    return [BatchResult(items[0].id, None, exc.message)]
                 delay = RETRY_DELAYS_S[attempt]
                 attempt += 1
                 log.info("Parti yeniden denenecek (%d. deneme, %.0f sn sonra): %s", attempt, delay, exc.message)
@@ -439,6 +460,12 @@ def run_machine_translation(
         accepted: list[tuple[_Unit, str]] = []
         for unit in batch:
             n = len(unit.rows)
+            if unit.item_id in runner.stuck:
+                summary.skipped += n
+                if len(summary.skips) < MAX_SKIP_SAMPLES:
+                    first = unit.first
+                    summary.skips.append(SkippedLine(first.context or first.key, runner.stuck[unit.item_id]))
+                continue
             text, cleaned = _clean(unit, results.get(unit.item_id))
             issues = runner.problems(unit, text)
             doubts = runner.suspicions(unit, text) if not issues else []

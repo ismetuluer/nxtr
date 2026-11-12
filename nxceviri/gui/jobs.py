@@ -38,7 +38,9 @@ def short_summary(action: str, r: RunSummary) -> tuple[str, str, str]:
         parts.append(f"{format_int(r.suspicious)} şüpheli çeviri")
     if r.missing:
         parts.append(f"{format_int(r.missing)} satır yanıtsız")
-    level = "warning" if failed or r.missing or r.suspicious else "success"
+    if r.skipped:
+        parts.append(f"{format_int(r.skipped)} satır atlandı (model takıldı); elle çevirin")
+    level = "warning" if failed or r.missing or r.suspicious or r.skipped else "success"
     return level, f"{JOB_TITLES.get(action, 'Çeviri')} bitti", " · ".join(parts)
 
 
@@ -88,9 +90,19 @@ def describe_summary(action: str, r: RunSummary) -> tuple[str, str]:
         )
     if r.missing:
         msg += f" {format_int(r.missing)} satır yanıtsız kaldı; yeniden başlatınca tekrar denenir."
+    if r.skipped:
+        msg += (
+            f" {format_int(r.skipped)} satır atlandı: model bu satırlarda takıldı (kesildi, kendini tekrarladı veya "
+            "bozuk yanıt verdi). Satırlar olduğu gibi bırakıldı; elle çevirebilir veya işi yeniden başlatıp "
+            "tekrar deneyebilirsiniz:"
+        )
+        for sk in r.skips:
+            msg += f"\n• {sk.key}: {sk.reason}"
+        if r.skipped > len(r.skips):
+            msg += "\n• …"
     for warning in r.warnings:
         msg += f" {warning}"
-    return msg, "warning" if r.broken or r.missing or r.rejected or r.suspicious else "success"
+    return msg, "warning" if r.broken or r.missing or r.rejected or r.suspicious or r.skipped else "success"
 
 
 def new_job_id(action: str) -> str:
