@@ -2,7 +2,16 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
-## [Yayımlanmadı] — Denetim düzeltmeleri: veri güvenliği, klavye odağı, kapanış
+## [Yayımlanmadı] — Denetim düzeltmeleri, anlaşılır metinler, font adımı, anında sığdırma denetimi
+
+### Eklendi
+- **Sığdırma ayarı anında denetlenir:** Kontrol Et → Sığdırma'da bir ayar değişince (proje daha önce denetlendiyse)
+  denetim kendiliğinden yenilenir; sekmede "Bu ayarla N satır taşıyor — Göster" özeti görünür. Sorunlar sekmesine
+  dönüp denetimi elle yeniden çalıştırmak gerekmez.
+- **`font` aracı:** `python -m nxceviri.arac font <oyun…>` oyunun fontlarındaki eksik Türkçe harfleri ve ne
+  yapılabileceğini (hepsi var / font yaması / harf dönüştürme) söyler; arayüzdeki Fontları Tara ile aynı sonucu verir.
+- **Rehberlerde zorunlu font adımı:** yeni oyun ve eklenti rehberleri, skill'ler ve istem kartları metin ayıklamanın
+  ardından font durumunu belirlemeyi ve raporlamayı ister; ajan fontu ayrıca istenmeden çözer.
 
 ### Düzeltildi
 - **Kurtarma kopyası:** kaydedilmemiş proje kurtarılırken yeni kurtarma kopyası yazılamazsa (disk dolu) eski kopya
@@ -17,6 +26,12 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
 - **Kapatma:** arka plan işleri artık "kaydet / vazgeç" sorularından sonra iptal edilir ve pencere beklemeden önce
   gizlenir; güncelleme denetimi sürerken pencere "yanıt vermiyor" görünmez. Vazgeçilirse hiçbir iş iptal edilmez.
 - Bildirim kartı açıkken tema değişince kart eski renklerde kalıyordu.
+- **Oyun simgesi karakterleri:** oyuna özel simge karakterleri (ör. düğme simgeleri) tabloda ve düzenleme panelinde
+  ilgisiz şekillerle çizilip yandaki harfleri örtüyordu; artık tabloda nötr bir ★ işareti, panelde nötr bir kutu
+  olarak görünür. Metnin kendisi değişmez.
+- Eski sürümle kaydedilmiş proje açılırken yedek alınamazsa anlaşılır bir hata verilir ve proje değiştirilmez; var
+  olan `.nxproj.bak` yedeğinin üzerine yazılmaz.
+- Onay kutusundaki tik simgesinin geçici dosyası bozulursa kendiliğinden onarılır.
 
 ### Değişti
 - **Klavye odağı görünür:** düğmeler, giriş alanları, onay kutuları ve adım listesi Tab ile gezerken kenarlık
@@ -25,12 +40,16 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
   renginde (WCAG AA 4,5:1).
 - **Ekran okuyucu:** yalnızca simgeden oluşan düğmeler (kenar çubuğu, önceki/sonraki satır, Bul ve Değiştir araçları,
   bildirim zili, kapat) artık adlarıyla okunur.
-- Menüde "Tüm RomFS'i Çıkar…" → "Oyunun Tüm Dosyalarını Çıkar…".
+- **Anlaşılır metinler:** menülerde ve iletilerde teknik terimler sadeleşti: "Log" → "hata kaydı", "Önbellek" →
+  "geçici dosyalar", "istem" → "talimat", "TitleID" → "Oyun kimliği (TitleID)", "Tüm RomFS'i Çıkar…" → "Oyunun Tüm
+  Dosyalarını Çıkar…", "Metin Adaylarını Çıkar…" → "Olası Metin Dosyalarını Çıkar…"; hata iletilerinde iç biçim adları
+  (NCA, RomFS, SARC…) yerine "oyun dosyası", "güncelleme dosyası", "arşiv".
 
 ### Kaldırıldı
 - Depo kökündeki kullanılmayan `blocks.json`.
 
-Gerçek pencerede yalnızca odak ve kontrast denendi; kapatma, bildirim kartı ve ekran okuyucu adları ekranda denenmedi.
+Gerçek pencerede yalnızca odak ve kontrast denendi; kapatma, bildirim kartı, ekran okuyucu adları, oyun simgesi
+karakterleri, anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı gerçek bir oyunda çalıştırıldı.
 
 ## [0.57.0] — 2026-11-13 — Toplu düzeltmeler: bildirimler, Ollama, kontrol kodu ve Türkçe harf onarımı
 
