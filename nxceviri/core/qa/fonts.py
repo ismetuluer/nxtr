@@ -32,7 +32,8 @@ from nxceviri.core.container.view import GameView
 from nxceviri.core.errors import NxError
 from nxceviri.core.fontpatch.ttf import is_cjk_chars
 from nxceviri.core.fontpatch.unity import patch_fonts
-from nxceviri.core.formats.scanner import ScanReport
+from nxceviri.core.formats.scanner import ScanReport, scan_view
+from nxceviri.core.pipeline import Inputs, opened_view
 from nxceviri.core.progress import TaskContext
 
 log = logging.getLogger(__name__)
@@ -357,3 +358,62 @@ def font_advice(font: FontInfo) -> str:
     if font.kind == KIND_TTF:
         return "Paket içindeki font dışarıda düzenlenemez; harf dönüştürme kullanın."
     return "Bu font türü yamanamıyor; harf dönüştürme kullanın."
+
+
+def scan_game_fonts(inputs: Inputs, ctx: TaskContext | None = None) -> FontReport:
+    """Oyunu açar, dosya taramasını yapar ve fontları okur (arayüzsüz yol; komut satırı aracı kullanır)."""
+    ctx = ctx or TaskContext()
+    with opened_view(inputs, ctx) as view:
+        return scan_fonts(view, scan_view(view, ctx), ctx)
+
+
+DURUM_TAMAM = "tamam"
+DURUM_YAMALANABILIR = "yamalanabilir"
+DURUM_DONUSTURME = "donusturme"
+
+
+@dataclass(frozen=True)
+class FontVerdict:
+    """Font taramasının tek satırlık sonucu: üç durumdan biri ve öneri metni."""
+
+    durum: str
+    eksik: str  # Latin statik fontların çoğunda olmayan harfler
+    yamalanabilir: str  # font yamasıyla eklenebilecek harfler
+    kalan: str  # yamadan sonra da eksik kalacak harfler (dönüştürme gerekir)
+    oneri: str
+
+
+def font_verdict(report: FontReport) -> FontVerdict:
+    """Raporun özeti: ek iş gerekmez / font yaması yeter / harf dönüştürme gerekir."""
+    usable = [f for f in report.fonts if f.chars is not None and not f.language_specific]
+    if not usable:
+        return FontVerdict(
+            DURUM_DONUSTURME,
+            "",
+            "",
+            TURKISH_LETTERS,
+            "Font yamalanamıyor: harf dönüştürme gerekir (ğ→g, ş→s, ı→i…); okunabilen font bulunamadı, "
+            f'eklentide `unsupported_letters` = "{TURKISH_LETTERS}" verin ya da fontu elle inceleyin.',
+        )
+    missing = report.missing_letters()
+    if not missing:
+        return FontVerdict(DURUM_TAMAM, "", "", "", "Türkçe harflerin tümü var: ek iş gerekmez.")
+    patchable = "".join(c for c in missing if c in report.patchable_letters)
+    rest = report.missing_letters(patched=True)
+    if not rest:
+        return FontVerdict(
+            DURUM_YAMALANABILIR,
+            missing,
+            patchable,
+            "",
+            f"Eksik harfler font yamasıyla eklenebilir: {' '.join(missing)} (uygulamada Kontrol Et > Fontları Tara, "
+            "sonra font yamasını açın).",
+        )
+    return FontVerdict(
+        DURUM_DONUSTURME,
+        missing,
+        patchable,
+        rest,
+        f'Font yamalanamıyor: harf dönüştürme gerekir (ğ→g, ş→s, ı→i…); eklentide `unsupported_letters` = "{rest}" '
+        "verin." + (f" ({' '.join(patchable)} yamayla eklenebilir.)" if patchable else ""),
+    )

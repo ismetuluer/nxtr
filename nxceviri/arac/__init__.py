@@ -20,6 +20,7 @@ KOMUT_MODULLERI: tuple[str, ...] = (
     "nxceviri.arac.teshis",
     "nxceviri.arac.ara",
     "nxceviri.arac.dogrula",
+    "nxceviri.arac.font",
 )
 
 

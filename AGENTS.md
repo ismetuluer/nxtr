@@ -138,7 +138,7 @@ Windows'ta arayüz testleri için pencere açılmasın diye `QT_QPA_PLATFORM=off
 (PowerShell: `$env:QT_QPA_PLATFORM = "offscreen"`; bash: `export QT_QPA_PLATFORM=offscreen`). Testlerde
 kullanılan yazı tipi için gerekirse `QT_QPA_FONTDIR=C:\Windows\Fonts` ekle. Sanal ortam `.venv` içindedir;
 `.venv\Scripts\python.exe` ile çalıştır.
-Araçlar: `python -m nxceviri.arac teshis | ara | dogrula | eklenti-olustur | eklentiler` (ayrıntı için `--help`).
+Araçlar: `python -m nxceviri.arac teshis | ara | dogrula | font | eklenti-olustur | eklentiler` (ayrıntı için `--help`).
 
 ### Belgeler
 `AGENTS.md` (bu dosya: kurallar) · `docs/rehber/` (nasıl yapılır) · `docs/formats/` (çözülmüş biçim notları, dizin
