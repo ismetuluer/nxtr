@@ -47,8 +47,8 @@ Kullanıcı ne istiyorsa ilgili rehberi baştan sona oku, adımlarını izle. Sk
 | Bir biçim daha önce çözülmüş mü? | `docs/formats/README.md` | — |
 | Hangi oyun ne durumda? | `docs/uyumluluk.md` | — |
 
-Ortak sıra: önce **teşhis** (`python -m nxceviri.arac teshis …`), sonra rehber. Oyunun motoru ve biçimi tanınıyorsa
-yeni kod yazma; uygulamanın kendisini kullandır.
+Ortak sıra: önce **teşhis** (`python -m nxceviri.arac teshis …`), sonra rehber, sonra **font durumu**
+(`python -m nxceviri.arac font …`). Oyunun motoru ve biçimi tanınıyorsa yeni kod yazma; uygulamanın kendisini kullandır.
 
 ## 3. Çalışma kuralları
 

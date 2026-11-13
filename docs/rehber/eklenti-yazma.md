@@ -78,11 +78,12 @@ Gerçek örnekler: en küçük `core/formats/msbt/msbt.py` (`MsbtPlugin`), kayı
   kapsayıcı dizini. Hangileri olduğunu `ara` çıktısı ve çözümleme notlarından çıkar; tahmin etme.
 
 ### İsteğe bağlı kancalar
-Dışa aktarma bunları `getattr` ile arar; yoksa atlanır:
+Dışa aktarma bunları `getattr` ile arar; yoksa atlanır. Türkçe harfle ilgili olanları (`unsupported_letters`,
+`normalize_text`, `support_files`) `python -m nxceviri.arac font …` sonucuna göre ayarla (`yeni-oyun.md` adım 6):
 
 | Kanca | Ne işe yarar |
 |---|---|
-| `unsupported_letters` | Fontta olmayan harflerin dönüştürüleceği harf listesi. `""` = dönüştürme yok (font yamasıyla çözdüysen) |
+| `unsupported_letters` | Fontta olmayan harflerin dönüştürüleceği harf listesi. `""` = dönüştürme yok: `arac font` sonucu (a) ya da (b) iken. (c) iken sonuç satırındaki harfleri yaz |
 | `normalize_text(text)` | Yazmadan önce çeviriyi biçime uyarlar (ör. oyunun harf tablosu); yazılan metin geri okunanla aynı olmalı |
 | `support_files()` | Moda eklenecek ek dosyalar (RomFS yolu → içerik), ör. Türkçe harfli yazı dokusu |
 | `game_file_patches()` | Metin dışında değiştirilecek oyun dosyaları (yol → dönüştürücü), ör. resimdeki yazılar |
@@ -101,7 +102,8 @@ Dışa aktarma bunları `getattr` ile arar; yoksa atlanır:
 6. Örnekler yalnızca elle üretilmiş olur; gerçek oyundan kopya konmaz (`AGENTS.md` §1). Testleri çalıştır:
    `python -m pytest -q eklentiler/<ad>/tests` (yerleşik eklentiler için `tests/`).
 
-Sonra gerçek dosyada `python -m nxceviri.arac dogrula <eklenti adı> <oyun dosyaları>`.
+Sonra gerçek dosyada `python -m nxceviri.arac dogrula <eklenti adı> <oyun dosyaları>` ve
+`python -m nxceviri.arac font <oyun dosyaları>`; sonuca göre `unsupported_letters`'ı ayarla.
 
 ## Kullanılabilir kütüphaneler
 Kaynak kurulumda `pyproject.toml`'daki bağımlılıklar kurulu: `cryptography`, `zstandard`, `UnityPy`, `httpx`,
@@ -118,9 +120,10 @@ tuplesine eklenir; tarama tanıması için `core/formats/detection.py` (`FileKin
 `scanner.py` kuralları da genişler. Bunu bakımcı yapar; ayrıntı `katki.md`.
 
 ## Bitti ölçütü
-Round-trip dahil testler yeşil; `dogrula` gerçek dosyalarda geçti; `NOT.md` yazıldı; sınırlar (okuma-yalnızca, çevrilmeyen
+Round-trip dahil testler yeşil; `dogrula` gerçek dosyalarda geçti; `arac font` sonucu (a/b/c) belirlendi ve
+`unsupported_letters` ona uyuyor; `NOT.md` yazıldı; sınırlar (okuma-yalnızca, çevrilmeyen
 bölüm, cihazda denenmedi) açıkça yazıldı.
 
 ## Kullanıcıya rapor
-Eklenti adı, desteklenen dosya/biçim, `dogrula` özeti (geçti/kaldı), kontrol kodu türleri ve neler korunduğu, bilinen
+Eklenti adı, desteklenen dosya/biçim, `dogrula` özeti (geçti/kaldı), `arac font` sonucu (a/b/c), kontrol kodu türleri ve neler korunduğu, bilinen
 sınırlar, dosya konumu. Cihazda denenmediyse söyle.

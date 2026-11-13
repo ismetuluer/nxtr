@@ -8,7 +8,9 @@ description: NXTR'de yeni bir Switch oyununun metinlerine erişmek, çeviri tabl
 1. `AGENTS.md`'yi baştan sona oku; anahtar, oyun dosyası ve orijinal dosya kuralları bağlayıcıdır.
 2. `docs/rehber/yeni-oyun.md` rehberini baştan sona oku. Eklenti yazılacaksa `docs/rehber/eklenti-yazma.md`'yi de oku.
 3. Rehberin adımlarını sırayla izle: `python -m nxceviri.arac teshis …` → `ara` → motora göre yol → `eklenti-olustur`
-   (önce test) → `dogrula` → uygulamada Tara/Çevir/Dışa Aktar. Çözülmüş biçimler için `docs/formats/README.md`'ye bak;
+   (önce test) → `dogrula` → `python -m nxceviri.arac font …` (font durumu a/b/c; eklentide `unsupported_letters`'ı
+   ona göre ayarla) → uygulamada Tara/Çevir/Dışa Aktar. Çözülmüş biçimler için `docs/formats/README.md`'ye bak;
    çözülmüşse yeni kod yazma.
-4. `dogrula` geçmeden bitti deme; komut çıktısını göster. Cihazda denenmeyen işi öyle raporla.
+4. `dogrula` geçmeden ve font durumu (`arac font` sonucu) belirlenip raporda yazılmadan bitti deme;
+   komut çıktılarını göster. Cihazda denenmeyen işi öyle raporla.
 5. Kullanıcıya kısa Türkçe rapor ver (rehberin "Kullanıcıya rapor" bölümü). Kurulum eksikse önce `docs/rehber/baslarken.md`.

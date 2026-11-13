@@ -5,6 +5,14 @@ Kullanıcı oyunda `ğ ş ı İ` gibi harflerin kutucuk, boşluk ya da başka bi
 yeni bir oyunda dışa aktarmadan önce fontları denetlemek istiyor. Hedef harfler: `ç ğ ı İ ö ş ü Ç Ğ Ö Ş Ü`.
 Önce `AGENTS.md` (kontrol kodları, dürüst rapor). Sorun yalnızca "kutucuk" değilse `sorun-giderme.md`.
 
+## İlk adım: durumu gör
+```
+python -m nxceviri.arac font "<base.nsz>" "<update.nsp>"
+```
+Bu, uygulamadaki **Fontları Tara** ile aynı sonucu verir; son satır üç sonuçtan birini söyler: (a) hepsi var, (b) font
+yamasıyla eklenebilir, (c) yamalanamıyor, harf dönüştürme gerek. Sonuca göre aşağıdaki adımlara geç. Komut yama
+uygulamaz; yama uygulamada açılır.
+
 ## Ana fikir
 Oyun metni bir **fontla** çizer. Fontta bir harfin çizimi (glif) yoksa Türkçe çeviri doğru dosyaya yazılsa bile
 oyunda görünmez. Üç çözüm vardır; bu sırayla düşün:

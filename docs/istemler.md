@@ -22,7 +22,8 @@ prod.keys uygulamada seçili: <evet / hayır, dosya yolu C:\...\prod.keys>
 Oyunda ekranda gördüğüm ayırt edici bir cümle: "<oyundaki bir cümle>"
 
 Önce `python -m nxceviri.arac teshis` ile teşhis yap, sonuçları Türkçe ve kısaca anlat. Yeni kod gerekiyorsa önce test
-yaz; `python -m nxceviri.arac dogrula` geçmeden "bitti" deme. Anahtar içeriğini gösterme, oyun dosyası indirme. Her
+yaz; `python -m nxceviri.arac dogrula` geçmeden "bitti" deme. Ayrıca `python -m nxceviri.arac font` ile Türkçe harf
+durumunu (a: hepsi var / b: font yaması / c: harf dönüştürme) belirle, eklentiyi ona göre ayarla ve sonucu raporuna yaz. Anahtar içeriğini gösterme, oyun dosyası indirme. Her
 adımda ne yaptığını ve ne test ettiğini çıktısıyla göster.
 ```
 
@@ -52,7 +53,7 @@ Oyun: <oyunun adı>
 Proje dosyası (.nxproj): <C:\...\proje.nxproj>
 Kutucuğu nerede görüyorum: <menü / diyalog / ayarlar ekranı>
 
-Önce uygulamada Kontrol Et → Fontları Tara ile hangi fontlarda hangi harflerin eksik olduğunu bul ve tablodaki
+Önce `python -m nxceviri.arac font <oyun dosyaları>` çalıştır (uygulamadaki Fontları Tara ile aynı sonucu verir), sonra uygulamada Kontrol Et → Fontları Tara ile hangi fontlarda hangi harflerin eksik olduğunu bul ve tablodaki
 sayıları bana anlat. Font yaması uygulanabiliyorsa onu öner; uygulanamıyorsa harf dönüştürmeyi önerisiyle ve gerekçeyle
 anlat. Yeni bir font biçimiyse biçimi önce çöz, test yaz, yazılan dosyayı yeniden okuyup doğrula. Sonucu cihazda
 ben deneyeceğim.

@@ -19,7 +19,7 @@ mevcut eklentilerin tanıdığı dosyalar ve aday metin dosyaları + örnek sat�
 metinler çoğu zaman update'te değişir ve update dosyası base'dekini geçersiz kılar.
 
 Karar:
-- Eklentilerin tanıdığı dosyalar var ve satırlar okunaklı → **yeni kod yazma**, adım 6'ya geç (uygulamayı kullan).
+- Eklentilerin tanıdığı dosyalar var ve satırlar okunaklı → **yeni kod yazma**, adım 6'ya geç (font durumu, sonra uygulamayı kullan).
   `docs/uyumluluk.md` ve `docs/formats/README.md`'de oyun/biçim zaten çözülmüş olabilir; önce orayı oku.
 - Hiçbir şey tanınmıyor ya da yalnızca bir kısmı tanınıyor → adım 2.
 
@@ -85,7 +85,24 @@ mı, (b) işaret metni yazıp yeniden okuyunca aynı mı. Kalan dosya ya da sat�
 (ör. ekranda görülen 3000 satır yerine 12) eklenti metnin bir kısmını kaçırıyordur; `ara` sonuçlarıyla karşılaştır.
 **`dogrula` geçmeden iş bitmiş sayılmaz.**
 
-### 6. Uygulamada akış
+### 6. Font durumu (zorunlu)
+```
+python -m nxceviri.arac font "<base.nsz>" "<update.nsp>" "<dlc.nsp>"
+```
+Aynı dosyaları ver (`--json` makinece okunur). Uygulamadaki **Fontları Tara** ile aynı sonucu verir; son satır
+`Sonuç: …` üç durumdan birini söyler. Çıktıyı raporuna **aynen** yaz.
+
+| Sonuç | Ne yapılır |
+|---|---|
+| (a) Türkçe harflerin tümü var | Ek iş yok. Eklentide `unsupported_letters = ""` bırak |
+| (b) Eksik harfler font yamasıyla eklenebilir | `font.md`'yi izle (uygulamada Kontrol Et'te yama kutusu); eklentide `unsupported_letters = ""` |
+| (c) Font yamalanamıyor / okunabilen font yok | Harf dönüştürme: eklentide `unsupported_letters` = sonuç satırındaki harfler |
+
+Eklenti yazdıysan harf kancaları `eklenti-yazma.md` "İsteğe bağlı kancalar"da: `unsupported_letters` (dönüştürülecek
+harfler), `normalize_text` (oyunun özel harf tablosu), `support_files` (Türkçe harfli yazı dokusu gibi ek dosya). Sonuç
+(b) ve (c) cihazda denenmeden "çalışıyor" denmez.
+
+### 7. Uygulamada akış
 Uygulamayı aç (`NX Ceviri Studyosu.bat` ya da `python -m nxceviri`):
 1. **Oyunu Ekle:** base + update (+ DLC) dosyaları, `prod.keys` seçili.
 2. **Metinleri Tara → Taramayı Başlat:** rapor motoru ve desteklenen dosyaları listeler; kaynak dili seç (varsayılan
@@ -93,13 +110,13 @@ Uygulamayı aç (`NX Ceviri Studyosu.bat` ya da `python -m nxceviri`):
    yanlış dil seçilidir.
 3. **Çevir** (Ollama, DeepL ya da elle). Önce 15-20 satır dene; `⟦n⟧` işaretleri ve satır sonları korundu mu bak
    (`docs/translation.md`).
-4. **Kontrol Et:** kontrol kodu, uzunluk, taşma denetimleri; **Fontları Tara** (Türkçe harfler için → `font.md`).
+4. **Kontrol Et:** kontrol kodu, uzunluk, taşma denetimleri; **Fontları Tara** (adım 6'daki sonucu doğrular; yama → `font.md`).
 5. **Dışa Aktar:** Atmosphère ya da emülatör yapısı (`docs/export.md`). Yeni, boş bir klasöre yazar.
 
 **Cihazda / emülatörde deneme kullanıcıdan istenir** (`docs/test-emulator.md`): önce yalnızca ana menü etiketlerini
 çevirip küçük bir mod üret; açılıyorsa sonra tamamını. Ajan bunu yapamaz ve "çalıştı" diyemez.
 
-### 7. Kayıt ve paylaşım
+### 8. Kayıt ve paylaşım
 - `eklentiler/<ad>/NOT.md`: oyun, TitleID/sürüm, dosya yerleşimi, biçim çözümü, bilinen sınırlar, cihazda denenip
   denenmediği.
 - Çözülen biçim için `docs/formats/<ad>.md` ve `docs/formats/README.md` satırı; `docs/uyumluluk.md` satırı öner
@@ -111,15 +128,17 @@ Uygulamayı aç (`NX Ceviri Studyosu.bat` ya da `python -m nxceviri`):
 - **Metin resimde mi?** `ara` sonuç vermiyorsa ve ekranda yazı varsa `grafik.md`.
 - **Yazılabilir mi?** `extract` kolay, `inject` zordur. Yazamadığın biçimde "yalnızca okuma" olarak dur ve kullanıcıya
   söyle (Mina the Hollower ilk sürümde böyle bitti). Yarım yazma çözümü gönderme.
-- **Türkçe harf:** eklentin harf dönüştürmesini yönetiyorsa `unsupported_letters = ""` ve fontu `font.md` ile yamala.
+- **Türkçe harf:** `arac font` sonucu (a/b/c) belirlenmeden bitmez. Yama (b) varsa `unsupported_letters = ""` ve `font.md`;
+  yamalanamıyorsa (c) `unsupported_letters` doldurulur. Kararı ve gerekçesini kısaca söyle.
 
 ## Bitti ölçütü
 1. `dogrula` tüm ilgili dosyalarda **geçti** (çıktıyı göster).
 2. Eklenti testleri (`tests/`) elle üretilmiş örnekle yeşil; tam proje testi yeşil, `ruff` ve `mypy` temiz.
 3. Uygulamada Tara → tabloda doğru sayıda ve okunaklı satır → Dışa Aktar mod klasörü yazıldı.
-4. `NOT.md` yazıldı. Cihazda deneme yapılmadıysa raporda "cihazda denenmedi" yazar.
+4. **Font durumu belirlendi:** `arac font` çıktısı (sonuç a/b/c) gösterildi, eklentideki `unsupported_letters` buna uyuyor.
+5. `NOT.md` yazıldı (font sonucu dahil). Cihazda deneme yapılmadıysa raporda "cihazda denenmedi" yazar.
 
 ## Kullanıcıya rapor
 Kısa Türkçe: oyun ve motor, kaç dosyadan kaç satır çıktı, `dogrula` sonucu (geçti/kaldı sayıları), neyin
-çevrilemediği (resim, kod içindeki metin), Türkçe harf durumu, kullanıcının yapacağı sıradaki adım (modu cihazda
+çevrilemediği (resim, kod içindeki metin), Türkçe harf durumu (`arac font` sonucu a/b/c ve alınan karar), kullanıcının yapacağı sıradaki adım (modu cihazda
 denemek). Test etmediğini "test edildi" yazma.
