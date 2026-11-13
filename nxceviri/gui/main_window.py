@@ -3546,7 +3546,9 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(f"Önbellek temizlendi ({format_size(size)}).", 5000)
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        self.translate_page.flush_pending()  # panelde yazılıp kaydedilmemiş metin kaybolmasın
+        if not self.translate_page.flush_pending():  # panelde yazılıp kaydedilemeyen metin kaybolmasın
+            event.ignore()
+            return
         if self._update_task is not None:
             self._update_task.wait()  # ağ zaman aşımlarıyla sınırlı; çalışan iş parçacığı yok edilemez
         if self._spell_scan is not None:

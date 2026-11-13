@@ -1057,9 +1057,12 @@ class TranslatePage(QWidget):
         self._fit = config
         self.set_code_kinds(config.kinds)
 
-    def flush_pending(self) -> None:
-        """Panelde kaydedilmemiş metin varsa kaydettirir (pencere kapanırken, proje değişirken)."""
+    def flush_pending(self) -> bool:
+        """Panelde kaydedilmemiş metin varsa kaydettirir (pencere kapanırken, proje değişirken).
+
+        Kayıt başarısız olursa metin panelde kalır, hata panelde görünür ve False döner."""
         self.pane.flush()
+        return not self.pane.has_pending()
 
     def _pane_has_room(self) -> bool:
         """Seçili konumda panel, tablo kartını en küçük ölçüsünün altına sıkıştırmadan sığıyor mu?"""

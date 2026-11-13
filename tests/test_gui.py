@@ -12,6 +12,7 @@ from PySide6.QtGui import QDropEvent
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QWidget
 from pytestqt.qtbot import QtBot
 
+from nxceviri.core.errors import ProjectError
 from nxceviri.core.formats.base import TextEntry
 from nxceviri.core.project import ImportedFile
 from nxceviri.gui.main_window import STEP_SCAN, STEP_TRANSLATE, MainWindow
@@ -239,6 +240,31 @@ def test_close_unsaved_asks(qtbot: QtBot, window: MainWindow, game: GameFiles, m
     window.close()
     assert asked == ["Kaydedilmemiş proje"]
     assert window.isVisible()
+
+
+def test_close_keeps_window_when_pending_pane_text_cannot_be_saved(
+    qtbot: QtBot, window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    window.project.import_texts(
+        [ImportedFile("Menu.tsv", "0100", "unity", "base", (TextEntry("m01", 0, "Start", ()),))]
+    )
+    window._reload_rows()
+    page = window.translate_page
+    page._select_proxy_row(0)
+    page.pane.translation_edit.setPlainText("Başla")
+
+    def fail(changes: list[tuple[int, str]]) -> list[object]:
+        raise ProjectError("Proje dosyasına yazılamadı.", "Diskte yer olduğundan emin olun.")
+
+    monkeypatch.setattr(window.project, "set_translations", fail)
+    window.dirty = False  # kapanış sorusu çıkmasın; kayıp yalnızca panel metninden gelebilir
+    window.close()
+    assert window.isVisible()  # kapanma iptal edildi
+    assert page.pane.translation_edit.toPlainText() == "Başla"
+    assert "yazılamadı" in page.pane.error_label.text()
+    monkeypatch.undo()
+    assert page.flush_pending()  # hata giderilince kayıt geçer; fixture kapanışta soru çıkmasın
+    window.dirty = False
 
 
 @pytest.mark.parametrize("mode", [ThemeMode.LIGHT, ThemeMode.DARK])
