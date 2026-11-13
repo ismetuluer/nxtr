@@ -2,6 +2,36 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [Yayımlanmadı] — Denetim düzeltmeleri: veri güvenliği, klavye odağı, kapanış
+
+### Düzeltildi
+- **Kurtarma kopyası:** kaydedilmemiş proje kurtarılırken yeni kurtarma kopyası yazılamazsa (disk dolu) eski kopya
+  artık silinmez; diskte her zaman bir kopya kalır.
+- **Panelde yazılan metin kaybolmaz:** proje dosyasına yazılamayan metin varken pencere kapanmaz ve başka projeye
+  geçilmez; metin ve hata panelde kalır.
+- **Farklı Kaydet:** yeni dosya yazılıp açılamazsa proje eski dosyasıyla çalışmayı sürdürür (önceden proje
+  kullanılamaz hâle geliyordu).
+- Açılamayan (bozuk ya da yabancı) proje dosyası artık kilitli kalmaz; yazım hatasında asıl hata iletisi örtülmez.
+- **Dışa aktarma:** eski modun üzerine yazma yarıda kesilirse (çökme, elektrik kesintisi) eski mod gizli bir yedek
+  klasöründe kalıyordu; bir sonraki dışa aktarmada kendiliğinden geri konur, artık yedekler temizlenir.
+- **Kapatma:** arka plan işleri artık "kaydet / vazgeç" sorularından sonra iptal edilir ve pencere beklemeden önce
+  gizlenir; güncelleme denetimi sürerken pencere "yanıt vermiyor" görünmez. Vazgeçilirse hiçbir iş iptal edilmez.
+- Bildirim kartı açıkken tema değişince kart eski renklerde kalıyordu.
+
+### Değişti
+- **Klavye odağı görünür:** düğmeler, giriş alanları, onay kutuları ve adım listesi Tab ile gezerken kenarlık
+  rengiyle belli olur.
+- **Kontrast:** açık temada vurgu mavisi ve başarı yeşili hafifçe koyulaştı; bilgi rozetinin metni olağan metin
+  renginde (WCAG AA 4,5:1).
+- **Ekran okuyucu:** yalnızca simgeden oluşan düğmeler (kenar çubuğu, önceki/sonraki satır, Bul ve Değiştir araçları,
+  bildirim zili, kapat) artık adlarıyla okunur.
+- Menüde "Tüm RomFS'i Çıkar…" → "Oyunun Tüm Dosyalarını Çıkar…".
+
+### Kaldırıldı
+- Depo kökündeki kullanılmayan `blocks.json`.
+
+Gerçek pencerede yalnızca odak ve kontrast denendi; kapatma, bildirim kartı ve ekran okuyucu adları ekranda denenmedi.
+
 ## [0.57.0] — 2026-11-13 — Toplu düzeltmeler: bildirimler, Ollama, kontrol kodu ve Türkçe harf onarımı
 
 ### Eklendi
