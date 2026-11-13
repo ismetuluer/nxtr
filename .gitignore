@@ -54,6 +54,9 @@ desktop.ini
 # Kullanıcının oyun klasörü
 games/
 
+# Çalışma günlükleri (çökme günlüğü, oturum kayıtları): git'e girmez
+logs/
+
 # Kullanıcı eklentileri (depo içi geliştirme klasörü; README dışında git'e girmez)
 eklentiler/*
 !eklentiler/README.md
