@@ -282,7 +282,7 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     yavaşlattığı denenmedi (`CONTEXT_BEFORE=8`, `CONTEXT_AFTER=3`). *Ne zaman:* kullanıcı Despelote'de birkaç sahneyi
     yeniden çevirip karşılaştırınca; gerekirse sayılar ve kurallar ayarlanır.
 
-69. **`gui/main_window.py` hâlâ büyük (0.31.0, ~1.750 satır).** Denetimdeki M1'in ilk adımı yapıldı: makine işi
+69. **`gui/main_window.py` hâlâ büyük (0.57.0, ~3.700 satır).** Denetimdeki M1'in ilk adımı yapıldı: makine işi
     iletileri `gui/jobs.py`'ye, son projeler `gui/recent.py`'ye, kurtarma kopyası `gui/recovery.py`'ye taşındı.
     Proje yaşam döngüsü, makine işleri, Kontrol Et ve dışa aktarma hâlâ pencere sınıfında. Testler pencerenin
     yöntemlerini (`ask_machine_settings`, `provider_factory` …) değiştirerek çalıştığı için bölme, davranış

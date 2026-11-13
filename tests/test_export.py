@@ -710,6 +710,12 @@ def test_leftover_restore_failure_is_logged_not_raised(
     assert "kilitli" in caplog.text
 
 
+def test_leftover_scan_without_parent_folder_is_silent(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    with caplog.at_level("WARNING"):
+        _recover_leftover_backups(tmp_path / "yok" / "mod")
+    assert caplog.text == ""
+
+
 def test_extra_files_are_written_into_the_mod(msbt_project: tuple[Inputs, Project], tmp_path: Path) -> None:
     inputs, project = msbt_project
     dest = tmp_path / "fontlu"

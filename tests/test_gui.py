@@ -779,7 +779,11 @@ def test_scan_page_diagnosis_report(
     tools = next(a.menu() for a in window.menuBar().actions() if a.text() == "&Araçlar")
     assert isinstance(tools, QMenu)
     entries = [a for a in tools.actions() if a.text() and not a.menu()]
-    assert [a.text() for a in entries[:3]] == ["Metin Adaylarını Çıkar…", "Tüm RomFS'i Çıkar…", "Teşhis Raporu…"]
+    assert [a.text() for a in entries[:3]] == [
+        "Metin Adaylarını Çıkar…",
+        "Oyunun Tüm Dosyalarını Çıkar…",
+        "Teşhis Raporu…",
+    ]
     assert all(a.isEnabled() for a in entries[:3])  # tarama raporu var
 
     hedef = tmp_path / "rapor klasörü"

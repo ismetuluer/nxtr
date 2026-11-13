@@ -540,11 +540,11 @@ def test_extract_tools_need_the_key_file(window: MainWindow) -> None:
     window.keys = None
     window.update_menu_state()
     tools = _menu(window, "Araçlar")
-    for text in ("Tüm RomFS'i Çıkar…", "Teşhis Raporu…"):
+    for text in ("Oyunun Tüm Dosyalarını Çıkar…", "Teşhis Raporu…"):
         assert not _by_text(tools, text).isEnabled(), text  # anahtarsız yuva sessizce dönerdi
     window.keys = KeySet({})
     window.update_menu_state()
-    for text in ("Tüm RomFS'i Çıkar…", "Teşhis Raporu…"):
+    for text in ("Oyunun Tüm Dosyalarını Çıkar…", "Teşhis Raporu…"):
         assert _by_text(tools, text).isEnabled(), text
 
 

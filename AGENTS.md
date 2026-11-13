@@ -129,7 +129,7 @@ dosyasında değil. Sağlayıcı ayrıntıları (Ollama, DeepL): `docs/yol-harit
 
 ### Komutlar (depo kökünden)
 ```
-python -m pytest -q                      # tam test seti (~2,5 dk)
+python -m pytest -q                      # tam test seti (~5 dk)
 python -m pytest -q tests/test_msbt.py   # tek dosya
 python -m ruff check nxceviri tests && python -m ruff format nxceviri tests
 python -m mypy                           # strict; pyproject'teki files = nxceviri, tests

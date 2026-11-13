@@ -35,7 +35,7 @@ kısayollar), §4 B satırı. Hedef sürüm 0.50.0.
    - **Çeviri:** Otomatik Çeviri…, Seçili Satırları Çevir/Yeniden Çevir, Redaksiyon… · Onayla, Onayı Kaldır · Sözlük…,
      Son İşin Değişiklikleri…, Çeviri Geçmişi… · Hazır Çeviriyi İçe Aktar…, Dış Redaksiyon ▸, Dış Çeviri ▸
    - **Git:** beş adım (`Ctrl+1…5`)
-   - **Araçlar:** Metin Adaylarını Çıkar…, Tüm RomFS'i Çıkar…, Teşhis Raporu… · Yazım Sözlüğü…, Eklentiler…
+   - **Araçlar:** Metin Adaylarını Çıkar…, Oyunun Tüm Dosyalarını Çıkar…, Teşhis Raporu… · Yazım Sözlüğü…, Eklentiler…
    - **Yardım:** Güncellemeleri Denetle…, Log Klasörünü Aç, Hakkında
    Menü öğeleri, ilgili sayfa/proje yokken pasiftir (gizlenmez); seçime bağlı öğeler Çevir sayfasında seçim varken
    etkindir.

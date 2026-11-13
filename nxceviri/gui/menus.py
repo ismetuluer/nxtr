@@ -350,7 +350,7 @@ class Menus:
         self.extract_candidates = self._add(
             menu, "Metin Adaylarını Çıkar…", lambda: w._extract("candidates"), icon="folder-output"
         )
-        self.extract_all = self._add(menu, "Tüm RomFS'i Çıkar…", lambda: w._extract("all"), icon="package")
+        self.extract_all = self._add(menu, "Oyunun Tüm Dosyalarını Çıkar…", lambda: w._extract("all"), icon="package")
         self.diagnosis = self._add(
             menu, "Teşhis Raporu…", w._diagnosis_report, command="tools.diagnosis", icon="activity"
         )

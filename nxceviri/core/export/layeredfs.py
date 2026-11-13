@@ -86,6 +86,8 @@ def _recover_leftover_backups(dest: Path) -> None:
     try:
         found = [p for p in dest.parent.iterdir() if pattern.fullmatch(p.name) and (p / INFO_FILE).is_file()]
         found.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    except FileNotFoundError:
+        return  # üst klasör yoksa kalıntı da yoktur; olağan durum
     except OSError as exc:
         log.warning("Eski mod yedekleri taranamadı (%s): %s", dest.parent, exc)
         return
