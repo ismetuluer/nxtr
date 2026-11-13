@@ -6,8 +6,8 @@ import re
 import time
 from typing import Any
 
-from nxceviri.core.translate.codekinds import KIND_LINE_BREAK, KIND_OTHER, KIND_PAGE_BREAK
-from nxceviri.gui.textmarks import KIND_GLYPHS, code_spans, marked_html, trailing_space_spans
+from nxceviri.core.translate.codekinds import KIND_LINE_BREAK, KIND_OTHER, KIND_PAGE_BREAK, KIND_SYMBOL
+from nxceviri.gui.textmarks import KIND_GLYPHS, code_spans, marked_html, pua_spans, trailing_space_spans
 from nxceviri.gui.theme import TOKENS
 
 TOKENS_LIGHT = TOKENS["light"]
@@ -154,3 +154,35 @@ def test_found_and_wrong_spans_combine() -> None:
 def test_found_span_in_selected_row_is_distinct_from_selection_background() -> None:
     out = html("Bir iki üç", found=[(4, 7)], selected_row=True)
     assert found_spans(out, TOKENS_LIGHT["surface"]) == ["iki"]
+
+
+PUA_TEXT = "＋ Start"
+
+
+def test_pua_chars_are_drawn_as_neutral_marks_not_raw() -> None:
+    for symbols in (False, True):
+        for chips in (False, True):
+            out = html(PUA_TEXT, symbols=symbols, chips=chips)
+            assert "" not in out
+            assert "" not in out
+            assert out.count(KIND_GLYPHS[KIND_SYMBOL]) == 2
+            assert "＋" in out
+            assert "Start" in plain(out)
+
+
+def test_pua_does_not_shift_found_and_wrong_offsets() -> None:
+    text = " Start now"
+    out = html(text, found=[(3, 8)], wrong=[(9, 12)], found_current=True)
+    assert found_spans(out, TOKENS_LIGHT["accent"]) == ["Start"]
+    assert "text-decoration:underline" in out
+    assert re.search(r"underline[^>]*>now</span>", out)
+
+
+def test_pua_in_found_span_is_painted_with_the_match() -> None:
+    out = html("ab", found=[(1, 2)], found_current=True)
+    assert found_spans(out, TOKENS_LIGHT["accent"]) == [KIND_GLYPHS[KIND_SYMBOL]]
+
+
+def test_pua_spans_are_text_offsets() -> None:
+    assert pua_spans("abc") == [1, 2, 4]
+    assert pua_spans("plain ç") == []

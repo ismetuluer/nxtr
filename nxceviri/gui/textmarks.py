@@ -11,6 +11,10 @@ Buradaki her şey yalnızca **çizimdir**: çeviri metni hiçbir zaman değişti
 - `found` aralıkları (Bul ve Değiştir eşleşmeleri) tema "selection" zeminiyle, `found_current` ise "accent" zeminiyle
   boyanır. Aralıklar ham metindeki konumlardır; semboller (`·`, `¶`) metni kaydırmadığından eşleme birebirdir, bir
   `⟦n⟧` koduyla örtüşen eşleşmede çipin tamamı eşleşme zeminini alır.
+- Özel kullanım alanı karakterleri (U+E000–U+F8FF; oyunun kendi fontundaki düğme simgeleri) Windows fontunda
+  karşılıksız olduğundan ilgisiz, geniş şekiller çizilip komşu harflerin üstüne biner. Bu yüzden her biri,
+  `symbols`/`chips` ayarından bağımsız olarak, numarasız tek bir nötr işaretle (`★` simgesi) çizilir; bir karakter
+  bir birimdir, bu yüzden aralık eşlemesi kaymaz.
 - `chips` açıkken her `⟦n⟧` kod türüne göre renkli bir çip olur (simge + numara); kapalıyken ham kod görünür.
 
 Saf işlevlerdir (arayüz nesnesi bilmez), bu yüzden kolay test edilir.
@@ -52,6 +56,7 @@ CHIP_TOKENS: dict[str, str] = {
     KIND_OTHER: "muted",
 }
 
+_PUA_RE = re.compile("[\ue000-\uf8ff]")
 _TRAILING_RE = re.compile(r"[ \t]+$")
 #: Sıfır genişlikli bölme fırsatı (U+200B): `·` sembolünden sonra kaydırma sözcük sınırında olabilsin.
 ZWSP = "\u200b"
@@ -64,6 +69,16 @@ def chip_glyph(kind: str) -> str:
 
 def chip_color(kind: str, tokens: Mapping[str, str]) -> str:
     return tokens[CHIP_TOKENS.get(kind, CHIP_TOKENS[KIND_OTHER])]
+
+
+def pua_spans(text: str) -> list[int]:
+    """Metindeki her özel kullanım alanı karakterinin konumu."""
+    return [m.start() for m in _PUA_RE.finditer(text)]
+
+
+def pua_color(tokens: Mapping[str, str]) -> str:
+    """Özel kullanım alanı işaretinin rengi: `simge` türündeki çiple aynı."""
+    return chip_color(KIND_SYMBOL, tokens)
 
 
 def code_spans(text: str) -> list[tuple[int, int, int]]:
@@ -142,6 +157,11 @@ def marked_html(
             if symbols:
                 return mark("¶", i) + ("" if single_line else "<br>")
             return " " if single_line else "<br>"
+        if _PUA_RE.match(ch):
+            lit = i in found_at
+            color = (found_text or pua_color(tokens)) if lit else pua_color(tokens)
+            bg = found_bg if lit else tokens["selection"]
+            return f'<span style="color:{color};background-color:{bg};">{chip_glyph(KIND_SYMBOL)}</span>'
         if symbols and ch == " ":
             return mark("·", i) + break_after
         if symbols and ch == "\t":

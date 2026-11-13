@@ -21,11 +21,13 @@ from PySide6.QtGui import (
     QAction,
     QColor,
     QContextMenuEvent,
+    QFont,
     QFontMetrics,
     QKeyEvent,
     QKeySequence,
     QResizeEvent,
     QShortcut,
+    QSyntaxHighlighter,
     QTextCharFormat,
     QTextCursor,
     QTextOption,
@@ -50,7 +52,7 @@ from nxceviri.core.translate.codekinds import KindOf
 from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, FitRules, split_lines, split_pages, visible_width
 from nxceviri.core.translate.status import STATUS_LABELS, Status
 from nxceviri.gui.icons import bind_icon
-from nxceviri.gui.textmarks import chip_color, chip_glyph, code_spans, trailing_space_spans
+from nxceviri.gui.textmarks import chip_color, chip_glyph, code_spans, pua_color, pua_spans, trailing_space_spans
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.view_actions import ALIGN_CENTER, ALIGN_LEFT, ALIGN_RIGHT
 from nxceviri.gui.widgets import Badge, button, label
@@ -181,6 +183,34 @@ def overflow_spans(text: str, kind_of: KindOf, limit: int, rules: FitRules | Non
     return spans
 
 
+class _PuaHighlighter(QSyntaxHighlighter):
+    """Özel kullanım alanı karakterlerini (oyunun kendi fontundaki düğme simgeleri) tema renginde,
+    yedek fonta düşmeden çizer.
+
+    Windows fontunda karşılığı olmayan bu karakterler yedek bir simge fontuna düşüp geniş, ilgisiz şekillerle komşu
+    harflerin üstüne biner. Konumlarındaki biçimde `NoFontMerging` verilir: düzenleyici kendi fontunun "eksik glif"
+    kutusunu olağan boyda ve ilerleme genişliğinde çizer. Metne, geri almaya ve imlece dokunulmaz; yalnızca çizim
+    biçimi (çip rengi, zemin, yazı tipi stratejisi) verilir. Panelin öteki işaretleri (çipler, yazım,
+    taşma) `extraSelections` ile çizilir; belgede başka bir `QSyntaxHighlighter` yoktur."""
+
+    def __init__(self, edit: QPlainTextEdit) -> None:
+        super().__init__(edit.document())
+        self._format = QTextCharFormat()
+
+    def set_tokens(self, tokens: dict[str, str]) -> None:
+        fmt = QTextCharFormat()
+        fmt.setForeground(QColor(pua_color(tokens)))
+        fmt.setBackground(QColor(tokens["selection"]))
+        fmt.setFontStyleStrategy(QFont.StyleStrategy.NoFontMerging)
+        if fmt != self._format:
+            self._format = fmt
+            self.rehighlight()
+
+    def highlightBlock(self, text: str) -> None:
+        for position in pua_spans(text):
+            self.setFormat(position, 1, self._format)
+
+
 class _PaneEdit(QPlainTextEdit):
     """Enter kaydeder, Shift+Enter yeni satır açar, Esc vazgeçer (hücre düzenleyicisiyle aynı kural)."""
 
@@ -308,6 +338,7 @@ class EditorPane(QWidget):
         lay.addWidget(label("Çeviri", "muted"))
         self.translation_edit = _PaneEdit()
         self.translation_edit.setTabChangesFocus(True)
+        self._pua = [_PuaHighlighter(self.source_view), _PuaHighlighter(self.translation_edit)]
         lay.addWidget(self.translation_edit, 2)
 
         self.chips_row = QWidget()
@@ -621,6 +652,8 @@ class EditorPane(QWidget):
         tokens = current_tokens()
         for edit in (self.source_view, self.translation_edit):
             edit.setExtraSelections(self._selections(edit, tokens))
+        for highlighter in self._pua:
+            highlighter.set_tokens(tokens)
 
     def _selections(self, edit: QPlainTextEdit, tokens: dict[str, str]) -> list[QTextEdit.ExtraSelection]:
         text = edit.toPlainText()

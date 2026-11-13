@@ -7,7 +7,7 @@ from collections.abc import Iterator
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QTextCursor, QTextOption
+from PySide6.QtGui import QFont, QRawFont, QTextCursor, QTextLayout, QTextOption
 from PySide6.QtWidgets import QApplication, QWidget
 from pytestqt.qtbot import QtBot
 
@@ -455,3 +455,64 @@ def test_head_hides_arrows_only_when_cramped(qtbot: QtBot) -> None:
     assert _head_state(pane) == {"badge": True, "approve": True}
     pane.resize(600, 400)
     assert pane.prev_button.isVisibleTo(pane)  # genişleyince oklar geri gelir
+
+
+def test_pua_chars_keep_raw_text_and_get_a_neutral_format(qtbot: QtBot) -> None:
+    text = "＋ Başlat"
+    pane = make_pane(qtbot, make_row(source="＋ Start", translation=text))
+    assert pane.translation_edit.toPlainText() == text
+    assert pane.source_view.toPlainText() == "＋ Start"
+    for edit, plain in ((pane.translation_edit, text), (pane.source_view, "＋ Start")):
+        formats = edit.document().firstBlock().layout().formats()
+        marked = {
+            r.start
+            for r in formats
+            if r.format.background().color().name().lower() == current_tokens()["selection"].lower()
+        }
+        assert marked == {plain.index(""), plain.index("")}
+        ranges = [r for r in formats if r.start == 0]
+        assert ranges
+        assert ranges[0].length == 1
+        assert ranges[0].format.fontStyleStrategy() == QFont.StyleStrategy.NoFontMerging
+        assert ranges[0].format.fontPointSize() == 0  # yazı boyu değişmez
+        assert not any(r.start == 3 for r in formats)  # "＋" ve harfler etkilenmez
+
+
+def test_pua_edit_keeps_chars_on_save(qtbot: QtBot) -> None:
+    pane = make_pane(qtbot, make_row(translation=" Başlat"))
+    saved: list[tuple[int, str]] = []
+    pane.commit_requested.connect(lambda i, t: saved.append((i, t)))
+    cursor = pane.translation_edit.textCursor()
+    cursor.movePosition(QTextCursor.MoveOperation.End)
+    pane.translation_edit.setTextCursor(cursor)
+    pane.translation_edit.insertPlainText("!")
+    pane.flush()
+    assert saved == [(42, " Başlat!")]
+    assert pane.translation_edit.toPlainText() == " Başlat!"
+
+
+def test_no_font_merging_draws_missing_glyph_instead_of_fallback_font(qtbot: QtBot) -> None:
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
+
+    def run(strategy: QFont.StyleStrategy) -> tuple[str, int, float]:
+        font = QFont(app.font())
+        font.setStyleStrategy(strategy)
+        layout = QTextLayout("", font)
+        layout.beginLayout()
+        line = layout.createLine()
+        line.setLineWidth(1000)
+        layout.endLayout()
+        runs = line.glyphRuns()
+        assert runs
+        raw: QRawFont = runs[0].rawFont()
+        return raw.familyName(), runs[0].glyphIndexes()[0], line.naturalTextWidth()
+
+    merged = run(QFont.StyleStrategy.PreferDefault)
+    plain = run(QFont.StyleStrategy.NoFontMerging)
+    if plain[1] != 0:
+        pytest.skip(f"Bu ortamda font ({plain[0]}) U+E008 için glif içeriyor; eksik glif ölçülemez")
+    assert plain[2] > 0
+    if merged[0] == plain[0]:
+        pytest.skip("Bu ortamda yedek font devreye girmiyor; fark ölçülemez")
+    assert merged[0] != plain[0]
