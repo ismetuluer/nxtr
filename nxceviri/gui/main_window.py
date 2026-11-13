@@ -3624,7 +3624,8 @@ class MainWindow(QMainWindow):
         self.dirty = True
         self._recovery_due = True
         self.write_recovery()  # kopya artık bu pencerenin; eskisi silinebilir
-        discard(leftover.path)
+        if not self._recovery_due:  # yazım başarısızsa eski kopya kalır, zamanlayıcı yeniden dener
+            discard(leftover.path)
         self._refresh()
         self.statusBar().showMessage("Proje kurtarıldı. Kaydetmeyi unutmayın.", 8000)
         return True

@@ -572,6 +572,31 @@ def test_recovery_copy_is_offered_and_restored(qtbot: QtBot, tmp_path: Path) -> 
     w.close()
 
 
+def test_recovery_keeps_old_copy_when_new_copy_cannot_be_written(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = QSettings(str(tmp_path / "ayarlar.ini"), QSettings.Format.IniFormat)
+    crashed = MainWindow(settings)
+    crashed._mark_changed()
+    crashed.write_recovery()
+    copy = crashed.recovery.path
+    assert copy.is_file()
+    crashed.recovery._lock.unlock()  # type: ignore[union-attr]  # süreç çökmüş gibi: kilit bırakıldı
+    crashed.recovery._lock = None
+    crashed.recovery.path = tmp_path / "yok.nxproj"  # çökmüş pencere kapanırken kopyayı silmesin
+
+    w = MainWindow(settings)
+    qtbot.addWidget(w)
+    monkeypatch.setattr(w.recovery, "write", lambda project: False)  # disk dolu / izin yok
+    w.ask_recovery = lambda newest, count: "recover"  # type: ignore[method-assign]
+    assert w.offer_recovery()  # proje yine kurtarılmış sayılır
+    assert copy.is_file()  # yeni kopya yazılamadığı için eskisi diskte kalır
+    assert w._recovery_due  # zamanlayıcı yeniden dener
+    crashed.dirty = w.dirty = False
+    crashed.close()
+    w.close()
+
+
 def test_open_window_recovery_copy_is_not_offered(tmp_path: Path) -> None:
     settings = QSettings(str(tmp_path / "ayarlar.ini"), QSettings.Format.IniFormat)
     first = MainWindow(settings)
