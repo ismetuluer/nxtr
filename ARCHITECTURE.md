@@ -927,6 +927,17 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
 178. **Düğme daralmış sütuna sığmalı** (`NAV_TOGGLE_SIZE`/`MARGIN`): daralmış genişlik simge sütunudur; yay taşsa da genişlik
     `COLLAPSED_WIDTH`in altına inmez.
 
+### 4.47 0.57.0 kararları (kod zarfı, Türkçe harf onarımı, Ollama atlama)
+
+179. **Kod onarımı yalnızca kesin durumda** (`core/qa/codefix.py`): tam satır tek biçim çifti sarılır, eksik kapanış
+    sona eklenir; sonuçta `placeholders.problems` boş olmalı ve görünen metin değişmemeli. Kısmi kapsamlı kodlar elle
+    kalır (§4.3: sessizce düzeltilmez). Yeni tür eklenmedi, `placeholder` türünün parçası.
+180. **Türkçe harf onarımı sözlükle** (`core/qa/asciitr.py`, tür `ascii_turkish`, `RISKY_FIX_KINDS`): yalnızca sözlükte
+    olmayan sözcüklere bakılır, değiştirilebilir harflerin (en çok 10) tüm kombinasyonları denenir, tek bilinen aday
+    varsa uygulanır. Var olan Türkçe harf geri alınmaz; işlem iki kez çalışınca sonuç değişmez. Cümle ortasında büyük
+    harfle başlayan sözcük özel ad sayılıp atlanır.
+181. **Ollama'da satır atlama:** takılan satır işi durdurmaz; atlananlar raporlanır ve satır çevrilmemiş kalır.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

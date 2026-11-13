@@ -2,6 +2,32 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.57.0] — 2026-11-13 — Toplu düzeltmeler: bildirimler, Ollama, kontrol kodu ve Türkçe harf onarımı
+
+### Eklendi
+- **Kontrol kodu zarfı onarımı.** Orijinal baştan sona tek bir renk/biçim çiftiyse (`⟦1⟧metin⟦2⟧`) ve çeviride bu
+  kodlar yoksa, Düzeltmeler çeviriyi aynı çiftle sarar; yalnızca kapanış eksikse sona ekler. Yarım yazılmış yer
+  tutucular (`[1]`, `{{1}}`, `⟨ 1 ⟩`) de düzelir. Hatalı satırlarda da çalışır. Kod metnin yalnızca bir bölümünü
+  kaplıyorsa hangi sözcüklerin kapsanacağını yalnızca insan bilebilir: bu satırlar "Elle düzeltilmeli" diye bildirilir.
+- **"Türkçe harf eksik" denetimi.** ASCII'ye çevrilmiş sözcükler (`Iste`, `tesekkur`) yazım sözlüğüyle onarılır
+  (`İşte`, `teşekkür`); büyük/küçük harf korunur, soru eki ünlü uyumuna sokulur. Sözlükte birden çok karşılığı olan
+  sözcüklere (`cok` → çok/çök) dokunulmaz, "İnceleme gerekli" diye bildirilir. Riskli düzeltme olduğu için varsayılan
+  olarak seçili gelmez; yalnızca Kontrol Et'ten sonra görünür.
+- **Kopyalanan sözcükleri işaretleme ayarı:** orijinalden aynen kopyalanan sözcükler isteğe bağlı olarak yazım
+  denetiminde işaretlenir.
+- **Bildirim kartları kendiliğinden kaybolur;** süre Ayarlar → Bildirimler'den ayarlanır.
+
+### Değişti
+- **Ollama takılan satırda durmaz:** yanıtı kesilen, sürekli tekrar eden ya da okunamayan satır atlanır, iş sürer;
+  atlanan satırlar iş sonunda raporlanır. `repeat_penalty` 1,1.
+- "Denetim bitti" bildirimi hata değil bilgi düzeyinde.
+- Menülerde kısayollar Ctrl/Shift ile gösterilir.
+
+### Düzeltildi
+- Proje değişince Kontrol Et sayfası eski projenin sonuçlarını göstermeye devam ediyordu; artık sıfırlanır.
+- Satıra git, satırı tam görünür olacak şekilde kaydırır.
+- 60 bin satırlık tabloda arama yazarken donma (arama artık yazmayı bitirince çalışır).
+
 ## [0.56.0] — 2026-11-12 — Kenar çubuğu: yay animasyonu ve görünür düğme
 
 ### Eklendi
