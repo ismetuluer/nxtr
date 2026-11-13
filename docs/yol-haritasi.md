@@ -39,6 +39,32 @@ M6, M2'den hemen sonra yapılır. Güncel sıra: M1 → M2 → **M6** → M3 →
 > Güncel durum (sürüm, bitenler, bekleyenler) için `CHANGELOG.md`, `HANDOFF.md` ve `ARCHITECTURE.md` başındaki
 > "Güncel durum" satırına bak; yukarıdaki tablo özgün plandır.
 
+## Sonraki yapılacaklar (ürün sahibinin istek listesi, 2026-11-14)
+
+Sırasız; her biri ayrı karar ve onay ister.
+
+1. **Kontrol kodlarının önizlemesi (renk, kalın, italik).** İstek: satırdaki kod bir renk ya da biçim koduysa
+   uygulama bunu çözüp metni o renkte/biçimde göstersin. Bugün eklentiler koda yalnızca etiket verir ("Renk",
+   "Kod 0x05"); hangi renk ya da biçim olduğu bilgisi tutulmaz (`core/translate/codekinds.py` türü etiketten tahmin
+   eder). Gerekenler: eklenti sözleşmesine isteğe bağlı anlam alanı (renk değeri, kalın/italik, açılış–kapanış eşi),
+   biçim eklentilerinin bunu doldurması, tablo ve panel çiziminin (`gui/textmarks.py`, `gui/editor_pane.py`) bunu
+   uygulaması. Maliyet yüksek (çok dosyalı, sözleşme değişir). Öneri: önce yalnızca MSBT'de renk; işe yaradığı
+   görülürse diğer biçimler. Yalnızca çizim değişir; metin ve dışa aktarma etkilenmez.
+2. **`gui/main_window.py` bölünmesi** (~3.700 satır; TECH_DEBT 69). Davranış değiştirmeyen, tam test setiyle
+   yapılacak çok dosyalı iş.
+3. **Adım listesinde öğe başına klavye odağı.** Odak bugün listenin tamamını çevreleyen kenarlıkla görünür; tek tek
+   adımda işaret için `gui/step_nav.py` çizimi değişmeli.
+4. **Boşluk ve köşe ölçeği.** Arayüzde 10 farklı aralık ve 9 farklı köşe yarıçapı var; ilgili ekran elden geçerken
+   sadeleştirilecek (topluca değil).
+5. **Başlatıcı adı ve kök klasör.** `NX Ceviri Studyosu.bat` eski adı taşıyor (ad değişirse kullanıcı kısayolları
+   bozulur); tek oyuna özel `sd_kontrol.py` kökte duruyor (`tools/` altına taşınabilir).
+6. **Güncelleme paketinde imza.** SHA-256 dosyası paketle aynı sürümden gelir: bozuk indirmeyi yakalar, ele geçirilmiş
+   bir sürümü yakalamaz. İmza, yeni bağımlılık ve anahtar yönetimi ister.
+7. **Kullanıcı eklentilerinde ilk yükleme uyarısı.** Eklenti klasöründeki kod doğrudan çalışır (tasarım gereği);
+   arayüzün ilk yüklemede açıkça uyarıp uyarmadığı incelenmedi.
+8. **Kararsız süre testi.** `tests/test_find_bar_fixes.py::test_keystroke_work_on_large_table_is_fast` tam test
+   setinde yük altında bir kez süre sınırını aştı (tek başına geçiyor); eşik ya da ölçüm yöntemi gözden geçirilmeli.
+
 ## Çeviri sağlayıcıları (eski CLAUDE.md §4.2)
 
 Sözleşme:
