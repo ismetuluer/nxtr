@@ -3426,9 +3426,12 @@ class MainWindow(QMainWindow):
             return
         self._replace_project(Project.new())
 
-    def _replace_project(self, project: Project) -> None:
+    def _replace_project(self, project: Project) -> bool:
+        """Açık projeyi `project` ile değiştirir. Panel metni kaydedilemezse eski proje kalır, False döner."""
         # Panelde bekleyen metin, satır kimlikleri başka projeye karışmasın diye eski projeye yazılır.
-        self.translate_page.flush_pending()
+        if not self.translate_page.flush_pending():
+            project.close()  # kullanılmayacak yeni proje dosyayı kilitli bırakmasın
+            return False
         self.project.close()
         self.recovery.clear()  # önceki proje kaydedildi ya da kullanıcı ondan vazgeçti
         self._recovery_due = False
@@ -3456,6 +3459,7 @@ class MainWindow(QMainWindow):
         self.add_page.set_files_message("warning", "")
         self.nav.setCurrentRow(STEP_ADD)
         self._refresh()
+        return True
 
     def _open_project_dialog(self) -> None:
         if self.busy or not self._confirm_discard():
@@ -3475,8 +3479,9 @@ class MainWindow(QMainWindow):
         except NxError as exc:
             self.notify(LEVEL_ERROR, "Proje açılamadı", exc.user_text())
             return False
+        if not self._replace_project(project):
+            return False
         self.settings.setValue("ui/project_dir", str(path.parent))
-        self._replace_project(project)
         self.recent.remember(path)
         missing = [s.path.name for s in self.sources if not s.path.is_file()]
         notes = []
@@ -3622,7 +3627,8 @@ class MainWindow(QMainWindow):
         except NxError as exc:
             self.notify(LEVEL_ERROR, "Proje kurtarılamadı", exc.user_text())
             return False
-        self._replace_project(project)
+        if not self._replace_project(project):
+            return False
         self.dirty = True
         self._recovery_due = True
         self.write_recovery()  # kopya artık bu pencerenin; eskisi silinebilir

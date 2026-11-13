@@ -14,7 +14,7 @@ from pytestqt.qtbot import QtBot
 
 from nxceviri.core.errors import ProjectError
 from nxceviri.core.formats.base import TextEntry
-from nxceviri.core.project import ImportedFile
+from nxceviri.core.project import ImportedFile, Project
 from nxceviri.gui.main_window import STEP_SCAN, STEP_TRANSLATE, MainWindow
 from nxceviri.gui.theme import TOKENS, ThemeMode, apply_theme
 from nxceviri.gui.translate_page import COL_TRANSLATION
@@ -264,6 +264,38 @@ def test_close_keeps_window_when_pending_pane_text_cannot_be_saved(
     assert "yazılamadı" in page.pane.error_label.text()
     monkeypatch.undo()
     assert page.flush_pending()  # hata giderilince kayıt geçer; fixture kapanışta soru çıkmasın
+    window.dirty = False
+
+
+def test_project_switch_keeps_old_project_when_pending_pane_text_cannot_be_saved(
+    qtbot: QtBot, window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    other = Project.new()
+    other_path = tmp_path / "Diğer.nxproj"
+    other.save_as(other_path)
+    other.close()
+    window.project.import_texts(
+        [ImportedFile("Menu.tsv", "0100", "unity", "base", (TextEntry("m01", 0, "Start", ()),))]
+    )
+    window._reload_rows()
+    old_project = window.project
+    page = window.translate_page
+    page._select_proxy_row(0)
+    page.pane.translation_edit.setPlainText("Başla")
+
+    def fail(changes: list[tuple[int, str]]) -> list[object]:
+        raise ProjectError("Proje dosyasına yazılamadı.", "Diskte yer olduğundan emin olun.")
+
+    monkeypatch.setattr(old_project, "set_translations", fail)
+    window.dirty = False  # soru çıkmasın; kayıp yalnızca panel metninden gelebilir
+    window.new_project()
+    assert window.project is old_project
+    assert not window.open_project(other_path)
+    assert window.project is old_project
+    assert page.pane.translation_edit.toPlainText() == "Başla"
+    assert "yazılamadı" in page.pane.error_label.text()
+    monkeypatch.undo()
+    assert page.flush_pending()
     window.dirty = False
 
 
