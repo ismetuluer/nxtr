@@ -27,11 +27,11 @@ TOKENS: dict[str, dict[str, str]] = {
         "border": "#D8DCE2",
         "text": "#1B1F24",
         "muted": "#5B6470",
-        "accent": "#2F6FEB",
+        "accent": "#2568EA",
         "accent_hover": "#2459C2",
         "accent_text": "#FFFFFF",
         "selection": "#D6E4FD",
-        "success": "#1A7F37",
+        "success": "#1A7D36",
         "success_bg": "#E4F3E8",
         "redacted": "#6F42C1",
         "warning": "#8A5A00",
@@ -129,13 +129,15 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QLabel[state="success"] {{ background: {t["success_bg"]}; color: {t["success"]}; }}
     QLabel[state="warning"] {{ background: {t["warning_bg"]}; color: {t["warning"]}; }}
     QLabel[state="danger"] {{ background: {t["danger_bg"]}; color: {t["danger"]}; }}
-    QLabel[state="info"] {{ background: {t["selection"]}; color: {t["accent"]}; }}
-    QToolButton[role="statusChip"] {{ border: none; border-radius: 9px; padding: 3px 10px; font-weight: 600; }}
+    QLabel[state="info"] {{ background: {t["selection"]}; color: {t["text"]}; }}
+    QToolButton[role="statusChip"] {{
+        border: 1px solid transparent; border-radius: 9px; padding: 2px 9px; font-weight: 600;
+    }}
     QToolButton[role="statusChip"][state="success"] {{ background: {t["success_bg"]}; color: {t["success"]}; }}
     QToolButton[role="statusChip"][state="warning"] {{ background: {t["warning_bg"]}; color: {t["warning"]}; }}
     QToolButton[role="statusChip"][state="danger"] {{ background: {t["danger_bg"]}; color: {t["danger"]}; }}
     QToolButton[role="statusChip"][state="neutral"] {{ background: {t["surface2"]}; color: {t["muted"]}; }}
-    QToolButton[role="statusChip"][state="info"] {{ background: {t["selection"]}; color: {t["accent"]}; }}
+    QToolButton[role="statusChip"][state="info"] {{ background: {t["selection"]}; color: {t["text"]}; }}
     QToolButton[role="chip"] {{
         background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: 12px; padding: 3px 10px;
     }}
@@ -164,13 +166,17 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QPushButton:hover {{ border-color: {t["accent"]}; }}
     QPushButton:disabled {{ color: {t["muted"]}; border-color: {t["surface2"]}; }}
     QPushButton[kind="primary"] {{
-        background: {t["accent"]}; color: {t["accent_text"]}; border: none; font-weight: 600;
+        background: {t["accent"]}; color: {t["accent_text"]}; border: 1px solid {t["accent"]}; font-weight: 600;
     }}
     QPushButton[kind="primary"]:hover {{ background: {t["accent_hover"]}; }}
     QPushButton[kind="primary"]:disabled {{ background: {t["surface2"]}; color: {t["muted"]}; }}
-    QPushButton[kind="flat"] {{ background: transparent; border: none; color: {t["accent"]}; padding: 4px 6px; }}
+    QPushButton[kind="flat"] {{
+        background: transparent; border: 1px solid transparent; color: {t["accent"]}; padding: 3px 5px;
+    }}
     QWidget#stepNavColumn {{ background: {t["surface"]}; border-right: 1px solid {t["border"]}; }}
-    QListWidget#stepNav {{ background: transparent; border: none; outline: none; padding: 4px 8px 12px 8px; }}
+    QListWidget#stepNav {{
+        background: transparent; border: 1px solid transparent; outline: none; padding: 3px 7px 11px 7px;
+    }}
     QLabel[role="navTitle"] {{ font-weight: 600; font-size: {size(1.1)}; }}
     QTableView, QTableWidget, QTreeWidget, QListWidget, QLineEdit, QComboBox, QSpinBox, QPlainTextEdit {{
         background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: 6px;
@@ -194,8 +200,10 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QStatusBar::item {{ border: none; }}
     QStatusBar QFrame[segment="true"] {{ border: none; border-left: 1px solid {t["border"]}; background: transparent; }}
     QStatusBar QLabel {{ color: {t["muted"]}; }}
-    QStatusBar QToolButton[role="problems"] {{ color: {t["danger"]}; border: none; padding: 0 2px; }}
-    QStatusBar QToolButton[role="keys"] {{ border: none; padding: 0 2px; }}
+    QStatusBar QToolButton[role="problems"] {{
+        color: {t["danger"]}; border: 1px solid transparent; padding: 0 1px; margin: -1px 0;
+    }}
+    QStatusBar QToolButton[role="keys"] {{ border: 1px solid transparent; padding: 0 1px; margin: -1px 0; }}
     QStatusBar QProgressBar {{ background: {t["surface2"]}; border: none; border-radius: 2px; }}
     QStatusBar QProgressBar::chunk {{ background: {t["accent"]}; border-radius: 2px; }}
     QLabel#saveDot {{ border-radius: 4px; background: {t["muted"]}; }}
@@ -212,14 +220,27 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
     QToolTip {{ background: {t["surface"]}; color: {t["text"]}; border: 1px solid {t["border"]}; padding: 4px; }}
     QToolButton#viewButton {{ padding: 4px 22px 4px 10px; }}
-    QToolButton[role="viewTool"] {{ border: none; border-radius: 6px; padding: 5px; }}
+    QToolButton[role="viewTool"] {{ border: 1px solid transparent; border-radius: 6px; padding: 4px; }}
     QToolButton[role="viewTool"]:hover {{ background: {t["surface2"]}; }}
     QToolButton[role="viewTool"]:checked {{ background: {t["selection"]}; }}
     QCheckBox:disabled {{ color: {t["muted"]}; }}
-    QToolButton[role="link"] {{ border: none; background: transparent; color: {t["accent"]}; padding: 2px 6px; }}
+    QToolButton[role="link"] {{
+        border: 1px solid transparent; background: transparent; color: {t["accent"]}; padding: 1px 5px;
+    }}
     QToolButton[role="link"]:hover {{ text-decoration: underline; }}
     QToolButton[role="link"]:disabled {{ color: {t["muted"]}; }}
     QToolButton#viewButton::menu-indicator {{ subcontrol-position: right center; right: 6px; }}
+    /* Klavye odağı: çerçeve kalınlığı sabit kalır (yalnızca renk değişir), boyut oynamaz. En sonda durur ki
+       rol kurallarının `border` tanımları odak rengini ezmesin. */
+    QPushButton:focus, QPushButton[kind="flat"]:focus {{ border-color: {t["accent"]}; }}
+    QPushButton[kind="primary"]:focus {{ border-color: {t["text"]}; }}
+    QToolButton[role="statusChip"]:focus, QToolButton[role="chip"]:focus, QToolButton[role="viewTool"]:focus,
+    QToolButton[role="link"]:focus, QStatusBar QToolButton[role="problems"]:focus,
+    QStatusBar QToolButton[role="keys"]:focus {{ border-color: {t["accent"]}; }}
+    QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QPlainTextEdit:focus {{ border-color: {t["accent"]}; }}
+    QCheckBox::indicator:focus {{ border-color: {t["accent"]}; }}
+    QCheckBox::indicator:checked:focus {{ border-color: {t["text"]}; }}
+    QListWidget#stepNav:focus {{ border-color: {t["accent"]}; }}
     """
 
 
