@@ -242,6 +242,67 @@ def test_close_unsaved_asks(qtbot: QtBot, window: MainWindow, game: GameFiles, m
     assert window.isVisible()
 
 
+class _FakeThread:
+    """`cancel`/`wait` çağrılarını sırasıyla kaydeden sahte iş parçacığı."""
+
+    def __init__(self, name: str, calls: list[str], window: MainWindow | None = None) -> None:
+        self.name = name
+        self.calls = calls
+        self.window = window
+        self.visible_at_wait: bool | None = None
+
+    def cancel(self) -> None:
+        self.calls.append(f"{self.name}.cancel")
+
+    def wait(self) -> None:
+        self.calls.append(f"{self.name}.wait")
+        if self.window is not None:
+            self.visible_at_wait = self.window.isVisible()
+
+
+def test_close_declined_cancels_and_waits_for_nothing(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+    update, spell, work = (_FakeThread(n, calls) for n in ("update", "spell", "task"))
+    monkeypatch.setattr(QMessageBox, "question", lambda *_a, **_k: QMessageBox.StandardButton.Cancel)
+    window._update_task = update  # type: ignore[assignment]
+    window._spell_scan = spell  # type: ignore[assignment]
+    window.task = work  # type: ignore[assignment]
+    window.dirty = True
+    window.show()
+    try:
+        window.close()  # kaydetme sorusunda vazgeçildi
+        assert window.isVisible()
+        assert calls == []
+    finally:
+        window._update_task = None
+        window._spell_scan = None
+        window.task = None
+        window.dirty = False
+
+
+def test_close_hides_window_before_waiting_for_threads(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+    update, spell, work = (_FakeThread(n, calls, window) for n in ("update", "spell", "task"))
+    monkeypatch.setattr(QMessageBox, "question", lambda *_a, **_k: QMessageBox.StandardButton.Yes)
+    window._update_task = update  # type: ignore[assignment]
+    window._spell_scan = spell  # type: ignore[assignment]
+    window.task = work  # type: ignore[assignment]
+    window.dirty = False
+    window.show()
+    try:
+        window.close()
+        cancels = [c for c in calls if c.endswith(".cancel")]
+        waits = [c for c in calls if c.endswith(".wait")]
+        assert sorted(cancels) == ["spell.cancel", "task.cancel", "update.cancel"]
+        assert sorted(waits) == ["spell.wait", "task.wait", "update.wait"]
+        assert max(calls.index(c) for c in cancels) < min(calls.index(c) for c in waits)
+        assert [t.visible_at_wait for t in (update, spell, work)] == [False, False, False]
+    finally:
+        window._update_task = None
+        window._spell_scan = None
+        window.task = None
+
+
 def test_close_keeps_window_when_pending_pane_text_cannot_be_saved(
     qtbot: QtBot, window: MainWindow, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -3554,11 +3554,6 @@ class MainWindow(QMainWindow):
         if not self.translate_page.flush_pending():  # panelde yazılıp kaydedilemeyen metin kaybolmasın
             event.ignore()
             return
-        if self._update_task is not None:
-            self._update_task.wait()  # ağ zaman aşımlarıyla sınırlı; çalışan iş parçacığı yok edilemez
-        if self._spell_scan is not None:
-            self._spell_scan.cancel()
-            self._spell_scan.wait()
         if self.busy:
             answer = QMessageBox.question(
                 self, "İşlem sürüyor", "Bir işlem devam ediyor. İptal edip çıkmak istiyor musunuz?"
@@ -3566,13 +3561,18 @@ class MainWindow(QMainWindow):
             if answer != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
-            assert self.task is not None
-            self.task.cancel()
-            self.task.wait()
         if not self._confirm_discard():
             event.ignore()
             return
+        # Tüm onaylar alındı: önce iptaller, sonra pencere gizlenir, ardından iş parçacıkları beklenir
+        # (beklenmeden bırakılan iş parçacığı çökmeye yol açar; bkz. tasks.release_thread).
         self.translate_page.find_window.close()  # açık Bul penceresinin konumu kaybolmasın
+        running = [t for t in (self.task, self._update_task, self._spell_scan) if t is not None]
+        for thread in running:
+            thread.cancel()
+        self.hide()  # bekleme sürerken pencere "yanıt vermiyor" görünmesin
+        for thread in running:
+            thread.wait()  # ağ zaman aşımlarıyla sınırlı; çalışan iş parçacığı yok edilemez
         self._recovery_timer.stop()
         self._mascot_rest.stop()
         self._mascot_poll.stop()
