@@ -1,4 +1,4 @@
-# HANDOFF — oturum devri (2026-11-02, 0.47.0)
+# HANDOFF — oturum devri (2026-11-13, 0.57.0)
 
 ## Durum
 - **Sürüm 0.57.0** (2026-11-13): toplu düzeltmeler — bildirim kartları kaybolur, Kontrol Et proje değişince sıfırlanır, menüde Ctrl/Shift, satıra tam kaydırma, büyük tabloda gecikmeli arama, kopyalanan sözcük işaretleme, Ollama takılan satırı atlar, kontrol kodu zarfı onarımı, "Türkçe harf eksik" denetimi. ARCHITECTURE §4.47, TECH_DEBT 92. **Yayımlanmadı** (`ozellik/toplu-duzeltmeler` dalı; "yayınla" bekleniyor).
@@ -48,13 +48,6 @@
 - Yığın: Python 3.13, PySide6-Essentials, cryptography, zstandard, UnityPy, httpx, keyring, fonttools, lz4, Pillow
   (gerekçeler ARCHITECTURE.md).
 
-## Çalışma ağacındaki başka işler (commit edilmedi, bu oturuma ait değil)
-`TECH_DEBT.md` (madde 49), `nxceviri/core/export/layeredfs.py`, `nxceviri/core/fontpatch/dmc1_*.py`,
-`nxceviri/core/qa/fonts.py`, `nxceviri/gui/jobs.py`, `nxceviri/gui/translate_page.py` (2 satır), testler
-(`test_dmc1_images`, `test_export`, `test_fontpatch_switchfont`, `test_gui` — `version_banner` bloğu çipi okuyacak
-biçimde güncellendi) ve izlenmeyen `rhg_ranks.py`, `switchtex.py`, `docs/formats/rhg-tex.md`, `docs/*-dmc1.md`.
-Bu yüzden `git checkout master` engelleniyor; master `git branch -f` ile ileri sarıldı.
-
 ## Kullanıcının yapacağı testler
 - **Paket (M9):** paketlenmiş `NXTR.exe` → oyun ekle → tara → aktar → (Ollama ya da DeepL ile)
   birkaç satır çevir → Kontrol Et → Dışa Aktar. DeepL anahtarını kaydetmek Kimlik Bilgisi Yöneticisi'ni dener.
@@ -70,5 +63,5 @@ Bu yüzden `git checkout master` engelleniyor; master `git branch -f` ile ileri 
 ## Önerilen sıradaki iş
 1. Kullanıcı paketi ve modları dener; çıkan sorunlar önceliklidir.
 2. Kayıt hatasında metin kaybı düzeltmesi (küçük).
-3. `gui/main_window.py` bölünmesi (TECH_DEBT 69, ~2.250 satır).
+3. `gui/main_window.py` bölünmesi (TECH_DEBT 69, ~3.640 satır).
 4. Ürün sahibi yeni bir oyun isterse ilgili format eklentisi (kalanlar: `docs/uyumluluk.md`).
