@@ -65,7 +65,7 @@ class Task(QThread):
             log.exception("Beklenmeyen hata: %s", self.description)
             self.failed.emit(
                 "Beklenmeyen bir hata oluştu.\n\n"
-                "Ayrıntılar log dosyasına yazıldı (Yardım > Log Klasörünü Aç). "
+                "Ayrıntılar hata kaydı dosyasına yazıldı (Yardım → Hata Kayıtları Klasörünü Aç). "
                 "Sorun sürerse bu dosyayı geliştiriciyle paylaşabilirsiniz; anahtar bilgisi içermez."
             )
         else:

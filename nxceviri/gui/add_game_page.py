@@ -89,7 +89,7 @@ class AddGamePage(QWidget):
         self.files_card.body.addWidget(self.files_banner)
 
         self.table = QTableWidget(0, 6)
-        self.table.setHorizontalHeaderLabels(["Tür", "Oyun", "TitleID", "Sürüm", "Dosya", ""])
+        self.table.setHorizontalHeaderLabels(["Tür", "Oyun", "Oyun kimliği (TitleID)", "Sürüm", "Dosya", ""])
         self.table.verticalHeader().hide()
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)

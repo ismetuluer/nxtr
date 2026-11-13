@@ -52,7 +52,7 @@ def test_romfs_roundtrip() -> None:
 def test_romfs_corrupt_header() -> None:
     data = bytearray(nxbuild.build_romfs({"a": b"x"}))
     data[0] = 0x40
-    with pytest.raises(ContainerError, match="RomFS"):
+    with pytest.raises(ContainerError, match="başlığı geçersiz"):
         RomFs(MemoryStorage(bytes(data)))
     with pytest.raises(ContainerError):
         RomFs(MemoryStorage(b"\0" * 10))
@@ -88,7 +88,7 @@ def test_nsz_block_and_stream_give_same_files(game: GameFiles, keys: KeySet, tmp
 
 
 def test_stream_nsz_requires_cache(game: GameFiles, keys: KeySet) -> None:
-    with open_package(game.base_nsz_stream, keys) as pkg, pytest.raises(ContainerError, match="önbellek"):
+    with open_package(game.base_nsz_stream, keys) as pkg, pytest.raises(ContainerError, match="geçici dosyalar"):
         pkg.program_nca()
 
 
@@ -252,5 +252,5 @@ def test_bucket_tree_invalid_magic(game: GameFiles, keys: KeySet) -> None:
     from nxceviri.core.container.nca import BucketTreeHeader
 
     header = BucketTreeHeader.parse(struct.pack("<QQ4sIiI", 0, 0x4000, b"XXXX", 1, 1, 0))
-    with pytest.raises(ContainerError, match="BKTR"):
+    with pytest.raises(ContainerError, match="tablo imzası"):
         read_bucket_tree(MemoryStorage(b"\0" * 0x8000), header, 0x14)

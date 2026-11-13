@@ -168,7 +168,7 @@ class DeepLProvider:
         if code in (429, 529):
             return ProviderError("DeepL çok fazla istek aldı; kısa bir süre beklenecek.", retryable=True)
         if code == 413:
-            return ProviderError("DeepL isteği çok büyük buldu.", "Bu bir hatadır; log dosyasını paylaşın.")
+            return ProviderError("DeepL isteği çok büyük buldu.", "Bu bir hatadır; hata kaydı dosyasını paylaşın.")
         if code >= 500:
             return ProviderError(f"DeepL geçici bir hata döndürdü (HTTP {code}).", retryable=True)
         return ProviderError(f"DeepL isteği reddetti (HTTP {code}): {detail}")

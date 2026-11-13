@@ -94,7 +94,7 @@ def test_translate_batch_request_shape() -> None:
 def test_translate_batch_errors() -> None:
     server = FakeOllama(bad_json=1, timeouts=0)
     provider = server.provider()
-    with pytest.raises(ProviderError, match="JSON") as exc:
+    with pytest.raises(ProviderError, match="istenen biçimde") as exc:
         provider.translate_batch([BatchItem("0", "a")], "en", "tr", "", [])
     assert exc.value.retryable
     server.timeouts = 1
@@ -477,7 +477,7 @@ def test_model_problem_errors_are_per_item() -> None:
     with pytest.raises(ProviderError, match="tekrar") as exc:
         looping.translate_batch([BatchItem("0", "a")], "en", "tr", "", [])
     assert exc.value.per_item
-    with pytest.raises(ProviderError, match="JSON") as exc:
+    with pytest.raises(ProviderError, match="istenen biçimde") as exc:
         FakeOllama(bad_json=1).provider().translate_batch([BatchItem("0", "a")], "en", "tr", "", [])
     assert exc.value.per_item
     with pytest.raises(ProviderError, match="HTTP 500") as exc:

@@ -78,7 +78,7 @@ def test_stream_ncz_refuses_when_disk_is_full(game: GameFiles, tmp_path: Path, m
     with open_package(game.base_nsz_stream, keys, cache_dir=cache) as pkg, pytest.raises(ContainerError) as err:
         pkg.program_nca()
     assert "Diskte yer yok" in err.value.message
-    assert "Önbelleği Temizle" in err.value.user_text()
+    assert "Geçici Dosyaları Temizle" in err.value.user_text()
     assert not any(cache.rglob("*.nca*"))
 
 

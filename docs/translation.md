@@ -192,7 +192,7 @@ Biçim redaksiyonla aynı dört sütundur, ancak üçüncü sütunun adı `yeni 
 metindir (henüz çevrilmemiş satırda boştur). Boş bırakılan `yeni çeviri`, mevcut çevirinin korunacağı anlamına
 gelir. `grup` burada da salt okunur bağlamdır. TXT varsayılandır; XLSX aynı sütunları Excel'de açar. Dosya adı
 varsayılan olarak `…_ceviri.txt` / `…_ceviri.xlsx` olur; gruplara ayırma ve parçalama redaksiyonla aynıdır.
-Penceredeki hazır istem çevirmene/model ne beklendiğini, `yeni çeviri` dışındaki sütunlara dokunulmamasını,
+Penceredeki hazır talimat çevirmene/model ne beklendiğini, `yeni çeviri` dışındaki sütunlara dokunulmamasını,
 kontrol kodlarının korunmasını ve doğru çevirilerin boş bırakılabileceğini anlatır; kaydedince panoya kopyalanır.
 
 İçe aktarma (**“Dış çeviriden içe aktar…”**) redaksiyonla aynı akışı izler: TXT/XLSX/CSV dosyaları birlikte

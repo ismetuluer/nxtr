@@ -116,19 +116,19 @@ class FsHeader:
         hd = self.hash_data
         if self.hash_type in _IVFC_HASH_TYPES:
             if hd[:4] != b"IVFC":
-                raise ContainerError("NCA bölümü bozuk: IVFC başlığı bulunamadı.")
+                raise ContainerError("Oyun dosyası bölümü bozuk: IVFC başlığı bulunamadı.")
             (levels,) = struct.unpack_from("<I", hd, 0x0C)
             if not 2 <= levels <= 7:
-                raise ContainerError("NCA bölümü bozuk: IVFC katman sayısı geçersiz.")
+                raise ContainerError("Oyun dosyası bölümü bozuk: IVFC katman sayısı geçersiz.")
             off, size = struct.unpack_from("<QQ", hd, 0x10 + (levels - 2) * 0x18)
             return off, size
         if self.hash_type in _SHA256_HASH_TYPES:
             (layers,) = struct.unpack_from("<I", hd, 0x24)
             if not 1 <= layers <= 5:
-                raise ContainerError("NCA bölümü bozuk: hash katman sayısı geçersiz.")
+                raise ContainerError("Oyun dosyası bölümü bozuk: doğrulama katman sayısı geçersiz.")
             off, size = struct.unpack_from("<QQ", hd, 0x28 + (layers - 1) * 0x10)
             return off, size
-        raise UnsupportedFormatError(f"Desteklenmeyen NCA hash türü: {self.hash_type}")
+        raise UnsupportedFormatError(f"Desteklenmeyen oyun dosyası doğrulama türü: {self.hash_type}")
 
 
 def open_data_region(region: Storage, fs: FsHeader) -> Storage:

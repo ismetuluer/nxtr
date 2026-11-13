@@ -84,7 +84,7 @@ def open_patched_romfs_section(patch: Nca, fs: FsHeader, base: Nca) -> IndirectS
         raise ContainerError(f"{patch.name}: yama tabloları eksik; dosya bozuk olabilir.")
     base_fs = base.find_section(FsType.ROMFS)
     if base_fs is None:
-        raise ContainerError(f"{base.name}: ana oyunda RomFS bölümü yok; güncelleme uygulanamıyor.")
+        raise ContainerError(f"{base.name}: ana oyunda veri bölümü yok; güncelleme uygulanamıyor.")
 
     tables = patch.ctr_section(fs)
     ind_raw, ind_end = read_bucket_tree(

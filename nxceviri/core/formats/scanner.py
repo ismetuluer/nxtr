@@ -212,7 +212,7 @@ def _scan_pak(
             )
         )
     if pak.entries and not listed:
-        warnings.append(f"{path}: {len(pak.entries):,} dosya içeren pak'ta metin adayı bulunamadı.")
+        warnings.append(f"{path}: {len(pak.entries):,} dosya içeren pak'ta olası metin dosyası bulunamadı.")
 
 
 def _scan_m2(

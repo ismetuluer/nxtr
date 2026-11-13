@@ -42,4 +42,4 @@ sığdığı denetlenir.
 
 Akış kipindeki NCZ rastgele okunamadığı için önce önbelleğe tam NCA olarak açılır (oyun başına
 GB'larca). Açmadan önce boş alan denetlenir (NCA boyutu + 1 GB); yer yoksa veya yazarken disk
-dolarsa, yarım dosya silinir ve kullanıcıya "Önbelleği Temizle" önerilir.
+dolarsa, yarım dosya silinir ve kullanıcıya "Geçici Dosyaları Temizle" önerilir.

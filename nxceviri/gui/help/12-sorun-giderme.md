@@ -3,7 +3,7 @@
 ## Mod oyunda görünmüyor
 
 - Klasör yolu doğru mu? Atmosphère: `atmosphere/contents/<TitleID>/romfs/`, SD kartın kökünde. `romfs` bir seviye fazla
-  ya da eksik olmamalı. Doğru TitleID, mod klasöründeki `NXTR - Bilgi.txt` dosyasında yazar.
+  ya da eksik olmamalı. Doğru oyun kimliği (TitleID), mod klasöründeki `NXTR - Bilgi.txt` dosyasında yazar.
 - Emülatörde mod etkin mi?
 - Oyun, taramada seçtiğiniz kaynak dilde mi çalışıyor? Türkçe o dilin yerine yazılır.
 - Metinleri aktardığınız oyun sürümüyle oynadığınız sürüm aynı mı? Güncellemeyi de eklediniz mi?
@@ -35,5 +35,5 @@ olabilir (**Dışa Aktar → Görseller**) ya da oyun metni desteklenmeyen bir d
 
 ## Hâlâ çözülmediyse
 
-**Araçlar → Teşhis Raporu** sorunu anlatmak için gerekenleri toplar. **Yardım → Log Klasörünü Aç** günlükleri
+**Araçlar → Teşhis Raporu** sorunu anlatmak için gerekenleri toplar. **Yardım → Hata Kayıtları Klasörünü Aç** günlükleri
 gösterir. Paylaşırken oyun dosyası, anahtar ya da uzun oyun metni göndermeyin.

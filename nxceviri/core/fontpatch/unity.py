@@ -251,7 +251,7 @@ def _verify(out: bytes, reports: list[FontPatch]) -> None:
         if any(ord(c) not in chars for c in added) or tex.image.height != int(tree["m_AtlasHeight"]):
             raise FontPatchError(
                 "Font yaması yazıldıktan sonra doğrulanamadı; mod üretilmedi.",
-                "Bu bir hata olabilir; log dosyasını geliştiriciyle paylaşın.",
+                "Bu bir hata olabilir; hata kaydı dosyasını geliştiriciyle paylaşın.",
             )
     if expected:
         raise FontPatchError("Font yaması yazıldıktan sonra bazı fontlar bulunamadı; mod üretilmedi.")
@@ -268,7 +268,7 @@ def _verify_vector(env: Any, reports: list[FontPatch]) -> None:
         if added is not None and ttf.plan(bytes(font.m_FontData), added) != ("", {}):
             raise FontPatchError(
                 "Font yaması yazıldıktan sonra doğrulanamadı; mod üretilmedi.",
-                "Bu bir hata olabilir; log dosyasını geliştiriciyle paylaşın.",
+                "Bu bir hata olabilir; hata kaydı dosyasını geliştiriciyle paylaşın.",
             )
     if expected:
         raise FontPatchError("Font yaması yazıldıktan sonra bazı fontlar bulunamadı; mod üretilmedi.")

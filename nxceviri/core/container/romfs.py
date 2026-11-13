@@ -36,7 +36,7 @@ class RomFs:
         header_size, _dh_off, _dh_size, dm_off, dm_size, _fh_off, _fh_size, fm_off, fm_size, data_off = fields
         if header_size != ROMFS_HEADER_SIZE:
             raise ContainerError(
-                f"{name} okunamadı: RomFS başlığı geçersiz.",
+                f"{name} okunamadı: oyun dosyası başlığı geçersiz.",
                 "İçerik yanlış bir anahtarla çözülmüş olabilir veya dosya bozuk.",
             )
         for off, size in ((dm_off, dm_size), (fm_off, fm_size)):
@@ -51,29 +51,29 @@ class RomFs:
     def _name(self, table: bytes, name_field: int, length_limit: int) -> str:
         (length,) = struct.unpack_from("<I", table, name_field)
         if length > length_limit or name_field + 4 + length > len(table):
-            raise ContainerError("RomFS bozuk: girdi adı tablonun dışına taşıyor.")
+            raise ContainerError("Oyun dosyaları bozuk: girdi adı tablonun dışına taşıyor.")
         return table[name_field + 4 : name_field + 4 + length].decode("utf-8", errors="replace")
 
     def _walk(self, dir_off: int, prefix: str, seen: set[int]) -> None:
         if dir_off in seen or dir_off + 0x18 > len(self._dirs):
-            raise ContainerError("RomFS bozuk: dizin ağacında döngü veya geçersiz bağlantı var.")
+            raise ContainerError("Oyun dosyaları bozuk: dizin ağacında döngü veya geçersiz bağlantı var.")
         seen.add(dir_off)
         _parent, _sibling, child, file_off, _hash, _nlen = struct.unpack_from("<6I", self._dirs, dir_off)
         fseen: set[int] = set()
         while file_off != _NONE:
             if file_off in fseen or file_off + 0x20 > len(self._files):
-                raise ContainerError("RomFS bozuk: dosya listesinde döngü veya geçersiz bağlantı var.")
+                raise ContainerError("Oyun dosyaları bozuk: dosya listesinde döngü veya geçersiz bağlantı var.")
             fseen.add(file_off)
             _fp, sibling, data, size, _fh = struct.unpack_from("<IIQQI", self._files, file_off)
             name = self._name(self._files, file_off + 0x1C, 0x300)
             abs_off = self._data_off + data
             if abs_off + size > self.storage.size:
-                raise ContainerError(f"RomFS bozuk: '{prefix}{name}' verinin dışına taşıyor.")
+                raise ContainerError(f"Oyun dosyaları bozuk: '{prefix}{name}' verinin dışına taşıyor.")
             self.files[prefix + name] = RomFsFile(prefix + name, abs_off, size)
             file_off = sibling
         while child != _NONE:
             if child + 0x18 > len(self._dirs):
-                raise ContainerError("RomFS bozuk: alt dizin bağlantısı geçersiz.")
+                raise ContainerError("Oyun dosyaları bozuk: alt dizin bağlantısı geçersiz.")
             (child_sibling,) = struct.unpack_from("<I", self._dirs, child + 4)
             name = self._name(self._dirs, child + 0x14, 0x300)
             self._walk(child, f"{prefix}{name}/", seen)
@@ -82,5 +82,5 @@ class RomFs:
     def open(self, path: str) -> Storage:
         entry = self.files.get(path)
         if entry is None:
-            raise ContainerError(f"RomFS içinde dosya bulunamadı: {path}")
+            raise ContainerError(f"Oyun dosyaları içinde dosya bulunamadı: {path}")
         return SubStorage(self.storage, entry.offset, entry.size)

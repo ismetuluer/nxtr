@@ -178,7 +178,7 @@ def build_game_view(packages: list[GamePackage], ctx: TaskContext | None = None)
             trees.append(ContentTree(base.title_id, "Ana oyun", LayeredRomFs(layers), code))
         else:
             warnings.append(
-                "Oyunda RomFS (veri klasörü) yok: oyunun tüm verisi program dosyasının içinde. "
+                "Oyunda veri klasörü yok: oyunun tüm verisi program dosyasının içinde. "
                 "Bu tür oyunların metinleri ayrı dosyalarda olmadığı için çıkarılamaz."
             )
 

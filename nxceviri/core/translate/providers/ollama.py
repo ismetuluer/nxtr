@@ -680,9 +680,9 @@ class OllamaProvider:
                     per_item=True,
                 )
             raise ProviderError(
-                "Model istenen biçimde (JSON) yanıt vermedi.",
+                "Model istenen biçimde yanıt vermedi.",
                 "Parti tekrar denenecek; sorun sürerse başka bir model seçin. Modelin ne yazdığı günlükte "
-                "(Yardım → Log Klasörünü Aç).",
+                "(Yardım → Hata Kayıtları Klasörünü Aç).",
                 retryable=True,
                 per_item=True,
             )

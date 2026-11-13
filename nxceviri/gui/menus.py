@@ -131,7 +131,7 @@ class Menus:
         w.title_keys_clear_action = self._add(keys_menu, "title.keys Dosyasını Kaldır", w._clear_title_keys, icon="x")
         w.title_keys_clear_action.setEnabled(False)
         menu.addSeparator()
-        w.cache_action = self._add(menu, "Önbelleği Temizle…", w._clear_cache, icon="trash-2")
+        w.cache_action = self._add(menu, "Geçici Dosyaları Temizle…", w._clear_cache, icon="trash-2")
         menu.addSeparator()
         self._add(menu, "Ayarlar…", w.open_settings, command="app.settings", icon="settings")
         menu.addSeparator()
@@ -348,7 +348,7 @@ class Menus:
         menu = self._menu("&Araçlar")
         menu.aboutToShow.connect(self.refresh)
         self.extract_candidates = self._add(
-            menu, "Metin Adaylarını Çıkar…", lambda: w._extract("candidates"), icon="folder-output"
+            menu, "Olası Metin Dosyalarını Çıkar…", lambda: w._extract("candidates"), icon="folder-output"
         )
         self.extract_all = self._add(menu, "Oyunun Tüm Dosyalarını Çıkar…", lambda: w._extract("all"), icon="package")
         self.diagnosis = self._add(
@@ -368,7 +368,7 @@ class Menus:
         w.update_action.setEnabled(w.app_root is not None or w.packaged)
         if w.app_root is None and not w.packaged:
             w.update_action.setToolTip("Bu kurulum kaynak koduyla çalışmadığı için uygulama içinden güncellenemez.")
-        self._add(menu, "Log Klasörünü Aç", w._open_logs, icon="folder-open")
+        self._add(menu, "Hata Kayıtları Klasörünü Aç", w._open_logs, icon="folder-open")
         self._add(menu, "Hakkında", w._about, icon="info")
 
     # --- etkinlik ------------------------------------------------------------------------

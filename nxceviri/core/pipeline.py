@@ -439,12 +439,12 @@ def clear_cache(path: Path) -> None:
     if not path.exists():
         return
     if not path.name.endswith("onbellek"):
-        raise ContainerError(f"Önbellek klasörü beklenmeyen bir yerde: {path}", "Güvenlik için silinmedi.")
+        raise ContainerError(f"Geçici dosyalar klasörü beklenmeyen bir yerde: {path}", "Güvenlik için silinmedi.")
     try:
         shutil.rmtree(path)
     except OSError as exc:
         raise ContainerError(
-            f"Önbellek silinemedi: {path}",
+            f"Geçici dosyalar silinemedi: {path}",
             f"Dosyalar başka bir programda açık olabilir. ({exc.strerror})",
         ) from None
 

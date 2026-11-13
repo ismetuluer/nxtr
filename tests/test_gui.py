@@ -780,7 +780,7 @@ def test_scan_page_diagnosis_report(
     assert isinstance(tools, QMenu)
     entries = [a for a in tools.actions() if a.text() and not a.menu()]
     assert [a.text() for a in entries[:3]] == [
-        "Metin Adaylarını Çıkar…",
+        "Olası Metin Dosyalarını Çıkar…",
         "Oyunun Tüm Dosyalarını Çıkar…",
         "Teşhis Raporu…",
     ]

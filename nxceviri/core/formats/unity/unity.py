@@ -736,5 +736,5 @@ class UnityPlugin:
         if _snapshot(_load(out)) != dict(expected):
             raise FormatError(
                 "Unity dosyası yazıldıktan sonra doğrulanamadı; değişiklik uygulanmadı.",
-                "Bu bir hata olabilir; log dosyasını geliştiriciyle paylaşın.",
+                "Bu bir hata olabilir; hata kaydı dosyasını geliştiriciyle paylaşın.",
             )

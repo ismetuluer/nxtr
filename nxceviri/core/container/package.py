@@ -56,9 +56,10 @@ _DISK_MARGIN = 1024**3
 def _no_space(name: str, needed: int, free: int) -> ContainerError:
     gb = 1024**3
     return ContainerError(
-        f"Diskte yer yok: {name} önbelleğe açılırken yaklaşık {needed / gb:.1f} GB gerekiyor, {free / gb:.1f} GB boş.",
-        "Diskte yer açın veya Dosya → Önbelleği Temizle… ile eski oyunların önbelleğini silin. "
-        "Bu dosya akış kipinde sıkıştırıldığı için tamamen açılması gerekir.",
+        f"Diskte yer yok: {name} geçici dosyalara açılırken yaklaşık {needed / gb:.1f} GB gerekiyor, "
+        f"{free / gb:.1f} GB boş.",
+        "Diskte yer açın veya Dosya → Geçici Dosyaları Temizle… ile eski oyunların geçici dosyalarını silin. "
+        "Bu dosya özel biçimde sıkıştırıldığı için tamamen açılması gerekir.",
     )
 
 
@@ -130,8 +131,8 @@ class GamePackage:
             return open_ncz_random_access(raw)
         if self._cache_dir is None:
             raise ContainerError(
-                f"{entry.name} akış kipinde sıkıştırılmış ve önbellek klasörü yok.",
-                "Bu dosya okunmadan önce önbelleğe açılmalıdır.",
+                f"{entry.name} özel bir sıkıştırma biçiminde ve geçici dosyalar klasörü yok.",
+                "Bu dosya okunmadan önce geçici dosyalara açılmalıdır.",
             )
         target = self._cache_dir / (entry.name[:-4] + ".nca")
         if not target.exists():

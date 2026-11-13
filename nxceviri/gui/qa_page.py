@@ -74,10 +74,7 @@ COL_SEVERITY, COL_KIND, COL_DESCRIPTION, COL_SOURCE, COL_TRANSLATION = range(5)
 _FIT_START_WIDTH, _FIT_START_LINES = 40, 3
 _FIT_OFF_TEXT = "Sınır girilmedi; sığdırma kapalı."
 _FIT_KEPT_TEXT = "Sığdırma kapalı; sınırlar saklanıyor."
-_FIT_RESULT_EMPTY = (
-    "Henüz denetlenmedi. Sorunlar sekmesinde “Denetle”ye basın; sonra ayarı değiştirdikçe sonuç burada kendiliğinden "
-    "yenilenir."
-)
+_FIT_RESULT_EMPTY = "Henüz denetlenmedi. Önce Sorunlar sekmesinde “Denetle”ye basın."
 _FIT_RESULT_CHECKING = "Denetleniyor…"
 _FIT_RESULT_FAILED = "Denetim yenilenemedi. Sorunlar sekmesinde “Denetle”ye basarak yeniden deneyin."
 #: "Taşıyor" sayılan bulgu türleri: satır ya da sayfa sınırını aşanlar (kötü bölünme taşma değildir).

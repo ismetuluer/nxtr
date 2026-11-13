@@ -233,7 +233,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
                 if conn.in_transaction:
                     conn.execute("ROLLBACK")
                 raise ProjectError(
-                    f"Proje dosyası güncellenemedi (şema {target}): {exc}",
+                    f"Proje dosyası güncellenemedi (proje sürümü {target}): {exc}",
                     "Proje dosyasının yanındaki .bak yedeğini kullanabilirsiniz.",
                 ) from None
         broken = conn.execute("PRAGMA foreign_key_check").fetchall()
@@ -394,7 +394,7 @@ class Project:
                 )
             if version > SCHEMA_VERSION:
                 raise ProjectError(
-                    f"Proje, uygulamanın daha yeni bir sürümüyle kaydedilmiş (şema {version}).",
+                    f"Proje, uygulamanın daha yeni bir sürümüyle kaydedilmiş (proje sürümü {version}).",
                     "Uygulamayı güncelleyip yeniden deneyin.",
                 )
             if version < SCHEMA_VERSION:

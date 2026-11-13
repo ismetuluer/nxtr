@@ -28,10 +28,10 @@ def read_bucket_tree(table: Storage, header: BucketTreeHeader, entry_size: int) 
     durur; arama için düğümlere ihtiyaç duymadan hepsini sırayla okuruz.
     """
     if header.magic != b"BKTR":
-        raise ContainerError("NCA tablosu bozuk: BKTR imzası bulunamadı.")
+        raise ContainerError("Güncelleme dosyası bozuk: tablo imzası bulunamadı.")
     l1_index, l1_count, end_offset = struct.unpack("<iiq", table.read(0, _NODE_HEADER))
     if l1_index != 0 or l1_count <= 0:
-        raise ContainerError("NCA tablosu bozuk: tablo kök düğümü geçersiz.")
+        raise ContainerError("Güncelleme dosyası bozuk: tablo kök düğümü geçersiz.")
     per_set = (NODE_SIZE - _NODE_HEADER) // entry_size
     offsets_per_node = (NODE_SIZE - _NODE_HEADER) // 8
     set_count = -(-header.entry_count // per_set)
@@ -45,10 +45,10 @@ def read_bucket_tree(table: Storage, header: BucketTreeHeader, entry_size: int) 
         node = table.read(entry_base + i * NODE_SIZE, NODE_SIZE)
         index, count, _set_end = struct.unpack_from("<iiq", node)
         if index != i or not 0 < count <= per_set:
-            raise ContainerError("NCA tablosu bozuk: tablo girdi kümesi geçersiz.")
+            raise ContainerError("Güncelleme dosyası bozuk: tablo girdi kümesi geçersiz.")
         entries.extend(node[_NODE_HEADER + j * entry_size : _NODE_HEADER + (j + 1) * entry_size] for j in range(count))
     if len(entries) != header.entry_count:
-        raise ContainerError("NCA tablosu bozuk: tablo girdi sayısı tutmuyor.")
+        raise ContainerError("Güncelleme dosyası bozuk: tablo girdi sayısı tutmuyor.")
     return entries, end_offset
 
 
@@ -64,10 +64,10 @@ class IndirectStorage(Storage):
         self._entries = entries
         self._end = end
         if not entries or entries[0][0] != 0:
-            raise ContainerError("NCA tablosu bozuk: eşleme tablosu sıfırdan başlamıyor.")
+            raise ContainerError("Güncelleme dosyası bozuk: eşleme tablosu sıfırdan başlamıyor.")
         for _virt, _phys, idx in entries:
             if idx not in (0, 1):
-                raise ContainerError("NCA tablosu bozuk: eşleme tablosunda bilinmeyen kaynak.")
+                raise ContainerError("Güncelleme dosyası bozuk: eşleme tablosunda bilinmeyen kaynak.")
 
     @property
     def size(self) -> int:

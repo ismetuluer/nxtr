@@ -53,16 +53,16 @@ class CompressedStorage(Storage):
 
     def __init__(self, data: Storage, entries: list[CompressionEntry], end: int) -> None:
         if not entries or entries[0].virtual_offset != 0:
-            raise ContainerError("NCA bölümü bozuk: sıkıştırma tablosu sıfırdan başlamıyor.")
+            raise ContainerError("Oyun dosyası bölümü bozuk: sıkıştırma tablosu sıfırdan başlamıyor.")
         self._data = data
         self._entries = entries
         self._starts = [e.virtual_offset for e in entries]
         self._end = end
         for i, e in enumerate(entries):
             if e.kind not in (TYPE_NONE, TYPE_ZEROS, TYPE_LZ4):
-                raise UnsupportedFormatError(f"NCA bölümünde bilinmeyen sıkıştırma türü ({e.kind}).")
+                raise UnsupportedFormatError(f"Oyun dosyası bölümünde bilinmeyen sıkıştırma türü ({e.kind}).")
             if e.physical_offset + self._physical_length(i) > data.size:
-                raise ContainerError("NCA bölümü bozuk: sıkıştırılmış blok veri bölgesinin dışına taşıyor.")
+                raise ContainerError("Oyun dosyası bölümü bozuk: sıkıştırılmış blok veri bölgesinin dışına taşıyor.")
         self._cache: OrderedDict[int, bytes] = OrderedDict()
         self._lock = threading.Lock()
 
@@ -96,11 +96,11 @@ class CompressedStorage(Storage):
             block: bytes = lz4.block.decompress(packed, uncompressed_size=length)
         except lz4.block.LZ4BlockError:
             raise ContainerError(
-                "NCA bölümü bozuk: sıkıştırılmış blok açılamadı.",
+                "Oyun dosyası bölümü bozuk: sıkıştırılmış blok açılamadı.",
                 "Dosya eksik veya bozuk olabilir. Dosyayı kendi konsolunuzdan yeniden çıkarın.",
             ) from None
         if len(block) != length:
-            raise ContainerError("NCA bölümü bozuk: açılan blok beklenen boyutta değil.")
+            raise ContainerError("Oyun dosyası bölümü bozuk: açılan blok beklenen boyutta değil.")
         with self._lock:
             self._cache[i] = block
             if len(self._cache) > _CACHE_BLOCKS:
@@ -153,6 +153,6 @@ class CompressedStorage(Storage):
 def open_compressed(region: Storage, info: BucketTreeHeader) -> CompressedStorage:
     """Çözülmüş (gerekiyorsa yamalanmış) veri bölgesinin sıkıştırma katmanını açar; tablo bölgenin sonundadır."""
     if info.offset + info.size > region.size:
-        raise ContainerError("NCA bölümü bozuk: sıkıştırma tablosu veri bölgesinin dışına taşıyor.")
+        raise ContainerError("Oyun dosyası bölümü bozuk: sıkıştırma tablosu veri bölgesinin dışına taşıyor.")
     raw, end = read_bucket_tree(SubStorage(region, info.offset, info.size), info, ENTRY_SIZE)
     return CompressedStorage(SubStorage(region, 0, info.offset), parse_entries(raw), end)

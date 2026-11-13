@@ -246,9 +246,10 @@ class ReportView(QWidget):
             versions += f", güncelleme v{report.update_version}"
         total = len(report.entries)
         self.game_line.setText(
-            f"<b>{report.game_name or 'Adsız oyun'}</b> &nbsp;·&nbsp; TitleID {report.title_id} &nbsp;·&nbsp; "
+            f"<b>{report.game_name or 'Adsız oyun'}</b> &nbsp;·&nbsp; "
+            f"Oyun kimliği (TitleID) {report.title_id} &nbsp;·&nbsp; "
             f"{versions} &nbsp;·&nbsp; {format_int(total)} dosya &nbsp;·&nbsp; "
-            f"{format_int(len(report.text_candidates))} metin adayı"
+            f"{format_int(len(report.text_candidates))} olası metin dosyası"
         )
         for kind, n in report.counts.items():
             self.stat_values[kind].setText(format_int(n))

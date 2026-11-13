@@ -22,8 +22,8 @@ anahtar, oyun dosyası, orijinal dosyalara dokunma yok.
 1. **Klasör yolu:** mod `…/<TitleID>/<Mod Adı>/romfs/` biçiminde olmalı; `romfs` bir seviye fazla ya da eksik olmamalı.
    Atmosphère'de `atmosphere` klasörü SD kartın köküne kopyalanır. Ryujinx: `mods/contents/<TitleID>/`; Yuzu
    türevleri: `load/<TitleID>/` (`docs/test-emulator.md`).
-2. **TitleID:** mod klasörünün adı oyunun (güncelleme ya da DLC'nin değil) TitleID'siyle eşleşmeli. `NXTR - Bilgi.txt`
-   doğru TitleID'yi yazar.
+2. **Oyun kimliği (TitleID):** mod klasörünün adı oyunun (güncelleme ya da DLC'nin değil) oyun kimliğiyle eşleşmeli. `NXTR - Bilgi.txt`
+   doğru oyun kimliğini yazar.
 3. **Emülatörde mod etkin mi?** Bazılarında oyun özellikleri → mod listesinde işaretlenir.
 4. **Dil:** oyunun/sistem dili uygulamanın aktardığı kaynak dil olmalı (adım 2 yukarıda). Hâlâ yoksa:
 5. **Metin farklı yerden okunuyor:** oyun, değiştirdiğimiz dosyayı değil bir önbelleği ya da başka kopyayı okuyor

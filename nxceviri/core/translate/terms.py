@@ -210,7 +210,7 @@ def _ask(provider: JsonChat, batch: Sequence[TermCandidate], source_lang: str, n
             return rows
         log.warning("Sözlük önerisinde model JSON yerine şunu döndürdü: %r", content[:600])
     raise ProviderError(
-        "Model terim önerilerini istenen biçimde (JSON) vermedi.",
+        "Model terim önerilerini istenen biçimde vermedi.",
         "Başka bir Ollama modeli seçip yeniden deneyin.",
     )
 

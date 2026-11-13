@@ -55,14 +55,14 @@ class SarcArchive:
         for n in self.nodes:
             if n.name == name:
                 return n.data
-        raise ArchiveError(f"SARC içinde dosya bulunamadı: {name}")
+        raise ArchiveError(f"Arşiv içinde dosya bulunamadı: {name}")
 
     def replace(self, name: str, data: bytes) -> None:
         for n in self.nodes:
             if n.name == name:
                 n.data = data
                 return
-        raise ArchiveError(f"SARC içinde dosya bulunamadı: {name}")
+        raise ArchiveError(f"Arşiv içinde dosya bulunamadı: {name}")
 
 
 def _alignment(offset: int) -> int:
@@ -77,27 +77,27 @@ def _align(n: int, a: int) -> int:
 
 def read(data: bytes) -> SarcArchive:
     if len(data) < 0x14 or data[:4] != MAGIC:
-        raise ArchiveError("SARC verisi geçersiz: imza yok.")
+        raise ArchiveError("Arşiv verisi geçersiz: imza yok.")
     bom = data[6:8]
     if bom == b"\xfe\xff":
         e = ">"
     elif bom == b"\xff\xfe":
         e = "<"
     else:
-        raise ArchiveError("SARC verisi bozuk: bayt sırası işareti geçersiz.")
+        raise ArchiveError("Arşiv verisi bozuk: bayt sırası işareti geçersiz.")
     header_size, _bom, _file_size, data_offset, version = struct.unpack_from(e + "HHIIH", data, 4)
     sfat = header_size
     if data[sfat : sfat + 4] != b"SFAT":
-        raise ArchiveError("SARC verisi bozuk: SFAT tablosu yok.")
+        raise ArchiveError("Arşiv verisi bozuk: SFAT tablosu yok.")
     sfat_header, node_count, hash_key = struct.unpack_from(e + "HHI", data, sfat + 4)
     nodes_start = sfat + sfat_header
     sfnt = nodes_start + node_count * 16
     if data[sfnt : sfnt + 4] != b"SFNT":
-        raise ArchiveError("SARC verisi bozuk: SFNT tablosu yok.")
+        raise ArchiveError("Arşiv verisi bozuk: SFNT tablosu yok.")
     (sfnt_header,) = struct.unpack_from(e + "H", data, sfnt + 4)
     names_start = sfnt + sfnt_header
     if not names_start <= data_offset <= len(data):
-        raise ArchiveError("SARC verisi bozuk: veri ofseti geçersiz.")
+        raise ArchiveError("Arşiv verisi bozuk: veri konumu geçersiz.")
     arc = SarcArchive(
         endian=e,
         version=version,
@@ -113,12 +113,12 @@ def read(data: bytes) -> SarcArchive:
             name_off = names_start + (attrs & 0xFFFFFF) * 4
             name_end = data.find(b"\0", name_off)
             if name_end < 0 or name_off >= data_offset:
-                raise ArchiveError("SARC verisi bozuk: dosya adı okunamadı.")
+                raise ArchiveError("Arşiv verisi bozuk: dosya adı okunamadı.")
             name = data[name_off:name_end].decode("utf-8", errors="replace")
         else:
             name = f"{name_hash:08x}.bin"
         if not data_offset + start <= data_offset + end <= len(data):
-            raise ArchiveError(f"SARC verisi bozuk: '{name}' arşivin dışına taşıyor.")
+            raise ArchiveError(f"Arşiv verisi bozuk: '{name}' arşivin dışına taşıyor.")
         arc.nodes.append(
             _Node(
                 name_hash, attrs, name, data[data_offset + start : data_offset + end], _alignment(data_offset + start)

@@ -280,7 +280,7 @@ def test_empty_project_disables_meaningless_items(empty_window: MainWindow) -> N
         assert not w.menu_actions[name].isEnabled(), name
     assert w.menu_actions["go.add"].isEnabled()
     assert w.menu_actions["file.new"].isEnabled()
-    assert not _by_text(_menu(w, "Araçlar"), "Metin Adaylarını Çıkar…").isEnabled()  # tarama raporu yok
+    assert not _by_text(_menu(w, "Araçlar"), "Olası Metin Dosyalarını Çıkar…").isEnabled()  # tarama raporu yok
     assert not _by_text(_menu(w, "Araçlar"), "Teşhis Raporu…").isEnabled()
 
 

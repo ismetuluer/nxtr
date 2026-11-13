@@ -58,7 +58,7 @@ class CsvExportDialog(QDialog):
             self.setWindowTitle("Dış çeviri dosyası oluştur")
             heading = "Çevirileri dış çeviri için dışa aktar"
             description = (
-                "Dosyayı bir çevirmene veya sohbet modeline aşağıdaki istemle verip çevirtebilir, sonucu "
+                "Dosyayı bir çevirmene veya sohbet modeline aşağıdaki talimatla verip çevirtebilir, sonucu "
                 "Araçlar → “Dış Çeviriden İçe Aktar” ile geri yükleyebilirsiniz."
             )
             column_word = "yeni çeviri"
@@ -66,7 +66,7 @@ class CsvExportDialog(QDialog):
             self.setWindowTitle("Dış redaksiyon dosyası oluştur")
             heading = "Çevirileri dış redaksiyon için dışa aktar"
             description = (
-                "Dosyayı bir sohbet modeline (ör. ücretsiz bir web modeli) aşağıdaki istemle verip redakte "
+                "Dosyayı bir sohbet modeline (ör. ücretsiz bir web modeli) aşağıdaki talimatla verip redakte "
                 "ettirebilir, sonucu Araçlar → “Dış Redaksiyondan İçe Aktar” ile geri yükleyebilirsiniz."
             )
             column_word = "düzeltme"
@@ -136,7 +136,7 @@ class CsvExportDialog(QDialog):
         split_row.addStretch(1)
         lay.addLayout(split_row)
 
-        lay.addWidget(label("Model için hazır istem (dosyayla birlikte verin):", "muted"))
+        lay.addWidget(label("Model için hazır talimat (dosyayla birlikte verin):", "muted"))
         self.prompt = QPlainTextEdit()
         self.prompt.setReadOnly(True)
         self.prompt.setMinimumHeight(220)
@@ -145,7 +145,7 @@ class CsvExportDialog(QDialog):
         self._update_prompt()
 
         buttons = QHBoxLayout()
-        self.copy_button = button("İstemi Kopyala")
+        self.copy_button = button("Talimatı Kopyala")
         self.copy_button.clicked.connect(self.copy_prompt)
         buttons.addWidget(self.copy_button)
         buttons.addStretch(1)

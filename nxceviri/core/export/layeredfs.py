@@ -344,7 +344,7 @@ def _info_text(info: ExportInfo, options: ExportOptions, result: ExportResult) -
     conversion = f"{' '.join(letters)} → {' '.join(transliterate.apply(letters, letters))}" if letters else "yok"
     return (
         f"NXTR {__version__} ile üretildi — {datetime.now():%Y-%m-%d %H:%M}\n\n"
-        f"Oyun: {info.game_name}\nTitleID: {info.title_id}\nÜretildiği sürüm: {versions}\n"
+        f"Oyun: {info.game_name}\nOyun kimliği (TitleID): {info.title_id}\nÜretildiği sürüm: {versions}\n"
         "Bu mod yalnızca bu sürümle kullanılmalıdır; oyun güncellenirse modu yeniden üretin.\n\n"
         f"Yazılan çeviri satırı: {result.rows_written}\n"
         + (
@@ -826,7 +826,7 @@ def _verify_group(
         if wrong:
             raise ContainerError(
                 f"'{ref.path}' doğrulanamadı: {len(wrong)} metin beklenen değerde değil.",
-                "Mod üretilmedi. Bu bir hatadır; log dosyasını geliştiriciyle paylaşın.",
+                "Mod üretilmedi. Bu bir hatadır; hata kaydı dosyasını geliştiriciyle paylaşın.",
             )
 
 

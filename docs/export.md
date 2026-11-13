@@ -46,7 +46,7 @@ Taşma denetimi font ölçüsü kullanmaz; yalnızca uzunluk oranına bakar.
   doğrulanır; sonra tek hamlede hedefe taşınır. İptal veya hatada hedefte hiçbir şey kalmaz.
 - Yalnızca değişen dosyalar yazılır. İç içe arşivler (SARC/Yaz0/ZSTD) yeniden kapatılır.
 - "Hatalı" satırlar yazılmaz (oyunda orijinal metin kalır).
-- Kök klasöre `NXTR - Bilgi.txt` yazılır: oyun, TitleID, üretildiği sürüm, satır sayıları,
+- Kök klasöre `NXTR - Bilgi.txt` yazılır: oyun, oyun kimliği (TitleID), üretildiği sürüm, satır sayıları,
   harf dönüştürme ve kurulum adımları.
 - Metinlerin aktarıldığı sürümle şu anki oyun dosyalarının sürümü farklıysa uyarılır.
 

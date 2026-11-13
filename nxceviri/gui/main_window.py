@@ -3231,13 +3231,13 @@ class MainWindow(QMainWindow):
             shown = "TXT" if txt else "XLSX"
             page.show_notice(
                 "success",
-                f"{format_int(len(dialog.rows()))} satır {shown} çeviri dosyasına yazıldı: {files}. Çeviri istemi "
+                f"{format_int(len(dialog.rows()))} satır {shown} çeviri dosyasına yazıldı: {files}. Çeviri talimatı "
                 "panoya kopyalandı. Çevrilen dosyaları Araçlar → “Dış Çeviriden İçe Aktar” ile geri yükleyin.",
             )
         else:
             page.show_notice(
                 "success",
-                f"{format_int(len(dialog.rows()))} satır yazıldı: {files}. Model için hazır istem panoya kopyalandı. "
+                f"{format_int(len(dialog.rows()))} satır yazıldı: {files}. Model için hazır talimat panoya kopyalandı. "
                 "Redakte edilen dosyaları Araçlar → “Dış Redaksiyondan İçe Aktar” ile geri yükleyin.",
             )
 
@@ -3550,12 +3550,12 @@ class MainWindow(QMainWindow):
         cache = self._cache_dir()
         size = dir_size(cache)
         if size == 0:
-            self.notify(LEVEL_INFO, "Önbellek", f"Önbellek boş.\n\nKonum: {cache}")
+            self.notify(LEVEL_INFO, "Geçici dosyalar", f"Geçici dosya yok.\n\nKonum: {cache}")
             return
         answer = QMessageBox.question(
             self,
-            "Önbelleği temizle",
-            f"Önbellek {format_size(size)} yer kaplıyor.\n\nKonum: {cache}\n\n"
+            "Geçici dosyaları temizle",
+            f"Geçici dosyalar {format_size(size)} yer kaplıyor.\n\nKonum: {cache}\n\n"
             "Silinen veriler gerektiğinde oyun dosyalarından yeniden oluşturulur. Silinsin mi?",
         )
         if answer != QMessageBox.StandardButton.Yes:
@@ -3563,9 +3563,9 @@ class MainWindow(QMainWindow):
         try:
             clear_cache(cache)
         except NxError as exc:
-            self.notify(LEVEL_ERROR, "Önbellek", exc.user_text())
+            self.notify(LEVEL_ERROR, "Geçici dosyalar", exc.user_text())
             return
-        self.statusBar().showMessage(f"Önbellek temizlendi ({format_size(size)}).", 5000)
+        self.statusBar().showMessage(f"Geçici dosyalar temizlendi ({format_size(size)}).", 5000)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         if not self.translate_page.flush_pending():  # panelde yazılıp kaydedilemeyen metin kaybolmasın

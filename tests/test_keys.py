@@ -102,7 +102,7 @@ def test_wrong_title_key_gives_clear_error(game: GameFiles, tmp_path: Path) -> N
     # Doğru header_key, yanlış titlekek: RomFS başlığı çözülemez.
     wrong = nxbuild.TestKeys(game.keys.header_key, game.keys.key_area, {g: os.urandom(16) for g in range(3)})
     keys = load_keys(wrong.write(tmp_path / "yanlis.keys"))
-    with open_package(game.base_nsp, keys) as pkg, pytest.raises(ContainerError, match="RomFS"):
+    with open_package(game.base_nsp, keys) as pkg, pytest.raises(ContainerError, match="başlığı geçersiz"):
         build_game_view([pkg])
 
 
