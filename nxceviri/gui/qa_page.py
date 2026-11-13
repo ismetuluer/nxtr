@@ -54,7 +54,7 @@ from nxceviri.core.qa.autofix import FIX_KINDS
 from nxceviri.core.qa.checks import KIND_LABELS, SEVERITY_ERROR, SEVERITY_LABELS, SEVERITY_WARNING, QaIssue
 from nxceviri.core.qa.fonts import FontReport, font_advice, is_editable_font
 from nxceviri.core.translate.codekinds import KIND_NAMES, CodeKinds
-from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, FitRules
+from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, PROBLEM_LINE, PROBLEM_PAGE, FitRules
 from nxceviri.core.translate.fitconfig import EACH_GROUP, GROUP_PREFIX, FitConfig
 from nxceviri.core.translate.limits import SCOPE_GROUP, SCOPE_KEY
 from nxceviri.gui.icons import bind_icon, icon
@@ -74,6 +74,14 @@ COL_SEVERITY, COL_KIND, COL_DESCRIPTION, COL_SOURCE, COL_TRANSLATION = range(5)
 _FIT_START_WIDTH, _FIT_START_LINES = 40, 3
 _FIT_OFF_TEXT = "Sınır girilmedi; sığdırma kapalı."
 _FIT_KEPT_TEXT = "Sığdırma kapalı; sınırlar saklanıyor."
+_FIT_RESULT_EMPTY = (
+    "Henüz denetlenmedi. Sorunlar sekmesinde “Denetle”ye basın; sonra ayarı değiştirdikçe sonuç burada kendiliğinden "
+    "yenilenir."
+)
+_FIT_RESULT_CHECKING = "Denetleniyor…"
+_FIT_RESULT_FAILED = "Denetim yenilenemedi. Sorunlar sekmesinde “Denetle”ye basarak yeniden deneyin."
+#: "Taşıyor" sayılan bulgu türleri: satır ya da sayfa sınırını aşanlar (kötü bölünme taşma değildir).
+_OVERFLOW_KINDS = (PROBLEM_LINE, PROBLEM_PAGE)
 
 
 #: Satırın çeviri ekranında nasıl açılacağı; hücre ipuçlarının sonuna eklenir.
@@ -579,6 +587,22 @@ class QaPage(QWidget):
         learn_row.addWidget(self.fit_learn_note, 1)
         body.addLayout(learn_row)
 
+        # Ayarın etkisi: denetim sonucu burada görünür, ayar değişince ana pencere denetimi kendiliğinden yeniler.
+        self._checked = False
+        self._overflow_rows = 0
+        result_row = QHBoxLayout()
+        self.fit_result = label(_FIT_RESULT_EMPTY, "muted", wrap=True)
+        result_row.addWidget(self.fit_result, 1)
+        self.fit_result_show = QToolButton()
+        self.fit_result_show.setText("Göster")
+        self.fit_result_show.setProperty("role", "link")
+        self.fit_result_show.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.fit_result_show.setToolTip(tip_html("Taşan satırları Sorunlar sekmesinde gösterir."))
+        self.fit_result_show.clicked.connect(self._show_overflow)
+        self.fit_result_show.hide()
+        result_row.addWidget(self.fit_result_show)
+        body.addLayout(result_row)
+
         # Kod türü tahmini şüpheliyse (satır sonu gibi davranan "diğer" kod) kullanıcı Gelişmiş'i açmadan görür.
         self.fit_kind_warning = QToolButton()
         self.fit_kind_warning.setProperty("role", "link")
@@ -627,6 +651,41 @@ class QaPage(QWidget):
         lay.addStretch(1)
         self._apply_fit_widgets([], [], [])
         return scroll
+
+    def _show_fit_result(self, text: str, can_show: bool = False) -> None:
+        self.fit_result.setText(text)
+        self.fit_result_show.setVisible(can_show)
+
+    def show_fit_checking(self) -> None:
+        """Sığdırma sekmesinde sonuç özeti: denetim sürüyor."""
+        self._show_fit_result(_FIT_RESULT_CHECKING)
+
+    def show_check_failed(self, text: str) -> None:
+        """Denetim çalışmadı: Sorunlar sekmesinde hata, Sığdırma sekmesinde "yenilenemedi" gösterilir."""
+        self.show_fix_result("danger", text)
+        self._show_fit_result(_FIT_RESULT_FAILED)
+
+    def _update_fit_result(self, issues: Sequence[QaIssue]) -> None:
+        """Denetim sonucundan sığdırma özetini yazar: sınırı aşan (satır uzun, sayfa uzun) satırlar sayılır."""
+        self._checked = True
+        if not self.fit_enabled.isChecked():
+            self._overflow_rows = 0
+            self._show_fit_result("Sığdırma kapalı; taşma denetlenmiyor.")
+            return
+        self._overflow_rows = len({i.row_id for i in issues if i.kind in _OVERFLOW_KINDS})
+        if self._overflow_rows:
+            self._show_fit_result(f"Bu ayarla {format_int(self._overflow_rows)} satır taşıyor.", True)
+        else:
+            self._show_fit_result("Taşan satır yok.")
+
+    def _show_overflow(self) -> None:
+        """Göster: Sorunlar sekmesi taşma türleriyle süzülmüş olarak açılır."""
+        for kind, chip in self.chip_bar.chips.items():
+            chip.blockSignals(True)
+            chip.setChecked(kind in _OVERFLOW_KINDS)
+            chip.blockSignals(False)
+        self._refilter()
+        self.tabs.setCurrentIndex(0)
 
     def _open_fit_advanced(self) -> None:
         self.fit_advanced.toggle.setChecked(True)
@@ -1000,6 +1059,8 @@ class QaPage(QWidget):
         self.summary.setText("Henüz denetlenmedi.")
         self.summary_icon.hide()
         self.last_fix_text = ""
+        self._checked = False
+        self._show_fit_result(_FIT_RESULT_EMPTY)
 
     def replace_row_issues(self, row_id: int, issues: list[QaIssue], row: TranslationRow) -> None:
         """Tek satırın bulgularını yenisiyle değiştirir (yerinde düzenleme sonrası); bulgu kalmadıysa satır düşer.
@@ -1054,6 +1115,7 @@ class QaPage(QWidget):
             bind_icon(self.summary_icon, "circle-check", size=16, tone="success")
         self.summary_icon.show()
         self.summary.setProperty("role", None)
+        self._update_fit_result(issues)
         counts: dict[str, int] = {}
         severities: dict[str, str] = {}
         for i in issues:

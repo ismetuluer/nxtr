@@ -15,7 +15,8 @@ noktalama, çift boşluk, yazım ve uydurma şüphesi. Satırlar düzenlenirken 
 
 Oyunun metin kutusuna sığmayan satırlar için satırda en çok karakter ve sayfada en çok satır sınırı verin; bilmiyorsanız
 **Orijinalden öğren**. Gelişmiş bölümünde grup ya da anahtar başına sınır ve kontrol kodu türleri (satır sonu, sayfa
-sonu, değişken) ayarlanır.
+sonu, değişken) ayarlanır. Ayarı değiştirince denetim kendiliğinden yenilenir (önce bir kez **Denetle**'ye
+basmış olmanız gerekir); kaç satırın taştığı bu sekmede görünür, **Göster** onları Sorunlar'da açar.
 
 ## Yazım Denetimi
 

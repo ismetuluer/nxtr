@@ -367,6 +367,11 @@ class MainWindow(QMainWindow):
         self._spell_scan: Task | None = None
         self._spell_scan_ok = False
         self._recheck_pending = False
+        #: Sığdırma ayarı değişince art arda değişiklikler tek denetimde toplanır.
+        self._fit_recheck_timer = QTimer(self)
+        self._fit_recheck_timer.setSingleShot(True)
+        self._fit_recheck_timer.setInterval(500)
+        self._fit_recheck_timer.timeout.connect(self._fit_recheck_due)
         #: Kalıcı kullanıcı sözlüğü ve Türkçe yazım denetleyicisi (paketlenen süzgeç eksikse None: denetim kapalı).
         self.user_dictionary = UserDictionary(default_user_dictionary_path())
         self.spell: SpellChecker | None = load_spell_checker(self.user_dictionary)
@@ -1713,6 +1718,13 @@ class MainWindow(QMainWindow):
             return
         self._push_fit_to_page()
         self._mark_changed()
+        if self._qa_count is not None and self._qa_count[0] is self.project:
+            # Daha önce denetlendiyse yeni ayarın etkisi kendiliğinden görünür; hiç denetlenmediyse başlatılmaz.
+            self.qa_page.show_fit_checking()
+            self._fit_recheck_timer.start()
+
+    def _fit_recheck_due(self) -> None:
+        self._recheck_if_done()
 
     def _learn_rules(self, scope: str) -> None:
         """Kapsamdaki (proje, dosya ya da grup) orijinal metinlerden sınır önerir; öneri kaydedilmez.
@@ -1829,6 +1841,7 @@ class MainWindow(QMainWindow):
         """Kontrol Et → Denetle: denetim arka plan işinde çalışır (büyük projede arayüz donmaz), bitince bildirilir."""
         if self.busy:
             return
+        self._fit_recheck_timer.stop()
         rows = self.project.translation_rows()
         project = self.project
         job = self._checks_job(rows)
@@ -1855,11 +1868,12 @@ class MainWindow(QMainWindow):
                 self.notify(LEVEL_SUCCESS, "Denetim bitti", "Sorun bulunmadı.")
 
         self.qa_page.summary.setText("Denetleniyor…")
+        self.qa_page.show_fit_checking()
         self._run(
             work,
             "Denetim",
             on_success=done,
-            on_failure=lambda text: self.qa_page.show_fix_result("danger", text),
+            on_failure=self.qa_page.show_check_failed,
         )
 
     def _show_check_results(self, issues: list[QaIssue], rows: list[TranslationRow]) -> None:
@@ -1945,6 +1959,7 @@ class MainWindow(QMainWindow):
             self._recheck_pending = True
             return
         self._recheck_pending = False
+        self._fit_recheck_timer.stop()
         rows = self.project.translation_rows()
         project = self.project
         job = self._checks_job(rows)
@@ -1961,7 +1976,7 @@ class MainWindow(QMainWindow):
             work,
             "Denetim yenileniyor",
             on_success=done,
-            on_failure=lambda text: self.qa_page.show_fix_result("danger", text),
+            on_failure=self.qa_page.show_check_failed,
         )
 
     def ignore_terms(self, phrases: list[str]) -> None:
@@ -3445,6 +3460,7 @@ class MainWindow(QMainWindow):
         self._refresh_marks()
         self._push_fit_to_page()
         self.translate_page.set_qa_issues([], [])  # önceki projenin denetim sonuçları taşınmaz
+        self._fit_recheck_timer.stop()  # bekleyen ayar yenilemesi eski projeye aitti
         self.qa_page.reset()
         self._qa_count = None
         self._qa_errors = False

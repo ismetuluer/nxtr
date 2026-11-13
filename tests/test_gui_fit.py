@@ -22,6 +22,7 @@ from nxceviri.core.translate.fit import FitRules
 from nxceviri.core.translate.fitconfig import FitConfig, learn_rules, load_config, save_config
 from nxceviri.gui.main_window import STEP_QA, MainWindow
 from nxceviri.gui.qa_page import QaPage
+from nxceviri.gui.tasks import Task
 from tests.task_wait import finish_task
 
 pytestmark = pytest.mark.gui
@@ -299,3 +300,120 @@ def test_cleanup_options_are_not_a_separate_block(window: MainWindow) -> None:
     page = _page(window)
     assert not hasattr(page, "fit_spaces")
     assert {"double_space", "extra_dots", "space_before_punct"} <= set(page.fix_boxes)
+
+
+# --- ayar değişince denetim kendiliğinden yenilenir -------------------------------------------
+
+
+def _spy_recheck(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    """`_recheck_if_done` çağrılarını sayar ve gerçeğini çalıştırır."""
+    calls: list[int] = []
+    original = window._recheck_if_done
+
+    def spy() -> None:
+        calls.append(1)
+        original()
+
+    monkeypatch.setattr(window, "_recheck_if_done", spy)
+    return calls
+
+
+def test_auto_recheck_after_fit_change_runs_once(
+    qtbot: QtBot, window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page = _page(window)
+    page.check_button.click()
+    finish_task(window)
+    calls = _spy_recheck(window, monkeypatch)
+    _enable(page, 20, 2)  # üç hızlı değişiklik (aç, genişlik, satır)
+    assert page.fit_result.text() == "Denetleniyor…"
+    qtbot.waitUntil(lambda: bool(calls), timeout=5000)
+    qtbot.waitUntil(lambda: window.task is None, timeout=30_000)
+    qtbot.wait(900)
+    assert len(calls) == 1
+    assert page.fit_result.text() == "Bu ayarla 1 satır taşıyor."
+    assert page.fit_result_show.isVisibleTo(page)
+
+
+def test_fit_result_none_overflowing(qtbot: QtBot, window: MainWindow) -> None:
+    page = _page(window)
+    page.check_button.click()
+    finish_task(window)
+    _enable(page, 99, 9)
+    qtbot.waitUntil(lambda: page.fit_result.text() == "Taşan satır yok.", timeout=30_000)
+    assert not page.fit_result_show.isVisibleTo(page)
+
+
+def test_fit_result_show_opens_issues_tab_filtered(qtbot: QtBot, window: MainWindow) -> None:
+    page = _page(window)
+    page.check_button.click()
+    finish_task(window)
+    _enable(page, 20, 2)
+    qtbot.waitUntil(lambda: page.fit_result.text() == "Bu ayarla 1 satır taşıyor.", timeout=30_000)
+    page.fit_result_show.click()
+    assert page.tabs.currentIndex() == 0
+    assert page.chip_bar.selected_kinds() == {"line_too_long", "page_too_tall"}
+    assert page.proxy.rowCount() == 1
+
+
+def test_no_auto_check_before_first_check(qtbot: QtBot, window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    page = _page(window)
+    assert page.fit_result.text().startswith("Henüz denetlenmedi")
+    calls = _spy_recheck(window, monkeypatch)
+    _enable(page, 20, 2)
+    qtbot.wait(900)
+    assert not calls
+    assert window.task is None
+    assert page.fit_result.text().startswith("Henüz denetlenmedi")
+    assert not page.fit_result_show.isVisibleTo(page)
+
+
+def test_manual_check_cancels_pending_auto_recheck(
+    qtbot: QtBot, window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page = _page(window)
+    page.check_button.click()
+    finish_task(window)
+    calls = _spy_recheck(window, monkeypatch)
+    _enable(page, 20, 2)
+    page.check_button.click()
+    finish_task(window)
+    qtbot.wait(900)
+    assert not calls
+    assert page.fit_result.text() == "Bu ayarla 1 satır taşıyor."
+
+
+def test_auto_recheck_waits_while_busy(qtbot: QtBot, window: MainWindow) -> None:
+    page = _page(window)
+    page.check_button.click()
+    finish_task(window)
+    window.task = Task(lambda _ctx: None, "başka iş")  # başlatılmamış, yalnızca meşgul göstergesi
+    _enable(page, 20, 2)
+    qtbot.waitUntil(lambda: window._recheck_pending, timeout=5000)
+    window.task = None
+    window._task_finished()  # iş bitti: bekleyen yenileme başlar
+    qtbot.waitUntil(lambda: page.fit_result.text() == "Bu ayarla 1 satır taşıyor.", timeout=30_000)
+
+
+def test_fit_result_failure_text(window: MainWindow) -> None:
+    page = _page(window)
+    page.show_check_failed("Bir sorun oldu.")
+    assert page.fit_result.text().startswith("Denetim yenilenemedi")
+    assert not page.fit_result_show.isVisibleTo(page)
+
+
+def test_project_change_drops_pending_auto_recheck(
+    qtbot: QtBot, window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page = _page(window)
+    page.check_button.click()
+    finish_task(window)
+    calls = _spy_recheck(window, monkeypatch)
+    _enable(page, 20, 2)
+    assert page.fit_result.text() == "Denetleniyor…"
+    window._replace_project(Project.new())  # zamanlayıcı dolmadan başka proje açıldı
+    qtbot.wait(900)
+    assert not calls
+    assert window.task is None
+    assert page.fit_result.text().startswith("Henüz denetlenmedi")
+    assert not page.fit_result_show.isVisibleTo(page)
