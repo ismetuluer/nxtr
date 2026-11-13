@@ -13,6 +13,7 @@ dosyaları yalnızca okunur.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import shutil
@@ -58,6 +59,8 @@ LAYOUT_LABELS = {
     LAYOUT_ATMOSPHERE: "Atmosphère (Switch, SD kart)",
     LAYOUT_EMULATOR: "Emülatör (Ryujinx / Yuzu türevleri)",
 }
+log = logging.getLogger(__name__)
+
 INFO_FILE = "NXTR - Bilgi.txt"
 _EXPORTABLE = (Status.APPROVED, Status.MACHINE, Status.REDACTED)
 #: Font yamasının, harfi türetebileceği temel harf fontta olmadığında verdiği neden öneki.
@@ -66,6 +69,46 @@ _NO_BASE_LETTER = "kaynak harf yok"
 
 class ExportError(NxError):
     """Mod üretilemedi."""
+
+
+def _backup_path(dest: Path) -> Path:
+    """Üzerine yazılan eski modun geçici yedek klasörünün yolu (`_recover_leftover_backups` aynı kalıbı arar)."""
+    return dest.parent / f".{dest.name}.{uuid.uuid4().hex[:8]}.eski"
+
+
+def _recover_leftover_backups(dest: Path) -> None:
+    """Yarıda kesilen bir üzerine yazmadan kalan `.eski` yedeklerini onarır.
+
+    Yalnızca adı bu `dest` için üretilen kalıba uyan ve içinde `INFO_FILE` bulunan klasörlere dokunulur.
+    Hedef yoksa (ya da boşsa) en yeni yedek hedefe geri konur; hedef doluysa yedekler artıktır ve silinir.
+    """
+    pattern = re.compile(rf"\.{re.escape(dest.name)}\.[0-9a-f]{{8}}\.eski")
+    try:
+        found = [p for p in dest.parent.iterdir() if pattern.fullmatch(p.name) and (p / INFO_FILE).is_file()]
+        found.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError as exc:
+        log.warning("Eski mod yedekleri taranamadı (%s): %s", dest.parent, exc)
+        return
+    if not found:
+        return
+    try:
+        dest_empty = not dest.exists() or (dest.is_dir() and not any(dest.iterdir()))
+    except OSError as exc:
+        log.warning("Hedef klasör denetlenemedi (%s): %s", dest, exc)
+        return
+    if dest_empty:
+        try:
+            if dest.is_dir():
+                dest.rmdir()
+            os.replace(found[0], dest)
+        except OSError as exc:
+            log.warning("Eski mod yedeği geri konamadı (%s → %s): %s", found[0], dest, exc)
+        return
+    for stale in found:
+        try:
+            shutil.rmtree(stale)
+        except OSError as exc:
+            log.warning("Eski mod yedeği silinemedi (%s): %s", stale, exc)
 
 
 @dataclass(frozen=True)
@@ -345,6 +388,7 @@ def export_mod(
 ) -> ExportResult:
     ctx = ctx or TaskContext()
     dest = options.dest
+    _recover_leftover_backups(dest)
     replace_old = False
     if dest.exists() and (not dest.is_dir() or any(dest.iterdir())):
         if not options.overwrite:
@@ -554,14 +598,14 @@ def export_mod(
         ctx.check()
         if replace_old:
             # Eski mod önce yedeğe taşınır; yeni yerine konamazsa geri gelir, konunca silinir (kalıntı karışmaz).
-            backup = dest.parent / f".{dest.name}.{uuid.uuid4().hex[:8]}.eski"
+            backup = _backup_path(dest)
             os.replace(dest, backup)
             try:
                 os.replace(tmp, dest)
             except BaseException:
                 os.replace(backup, dest)
                 raise
-            shutil.rmtree(backup, ignore_errors=True)
+            shutil.rmtree(backup, ignore_errors=True)  # kalırsa bir sonraki dışa aktarma artığı temizler
         else:
             if dest.exists():
                 dest.rmdir()

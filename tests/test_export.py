@@ -21,6 +21,7 @@ from nxceviri.core.export.layeredfs import (
     ExportOptions,
     ExportResult,
     TextFileRef,
+    _recover_leftover_backups,
     collect_translations,
     export_mod,
     safe_mod_name,
@@ -624,6 +625,89 @@ def test_overwrite_never_deletes_a_folder_nxtr_did_not_make(
     with pytest.raises(ExportError, match="NXTR"):
         _export(project, inputs, dest, overwrite=True)
     assert (dest / "belge.txt").read_text(encoding="utf-8") == "önemli"
+
+
+def _leftover(parent: Path, name: str, *, with_info: bool, tag: str = "ab12cd34") -> Path:
+    folder = parent / f".{name}.{tag}.eski"
+    folder.mkdir()
+    (folder / "eski-mod.txt").write_text("eski", encoding="utf-8")
+    if with_info:
+        (folder / INFO_FILE).write_text("eski bilgi", encoding="utf-8")
+    return folder
+
+
+def test_leftover_backup_is_restored_when_destination_is_missing(
+    msbt_project: tuple[Inputs, Project], tmp_path: Path
+) -> None:
+    inputs, project = msbt_project
+    dest = tmp_path / "mod"
+    leftover = _leftover(tmp_path, "mod", with_info=True)
+    result = _export(project, inputs, dest, overwrite=True)
+    assert not leftover.exists()
+    assert not list(tmp_path.glob(".mod*"))
+    assert result.files
+    assert not (dest / "eski-mod.txt").exists()  # eski mod geri geldi, sonra yenisiyle değişti
+    assert (dest / INFO_FILE).read_text(encoding="utf-8") != "eski bilgi"
+
+
+def test_leftover_backup_is_restored_even_when_overwrite_is_off(
+    msbt_project: tuple[Inputs, Project], tmp_path: Path
+) -> None:
+    inputs, project = msbt_project
+    dest = tmp_path / "mod"
+    leftover = _leftover(tmp_path, "mod", with_info=True)
+    with pytest.raises(ExportError, match="boş değil"):
+        _export(project, inputs, dest)
+    assert not leftover.exists()
+    assert (dest / "eski-mod.txt").read_text(encoding="utf-8") == "eski"
+    assert (dest / INFO_FILE).read_text(encoding="utf-8") == "eski bilgi"
+
+
+def test_leftover_backup_is_removed_when_destination_exists(
+    msbt_project: tuple[Inputs, Project], tmp_path: Path
+) -> None:
+    inputs, project = msbt_project
+    dest = tmp_path / "mod"
+    _export(project, inputs, dest)
+    leftover = _leftover(tmp_path, "mod", with_info=True)
+    _export(project, inputs, dest, overwrite=True)
+    assert not leftover.exists()
+    assert (dest / INFO_FILE).is_file()
+
+
+def test_leftover_cleanup_touches_only_matching_nxtr_backups(
+    msbt_project: tuple[Inputs, Project], tmp_path: Path
+) -> None:
+    inputs, project = msbt_project
+    dest = tmp_path / "mod"
+    _export(project, inputs, dest)
+    no_info = _leftover(tmp_path, "mod", with_info=False)  # kalıba uyar ama NXTR modu değil
+    other_mod = _leftover(tmp_path, "baska", with_info=True)  # başka modun yedeği
+    wrong_tag = tmp_path / ".mod.xyz.eski"  # kalıba uymaz
+    wrong_tag.mkdir()
+    (wrong_tag / INFO_FILE).write_text("x", encoding="utf-8")
+    neighbour = tmp_path / "mod2"
+    neighbour.mkdir()
+    (neighbour / INFO_FILE).write_text("x", encoding="utf-8")
+    _export(project, inputs, dest, overwrite=True)
+    for kept in (no_info, other_mod, wrong_tag, neighbour):
+        assert kept.is_dir()
+        assert any(kept.iterdir())
+
+
+def test_leftover_restore_failure_is_logged_not_raised(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    leftover = _leftover(tmp_path, "mod", with_info=True)
+
+    def boom(src: object, dst: object) -> None:
+        raise OSError("kilitli")
+
+    monkeypatch.setattr("nxceviri.core.export.layeredfs.os.replace", boom)
+    with caplog.at_level("WARNING"):
+        _recover_leftover_backups(tmp_path / "mod")
+    assert leftover.is_dir()
+    assert "kilitli" in caplog.text
 
 
 def test_extra_files_are_written_into_the_mod(msbt_project: tuple[Inputs, Project], tmp_path: Path) -> None:
