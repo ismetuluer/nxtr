@@ -6,6 +6,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
 from nxceviri.gui import main_window as mw
@@ -20,7 +21,8 @@ from nxceviri.gui.mascot import (
     MOOD_WORKING,
     set_mascot_enabled,
 )
-from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_INFO, LEVEL_SUCCESS, Notice, NoticeCard
+from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_INFO, LEVEL_SUCCESS, LEVEL_WARNING, Notice, NoticeCard
+from nxceviri.gui.theme import TOKENS, ThemeMode, apply_theme
 from tests.test_statusbar import _make_window, _project
 
 pytestmark = pytest.mark.gui
@@ -127,6 +129,41 @@ def test_notice_card_shows_mascot_instead_of_icon(qtbot: QtBot) -> None:
     assert plain.mascot is None
     assert not plain.icon_label.isHidden()
     set_mascot_enabled(True)
+
+
+_CARD_TONES = {LEVEL_SUCCESS: "success", LEVEL_WARNING: "warning", LEVEL_ERROR: "danger", LEVEL_INFO: "accent"}
+
+
+@pytest.mark.parametrize("level", list(_CARD_TONES))
+def test_notice_card_level_property_is_set(qtbot: QtBot, level: str) -> None:
+    card = NoticeCard(Notice(level, "Başlık", "Metin"))
+    qtbot.addWidget(card)
+    assert card.property("level") == level
+
+
+def test_notice_card_colors_come_from_theme_not_inline_style(qtbot: QtBot) -> None:
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
+    old_font, old_palette, old_style = app.font(), app.palette(), app.styleSheet()
+    try:
+        apply_theme(app, ThemeMode.LIGHT)
+        cards = [NoticeCard(Notice(level, "Başlık", "Metin")) for level in _CARD_TONES]
+        for card in cards:
+            qtbot.addWidget(card)
+        apply_theme(app, ThemeMode.DARK)  # kart açıkken tema değişir
+        qss = app.styleSheet()
+        for card in cards:
+            assert card.styleSheet() == ""
+            assert card.title_label.styleSheet() == ""
+            assert card.text_label.styleSheet() == ""
+        for level, tone in _CARD_TONES.items():
+            rule = f'QFrame#noticeCard[level="{level}"]'
+            assert rule in qss
+            assert TOKENS["dark"][tone] in qss.split(rule, 1)[1].split("}", 1)[0]
+    finally:
+        app.setFont(old_font)
+        app.setPalette(old_palette)
+        app.setStyleSheet(old_style)
 
 
 def test_settings_dialog_has_the_switch(qtbot: QtBot, window: MainWindow) -> None:

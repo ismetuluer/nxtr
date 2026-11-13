@@ -34,7 +34,6 @@ from PySide6.QtWidgets import (
 
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.mascot import MOOD_DONE, MOOD_ERROR, MascotWidget, mascot_enabled
-from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.widgets import button
 
 log = logging.getLogger(__name__)
@@ -163,12 +162,7 @@ class NoticeCard(QFrame):
         super().__init__(parent)
         self.notice = notice
         self.setObjectName("noticeCard")
-        tokens = current_tokens()
-        tone = tokens[_TONES[notice.level]]
-        self.setStyleSheet(
-            f"QFrame#noticeCard {{ background: {tokens['surface']}; border: 1px solid {tokens['border']};"
-            f" border-left: 4px solid {tone}; border-radius: 10px; }}"
-        )
+        self.setProperty("level", notice.level)  # sol şerit rengini tema QSS'i düzeye göre seçer
         self.setFixedWidth(CARD_WIDTH)  # sabit genişlik: sarılan metnin yüksekliği doğru hesaplanır
         lay = QHBoxLayout(self)
         lay.setContentsMargins(12, 10, 8, 10)
@@ -188,13 +182,13 @@ class NoticeCard(QFrame):
         body = QVBoxLayout()
         body.setSpacing(4)
         self.title_label = QLabel(notice.title)
-        self.title_label.setStyleSheet("font-weight: 600;")
+        self.title_label.setProperty("role", "noticeTitle")
         self.title_label.setWordWrap(True)
         body.addWidget(self.title_label)
         self.text_label = QLabel(_short(notice.text))
         self.text_label.setTextFormat(Qt.TextFormat.PlainText)
         self.text_label.setWordWrap(True)
-        self.text_label.setStyleSheet(f"color: {tokens['muted']};")
+        self.text_label.setProperty("role", "muted")
         self.text_label.setVisible(bool(notice.text))
         if notice.text and _short(notice.text) != notice.text:
             self.text_label.setToolTip(notice.text)

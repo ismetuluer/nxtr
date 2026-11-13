@@ -118,6 +118,12 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QWidget {{ color: {t["text"]}; font-size: {pt}pt; }}
     QMainWindow, QWidget#page, QScrollArea, QScrollArea > QWidget > QWidget {{ background: {t["bg"]}; }}
     QFrame#card {{ background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: 10px; }}
+    QFrame#noticeCard {{ background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: 10px; }}
+    QFrame#noticeCard[level="success"] {{ border-left: 4px solid {t["success"]}; }}
+    QFrame#noticeCard[level="warning"] {{ border-left: 4px solid {t["warning"]}; }}
+    QFrame#noticeCard[level="error"] {{ border-left: 4px solid {t["danger"]}; }}
+    QFrame#noticeCard[level="info"] {{ border-left: 4px solid {t["accent"]}; }}
+    QLabel[role="noticeTitle"] {{ font-weight: 600; }}
     QFrame#statCard {{ background: {t["surface2"]}; border-radius: 8px; }}
     QLabel[role="pageTitle"] {{ font-size: {size(1.7)}; font-weight: 600; }}
     QLabel[role="cardTitle"] {{ font-size: {size(1.2)}; font-weight: 600; }}
