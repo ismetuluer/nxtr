@@ -39,7 +39,7 @@ def words_of(text: str) -> Iterator[tuple[str, int]]:
         yield word, m.start()
 
 
-def _sentence_start(text: str, start: int) -> bool:
+def is_sentence_start(text: str, start: int) -> bool:
     before = text[:start].rstrip(_OPENERS)
     return not before or before[-1] in _SENTENCE_BREAKS
 
@@ -75,7 +75,7 @@ class SpellChecker:
             copied = low in from_source
             if (copied and not self.flag_copied) or (len(word) > 1 and word.isupper()) or _SOUND_EFFECT.fullmatch(low):
                 continue
-            if word[0].isupper() and not copied and not _sentence_start(text, start):
+            if word[0].isupper() and not copied and not is_sentence_start(text, start):
                 continue  # cümle ortasında büyük harf: özel ad (orijinalden kopya işaretlenecekse bu kural uygulanmaz)
             if not self.is_known(word, extra):
                 found.append((start, start + len(word), low))

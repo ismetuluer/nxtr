@@ -2187,19 +2187,23 @@ class MainWindow(QMainWindow):
         rows = self.project.translation_rows()
         glossary = self.project.glossary()
         fit = self._fit_config()
+        spell_ignored = self._spell_ignored()
         issues = run_qa_checks(
             rows,
             self._missing_letters(),
             self._transliterate_letters(),
             glossary,
             fit,
+            spell=self.spell,
             ignored_terms=self._terms_ignored(),
+            spell_ignored=spell_ignored,
             terms={},  # terim tutarsızlığı otomatik düzeltilemez: bulgusu hesaplanmaz
         )
         if row_ids:
             wanted = set(row_ids)
             issues = [i for i in issues if i.row_id in wanted]
-        plan = plan_fixes(rows, issues, kinds, glossary=glossary, fit=fit)
+        spell_extra = spell_extra_words(glossary, spell_ignored) if self.spell is not None else frozenset()
+        plan = plan_fixes(rows, issues, kinds, glossary=glossary, fit=fit, spell=self.spell, spell_extra=spell_extra)
         notes = []
         if plan.approved:
             notes.append(f"Onayladığınız {format_int(plan.approved)} satıra dokunulmadı.")

@@ -17,6 +17,7 @@ Denetimler satır başınadır ve yalnızca bulguları döndürür; satırları 
 | identifier | uyarı | Kaynak bir kod adına benziyor (Ad_Soyad_1) ve çevrilmiş; oyun bu adı arayabilir |
 | suspicious | uyarı | Uydurma belirtisi: İngilizce kalmış, yabancı alfabe, tekrar döngüsü, orijinalden çok uzun/kısa |
 | end_punctuation | uyarı | Çevirinin sonuna orijinalde olmayan noktalama eklenmiş (otomatik düzeltmede atılır) |
+| ascii_turkish | uyarı | ASCII'ye çevrilmiş Türkçe harf (tesekkur → teşekkür); sözlükle onarılır |
 | spelling | bilgi | Çeviride Türkçe yazım sözlüğünde olmayan sözcük var (süzgeçle görülür; sözlüğe eklenebilir) |
 | missing_markup | uyarı | Orijinaldeki ham etiket (`<i>`, `[color=..]`, `{ad}`) çeviride eksik |
 | protected | uyarı | Orijinal cümlenin içindeki kod adı (`Barrel_Cannon`) çeviride aynen yok |
@@ -38,6 +39,8 @@ from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 
 from nxceviri.core.project import TranslationRow
+from nxceviri.core.qa import codefix
+from nxceviri.core.qa.asciitr import AsciiRepair, repair_ascii_turkish
 from nxceviri.core.spell.checker import SpellChecker, turkish_lower, words_of
 from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.cleanup import (
@@ -83,6 +86,7 @@ KIND_LABELS = {
     "bad_break": "Kötü bölünme",
     "suspicious": "Şüpheli çeviri",
     "spelling": "Yazım",
+    "ascii_turkish": "Türkçe harf eksik",
     "end_punctuation": "Sondaki noktalama",
     "inconsistent": "Tutarsız çeviri",
     "missing_markup": "Eksik etiket",
@@ -122,6 +126,34 @@ def _term_pattern(term: str) -> re.Pattern[str]:
     return re.compile(r"(?<!\w)" + re.escape(term) + r"(?!\w)", re.IGNORECASE)
 
 
+def _placeholder_message(row: TranslationRow, problems: list[str]) -> str:
+    """Kontrol kodu bulgusunun iletisi; eksik kod varsa Düzeltmeler'in onarıp onaramayacağı başa yazılır."""
+    message = row.note or " ".join(problems)
+    have = set(placeholders.tokens_in(row.translation))
+    if all(n in have for n in placeholders.tokens_in(row.source)):
+        return message
+    if codefix.repair_codes(row.source, row.translation, row.code_labels) is not None:
+        return f"Düzeltmeler ile onarılabilir: {message}"
+    if codefix.loses_partial_format(row.source, row.translation, row.code_labels):
+        return f"Elle düzeltilmeli: renk/biçim yalnızca metnin bir bölümünü kaplıyor. {message}"
+    return f"Elle düzeltilmeli: {message}"
+
+
+#: Türkçe harf bulgusu iletisinde gösterilen en çok değişiklik / belirsiz sözcük sayısı.
+_ASCII_SHOWN = 3
+
+
+def _ascii_message(repaired: AsciiRepair) -> str:
+    shown = ", ".join(f"{old} → {new}" for old, new in repaired.changes[:_ASCII_SHOWN])
+    if len(repaired.changes) > _ASCII_SHOWN:
+        shown += f" (+{len(repaired.changes) - _ASCII_SHOWN})"
+    review = ", ".join(repaired.ambiguous[:_ASCII_SHOWN])
+    if not repaired.changes:
+        return f"Türkçe harf eksik olabilir. İnceleme gerekli: {review}."
+    message = f"Türkçe harf eksik: {shown}."
+    return f"{message} İnceleme gerekli: {review}." if review else message
+
+
 def check_row(
     row: TranslationRow,
     missing_letters: str,
@@ -149,7 +181,7 @@ def check_row(
         return issues
     problems = placeholders.problems(row.source, row.translation)
     if problems or row.status == Status.ERROR:
-        add("placeholder", SEVERITY_ERROR, row.note or " ".join(problems))
+        add("placeholder", SEVERITY_ERROR, _placeholder_message(row, problems))
     extra = foreign_markup(row.source, row.translation)
     if extra:
         add(
@@ -232,6 +264,10 @@ def check_row(
         unknown = spell.unknown_words(row.translation, row.source, spell_extra)
         if unknown:
             add("spelling", SEVERITY_INFO, f"Yazım sözlüğünde olmayan sözcükler: {', '.join(unknown)}", tuple(unknown))
+    if spell is not None and row.translation.strip() != row.source.strip():
+        repaired = repair_ascii_turkish(row.source, row.translation, spell, spell_extra)
+        if repaired.changes or repaired.ambiguous:
+            add("ascii_turkish", SEVERITY_WARNING, _ascii_message(repaired))
     if not problems and row.translation.strip() != row.source.strip():
         doubts = translation_problems(row.source, row.translation, "tr", breaks=False)
         if doubts:

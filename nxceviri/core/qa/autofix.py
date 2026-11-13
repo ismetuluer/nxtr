@@ -5,20 +5,22 @@ bağlıdır (`FIX_KINDS`); kullanıcı hangi türlerin düzeltileceğini seçer 
 
 - `markup`: çeviriye girmiş, özgünde olmayan HTML/XML etiketleri atılır;
 - `placeholder`: özgünde olmayan uydurma kodlar atılır; aynı kodların sırası karışmışsa (ör. iki "Satır sonu")
-  numaralar özgünün sırasına dizilir (Hatalı satır da böyle düzelir);
+  numaralar özgünün sırasına dizilir (Hatalı satır da böyle düzelir); yarım yazılmış yer tutucu (`[1]`) düzelir ve
+  tam satırı kaplayan eksik biçim zarfı tamamlanır (`codefix`: yalnızca güvenli durumlar);
 - `code_position`: sona yığılmış satır sonu kodları özgündeki yerlerine dağıtılır;
 - `newlines`: özgünde satır sonu yokken çeviriye girmiş satır sonları boşluğa çevrilir; özgünde varsa ve sayısı
   tutmuyorsa çeviri sözcük sınırlarından dengeli satırlara yeniden bölünür;
 - `spaces`: baştaki/sondaki boşluklar özgünle eşlenir;
 - `glossary`: çeviride İngilizce kalmış sözlük terimi karşılığıyla değiştirilir, kesme işaretinden sonraki ek
   korunur ("Sheriff'e" → "Şerif'e");
+- `ascii_turkish`: ASCII'ye çevrilmiş Türkçe harfler sözlükle onarılır (`asciitr`); belirsiz sözcüğe dokunulmaz;
 - `end_punctuation`, `double_space`, `repeated_word`, `extra_dots`, `space_before_punct`: metin temizliği;
 - `line_too_long`, `page_too_tall`, `bad_break`: projede satır/sayfa sınırı tanımlıysa sorunlu sayfa kelime
   sınırlarından, noktalamayı tercih ederek yeniden bölünür (`fit_text`); sayfa sonu kodlarına dokunulmaz. Sınırlı
   satırda "satır sonu sayısı özgünle aynı olmalı" kuralı uygulanmaz; satır sayısını sınır belirler.
 
-Olası taşma, uzunluk sınırı aşımı, eksik kontrol kodu, şüpheli çeviri, eksik harf (font) ve kod adı uyarıları
-düzeltilmez: anlam gerektirir ya da kararı insan verir. Onaylanmış satırlara dokunulmaz.
+Olası taşma, uzunluk sınırı aşımı, güvenle onarılamayan eksik kontrol kodu, şüpheli çeviri, eksik harf (font) ve
+kod adı uyarıları düzeltilmez: anlam gerektirir ya da kararı insan verir. Onaylanmış satırlara dokunulmaz.
 """
 
 from __future__ import annotations
@@ -28,7 +30,10 @@ from dataclasses import dataclass, field, replace
 from typing import NamedTuple
 
 from nxceviri.core.project import TranslationRow
+from nxceviri.core.qa.asciitr import repair_ascii_turkish
 from nxceviri.core.qa.checks import QaIssue, check_row, glossary_patterns
+from nxceviri.core.qa.codefix import closer_base, repair_codes
+from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.cleanup import (
     collapse_inner_spaces,
@@ -37,7 +42,6 @@ from nxceviri.core.translate.cleanup import (
     drop_repeated_words,
     drop_space_before_punct,
     fix_extra_dots,
-    is_line_break,
     split_words,
     spread_trailing_breaks,
     strip_added_end_punctuation,
@@ -69,6 +73,7 @@ FIX_KINDS = (
     "newlines",
     "spaces",
     "glossary",
+    "ascii_turkish",
     "end_punctuation",
     "double_space",
     "repeated_word",
@@ -102,25 +107,15 @@ def rebalance_lines(text: str, lines: int) -> str | None:
     return None if parts is None else "\n".join(parts)
 
 
-def _closer_base(label: str, labels: Sequence[str]) -> str | None:
-    """ "Renk sonu" gibi, başka bir kodun ("Renk…") kapanışı olan etiketin kapattığı ad ("renk"); değilse None."""
-    text = label.casefold()
-    if is_line_break(label) or not text.endswith(" sonu"):
-        return None
-    base = text.removesuffix(" sonu")
-    has_opener = any(o.casefold().startswith(base) and not o.casefold().endswith(" sonu") for o in labels)
-    return base if has_opener else None
-
-
 def _pairs_nest(sequence: Sequence[int], labels: Sequence[str]) -> bool:
     """Açılış/kapanış kodları dizide geçerli mi: her kapanıştan önce eşi açılmış ve kapanmamış olmalı."""
-    bases = {b for lb in labels if (b := _closer_base(lb, labels)) is not None}
+    bases = {b for lb in labels if (b := closer_base(lb, labels)) is not None}
     opened: list[str] = []
     for n in sequence:
         if not 0 < n <= len(labels):
             return False
         label = labels[n - 1].casefold()
-        base = _closer_base(labels[n - 1], labels)
+        base = closer_base(labels[n - 1], labels)
         if base is None:
             opened.extend(b for b in bases if label.startswith(b) and not label.endswith(" sonu"))
         elif base in opened:
@@ -250,6 +245,9 @@ def local_fix(
     glossary: Sequence[GlossaryTerm] = (),
     fit: FitConfig | None = None,
     kinds: Collection[str] | None = None,
+    *,
+    spell: SpellChecker | None = None,
+    spell_extra: frozenset[str] = frozenset(),
 ) -> str:
     """Seçilen türlerin düzeltmelerini uygular (`kinds=None`: hepsi); değişiklik yoksa çeviriyi aynen döndürür.
 
@@ -279,8 +277,11 @@ def local_fix(
             text = rebalance_lines(text, source_breaks + 1) or text
     if "placeholder" in want:
         text = reorder_codes(source, text, row.code_labels) or text
+        text = repair_codes(source, text, row.code_labels) or text
     if "glossary" in want:
         text = apply_glossary(source, text, glossary)
+    if "ascii_turkish" in want and spell is not None:
+        text = repair_ascii_turkish(source, text, spell, spell_extra).text
     if "end_punctuation" in want:
         text = strip_added_end_punctuation(source, text)
     # Sınırlı satırda boşluk ve noktalama temizliğini `fit_and_tidy` (sığdırmayı bozarsa geri alarak) yapar.
@@ -319,6 +320,8 @@ def plan_fixes(
     include_approved: bool = False,
     glossary: Sequence[GlossaryTerm] = (),
     fit: FitConfig | None = None,
+    spell: SpellChecker | None = None,
+    spell_extra: frozenset[str] = frozenset(),
 ) -> FixPlan:
     """Denetim bulgularından, yalnızca seçilen türler için düzeltme planı çıkarır (`kinds=None`: hepsi).
 
@@ -343,20 +346,27 @@ def plan_fixes(
             continue
         targeted = tuple(k for k in FIX_KINDS if k in row_kinds)
         if row.status == Status.ERROR:
-            reordered = (
-                reorder_codes(row.source, row.translation, row.code_labels) if "placeholder" in row_kinds else None
-            )
+            reordered = None
+            if "placeholder" in row_kinds:
+                reordered = reorder_codes(row.source, row.translation, row.code_labels) or repair_codes(
+                    row.source, row.translation, row.code_labels
+                )
             if reordered is None or placeholders.problems(row.source, reordered):
                 plan.unfixed += 1
                 continue
             plan.changes.append((row.id, reordered))
             plan.applied[row.id] = ("placeholder",)
             continue
-        fixed = local_fix(row, glossary, fit, row_kinds)
+        fixed = local_fix(row, glossary, fit, row_kinds, spell=spell, spell_extra=spell_extra)
         if fixed == row.translation:
             plan.unfixed += 1
             continue
-        left = {i.kind for i in check_row(replace(row, translation=fixed), "", "", patterns, fit)}
+        left = {
+            i.kind
+            for i in check_row(
+                replace(row, translation=fixed), "", "", patterns, fit, spell=spell, spell_extra=spell_extra
+            )
+        }
         plan.changes.append((row.id, fixed))
         plan.applied[row.id] = tuple(k for k in targeted if k not in left) or targeted
     return plan

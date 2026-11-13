@@ -91,12 +91,21 @@ _ADVICE_ROLE = Qt.ItemDataRole.UserRole + 1
 
 #: Her düzeltme türünün tek cümlelik ipucu ve örneği.
 FIX_TIPS: dict[str, str] = {
-    "placeholder": "Orijinalde olmayan kontrol kodlarını atar, karışmış kod sırasını düzeltir: ⟦2⟧ ⟦1⟧ → ⟦1⟧ ⟦2⟧.",
+    "placeholder": (
+        "Orijinalde olmayan kontrol kodlarını atar, karışmış kod sırasını düzeltir (⟦2⟧ ⟦1⟧ → ⟦1⟧ ⟦2⟧), "
+        "yarım yazılmış kodu onarır ([1] → ⟦1⟧) ve metnin tamamını kaplayan eksik renk/biçim çiftini ekler: "
+        "‘Yürü.’ → ‘⟦1⟧Yürü.⟦2⟧’. Yalnızca bir bölümü kaplayan kodlar elle düzeltilir."
+    ),
     "markup": "Orijinalde olmayan HTML/XML etiketlerini siler: ‘<b>Tamam</b>’ → ‘Tamam’.",
     "code_position": "Sona yığılmış satır sonlarını orijinaldeki yerlerine dağıtır: ‘A B ⏎⏎’ → ‘A ⏎ B ⏎’.",
     "newlines": "Satır sonu sayısını orijinale uydurur, gerekirse metni yeniden böler: ‘Bir ⏎ iki’ → ‘Bir iki’.",
     "spaces": "Baştaki ve sondaki boşlukları orijinalle eşler: ‘ Tamam’ → ‘Tamam’.",
     "glossary": "İngilizce kalmış terminoloji terimini karşılığıyla değiştirir: ‘Sheriff’e’ → ‘Şerif’e’.",
+    "ascii_turkish": (
+        "Sözlükte olmayan sözcüklerde ASCII’ye çevrilmiş Türkçe harfleri geri koyar: ‘tesekkur’ → ‘teşekkür’, "
+        "‘Iste’ → ‘İşte’, ‘Kitap mi’ → ‘Kitap mı’. Birden çok olasılığı olan sözcüğe dokunmaz; "
+        "yanlış sözcük çıkabileceği için değişiklikleri önizleyerek açın."
+    ),
     "end_punctuation": "Orijinalde olmayan son noktayı siler: ‘Tamam.’ → ‘Tamam’.",
     "double_space": "Sözcükler arasındaki çift boşluğu teke indirir: ‘Çok  güzel’ → ‘Çok güzel’.",
     "repeated_word": "Art arda tekrarlanan sözcüğü teke indirir: ‘ve ve bitir’ → ‘ve bitir’.",
@@ -108,7 +117,7 @@ FIX_TIPS: dict[str, str] = {
 }
 #: Metni yeniden biçimleyen ya da kod yerini değiştiren türler: ilk açılışta işaretsizdir, kullanıcı bilerek açar.
 RISKY_FIX_KINDS = frozenset(
-    {"end_punctuation", "code_position", "newlines", "line_too_long", "page_too_tall", "bad_break"}
+    {"ascii_turkish", "end_punctuation", "code_position", "newlines", "line_too_long", "page_too_tall", "bad_break"}
 )
 
 

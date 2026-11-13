@@ -104,7 +104,14 @@ def renumber(text: str) -> str:
 
 
 #: Modellerin yer tutucuyu sık bozduğu biçimler: ⟦1⟧ yerine [1], 【1】, ⟦ 1 ⟧, {1}, ⟨1⟩.
-_NEAR_MISS = (r"\[\s*{n}\s*\]", r"【\s*{n}\s*】", r"⟦\s*{n}\s*⟧", r"\{{\s*{n}\s*\}}", r"⟨\s*{n}\s*⟩")
+_NEAR_MISS = (
+    r"\[\s*{n}\s*\]",
+    r"【\s*{n}\s*】",
+    r"⟦\s*{n}\s*⟧",
+    r"\{{\{{\s*{n}\s*\}}\}}",  # {{1}} önce denenir: tek süslü kalıbı onu yarım bırakırdı
+    r"\{{\s*{n}\s*\}}",
+    r"⟨\s*{n}\s*⟩",
+)
 
 
 def repair(source: str, translation: str) -> str:
