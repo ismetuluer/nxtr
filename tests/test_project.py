@@ -194,6 +194,92 @@ def test_save_as_failure_is_reported(tmp_path: Path) -> None:
     project.close()
 
 
+def test_save_as_keeps_old_connection_when_reconnect_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = Project.new()
+    project.set_game("Eski Bağlantı", "0100")
+    real_connect = store_module._connect
+    calls = {"n": 0}
+
+    def flaky(target: str | Path) -> sqlite3.Connection:
+        calls["n"] += 1
+        raise sqlite3.OperationalError("unable to open database file")
+
+    monkeypatch.setattr(store_module, "_connect", flaky)
+    with pytest.raises(ProjectError, match="kaydedilemedi"):
+        project.save_as(tmp_path / "p.nxproj")
+    monkeypatch.setattr(store_module, "_connect", real_connect)
+    assert project.path is None
+    assert project.game_name == "Eski Bağlantı"
+    assert project.translation_rows() == []
+    project.close()
+
+
+def _spy_connections(monkeypatch: pytest.MonkeyPatch) -> list[sqlite3.Connection]:
+    """`sqlite3.connect` çağrılarının açtığı bağlantıları kaydeder."""
+    opened: list[sqlite3.Connection] = []
+    real_connect = sqlite3.connect
+
+    def spy(database: str, isolation_level: None = None) -> sqlite3.Connection:
+        conn = real_connect(database, isolation_level=isolation_level)
+        opened.append(conn)
+        return conn
+
+    monkeypatch.setattr(sqlite3, "connect", spy)
+    return opened
+
+
+def test_open_closes_connection_on_every_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    opened = _spy_connections(monkeypatch)
+    junk = tmp_path / "çöp.nxproj"
+    junk.write_bytes(b"bu bir veritabani degil" * 100)
+    with pytest.raises(ProjectError, match="proje dosyası değil"):
+        Project.open(junk)
+    assert opened
+    for conn in opened:
+        with pytest.raises(sqlite3.ProgrammingError):
+            conn.execute("SELECT 1")  # kapalı bağlantı
+    junk.unlink()  # Windows'ta kilit kalmadığını da doğrular
+
+
+def test_open_closes_connection_when_migration_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project = Project.new()
+    project.save_as(tmp_path / "p.nxproj")
+    project.close()
+    opened = _spy_connections(monkeypatch)
+    monkeypatch.setattr(store_module, "MIGRATIONS", (*store_module.MIGRATIONS, "CREATE TABLE project (x);"))
+    monkeypatch.setattr(store_module, "SCHEMA_VERSION", SCHEMA_VERSION + 1)
+    with pytest.raises(ProjectError, match="güncellenemedi"):
+        Project.open(tmp_path / "p.nxproj")
+    for conn in opened:
+        with pytest.raises(sqlite3.ProgrammingError):
+            conn.execute("SELECT 1")
+
+
+class _FailingConn:
+    """`_Transaction` için sahte bağlantı: verilen deyimler `sqlite3.OperationalError` verir."""
+
+    def __init__(self, failing: set[str]) -> None:
+        self.failing = failing
+
+    def execute(self, sql: str) -> None:
+        if sql in self.failing:
+            raise sqlite3.OperationalError(f"{sql} başarısız")
+
+
+def test_transaction_rollback_failure_does_not_mask_body_error(caplog: pytest.LogCaptureFixture) -> None:
+    conn = _FailingConn({"ROLLBACK"})
+    with pytest.raises(ValueError, match="gövde hatası"), store_module._Transaction(conn):  # type: ignore[arg-type]
+        raise ValueError("gövde hatası")
+    assert "ROLLBACK" in caplog.text
+
+
+def test_transaction_rollback_failure_does_not_mask_commit_error(caplog: pytest.LogCaptureFixture) -> None:
+    conn = _FailingConn({"COMMIT", "ROLLBACK"})
+    with pytest.raises(ProjectError, match="yazılamadı"), store_module._Transaction(conn):  # type: ignore[arg-type]
+        pass
+    assert "ROLLBACK" in caplog.text
+
+
 def test_large_scan_table(tmp_path: Path) -> None:
     project = Project.new()
     project.save_scan(_report(50_000))

@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import sqlite3
@@ -27,6 +28,8 @@ from nxceviri.core.formats.scanner import EngineGuess, ScanEntry, ScanReport
 from nxceviri.core.translate.providers.base import GlossaryTerm
 from nxceviri.core.translate.status import SOURCE_CHANGED_NOTE, Status, evaluate
 from nxceviri.core.translate.uppercase import EXCEPT_KEY, GROUPS_KEY, ROWS_KEY, UppercaseRules
+
+log = logging.getLogger(__name__)
 
 APPLICATION_ID = 0x4E585052  # "NXPR"
 PROJECT_SUFFIX = ".nxproj"
@@ -203,8 +206,12 @@ class SourceRecord:
 
 def _connect(target: str | Path) -> sqlite3.Connection:
     conn = sqlite3.connect(str(target), isolation_level=None)
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA synchronous = FULL")
+    try:
+        conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA synchronous = FULL")
+    except BaseException:
+        conn.close()  # yarım kalan bağlantı dosyayı kilitli bırakmasın
+        raise
     return conn
 
 
@@ -361,39 +368,51 @@ class Project:
             raise ProjectError(f"Proje dosyası bulunamadı: {path}", "Dosyanın yerini kontrol edin.")
         try:
             conn = _connect(path)
-            app_id = conn.execute("PRAGMA application_id").fetchone()[0]
-            (version,) = conn.execute("PRAGMA user_version").fetchone()
         except sqlite3.DatabaseError:
             raise ProjectError(
                 f"Dosya bir proje dosyası değil veya bozuk: {path.name}",
                 "Yalnızca NXTR ile oluşturulmuş .nxproj dosyalarını açabilirsiniz.",
             ) from None
-        if app_id != APPLICATION_ID:
-            conn.close()
-            raise ProjectError(
-                f"Bu dosya bir NXTR projesi değil: {path.name}",
-                "Yalnızca bu uygulamayla kaydedilmiş .nxproj dosyalarını açabilirsiniz.",
-            )
-        if version > SCHEMA_VERSION:
-            conn.close()
-            raise ProjectError(
-                f"Proje, uygulamanın daha yeni bir sürümüyle kaydedilmiş (şema {version}).",
-                "Uygulamayı güncelleyip yeniden deneyin.",
-            )
-        if version < SCHEMA_VERSION:
-            conn.close()
-            shutil.copy2(path, path.with_name(path.name + ".bak"))
-            conn = _connect(path)
-            _migrate(conn)
+        return cls(cls._validate_and_migrate(conn, path), path)
+
+    @staticmethod
+    def _validate_and_migrate(conn: sqlite3.Connection, path: Path) -> sqlite3.Connection:
+        """Açılan bağlantıyı doğrular, gerekirse göç ettirir; hata fırlatırsa elindeki son bağlantıyı kapatır."""
         try:
-            ok = conn.execute("PRAGMA quick_check").fetchone()[0]
-            row = conn.execute("SELECT COUNT(*) FROM project").fetchone()[0]
-        except sqlite3.DatabaseError:
-            ok, row = "bozuk", 0
-        if ok != "ok" or row != 1:
-            conn.close()
-            raise ProjectError(f"Proje dosyası bozuk: {path.name}", "Varsa .nxproj.bak yedeğini açmayı deneyin.")
-        return cls(conn, path)
+            try:
+                app_id = conn.execute("PRAGMA application_id").fetchone()[0]
+                (version,) = conn.execute("PRAGMA user_version").fetchone()
+            except sqlite3.DatabaseError:
+                raise ProjectError(
+                    f"Dosya bir proje dosyası değil veya bozuk: {path.name}",
+                    "Yalnızca NXTR ile oluşturulmuş .nxproj dosyalarını açabilirsiniz.",
+                ) from None
+            if app_id != APPLICATION_ID:
+                raise ProjectError(
+                    f"Bu dosya bir NXTR projesi değil: {path.name}",
+                    "Yalnızca bu uygulamayla kaydedilmiş .nxproj dosyalarını açabilirsiniz.",
+                )
+            if version > SCHEMA_VERSION:
+                raise ProjectError(
+                    f"Proje, uygulamanın daha yeni bir sürümüyle kaydedilmiş (şema {version}).",
+                    "Uygulamayı güncelleyip yeniden deneyin.",
+                )
+            if version < SCHEMA_VERSION:
+                conn.close()
+                shutil.copy2(path, path.with_name(path.name + ".bak"))
+                conn = _connect(path)
+                _migrate(conn)
+            try:
+                ok = conn.execute("PRAGMA quick_check").fetchone()[0]
+                row = conn.execute("SELECT COUNT(*) FROM project").fetchone()[0]
+            except sqlite3.DatabaseError:
+                ok, row = "bozuk", 0
+            if ok != "ok" or row != 1:
+                raise ProjectError(f"Proje dosyası bozuk: {path.name}", "Varsa .nxproj.bak yedeğini açmayı deneyin.")
+            return conn
+        except BaseException:
+            conn.close()  # hangi hata olursa olsun dosya kilitli kalmasın
+            raise
 
     def save_as(self, path: Path) -> None:
         """Projeyi `path`'e atomik olarak yazar ve bundan sonra o dosyayla çalışır."""
@@ -402,8 +421,18 @@ class Project:
         if self.path is not None and path.resolve() == self.path.resolve():
             return  # zaten bu dosyaya doğrudan yazılıyor
         self.write_copy(path)
+        try:
+            new_conn = _connect(path)
+        except (OSError, sqlite3.Error) as exc:
+            raise ProjectError(
+                f"Proje kaydedilemedi: {path}",
+                (
+                    "Dosya yazıldı ama açılamadı; proje eski yerinde açık kalıyor. "
+                    f"Dosyanın kilitli olmadığından emin olun. ({exc})"
+                ),
+            ) from None
         self._conn.close()
-        self._conn = _connect(path)
+        self._conn = new_conn
         self.path = path
 
     def write_copy(self, path: Path) -> None:
@@ -924,9 +953,16 @@ class _Transaction:
             try:
                 self._conn.execute("COMMIT")
             except sqlite3.Error as exc:
-                self._conn.execute("ROLLBACK")
+                self._rollback()
                 raise ProjectError(
                     "Proje dosyasına yazılamadı.", f"Disk dolu veya dosya kilitli olabilir. ({exc})"
                 ) from None
         else:
+            self._rollback()
+
+    def _rollback(self) -> None:
+        """ROLLBACK başarısız olursa asıl hata örtülmesin; yalnızca uyarı olarak günlüğe yazılır."""
+        try:
             self._conn.execute("ROLLBACK")
+        except sqlite3.Error as exc:
+            log.warning("ROLLBACK başarısız oldu (işlem zaten geri alınmış olabilir): %s", exc)
