@@ -208,6 +208,7 @@ class NoticeCard(QFrame):
         self.close_button = QToolButton()
         self.close_button.setAutoRaise(True)
         self.close_button.setToolTip("Kapat")
+        self.close_button.setAccessibleName("Kapat")
         self.close_button.setCursor(Qt.CursorShape.PointingHandCursor)
         bind_icon(self.close_button, "x", size=14)
         self.close_button.clicked.connect(self.dismiss)
@@ -403,7 +404,9 @@ class HistoryButton(QToolButton):
     def refresh(self) -> None:
         n = self._center.unread
         self.setText(str(n) if n else "")
-        self.setToolTip(f"Bildirimler: {n} yeni" if n else "Bildirimler")
+        tip = f"Bildirimler: {n} yeni" if n else "Bildirimler"
+        self.setToolTip(tip)
+        self.setAccessibleName(tip)
 
     def _fill(self) -> None:
         menu = self.menu_widget

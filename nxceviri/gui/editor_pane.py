@@ -283,6 +283,7 @@ class EditorPane(QWidget):
         ):
             tool.setAutoRaise(True)
             tool.setToolTip(tip)
+            tool.setAccessibleName(tip.split(" (")[0])  # kısayol parantezi olmadan
             bind_icon(tool, icon_name)
             tool.clicked.connect(lambda _checked=False, s=step: self.navigate_requested.emit(s))
         self.approve_button = button("Onayla", icon="circle-check")

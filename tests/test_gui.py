@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 from PySide6.QtCore import QMimeData, QPointF, QSettings, Qt, QUrl
 from PySide6.QtGui import QDropEvent
-from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QWidget
+from PySide6.QtWidgets import QAbstractButton, QApplication, QMenu, QMessageBox, QWidget
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.errors import ProjectError
@@ -801,3 +801,16 @@ def test_scan_page_diagnosis_report(
     assert str(hedef / RAPOR_ADI) in bildirim.text
     assert UYARI in bildirim.text
     assert [Path(a) for a in acilan] == [hedef]
+
+
+def test_gorunur_metni_olmayan_dugmelerin_erisilebilir_adi_var(window: MainWindow) -> None:
+    """Yalnızca simgeden oluşan düğmeyi ekran okuyucu adsız ("düğme") okur; her birinin adı olmalı."""
+    adsiz = [
+        f"{d.objectName() or type(d).__name__} (ipucu: {d.toolTip()!r})"
+        for d in window.findChildren(QAbstractButton)
+        if not d.text().strip()
+        and not d.accessibleName().strip()
+        and not d.objectName().startswith("qt_")  # Qt'nin kendi iç düğmeleri (köşe düğmesi, menü uzantısı)
+        and (d.isVisibleTo(window) or d.toolTip())  # metni sonradan gelen gizli çipler kapsam dışı
+    ]
+    assert not adsiz, f"{len(adsiz)} adsız düğme: {adsiz}"

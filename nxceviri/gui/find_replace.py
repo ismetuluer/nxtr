@@ -295,6 +295,7 @@ class FindBar(QWidget):
         tool = QToolButton()
         tool.setProperty("role", "viewTool")
         tool.setToolTip(tip)
+        tool.setAccessibleName(tip.partition(". ")[0].partition(" (")[0])  # ilk kısa cümle, kısayol parantezi olmadan
         tool.setCheckable(checkable)
         tool.setCursor(Qt.CursorShape.PointingHandCursor)
         bind_icon(tool, icon_name)

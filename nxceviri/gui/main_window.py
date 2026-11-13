@@ -645,6 +645,7 @@ class MainWindow(QMainWindow):
         key = self.shortcuts.text("view.nav")
         action = "Kenar çubuğunu genişlet" if self._nav_collapsed else "Kenar çubuğunu daralt"
         self.nav_toggle.setToolTip(f"{action} ({key})" if key else action)
+        self.nav_toggle.setAccessibleName(action)  # ipucu gibi, o an yapacağı işi söyler
 
     def changeEvent(self, event: QEvent) -> None:
         super().changeEvent(event)

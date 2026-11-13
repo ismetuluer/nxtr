@@ -156,6 +156,7 @@ class Banner(QFrame):
             close.setText("✕")
             close.setAutoRaise(True)
             close.setToolTip("Kapat")
+            close.setAccessibleName("Kapat")  # görünür metin yalnızca "✕" simgesi
             close.setCursor(Qt.CursorShape.PointingHandCursor)
             close.clicked.connect(self.hide)
             lay.addWidget(close, alignment=Qt.AlignmentFlag.AlignTop)
