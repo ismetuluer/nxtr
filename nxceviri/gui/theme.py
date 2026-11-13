@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import tempfile
 from enum import StrEnum
 from pathlib import Path
@@ -9,6 +10,8 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QGuiApplication, QPalette
 from PySide6.QtWidgets import QApplication
+
+log = logging.getLogger(__name__)
 
 
 class ThemeMode(StrEnum):
@@ -96,9 +99,13 @@ def _check_mark(color: str) -> str:
     """İşaretli onay kutusunun tik simgesi (QSS `image:` için dosya yolu; renk başına bir kez yazılır)."""
     folder = Path(tempfile.gettempdir()) / "nxtr-tema"
     path = folder / f"tik-{color.lstrip('#').lower()}.svg"
-    if not path.is_file():
-        folder.mkdir(parents=True, exist_ok=True)
-        path.write_text(_CHECK_SVG.format(color=color), encoding="utf-8")
+    svg = _CHECK_SVG.format(color=color)
+    try:
+        if not path.is_file() or path.read_text(encoding="utf-8") != svg:
+            folder.mkdir(parents=True, exist_ok=True)
+            path.write_text(svg, encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        log.warning("Tik simgesi yazılamadı veya okunamadı (%s): %s", path, exc)
     return path.as_posix()
 
 

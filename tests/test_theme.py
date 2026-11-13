@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import logging
+import tempfile
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 from PySide6.QtWidgets import QApplication, QLineEdit, QPushButton, QStatusBar, QToolButton
 from pytestqt.qtbot import QtBot
 
 from nxceviri.gui import icons
-from nxceviri.gui.theme import TOKENS, ThemeMode, _qss, apply_theme
+from nxceviri.gui.theme import _CHECK_SVG, TOKENS, ThemeMode, _check_mark, _qss, apply_theme
 
 _AA = 4.5
 
@@ -161,3 +164,41 @@ def test_role_tool_buttons_keep_pre_focus_size(themed_app: QApplication) -> None
     legacy = _role_sizes()
     apply_theme(themed_app, ThemeMode.LIGHT, 10)
     assert _role_sizes() == legacy
+
+
+def test_check_mark_rewrites_corrupted_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+    path = Path(_check_mark("#FFFFFF"))
+    path.write_text("", encoding="utf-8")  # boşalmış dosya
+    assert Path(_check_mark("#FFFFFF")) == path
+    assert path.read_text(encoding="utf-8") == _CHECK_SVG.format(color="#FFFFFF")
+
+
+def test_check_mark_does_not_rewrite_valid_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+    path = Path(_check_mark("#FFFFFF"))
+    writes: list[Path] = []
+    real_write = Path.write_text
+
+    def spy(self: Path, *args: object, **kwargs: object) -> int:
+        writes.append(self)
+        return real_write(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "write_text", spy)
+    assert Path(_check_mark("#FFFFFF")) == path
+    assert writes == []
+
+
+def test_check_mark_survives_io_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+
+    def broken(self: Path, *args: object, **kwargs: object) -> int:
+        raise OSError("yazılamaz")
+
+    monkeypatch.setattr(Path, "write_text", broken)
+    with caplog.at_level(logging.WARNING):
+        result = _check_mark("#ABCDEF")
+    assert result.endswith("tik-abcdef.svg")
+    assert any("tik" in r.message.lower() for r in caplog.records)

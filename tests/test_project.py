@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import sqlite3
 from pathlib import Path
 
@@ -168,6 +169,57 @@ def test_migration_runs_and_keeps_backup(tmp_path: Path, monkeypatch: pytest.Mon
     conn = sqlite3.connect(tmp_path / "eski.nxproj")
     assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION + 1
     assert conn.execute("SELECT notes FROM project").fetchone()[0] == "göç"
+    conn.close()
+
+
+def _make_old_project(tmp_path: Path, name: str = "eski.nxproj") -> Path:
+    project = Project.new()
+    project.set_game("Eski Oyun", "0100000000000000")
+    project.save_as(tmp_path / name)
+    project.close()
+    return tmp_path / name
+
+
+def _bump_schema(monkeypatch: pytest.MonkeyPatch, column: str) -> None:
+    extra = f"ALTER TABLE project ADD COLUMN {column} TEXT NOT NULL DEFAULT 'x';"
+    monkeypatch.setattr(store_module, "MIGRATIONS", (*store_module.MIGRATIONS, extra))
+    monkeypatch.setattr(store_module, "SCHEMA_VERSION", store_module.SCHEMA_VERSION + 1)
+
+
+def test_migration_backup_failure_is_reported_and_nothing_migrates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = _make_old_project(tmp_path)
+    before = path.read_bytes()
+    _bump_schema(monkeypatch, "notlar")
+
+    def disk_full(src: object, dst: object) -> None:
+        raise OSError("Diskte yer yok")
+
+    monkeypatch.setattr(shutil, "copy2", disk_full)
+    opened = _spy_connections(monkeypatch)
+    with pytest.raises(ProjectError, match="yedeği alınamadı") as info:
+        Project.open(path)
+    assert "eski.nxproj" in str(info.value)
+    assert path.read_bytes() == before
+    for conn in opened:
+        with pytest.raises(sqlite3.ProgrammingError):
+            conn.execute("SELECT 1")
+    path.unlink()  # kilit kalmadı
+
+
+def test_migration_does_not_overwrite_existing_backup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = _make_old_project(tmp_path)
+    old_backup = tmp_path / "eski.nxproj.bak"
+    old_backup.write_bytes(b"en eski saglam yedek")
+    old_version = SCHEMA_VERSION
+    _bump_schema(monkeypatch, "notlar")
+    Project.open(path).close()
+    assert old_backup.read_bytes() == b"en eski saglam yedek"
+    versioned = tmp_path / f"eski.nxproj.v{old_version}.bak"
+    assert versioned.is_file()
+    conn = sqlite3.connect(versioned)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == old_version
     conn.close()
 
 

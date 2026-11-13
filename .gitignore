@@ -23,6 +23,7 @@ keys.txt
 *.nxproj
 *.nxproj-journal
 *.nxproj.bak
+*.nxproj.*.bak
 *_onbellek/
 onbellek/
 cache/

@@ -339,6 +339,20 @@ def _row(r: tuple[object, ...]) -> TranslationRow:
     )
 
 
+def _backup_before_migration(path: Path, version: int) -> None:
+    """Göçten önce yedek alır; var olan `.bak` korunur, yeni yedek eski sürümü taşıyan adla yazılır."""
+    backup = path.with_name(path.name + ".bak")
+    if backup.exists():
+        backup = path.with_name(f"{path.name}.v{version}.bak")
+    try:
+        shutil.copy2(path, backup)
+    except OSError as exc:
+        raise ProjectError(
+            f"Proje güncellenmeden önce yedeği alınamadı: {path.name}",
+            f"Klasöre yazma izniniz olduğundan ve diskte yer bulunduğundan emin olun. ({exc})",
+        ) from None
+
+
 class Project:
     """Açık bir proje. Tüm yazımlar işlem içinde yapılır."""
 
@@ -399,7 +413,7 @@ class Project:
                 )
             if version < SCHEMA_VERSION:
                 conn.close()
-                shutil.copy2(path, path.with_name(path.name + ".bak"))
+                _backup_before_migration(path, version)
                 conn = _connect(path)
                 _migrate(conn)
             try:
