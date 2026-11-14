@@ -138,6 +138,7 @@ def marked_html(
     found_bg = tokens["accent"] if found_current else tokens["surface" if selected_row else "selection"]
     found_text = tokens["accent_text"] if found_current else None
     break_after = "" if single_line else ZWSP
+    has_pua = _PUA_RE.search(text) is not None  # hızlı yol: simge yoksa karakter başına sınama yapılmaz
 
     def open_tag(is_wrong: bool, is_found: bool) -> str:
         style = ""
@@ -157,7 +158,7 @@ def marked_html(
             if symbols:
                 return mark("¶", i) + ("" if single_line else "<br>")
             return " " if single_line else "<br>"
-        if _PUA_RE.match(ch):
+        if has_pua and _PUA_RE.match(ch):
             lit = i in found_at
             color = (found_text or pua_color(tokens)) if lit else pua_color(tokens)
             bg = found_bg if lit else tokens["selection"]
