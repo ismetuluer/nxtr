@@ -535,6 +535,7 @@ class MainWindow(QMainWindow):
         self.add_page.add_files.connect(self.add_files)
         self.add_page.remove_source.connect(self._remove_source)
         self.add_page.next_step.connect(self._go_scan)
+        self.add_page.open_recent.connect(self.open_recent)
         self.scan_page.start_scan.connect(self.start_scan)
         self.scan_page.cancel.connect(self._cancel_task)
         self.scan_page.go_back.connect(lambda: self.nav.setCurrentRow(STEP_ADD))
@@ -865,6 +866,7 @@ class MainWindow(QMainWindow):
         name = self.project.path.stem if self.project.path else "Kaydedilmemiş proje"
         self.setWindowTitle(f"{name}{' *' if self.dirty else ''} — {APP_TITLE}")
         self.add_page.set_sources(self.sources)
+        self.add_page.set_recent(self.recent.paths())
         problems = check_sources(self.sources) if self.sources else []
         if self.keys is None:
             reason = "Anahtar dosyası seçin"

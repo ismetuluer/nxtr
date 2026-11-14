@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QTableWidget,
     QTableWidgetItem,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -28,6 +29,9 @@ DROP_READY_TEXT = "NSP / NSZ dosyalarını bırakın"
 DROP_LOCKED_TEXT = "Önce anahtar dosyası seçin"
 #: Bundan uzun neden çipte "Devam edilemiyor" olarak, tam metni ayrıntıda gösterilir.
 CHIP_TEXT_LIMIT = 40
+#: Son projeler kartında en çok kaç satır görünür.
+RECENT_SHOWN = 8
+RECENT_NAME_WIDTH = 200
 
 
 class AddGamePage(QWidget):
@@ -36,6 +40,7 @@ class AddGamePage(QWidget):
     browse_files = Signal()
     remove_source = Signal(int)
     next_step = Signal()
+    open_recent = Signal(Path)
 
     def __init__(self) -> None:
         super().__init__()
@@ -102,6 +107,16 @@ class AddGamePage(QWidget):
         self.files_card.body.addWidget(self.table)
         lay.addWidget(self.files_card)
 
+        # --- son projeler (yalnızca ekran boşken) ---
+        self.recent_card = Card("Son projeler")
+        self.recent_card.hide()
+        self.recent_list = QVBoxLayout()
+        self.recent_list.setSpacing(4)
+        self.recent_card.body.addLayout(self.recent_list)
+        lay.addWidget(self.recent_card)
+        self._recent: list[Path] = []
+        self._has_sources = False
+
         lay.addStretch(1)
 
     # --- güncelleme yöntemleri ----------------------------------------------------------
@@ -116,7 +131,47 @@ class AddGamePage(QWidget):
         self.drop.setEnabled(ready)
         self.drop.text.setText(DROP_READY_TEXT if ready else DROP_LOCKED_TEXT)
 
+    def set_recent(self, paths: list[Path]) -> None:
+        """Son projeler kartı; diskte olmayanlar atlanır. Kart yalnızca kaynak yokken ve liste doluyken görünür."""
+        existing = [p for p in paths if p.is_file()][:RECENT_SHOWN]
+        if existing != self._recent:
+            self._recent = existing
+            while (item := self.recent_list.takeAt(0)) is not None:
+                if (widget := item.widget()) is not None:
+                    widget.setParent(None)
+                    widget.deleteLater()
+            for path in existing:
+                self.recent_list.addWidget(self._recent_row(path))
+        self._sync_recent_visible()
+
+    def _recent_row(self, path: Path) -> QWidget:
+        row = QWidget()
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(10)
+        link = QToolButton()
+        link.setText(path.stem)
+        link.setProperty("role", "link")
+        link.setCursor(Qt.CursorShape.PointingHandCursor)
+        link.setToolTip(str(path))
+        link.clicked.connect(lambda _=False, p=path: self.open_recent.emit(p))
+        name_cell = QHBoxLayout()  # ad sola yaslı, klasör sütunu aynı hizada başlar
+        name_cell.setContentsMargins(0, 0, 0, 0)
+        name_cell.addWidget(link, alignment=Qt.AlignmentFlag.AlignLeft)
+        name_box = QWidget()
+        name_box.setFixedWidth(RECENT_NAME_WIDTH)
+        name_box.setLayout(name_cell)
+        lay.addWidget(name_box)
+        folder = label(str(path.parent), "muted", tip=str(path))
+        lay.addWidget(folder, 1)
+        return row
+
+    def _sync_recent_visible(self) -> None:
+        self.recent_card.setVisible(bool(self._recent) and not self._has_sources)
+
     def set_sources(self, sources: list[SourceRecord]) -> None:
+        self._has_sources = bool(sources)
+        self._sync_recent_visible()
         self.table.setRowCount(len(sources))
         for row, s in enumerate(sources):
             exists = s.path.is_file()
