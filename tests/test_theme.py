@@ -19,8 +19,8 @@ _AA = 4.5
 
 #: (ön plan belirteci, zemin belirteci) — iki temada da en az 4,5:1 olmalı.
 _PAIRS = [
-    *(("text", bg) for bg in ("bg", "surface", "surface2", "selection")),
-    *(("muted", bg) for bg in ("bg", "surface", "surface2")),
+    *(("text", bg) for bg in ("bg", "surface", "surface2", "selection", "row_alt")),
+    *(("muted", bg) for bg in ("bg", "surface", "surface2", "row_alt")),
     ("accent", "bg"),
     ("accent", "surface"),
     ("accent_text", "accent"),
@@ -91,6 +91,15 @@ def test_qss_has_focus_rule(scheme: str, selector: str) -> None:
 def test_qss_step_nav_has_no_focus_frame(scheme: str) -> None:
     """Kenar çubuğu listesi çevresinde odak çerçevesi çizilmez (seçim dolgusu yeter)."""
     assert "stepNav:focus" not in _qss(TOKENS[scheme])
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_alternate_rows_are_distinguishable(scheme: str) -> None:
+    """Tablolardaki dönüşümlü satır zemini, satır zemininden gözle ayrılır (koyu temada da)."""
+    tokens = TOKENS[scheme]
+    # Koyu zeminde göz küçük farkı daha zor seçer; eşik daha yüksek (eski koyu değer 1,17 idi ve seçilmiyordu).
+    assert _ratio(tokens["row_alt"], tokens["surface"]) >= {"light": 1.12, "dark": 1.25}[scheme]
+    assert f"alternate-background-color: {tokens['row_alt']}" in _qss(tokens)
 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])

@@ -27,6 +27,7 @@ TOKENS: dict[str, dict[str, str]] = {
         "bg": "#F4F5F7",
         "surface": "#FFFFFF",
         "surface2": "#EEF0F3",
+        "row_alt": "#EEF0F3",
         "border": "#D8DCE2",
         "text": "#1B1F24",
         "muted": "#5B6470",
@@ -50,6 +51,7 @@ TOKENS: dict[str, dict[str, str]] = {
         "bg": "#15171B",
         "surface": "#1E2126",
         "surface2": "#292D34",
+        "row_alt": "#30353E",
         "border": "#363B44",
         "text": "#E6E8EB",
         "muted": "#9AA3AE",
@@ -247,7 +249,7 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QTableView, QTableWidget, QTreeWidget, QListWidget, QLineEdit, QComboBox, QSpinBox, QPlainTextEdit {{
         background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: 6px;
         selection-background-color: {t["selection"]}; selection-color: {t["text"]};
-        alternate-background-color: {t["surface2"]};
+        alternate-background-color: {t["row_alt"]};
     }}
     QLineEdit, QComboBox, QSpinBox {{ padding: 4px 8px; min-height: 20px; }}
     QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled {{
@@ -417,7 +419,7 @@ def apply_theme(app: QApplication, mode: ThemeMode, font_size: int = DEFAULT_FON
         QPalette.ColorRole.Window: t["bg"],
         QPalette.ColorRole.WindowText: t["text"],
         QPalette.ColorRole.Base: t["surface"],
-        QPalette.ColorRole.AlternateBase: t["surface2"],
+        QPalette.ColorRole.AlternateBase: t["row_alt"],
         QPalette.ColorRole.Text: t["text"],
         QPalette.ColorRole.Button: t["surface2"],
         QPalette.ColorRole.ButtonText: t["text"],
