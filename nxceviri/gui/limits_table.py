@@ -16,7 +16,16 @@ from PySide6.QtCore import (
     Qt,
     Signal,
 )
-from PySide6.QtWidgets import QAbstractItemView, QHBoxLayout, QHeaderView, QLineEdit, QTableView, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QAbstractItemView,
+    QHBoxLayout,
+    QHeaderView,
+    QLineEdit,
+    QSizePolicy,
+    QTableView,
+    QVBoxLayout,
+    QWidget,
+)
 
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, FitRules
@@ -48,6 +57,12 @@ class _Invalid:
 
 
 _INVALID = _Invalid()
+
+
+def _alignment(col: int) -> int:
+    """Kapsam sola, sayı sütunları sağa yaslanır."""
+    side = Qt.AlignmentFlag.AlignLeft if col == 0 else Qt.AlignmentFlag.AlignRight
+    return int(side | Qt.AlignmentFlag.AlignVCenter)
 
 
 def _fmt(rules: FitRules | None) -> str:
@@ -111,8 +126,12 @@ class _Model(QAbstractTableModel):
         return 0 if parent.isValid() else len(_COLUMNS)
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
-        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
+        if orientation != Qt.Orientation.Horizontal:
+            return None
+        if role == Qt.ItemDataRole.DisplayRole:
             return _COLUMNS[section]
+        if role == Qt.ItemDataRole.TextAlignmentRole:
+            return _alignment(section)  # başlık, sütunundaki içerikle aynı hizada
         return None
 
     def flags(self, index: _Index) -> Qt.ItemFlag:
@@ -147,8 +166,8 @@ class _Model(QAbstractTableModel):
             return _fmt(self._manual.get(stat.scope))
         if role == _SORT_ROLE:
             return self._sort_value(entry, col)
-        if role == Qt.ItemDataRole.TextAlignmentRole and col > 0:
-            return int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        if role == Qt.ItemDataRole.TextAlignmentRole:
+            return _alignment(col)
         if role == Qt.ItemDataRole.ToolTipRole and col == _MANUAL_COLUMN:
             return "Örn. 40 × 3. Boş bırakın ya da 0 yazın: elle sınırı kaldırır."
         return None
@@ -211,11 +230,15 @@ class LimitsTable(QWidget):
         self.view.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.view.verticalHeader().setVisible(False)
         self.view.verticalHeader().setDefaultSectionSize(28)
-        self.view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.view.horizontalHeader().setStretchLastSection(True)
-        self.view.setColumnWidth(0, 220)
-        for col in (1, 2, 3):
-            self.view.setColumnWidth(col, 150)
+        # Sekme kısaysa tablo küçülür (en az 100 px), altındaki düğmeler görünür kalır; uzunsa kalan yeri doldurur.
+        self.view.setMinimumHeight(100)
+        self.view.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)
+        # Kapsam adları uzun olabilir: kalan genişliği o alır; sayı sütunları başlığına ve değerine göre daralır.
+        header = self.view.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        for col in range(1, len(_COLUMNS)):
+            header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
 
         top = QHBoxLayout()
         top.addWidget(self.search, 1)

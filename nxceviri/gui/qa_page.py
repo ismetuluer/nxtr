@@ -21,7 +21,7 @@ from PySide6.QtCore import (
     Signal,
     SignalInstance,
 )
-from PySide6.QtGui import QAction, QColor, QShowEvent
+from PySide6.QtGui import QAction, QShowEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QButtonGroup,
@@ -51,7 +51,14 @@ from nxceviri.core.languages import natural_sort_key
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa import transliterate
 from nxceviri.core.qa.autofix import FIX_KINDS
-from nxceviri.core.qa.checks import KIND_LABELS, SEVERITY_ERROR, SEVERITY_LABELS, SEVERITY_WARNING, QaIssue
+from nxceviri.core.qa.checks import (
+    KIND_LABELS,
+    SEVERITY_ERROR,
+    SEVERITY_INFO,
+    SEVERITY_LABELS,
+    SEVERITY_WARNING,
+    QaIssue,
+)
 from nxceviri.core.qa.fonts import FontReport, font_advice, is_editable_font
 from nxceviri.core.translate.codekinds import KIND_NAMES, CodeKinds
 from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, PROBLEM_LINE, PROBLEM_PAGE, FitRules
@@ -93,6 +100,18 @@ _NARROW_WIDTH = 1100
 _FIX_PANEL_WIDTH = 260
 #: Font tablosu hücresinde fontun kendi "Ne yapılabilir" önerisi (İçe alındı yazısı kalkınca geri konur).
 _ADVICE_ROLE = Qt.ItemDataRole.UserRole + 1
+#: Önem sütununda görünen metin yok; sıralama bu rolden okunur (Hata, Uyarı, Bilgi adı).
+_SORT_ROLE = Qt.ItemDataRole.UserRole + 2
+_SEVERITY_ICON_SIZE = 16
+_SEVERITY_ICONS = {
+    SEVERITY_ERROR: ("circle-x", "danger"),
+    SEVERITY_WARNING: ("triangle-alert", "warning"),
+    SEVERITY_INFO: ("info", "muted"),
+}
+#: Tür sütunu en uzun tür adına göre açılır; bu kadar piksel dolgu ve en çok bu genişlik.
+_KIND_PADDING, _KIND_MAX_WIDTH = 28, 240
+#: Önem sütunu yalnızca simgedir; Dosya sütunu dar başlar (tam yol ipucunda).
+_SEVERITY_WIDTH, _FILE_WIDTH = 44, 150
 
 #: Her düzeltme türünün tek cümlelik ipucu ve örneği.
 FIX_TIPS: dict[str, str] = {
@@ -182,8 +201,16 @@ class IssueModel(QAbstractTableModel):
         return 0 if parent.isValid() else len(_COLUMNS)
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
-        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
-            return _COLUMNS[section]
+        if orientation != Qt.Orientation.Horizontal:
+            return None
+        icon_only = section == COL_SEVERITY  # dar simge sütunu: başlık metni sığmaz, adı ipucunda
+        if role == Qt.ItemDataRole.DisplayRole:
+            return "" if icon_only else _COLUMNS[section]
+        if role in (Qt.ItemDataRole.ToolTipRole, Qt.ItemDataRole.AccessibleTextRole):
+            return _COLUMNS[section] if icon_only else None
+        if role == Qt.ItemDataRole.TextAlignmentRole:
+            side = Qt.AlignmentFlag.AlignHCenter if icon_only else Qt.AlignmentFlag.AlignLeft
+            return int(side | Qt.AlignmentFlag.AlignVCenter)  # başlık, sütunundaki içerikle aynı hizada
         return None
 
     def data(self, index: _Index, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
@@ -191,6 +218,8 @@ class IssueModel(QAbstractTableModel):
             return None
         i = self.issues[index.row()]
         col = index.column()
+        if col == COL_SEVERITY:
+            return self._severity_data(i.severity, role)
         if role == Qt.ItemDataRole.EditRole and col == COL_TRANSLATION:
             return self._texts(i)[1]
         if role == Qt.ItemDataRole.DisplayRole:
@@ -211,15 +240,21 @@ class IssueModel(QAbstractTableModel):
             else:
                 text = f"{i.message}\n\nAnahtar: {i.key}"
             return tip_html(f"{text}\n\n{EDIT_HINT if col == COL_TRANSLATION else OPEN_HINT}")
-        if role == Qt.ItemDataRole.ForegroundRole and col == 0:
-            t = current_tokens()
-            return QColor(
-                t["danger"]
-                if i.severity == SEVERITY_ERROR
-                else t["warning"]
-                if i.severity == SEVERITY_WARNING
-                else t["muted"]
-            )
+        return None
+
+    @staticmethod
+    def _severity_data(severity: str, role: int) -> Any:
+        """Önem sütunu yalnızca simge gösterir; adı ipucunda, erişilebilir metinde ve sıralama değerinde durur."""
+        name = SEVERITY_LABELS[severity]
+        if role == Qt.ItemDataRole.DisplayRole:
+            return ""
+        if role in (Qt.ItemDataRole.ToolTipRole, Qt.ItemDataRole.AccessibleTextRole, _SORT_ROLE):
+            return name
+        if role == Qt.ItemDataRole.DecorationRole:
+            icon_name, tone = _SEVERITY_ICONS[severity]
+            return icon(icon_name, current_tokens()[tone], _SEVERITY_ICON_SIZE)
+        if role == Qt.ItemDataRole.TextAlignmentRole:
+            return int(Qt.AlignmentFlag.AlignCenter)
         return None
 
 
@@ -231,7 +266,8 @@ class IssueFilter(QSortFilterProxyModel):
 
     def lessThan(self, left: _Index, right: _Index) -> bool:
         """Doğal sıralama: sayılar değerine göre (1, 2, 10), harfler Türkçe sırayla."""
-        return natural_sort_key(str(left.data() or "")) < natural_sort_key(str(right.data() or ""))
+        role = _SORT_ROLE if left.column() == COL_SEVERITY else Qt.ItemDataRole.DisplayRole
+        return natural_sort_key(str(left.data(role) or "")) < natural_sort_key(str(right.data(role) or ""))
 
     def update(self, kinds: frozenset[str], show_info: bool) -> None:
         self.beginFilterChange()
@@ -356,9 +392,17 @@ class QaPage(QWidget):
         self.font_table.verticalHeader().hide()
         self.font_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         fh = self.font_table.horizontalHeader()
-        for c in (0, 1, 2, 4):
+        for c in (0, 1, 2):
             fh.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
-        fh.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        fh.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # "Ne yapılabilir" en önemli sütun: kalanı alır
+        fh.setSectionResizeMode(4, QHeaderView.ResizeMode.Interactive)
+        self.font_table.setColumnWidth(4, _FILE_WIDTH)
+        self.font_table.setTextElideMode(Qt.TextElideMode.ElideMiddle)  # uzun dosya adı ortadan kısalır
+        self.font_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        for c in range(5):
+            head = self.font_table.horizontalHeaderItem(c)
+            if head is not None:
+                head.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.font_table.setMinimumHeight(180)
         self.font_table.setSortingEnabled(True)
         self.font_table.hide()
@@ -451,9 +495,13 @@ class QaPage(QWidget):
         h = self.table.horizontalHeader()
         h.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)  # sütunlar sürüklenerek ayarlanır
         h.setMinimumSectionSize(40)
+        kind_width = min(
+            _KIND_MAX_WIDTH,
+            max(self.table.fontMetrics().horizontalAdvance(name) for name in KIND_LABELS.values()) + _KIND_PADDING,
+        )
         self.fitter = ColumnFitter(
             self.table,
-            {COL_SEVERITY: (80, 50), COL_KIND: (140, 60)},
+            {COL_SEVERITY: (_SEVERITY_WIDTH, 40), COL_KIND: (kind_width, kind_width)},
             {COL_DESCRIPTION: (0.3, 100), COL_SOURCE: (0.35, 100), COL_TRANSLATION: (0.35, 100)},
         )
         self.column_menu = HeaderColumnMenu(
@@ -637,20 +685,20 @@ class QaPage(QWidget):
         # ayrı öğrenir.
         self.limits_card = Card("Grup ve anahtar sınırları")
         self.limits = LimitsTable()
-        self.limits.setMinimumHeight(260)
+        self.limits.setMinimumHeight(150)
         self.limits.rule_edited.connect(self._limits_edited)
         self.fit_changed.connect(self._sync_limits)
         self.limits.learn_all_requested.connect(
             lambda: self._commit_pending(lambda: self.learn_rules_requested.emit(EACH_GROUP))
         )
         self.limits_card.body.addWidget(self.limits)
-        lay.addWidget(self.limits_card)
-        lay.addStretch(1)
+        lay.addWidget(self.limits_card, 1)  # sekmede kalan yüksekliği doldurur; sığmazsa sayfa kayar
         self._apply_fit_widgets([], [], [])
         return scroll
 
     def _show_fit_result(self, text: str, can_show: bool = False) -> None:
         self.fit_result.setText(text)
+        self.fit_result.setVisible(self.fit_enabled.isChecked())  # kapalıyken üstteki özet yeter
         self.fit_result_show.setVisible(can_show)
 
     def show_fit_checking(self) -> None:
@@ -844,6 +892,7 @@ class QaPage(QWidget):
         on = self.fit_enabled.isChecked()
         self.fit_note.setText(_FIT_KEPT_TEXT if self._has_rules() else _FIT_OFF_TEXT)
         self.fit_note.setVisible(not on)
+        self.fit_result.setVisible(on)
         scope = self._scope()
         inherit = scope == EACH_GROUP or (self._own_rules(scope) is not None and self.fit_inherit.isChecked())
         for widget in (
@@ -982,7 +1031,8 @@ class QaPage(QWidget):
             advice = font_advice(f)
             for col, value in enumerate((f.name, kind, miss, advice, f.source.rsplit("/", 1)[-1])):
                 item = QTableWidgetItem(value)
-                item.setToolTip(f.source if col == 4 else (f.note or value))
+                # Kırpılan metin ipucunda tam görünür: dosya sütununda tam yol, öneri sütununda öneri ve not.
+                item.setToolTip(f.source if col == 4 else "\n".join(p for p in (value, f.note) if p))
                 item.setData(Qt.ItemDataRole.UserRole, f.source)
                 # Aynı paketteki fontlar (ör. data.unity3d) aynı yolu paylaşır; öneri satırın kendisinde tutulur.
                 item.setData(_ADVICE_ROLE, advice)
