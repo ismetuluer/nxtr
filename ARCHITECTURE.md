@@ -956,6 +956,16 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
 187. **`closeEvent`:** önce onaylar, sonra iptal, pencere gizlenir, iş parçacıkları beklenir (beklemeler kaldırılmadı).
 188. **Kullanıcıya görünen metinlerde iç biçim adları kullanılmaz** (hata kaydı, geçici dosyalar, talimat, oyun kimliği).
 
+### 4.49 0.57.2 kararları (görsel düzeltmeler)
+
+189. **QSS `image:` görselleri** (tik, ok, seçenek noktası) tek yardımcıyla (`gui/theme.py`: `_svg_file` ve onu kullanan
+    `_check_mark`, `_chevron`, `_radio_dot`) geçici klasöre yazılır; bozuksa yeniden yazılır.
+190. **Tablolarda yalnızca simge gösteren sütun:** görünen metin boş, ad ipucu ve erişilebilir metinde, sıralama ayrı
+    rolden (`gui/qa_page.py` `_SORT_ROLE`); hücre ipucu satır açma yönergesini (`OPEN_HINT`) taşımayı sürdürür.
+191. **Sayfa içinde tablo:** tablo dikey `Ignored` boyut ilkesiyle kalan yüksekliği doldurur; sayfa kaydırması yalnızca
+    tablo en küçük yüksekliğine indiğinde devreye girer (`gui/scan_page.py`; `gui/qa_page.py` sınır tablosu).
+192. **Adım listesinde liste düzeyinde odak çerçevesi yok** (ürün sahibi kararı); seçim vurgusu odağı gösterir.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

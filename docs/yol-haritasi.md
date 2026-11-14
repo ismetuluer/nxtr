@@ -70,7 +70,7 @@ Sırasız; her biri ayrı karar ve onay ister.
 
 Öncelik sırasıyla. İlk grup hata düzeyindedir; ikinci grup tasarım iyileştirmesidir.
 
-**Hata düzeyinde**
+**Hata düzeyinde** (hepsi 0.57.2'de düzeltildi)
 1. Sığdırma: sayı kutularının ok düğmeleri boş kutu görünüyor (oklar çizilmiyor); açılır listelerin oku da aynı.
 2. Sığdırma: "Grup ve anahtar sınırları" tablosunda başlıklar iki yandan kırpılıyor.
 3. Sığdırma: "Sığdırma kapalı" bilgisi iki ayrı satırda yineleniyor (ayar özeti ve 0.57.1'de eklenen sonuç özeti);
@@ -80,6 +80,8 @@ Sırasız; her biri ayrı karar ve onay ister.
 5. Font ve harfler: en önemli sütun "Ne yapılabilir" kırpılıyor.
 6. Metinleri Tara: sayfa kaydırması içinde tablo kaydırması (iki kaydırma çubuğu); tablonun son satırı yarım görünüyor.
 7. Dışa Aktar: seçili seçenek düğmesi (radyo) gri; onay kutuları gibi vurgu renginde olmalı.
+
+Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının yerinde boşluk kalıyor.
 
 **Tasarım iyileştirmesi**
 8. Kontrol Et sekmeleri eski Windows sekmesi görünümünde; uygulamanın düz, yuvarlak köşeli diline uydurulmalı.

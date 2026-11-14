@@ -1,6 +1,11 @@
-# HANDOFF — oturum devri (2026-11-14, 0.57.1)
+# HANDOFF — oturum devri (2026-11-14, 0.57.2)
 
 ## Durum
+- **Sürüm 0.57.2** (2026-11-14; görsel düzeltmeler, CHANGELOG 0.57.2): ürün sahibinin ekran görüntülerinden çıkan
+  görsel denetimin hata düzeyindeki yedi bulgusu kapandı (oklar, seçenek düğmesi, kırpılan başlık/sütunlar, yinelenen
+  "kapalı" satırı, çift kaydırma); kenar çubuğundaki odak çerçevesi kaldırıldı. Tam test seti 2312 geçti. Kalan tasarım
+  iyileştirmeleri: `docs/yol-haritasi.md` "Görsel denetim bulguları" 8–16. Ekran görüntüsü almak için uygulama ekrana
+  gösterilmeden kurulup `grab()` ile çizdirilebilir (proje `Project.open_copy` ile bellekte; `QT_QPA_PLATFORM` tanımsız).
 - **Sürüm 0.57.1** (2026-11-14; denetim turu, CHANGELOG 0.57.1): veri güvenliği düzeltmeleri (kurtarma kopyası, panel metni kaybı, Farklı Kaydet,
   bağlantı sızıntısı, yarıda kalan dışa aktarma yedeği, göç yedeği), kapatma sırası, görünür klavye odağı ve AA
   kontrast, ekran okuyucu adları, bildirim kartı teması, oyun simgesi (PUA) karakterlerinin çizimi, Sığdırma ayarı

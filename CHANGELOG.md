@@ -2,6 +2,26 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.57.2] — 2026-11-14 — Görsel düzeltmeler: oklar, kırpılan sütunlar, tek kaydırma, kenar çubuğu
+
+### Düzeltildi
+- **Sayı kutuları ve açılır listeler:** ok düğmeleri boş kutu olarak görünüyordu; artık ince oklarla çiziliyor.
+- **Seçenek düğmeleri:** seçili seçenek gri kalıyordu (ör. Dışa Aktar → Hedef); artık onay kutuları gibi vurgu renginde.
+- **Kontrol Et → Sığdırma:** "Grup ve anahtar sınırları" tablosunun başlıkları kırpılmıyor, tablo kalan yüksekliği
+  dolduruyor; "Sığdırma kapalı" bilgisi iki satırda yinelenmiyor.
+- **Kontrol Et → Sorunlar:** "Önem" sütunu yalnızca simge (adı ipucunda); "Tür" sütunu artık kırpılmadan okunuyor.
+- **Kontrol Et → Font ve harfler:** "Ne yapılabilir" sütunu kalan genişliği alıyor; uzun dosya adı ortadan kısalıyor,
+  tam metin ipucunda.
+- **Metinleri Tara:** sayfa ve tablo ayrı ayrı kayıyordu (iki kaydırma çubuğu); artık yalnızca tablo kayar ve tablo
+  kartı pencereye tam sığar.
+- Bu üç tabloda sütun başlıkları içerikle aynı hizada (metin sola, sayı sağa).
+
+### Değişti
+- **Kenar çubuğu:** adım listesinin çevresindeki mavi odak çerçevesi kaldırıldı; seçili adımın vurgusu yeterli.
+
+Görüntüler uygulama ekrana gösterilmeden betikle alındı; Sorunlar ve Font tablolarının dolu hâli örnek veriyle
+görüntülendi. Gerçek pencerede ürün sahibinin denetimi bekleniyor.
+
 ## [0.57.1] — 2026-11-14 — Denetim düzeltmeleri, anlaşılır metinler, font adımı, anında sığdırma denetimi
 
 ### Eklendi
