@@ -114,9 +114,8 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
   (Bul, Yerine, Onayla, İptal).
 
 **Sırada**
-1. **Görsel denetimin kalan maddeleri** (yukarıda 11–16): başlık hizası, "Kanıtlar" satırı, Dışa Aktar'daki teknik
-   satır, durum çubuğu etiketleri, boş "Oyunu Ekle" ekranı, koyu temada satır zemini. Sorunlar ekranı gerçek
-   pencerede ve gerçek projeyle hâlâ denenmedi.
+1. **Boş "Oyunu Ekle" ekranı** (görsel denetim madde 15): yeni içerik olduğu için ürün sahibinin kararı bekleniyor.
+   Öneri: son açılan projelerin listesi (seçenek: beş adımı anlatan kısa yol gösterici).
 2. **Yazım denetimi:** kesme işaretli sözcüklerin kökü ("Sifu'n" → Sifu) orijinalde geçmiyorsa denetlenmesi
    (ürün sahibinin sorusu, 2026-11-14; karar bekliyor).
 
@@ -125,6 +124,10 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
   kısalır (tam yol ipucunda, en az 160 px). Çok dar pencerede tabloda yatay kaydırma çıkar.
 - Kontrol Et sekmeleri (görsel denetim madde 8): Windows sekmesi yerine düz, yuvarlak köşeli; seçili sekme seçim
   renginde dolgulu (ürün sahibinin onayıyla, 2026-11-15). Sekme çubuğunda klavye odağı için ayrı işaret yok.
+- Görsel denetim 11, 12, 13, 14, 16: tablo başlıkları içerikle aynı hizada (metin sola, sayı sağa); Metinleri
+  Tara'da motor kanıtları "Ayrıntılar" altında; Dışa Aktar hedef satırı ne yapılacağını söyler (klasör yapısı
+  ipucunda); durum çubuğunda kısa etiketler ("Anahtarlar", "satır", "çevrildi", "hatalı"; dar çubukta ekler birlikte
+  düşer, yarım sözcük kalmaz); koyu temada dönüşümlü satır zemini belirgin (`row_alt`).
 
 **Ertelendi**
 - **Metinleri Tara'da eklentinin içerikten bulduğu dil** (2026-11-14). Yerleşik eklentilerin neredeyse hepsi dili
