@@ -1,16 +1,14 @@
-# HANDOFF — oturum devri (2026-11-13, 0.57.0)
+# HANDOFF — oturum devri (2026-11-14, 0.57.1)
 
 ## Durum
-- **Yayımlanmadı — denetim turu** (2026-11-13/14, `ozellik/toplu-duzeltmeler` dalı, 0.57.0'ın üstünde ~24 commit;
-  CHANGELOG "Yayımlanmadı" bölümü): veri güvenliği düzeltmeleri (kurtarma kopyası, panel metni kaybı, Farklı Kaydet,
+- **Sürüm 0.57.1** (2026-11-14; denetim turu, CHANGELOG 0.57.1): veri güvenliği düzeltmeleri (kurtarma kopyası, panel metni kaybı, Farklı Kaydet,
   bağlantı sızıntısı, yarıda kalan dışa aktarma yedeği, göç yedeği), kapatma sırası, görünür klavye odağı ve AA
   kontrast, ekran okuyucu adları, bildirim kartı teması, oyun simgesi (PUA) karakterlerinin çizimi, Sığdırma ayarı
   değişince anında denetim, `arac font` komutu ve rehberlerde zorunlu font adımı, arayüz metinlerinin sadeleşmesi.
   Tam test seti 2277 geçti, ruff/mypy temiz. **Ekranda denenmeyenler:** kapatma, bildirim kartı, ekran okuyucu,
-  simge karakterleri (Clubhouse Games satır 3954), anında sığdırma denetimi, yeni metinler. Sürüm numarası (0.57.0'a
-  katmak mı, 0.57.1 mi) ve yayın ürün sahibinin kararı; "yayınla" bekleniyor. Ertelenenler:
+  anında sığdırma denetimi, yeni metinler. Ürün sahibi 2026-11-14'te "yayınla" dedi; master'a gönderildi. Ertelenenler:
   `docs/yol-haritasi.md` "Sonraki yapılacaklar".
-- **Sürüm 0.57.0** (2026-11-13): toplu düzeltmeler — bildirim kartları kaybolur, Kontrol Et proje değişince sıfırlanır, menüde Ctrl/Shift, satıra tam kaydırma, büyük tabloda gecikmeli arama, kopyalanan sözcük işaretleme, Ollama takılan satırı atlar, kontrol kodu zarfı onarımı, "Türkçe harf eksik" denetimi. ARCHITECTURE §4.47, TECH_DEBT 92. **Yayımlanmadı** (`ozellik/toplu-duzeltmeler` dalı; "yayınla" bekleniyor).
+- **Sürüm 0.57.0** (2026-11-13): toplu düzeltmeler — bildirim kartları kaybolur, Kontrol Et proje değişince sıfırlanır, menüde Ctrl/Shift, satıra tam kaydırma, büyük tabloda gecikmeli arama, kopyalanan sözcük işaretleme, Ollama takılan satırı atlar, kontrol kodu zarfı onarımı, "Türkçe harf eksik" denetimi. ARCHITECTURE §4.47, TECH_DEBT 92. Yayımlandı (v0.57.0, 2026-11-13).
 - **Sürüm 0.55.1** (2026-11-09): modelin çeviriye anahtar adı eklemesine (`/(ursa_desc)`) karşı savunma (anahtar sözcük ipucu olarak gider, yabancı belirteç/satır sonu denetimi, dışa aktarmada yapı geri okuması), arama yalnızca Orijinal+Çeviri, Çevir sayfasında başlık yok, üç temizlik seçeneği düzeltme türü oldu (`FitOptions` kalktı), dışa aktarma uyarısında orijinal kalan satırlar No ile listelenir. ARCHITECTURE §4.43, TECH_DEBT 91. **Yayımlanmadı** (`ozellik/sorun-savunma` dalı; "yayınla" bekleniyor).
 - **Sürüm 0.55.0** (2026-11-09): G aşaması — maskot (`gui/mascot.py`; dururken logodaki gibi, olayda gözler sekerek yüz kurar; durum çubuğu, kartlar, boş ekranlar; Ayarlar → Görünüm'den kapanır), Yardım penceresi (F1, `gui/help/*.md`, aranabilir, Kısayollar güncel tuşlardan), katkı rehberi (fork/dal/dogrula/PR, çoklu kopya ve ajan, çakışan eklentiler); ayrıca Bul ve Değiştir kare düzen (0.54.0'a girdi). ARCHITECTURE §4.42, TECH_DEBT 90. A–G yol haritası bitti. **Yayımlanmadı** (0.54.0 ve 0.55.0 `ozellik/kimlik-yardim` dalında; "yayınla" bekleniyor).
 - **Sürüm 0.54.0** (2026-11-09): F aşaması — dolu klasörde Üzerine Yaz / Başka Klasör (yalnızca NXTR modu silinir, yedekli), font "Ne yapılabilir" sütunu, serbest TTF/OTF fontu dışa/içe aktarma (modda özgünün yerine), Dışa Aktar → Görseller (Ys Origin). ARCHITECTURE §4.41, TECH_DEBT 89. **Yayımlanmadı:** ürün sahibi "yayınla" diyene kadar master/push/release yok. Sıradaki: G (maskot, yardım, katkı rehberi).

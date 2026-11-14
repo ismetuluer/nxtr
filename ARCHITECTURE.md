@@ -938,6 +938,24 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     harfle başlayan sözcük özel ad sayılıp atlanır.
 181. **Ollama'da satır atlama:** takılan satır işi durdurmaz; atlananlar raporlanır ve satır çevrilmemiş kalır.
 
+### 4.48 0.57.1 kararları (denetim turu)
+
+182. **Özel kullanım alanı (U+E000–U+F8FF) karakterleri yalnızca çizimde değişir:** tabloda nötr `★`
+    (`gui/textmarks.py`), düzenleme panelinde yedek fonta düşme kapatılır (`NoFontMerging`, `gui/editor_pane.py`); metin,
+    arama, kayıt, dışa aktarma ham karakterle çalışır. Düzenlenebilir alanda karakter başka karakterle çizdirilemediği
+    için panel kutu gösterir.
+183. **Sığdırma ayarı değişince denetim** yalnızca proje daha önce denetlendiyse, 500 ms gecikmeyle ve mevcut yeniden
+    denetim yoluyla (`_recheck_if_done`) yenilenir; ikinci bir denetim yolu yoktur. Taşma sayımı `line_too_long` ve
+    `page_too_tall` türleridir.
+184. **`arac font` arayüzle aynı çekirdeği kullanır** (`core/qa/fonts.py`: `scan_game_fonts`, `font_verdict`); yama
+    uygulamaz. Rehberlerde font durumu yeni oyun akışının bitti ölçütüdür.
+185. **Dışa aktarmada üzerine yazma yedeği** (`.{ad}.{8 hex}.eski`) bir sonraki dışa aktarmada onarılır; yalnızca adı
+    kalıba uyan ve içinde bilgi dosyası bulunan klasörlere dokunulur.
+186. **Proje deposu:** `save_as` yeni bağlantıyı eskisini kapatmadan önce açar; `open` hata yollarında bağlantıyı
+    kapatır; göç yedeği var olan `.bak`ın üzerine yazmaz (`.v<sürüm>.bak`), yedek alınamazsa göç yapılmaz.
+187. **`closeEvent`:** önce onaylar, sonra iptal, pencere gizlenir, iş parçacıkları beklenir (beklemeler kaldırılmadı).
+188. **Kullanıcıya görünen metinlerde iç biçim adları kullanılmaz** (hata kaydı, geçici dosyalar, talimat, oyun kimliği).
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

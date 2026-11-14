@@ -2,7 +2,7 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
-## [Yayımlanmadı] — Denetim düzeltmeleri, anlaşılır metinler, font adımı, anında sığdırma denetimi
+## [0.57.1] — 2026-11-14 — Denetim düzeltmeleri, anlaşılır metinler, font adımı, anında sığdırma denetimi
 
 ### Eklendi
 - **Sığdırma ayarı anında denetlenir:** Kontrol Et → Sığdırma'da bir ayar değişince (proje daha önce denetlendiyse)
@@ -48,8 +48,8 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
 ### Kaldırıldı
 - Depo kökündeki kullanılmayan `blocks.json`.
 
-Gerçek pencerede yalnızca odak ve kontrast denendi; kapatma, bildirim kartı, ekran okuyucu adları, oyun simgesi
-karakterleri, anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı gerçek bir oyunda çalıştırıldı.
+Gerçek pencerede odak, kontrast ve oyun simgesi karakterleri denendi; kapatma, bildirim kartı, ekran okuyucu adları,
+anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı gerçek bir oyunda çalıştırıldı.
 
 ## [0.57.0] — 2026-11-13 — Toplu düzeltmeler: bildirimler, Ollama, kontrol kodu ve Türkçe harf onarımı
 
