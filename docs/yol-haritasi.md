@@ -116,8 +116,17 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 **Sırada**
 1. **Kontrol Et sekme çubuğu** (görsel denetim madde 8): tasarım dili değişikliği, ürün sahibinin onayını bekliyor.
    Sorunlar ekranı gerçek pencerede ve gerçek projeyle hâlâ denenmedi.
-2. **Metinleri Tara'nın devamı.** Dil yalnızca dosya yolundan okunuyor; eklentinin dosya içeriğinden bulduğu dil de
-   tabloda gösterilebilir. Dar pencerede Tür, Ayrıntı ve Dil sütunları kırpılıyor.
+
+**Yapıldı (0.58.1 sonrası, yayımlanmadı)**
+- Metinleri Tara: Tür, Ayrıntı ve Dil sütunları içeriğe göre boyutlanır, kırpılmaz; dar pencerede dosya yolu ortadan
+  kısalır (tam yol ipucunda, en az 160 px). Çok dar pencerede tabloda yatay kaydırma çıkar.
+
+**Ertelendi**
+- **Metinleri Tara'da eklentinin içerikten bulduğu dil** (2026-11-14). Yerleşik eklentilerin neredeyse hepsi dili
+  yoldan okur (`language()` → `None`); içerikten bulan yalnızca FMSB. Tarama dosyanın yalnızca baş/son baytlarını
+  okur; içerikten dil için her dosya baştan sona okunmalı (tarama belirgin yavaşlar). Aktarımda eklentinin dili zaten
+  denetlenip yanlış dildeki dosya atlanıyor (`core/pipeline.py`). İçerikten dil bulan eklentiler çoğalırsa yeniden ele
+  alınır.
 
 ## Çeviri sağlayıcıları (eski CLAUDE.md §4.2)
 
