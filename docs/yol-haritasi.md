@@ -109,13 +109,14 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 - Sorunlar listesinde sağ tık → "Sırala": önem, satır numarası, bulguya göre, dosyaya göre; seçim hatırlanır.
 - Terim denetimi büyük/küçük harfi Türkçe kurallarıyla karşılaştırır ("FIRLATMA" = "Fırlatma"); otomatik düzeltme de.
 - Sorunlar satırında kontrol kodları çeviri tablosundaki gibi çip olarak çizilir.
+- Açıklama ipuçları: Dışa Aktar (hedef, mod adı, konum, düğmeler) ve Kontrol Et (font tarama, harf dönüştürme
+  seçenekleri, Denetle, sığdırma alanları). Çevir sayfasında ipucusuz kalanlar yalnızca kendini anlatan düğmeler
+  (Bul, Yerine, Onayla, İptal).
 
 **Sırada**
-1. **Açıklama ipuçlarının kalanı.** Metinleri Tara'da yapıldı; diğer sayfalardaki terimler (Çevir, Kontrol Et, Dışa
-   Aktar) için de üzerine gelince açıklama.
-2. **Kontrol Et sekme çubuğu** (görsel denetim madde 8): tasarım dili değişikliği, ürün sahibinin onayını bekliyor.
+1. **Kontrol Et sekme çubuğu** (görsel denetim madde 8): tasarım dili değişikliği, ürün sahibinin onayını bekliyor.
    Sorunlar ekranı gerçek pencerede ve gerçek projeyle hâlâ denenmedi.
-3. **Metinleri Tara'nın devamı.** Dil yalnızca dosya yolundan okunuyor; eklentinin dosya içeriğinden bulduğu dil de
+2. **Metinleri Tara'nın devamı.** Dil yalnızca dosya yolundan okunuyor; eklentinin dosya içeriğinden bulduğu dil de
    tabloda gösterilebilir. Dar pencerede Tür, Ayrıntı ve Dil sütunları kırpılıyor.
 
 ## Çeviri sağlayıcıları (eski CLAUDE.md §4.2)
