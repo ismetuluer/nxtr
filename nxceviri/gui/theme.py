@@ -187,9 +187,7 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
         background: transparent; border: 1px solid transparent; color: {t["accent"]}; padding: 3px 5px;
     }}
     QWidget#stepNavColumn {{ background: {t["surface"]}; border-right: 1px solid {t["border"]}; }}
-    QListWidget#stepNav {{
-        background: transparent; border: 1px solid transparent; outline: none; padding: 3px 7px 11px 7px;
-    }}
+    QListWidget#stepNav {{ background: transparent; border: none; outline: none; padding: 4px 8px 12px 8px; }}
     QLabel[role="navTitle"] {{ font-weight: 600; font-size: {size(1.1)}; }}
     QTableView, QTableWidget, QTreeWidget, QListWidget, QLineEdit, QComboBox, QSpinBox, QPlainTextEdit {{
         background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: 6px;
@@ -253,7 +251,6 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QPlainTextEdit:focus {{ border-color: {t["accent"]}; }}
     QCheckBox::indicator:focus {{ border-color: {t["accent"]}; }}
     QCheckBox::indicator:checked:focus {{ border-color: {t["text"]}; }}
-    QListWidget#stepNav:focus {{ border-color: {t["accent"]}; }}
     """
 
 

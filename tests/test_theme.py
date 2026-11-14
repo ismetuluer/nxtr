@@ -77,7 +77,6 @@ def test_selection_stays_distinct_from_surface(scheme: str) -> None:
         "QSpinBox:focus",
         "QPlainTextEdit:focus",
         "QCheckBox::indicator:focus",
-        "QListWidget#stepNav:focus",
     ],
 )
 def test_qss_has_focus_rule(scheme: str, selector: str) -> None:
@@ -85,6 +84,12 @@ def test_qss_has_focus_rule(scheme: str, selector: str) -> None:
     rules = [part for part in qss.split("}") if selector in part.split("{")[0].replace("\n", " ")]
     assert rules, f"{selector} için odak kuralı yok"
     assert TOKENS[scheme]["accent"] in "".join(rules) or TOKENS[scheme]["text"] in "".join(rules)
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_qss_step_nav_has_no_focus_frame(scheme: str) -> None:
+    """Kenar çubuğu listesi çevresinde odak çerçevesi çizilmez (seçim dolgusu yeter)."""
+    assert "stepNav:focus" not in _qss(TOKENS[scheme])
 
 
 @pytest.fixture
