@@ -266,6 +266,42 @@ def test_explanatory_tooltips_exist(qtbot: QtBot) -> None:
     assert "Güncelleme" in view.model.headerData(7, Qt.Orientation.Horizontal, Qt.ItemDataRole.ToolTipRole)
 
 
+def test_engine_evidence_hidden_until_details_opened(qtbot: QtBot) -> None:
+    page = _mixed(qtbot)
+    page.show()
+    view = page.report
+    toggle = view.engine_details.toggle
+    assert toggle.text() == "Ayrıntılar"
+    assert toggle.toolTip()
+    assert toggle.accessibleName() == "Ayrıntılar"
+    assert view.engine_details.isVisibleTo(view)
+    assert not view.engine_evidence.isVisibleTo(view)
+    toggle.click()
+    assert view.engine_evidence.isVisibleTo(view)
+    assert "msbt" in view.engine_evidence.text()
+    toggle.click()
+    assert not view.engine_evidence.isVisibleTo(view)
+
+
+def test_engine_details_closed_again_for_next_report(qtbot: QtBot) -> None:
+    page = _mixed(qtbot)
+    page.show()
+    view = page.report
+    view.engine_details.toggle.click()
+    page.show_report(_report([EN]))
+    assert not view.engine_details.toggle.isChecked()
+    assert not view.engine_evidence.isVisibleTo(view)
+
+
+def test_engine_details_hidden_without_evidence(qtbot: QtBot) -> None:
+    page = _mixed(qtbot)
+    page.show()
+    report = _report([EN])
+    report.engine = EngineGuess("unknown", "", "low", ())
+    page.show_report(report)
+    assert not page.report.engine_details.isVisibleTo(page.report)
+
+
 # --- dar pencerede sütun genişlikleri --------------------------------------------------------
 
 

@@ -46,6 +46,7 @@ from nxceviri.core.pipeline import (
     source_label,
     unsupported_text_kinds,
 )
+from nxceviri.gui.issue_chips import Disclosure
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.widgets import (
     Banner,
@@ -444,7 +445,12 @@ class ReportView(QWidget):
             tip_html("Tahminin dayandığı izler. Her biri bir dosya türünü ve oyunda kaç tane bulunduğunu gösterir.")
         )
         self.engine_card.body.addWidget(self.engine_line)
-        self.engine_card.body.addWidget(self.engine_evidence)
+        self.engine_details = Disclosure("Ayrıntılar")
+        self.engine_details.toggle.setAccessibleName("Ayrıntılar")
+        self.engine_details.toggle.setToolTip(tip_html("Tahminin dayandığı izleri gösterir ya da gizler."))
+        self.engine_details.body_layout.addWidget(self.engine_evidence)
+        self.engine_details.hide()  # kanıt yokken ya da rapor gelmeden görünmez
+        self.engine_card.body.addWidget(self.engine_details)
         lay.addWidget(self.engine_card)
 
         # Dili anlaşılamayan dosyalar için uyarı; dosya kartının hemen üstünde durur.
@@ -626,12 +632,14 @@ class ReportView(QWidget):
             self.stats.addWidget(self.stat_boxes[kind_value], i // 3, i % 3)
             self.stat_boxes[kind_value].show()
         eng = report.engine
+        self.engine_details.toggle.setChecked(False)  # her rapor kapalı başlar
         if eng.engine == "unknown":
-            self.engine_line.setText("Belirlenemedi")
-            self.engine_evidence.setText("Bilinen bir motorun izine rastlanmadı.")
+            self.engine_line.setText("Belirlenemedi  —  bilinen bir motorun izine rastlanmadı")
+            self.engine_evidence.clear()
         else:
             self.engine_line.setText(f"{eng.label}  —  güven: {CONFIDENCE_LABELS[eng.confidence]}")
             self.engine_evidence.setText("Kanıtlar: " + "; ".join(eng.evidence))
+        self.engine_details.setVisible(bool(eng.evidence) and eng.engine != "unknown")
         supported = importable_entries(report)
         others = unsupported_text_kinds(report)
         self.can_import = bool(supported)
