@@ -114,10 +114,12 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
   (Bul, Yerine, Onayla, İptal).
 
 **Sırada**
-1. **Boş "Oyunu Ekle" ekranı** (görsel denetim madde 15): yeni içerik olduğu için ürün sahibinin kararı bekleniyor.
-   Öneri: son açılan projelerin listesi (seçenek: beş adımı anlatan kısa yol gösterici).
-2. **Yazım denetimi:** kesme işaretli sözcüklerin kökü ("Sifu'n" → Sifu) orijinalde geçmiyorsa denetlenmesi
-   (ürün sahibinin sorusu, 2026-11-14; karar bekliyor).
+Görsel denetim listesi ve 0.57.2 sonrası geri bildirim kapandı. Sıradaki iş, yukarıdaki "Sonraki yapılacaklar"
+listesinden ürün sahibinin seçimiyle belirlenir.
+
+**Yapıldı (0.58.2 sonrası, yayımlanmadı)**
+- Boş "Oyunu Ekle" ekranında "Son projeler" kartı (görsel denetim madde 15; ürün sahibinin onayıyla, 2026-11-15):
+  Dosya → Son Projeler listesini kullanır, diskte olmayanları göstermez, kaynak eklenince gizlenir.
 
 **Yapıldı (0.58.2)**
 - Metinleri Tara: Tür, Ayrıntı ve Dil sütunları içeriğe göre boyutlanır, kırpılmaz; dar pencerede dosya yolu ortadan
@@ -130,6 +132,7 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
   düşer, yarım sözcük kalmaz); koyu temada dönüşümlü satır zemini belirgin (`row_alt`).
 
 **Ertelendi**
+- **Yazım denetiminde kesme işaretli sözcüklerin kökü** ("Sifu'n" → Sifu): ürün sahibi istemedi (2026-11-15).
 - **Metinleri Tara'da eklentinin içerikten bulduğu dil** (2026-11-14). Yerleşik eklentilerin neredeyse hepsi dili
   yoldan okur (`language()` → `None`); içerikten bulan yalnızca FMSB. Tarama dosyanın yalnızca baş/son baytlarını
   okur; içerikten dil için her dosya baştan sona okunmalı (tarama belirgin yavaşlar). Aktarımda eklentinin dili zaten
