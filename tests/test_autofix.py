@@ -279,3 +279,12 @@ def test_error_row_order_fix_clears_error_row() -> None:
 def test_all_fix_kinds_have_labels() -> None:
     assert set(FIX_KINDS) <= set(KIND_LABELS)
     assert set(FIX_KINDS) >= autofix_module.FIT_KINDS
+
+
+def test_apply_glossary_turkish_uppercase_counts_as_present() -> None:
+    from nxceviri.core.qa.autofix import apply_glossary
+    from nxceviri.core.translate.providers.base import GlossaryTerm
+
+    glossary = [GlossaryTerm("Throw", "Fırlatma")]
+    assert apply_glossary("THROW ATTACK", "FIRLATMA THROW SALDIRISI", glossary) == "FIRLATMA THROW SALDIRISI"
+    assert apply_glossary("THROW ATTACK", "Throw saldırısı", glossary) == "Fırlatma saldırısı"

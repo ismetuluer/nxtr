@@ -33,7 +33,7 @@ from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa.asciitr import repair_ascii_turkish
 from nxceviri.core.qa.checks import QaIssue, check_row, glossary_patterns
 from nxceviri.core.qa.codefix import closer_base, repair_codes
-from nxceviri.core.spell.checker import SpellChecker
+from nxceviri.core.spell.checker import SpellChecker, turkish_lower
 from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.cleanup import (
     collapse_inner_spaces,
@@ -174,7 +174,7 @@ def reorder_codes(source: str, text: str, labels: Sequence[str]) -> str | None:
 def apply_glossary(source: str, text: str, glossary: Sequence[GlossaryTerm]) -> str:
     """Kaynakta geçip çeviride İngilizce kalmış sözlük terimlerini karşılığıyla değiştirir (ekler korunur)."""
     for term, pattern in glossary_patterns(list(glossary)):
-        if pattern.search(source) and term.translation.casefold() not in text.casefold():
+        if pattern.search(source) and turkish_lower(term.translation) not in turkish_lower(text):
             text = pattern.sub(term.translation.replace("\\", "\\\\"), text)
     return text
 

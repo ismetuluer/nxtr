@@ -227,7 +227,7 @@ def check_row(
             f"Orijinalde {row.source.count(chr(10))}, çeviride {row.translation.count(chr(10))} satır sonu var.",
         )
     for term, pattern in glossary or ():
-        if pattern.search(row.source) and term.translation.casefold() not in row.translation.casefold():
+        if pattern.search(row.source) and turkish_lower(term.translation) not in turkish_lower(row.translation):
             add("glossary", SEVERITY_WARNING, f"Terminolojide “{term.term}” → “{term.translation}” var; çeviride yok.")
     if _IDENTIFIER.fullmatch(row.source.strip()) and row.translation.strip() != row.source.strip():
         add(

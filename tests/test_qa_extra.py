@@ -111,3 +111,16 @@ def test_bad_break_in_source_not_reported() -> None:
     fit = FitConfig(default=FitRules(40, 3))
     assert _fit_messages([_fit_row(1, "Yes\nNo", "Evet\nHayır")], fit) == []
     assert [k for k, _ in _fit_messages([_fit_row(2, "Yes, no", "Evet\nHayır")], fit)] == ["bad_break"]
+
+
+_THROW = [GlossaryTerm("Throw", "Fırlatma"), GlossaryTerm("Item", "İksir")]
+
+
+def test_glossary_check_is_turkish_case_insensitive() -> None:
+    rows = [
+        _row(1, "THROW ATTACK", "FIRLATMA SALDIRISI"),
+        _row(2, "Item", "iksir"),
+        _row(3, "Item", "İKSİR"),
+        _row(4, "THROW ATTACK", "SALDIRI"),
+    ]
+    assert _kinds(rows, _THROW) == [(4, "glossary")]
