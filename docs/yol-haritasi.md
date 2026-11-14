@@ -105,12 +105,16 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 - Metinleri Tara'da dosya seçimi ("Aktar" kutusu, "Dil" sütunu, dili bilinmeyenler uyarısı), yeniden aktarmada
   kaldırma onayı ve bu sayfanın açıklama ipuçları.
 
+**Yapıldı (0.58.0 sonrası, yayımlanmadı)**
+- Sorunlar listesinde sağ tık → "Sırala": önem, satır numarası, bulguya göre, dosyaya göre; seçim hatırlanır.
+- Terim denetimi büyük/küçük harfi Türkçe kurallarıyla karşılaştırır ("FIRLATMA" = "Fırlatma"); otomatik düzeltme de.
+- Sorunlar satırında kontrol kodları çeviri tablosundaki gibi çip olarak çizilir.
+
 **Sırada**
 1. **Açıklama ipuçlarının kalanı.** Metinleri Tara'da yapıldı; diğer sayfalardaki terimler (Çevir, Kontrol Et, Dışa
    Aktar) için de üzerine gelince açıklama.
-2. **Sorunlar ekranının devamı.** Gerçek pencerede ve gerçek projeyle denenmedi; liste satırında kontrol kodları düz
-   metin (`⟦n⟧`) olarak görünüyor, çeviri tablosundaki gibi çip olabilir. Kontrol Et sekme çubuğunun görünümü (görsel
-   denetim madde 8) hâlâ eski.
+2. **Kontrol Et sekme çubuğu** (görsel denetim madde 8): tasarım dili değişikliği, ürün sahibinin onayını bekliyor.
+   Sorunlar ekranı gerçek pencerede ve gerçek projeyle hâlâ denenmedi.
 3. **Metinleri Tara'nın devamı.** Dil yalnızca dosya yolundan okunuyor; eklentinin dosya içeriğinden bulduğu dil de
    tabloda gösterilebilir. Dar pencerede Tür, Ayrıntı ve Dil sütunları kırpılıyor.
 
