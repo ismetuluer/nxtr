@@ -1882,6 +1882,7 @@ class MainWindow(QMainWindow):
 
     def _show_check_results(self, issues: list[QaIssue], rows: list[TranslationRow]) -> None:
         self._sync_live()  # Çevir'deki anlık denetim bağlamı Kontrol Et'in kullandığı güncel ayarlarla aynı olsun
+        self.qa_page.set_code_kinds(self._fit_config().kinds)
         self.qa_page.show_issues(issues, rows)
         self.translate_page.set_qa_issues(issues, rows)
         counted = [i for i in issues if i.severity in (SEVERITY_ERROR, SEVERITY_WARNING)]

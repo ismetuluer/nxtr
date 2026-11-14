@@ -6,8 +6,8 @@ from __future__ import annotations
 import html
 
 import pytest
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtGui import QImage, QPainter
+from PySide6.QtCore import QPoint, QRect, Qt
+from PySide6.QtGui import QColor, QImage, QPainter
 from PySide6.QtWidgets import QAbstractItemView, QHeaderView, QStyle, QStyleOptionViewItem
 from pytestqt.qtbot import QtBot
 
@@ -18,12 +18,14 @@ from nxceviri.gui.issue_rows import (
     ROLE_SEVERITY,
     ROLE_SOURCE,
     ROLE_TRANSLATION,
+    IssueRowDelegate,
     IssueRowView,
     line_tops,
     one_line,
     row_height,
 )
 from nxceviri.gui.qa_page import EDIT_HINT, OPEN_HINT, QaPage
+from nxceviri.gui.theme import current_tokens
 
 pytestmark = pytest.mark.gui
 
@@ -178,3 +180,74 @@ def test_f2_edits_and_enter_opens(qtbot: QtBot, page: QaPage) -> None:
     assert opened == [2]
     qtbot.keyClick(page.table, Qt.Key.Key_F2)
     assert page.table.state() == QAbstractItemView.State.EditingState
+
+
+def _paint_to_image(page: QaPage, row: int, *, selected: bool = False, width: int = 500) -> QImage:
+    delegate = page.table.itemDelegate()
+    assert delegate is not None
+    height = page.table.verticalHeader().defaultSectionSize()
+    image = QImage(width, height, QImage.Format.Format_ARGB32)
+    image.fill(Qt.GlobalColor.white)
+    option = QStyleOptionViewItem()
+    option.widget = page.table
+    option.palette = page.table.palette()
+    option.font = page.table.font()
+    option.fontMetrics = page.table.fontMetrics()
+    option.rect = image.rect()
+    option.state = QStyle.StateFlag.State_Enabled | (
+        QStyle.StateFlag.State_Selected if selected else QStyle.StateFlag(0)
+    )
+    painter = QPainter(image)
+    delegate.paint(painter, option, page.proxy.index(row, 0))
+    painter.end()
+    return image
+
+
+def test_codes_are_drawn_as_chips_not_plain_brackets(page: QaPage) -> None:
+    """Kodlu metin çeviri tablosundaki gibi çip olarak çizilir: HTML'de `⟦` kalmaz, çip simgesi ve numarası olur."""
+    delegate = page.table.itemDelegate()
+    assert isinstance(delegate, IssueRowDelegate)
+    markup = delegate.line_html(page.proxy.index(0, 0), ROLE_SOURCE, selected=False)
+    assert "⟦" not in markup
+    assert "font-weight:600" in markup  # çip biçimi
+    assert "Press" in markup
+    assert delegate.line_html(page.proxy.index(2, 0), ROLE_SOURCE, selected=False) == ""  # kodsuz metin belge kurmaz
+
+
+def test_chip_line_paints_chip_background_in_both_states(page: QaPage) -> None:
+    tokens = current_tokens()
+    chip_bg = QColor(tokens["selection"]).rgb()
+    plain_bg = QColor(tokens["surface2"]).rgb()
+    _first, _second, third = line_tops(QRect(0, 0, 500, 100), page.table.fontMetrics().height())
+    for selected in (False, True):
+        image = _paint_to_image(page, 0, selected=selected)
+        band = {
+            image.pixel(x, y) for y in range(third, third + page.table.fontMetrics().height()) for x in range(40, 200)
+        }
+        assert chip_bg in band or selected  # seçiliyken zemin zaten aynı renktir
+        assert plain_bg not in band or selected
+        assert len(band) > 2  # metin gerçekten çizildi
+
+
+def test_chip_line_does_not_spill_below_row(page: QaPage) -> None:
+    delegate = page.table.itemDelegate()
+    assert isinstance(delegate, IssueRowDelegate)
+    source = "⟦1⟧ " + "uzun metin " * 60 + "⟦2⟧"
+    page.model.rows[2] = _row(2, source, source)
+    image = _paint_to_image(page, 1)
+    height = image.height()
+    _first, _second, third = line_tops(image.rect(), page.table.fontMetrics().height())
+    below = third + page.table.fontMetrics().height() + 2
+    for y in range(below, height - 2):
+        assert {image.pixel(QPoint(x, y)) for x in range(60, 440)} == {image.pixel(QPoint(60, y))}
+    assert len({image.pixel(QPoint(x, third + 4)) for x in range(488, 500)}) == 1  # sağ dolguya taşmaz
+
+
+def test_line_documents_are_cached(page: QaPage) -> None:
+    delegate = page.table.itemDelegate()
+    assert isinstance(delegate, IssueRowDelegate)
+    _paint_to_image(page, 0)
+    size = delegate.cache_size()
+    assert size > 0
+    _paint_to_image(page, 0)
+    assert delegate.cache_size() == size

@@ -2,11 +2,14 @@
 
 Her bulgu üç satırlık sabit yükseklikli bir kart satırıdır: (1) önem simgesi, kalın açıklama ve sağda soluk "No N",
 (2) soluk orijinal metin, (3) çeviri metni. Metinler tek satıra sığmazsa sonda "…" ile kısalır; tam metin ipucundadır.
-Satır yüksekliği yazı tipinden hesaplanır, içerikten ölçülmez; çizim her satır için yalnızca birkaç metin çizer
-(HTML belgesi kurulmaz), bu yüzden binlerce bulguda kaydırma akıcı kalır.
+Satır yüksekliği yazı tipinden hesaplanır, içerikten ölçülmez. Kontrol kodu (`⟦n⟧`) ya da özel işaret içeren metin
+çeviri tablosuyla aynı çip görünümüyle (`textmarks.marked_html`) çizilir ve taşan kısmı kırpılır; kodsuz metin düz
+çizilir. Çip belgeleri sınırlı bir ön bellekte tutulur, bu yüzden binlerce bulguda kaydırma akıcı kalır.
 """
 
 from __future__ import annotations
+
+from collections import OrderedDict
 
 from PySide6.QtCore import (
     QAbstractItemModel,
@@ -18,7 +21,18 @@ from PySide6.QtCore import (
     QSize,
     Qt,
 )
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QMouseEvent, QPainter, QPaintEvent
+from PySide6.QtGui import (
+    QAbstractTextDocumentLayout,
+    QColor,
+    QFont,
+    QFontMetrics,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QPalette,
+    QTextDocument,
+    QTextOption,
+)
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
@@ -28,8 +42,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from nxceviri.core.project import TranslationRow
+from nxceviri.core.translate.codekinds import CodeKinds
 from nxceviri.gui.icons import icon
+from nxceviri.gui.marked_delegate import ROW_ROLE, kind_of_row
 from nxceviri.gui.table_columns import FitTableView
+from nxceviri.gui.textmarks import code_spans, marked_html, pua_spans
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.translate_page import _Editor
 
@@ -51,6 +69,8 @@ ICON_SIZE = 16
 _PAD_X, _PAD_Y, _LINE_GAP, _ICON_GAP = 14, 8, 2, 8
 #: Çok uzun metinde kısaltma maliyeti artmasın: bu kadar karakterden fazlası zaten sığmaz.
 _MAX_CHARS = 300
+#: Model satır vermediğinde (kodların türü bilinmez) çiplerin kullandığı boş satır.
+_NO_ROW = TranslationRow(0, "", "", "", "", "", "", (), None)
 
 
 def row_height(metrics: QFontMetrics) -> int:
@@ -72,6 +92,74 @@ def one_line(text: str) -> str:
 
 class IssueRowDelegate(QStyledItemDelegate):
     """Bulgu satırını üç satır olarak çizer; çeviriyi yerinde düzenleme penceresi de buradadır."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.kinds = CodeKinds({})
+        self.cache_limit = 512
+        self._cache: OrderedDict[tuple[object, ...], QTextDocument] = OrderedDict()
+
+    def set_kinds(self, kinds: CodeKinds) -> None:
+        """Proje kod türü eşlemesi (çip simgeleri ve renkleri bundan gelir)."""
+        self.kinds = kinds
+        self._cache.clear()
+
+    def cache_size(self) -> int:
+        return len(self._cache)
+
+    def line_html(self, index: _Index, role: int, *, selected: bool) -> str:
+        """Metin satırının çip biçimli HTML'i; kod ya da özel işaret yoksa boş döner (düz çizilir)."""
+        text = one_line(str(index.data(role) or ""))
+        if not code_spans(text) and not pua_spans(text):
+            return ""
+        row = index.data(ROW_ROLE)
+        kind_of = kind_of_row(row if isinstance(row, TranslationRow) else _NO_ROW, self.kinds)
+        return marked_html(
+            text, kind_of, current_tokens(), symbols=False, chips=True, single_line=True, selected_row=selected
+        )
+
+    def _document(self, index: _Index, role: int, font: QFont, *, selected: bool) -> QTextDocument | None:
+        tokens = current_tokens()
+        row = index.data(ROW_ROLE)
+        key = (
+            role,
+            str(index.data(role) or ""),
+            row.code_labels if isinstance(row, TranslationRow) else (),
+            font.key(),
+            tokens["bg"],
+            tokens["accent"],
+            tokens["selection"],
+            selected,
+        )
+        cached = self._cache.get(key)
+        if cached is not None:
+            self._cache.move_to_end(key)
+            return cached
+        markup = self.line_html(index, role, selected=selected)
+        if not markup:
+            return None
+        doc = QTextDocument()
+        doc.setDefaultFont(font)
+        text_option = doc.defaultTextOption()
+        text_option.setWrapMode(QTextOption.WrapMode.NoWrap)
+        doc.setDefaultTextOption(text_option)
+        doc.setDocumentMargin(0)
+        doc.setHtml(markup)
+        self._cache[key] = doc
+        while len(self._cache) > self.cache_limit:
+            self._cache.popitem(last=False)
+        return doc
+
+    @staticmethod
+    def _draw_document(painter: QPainter, doc: QTextDocument, rect: QRect, color: QColor) -> None:
+        """Belgeyi `rect` içine, dikey ortalı ve sağda kırpılmış olarak çizer."""
+        painter.save()
+        painter.setClipRect(rect)
+        painter.translate(rect.left(), rect.top() + (rect.height() - doc.size().height()) / 2)
+        ctx = QAbstractTextDocumentLayout.PaintContext()
+        ctx.palette.setColor(QPalette.ColorRole.Text, color)
+        doc.documentLayout().draw(painter, ctx)
+        painter.restore()
 
     def sizeHint(self, option: QStyleOptionViewItem, index: _Index) -> QSize:
         return QSize(0, row_height(option.fontMetrics))
@@ -126,6 +214,10 @@ class IssueRowDelegate(QStyledItemDelegate):
             text = one_line(str(index.data(role) or ""))
             if not text:
                 continue
+            doc = self._document(index, role, option.font, selected=selected)
+            if doc is not None:
+                self._draw_document(painter, doc, QRect(text_left, top, width, height), QColor(tokens[tone]))
+                continue
             painter.setPen(QColor(tokens[tone]))
             painter.drawText(
                 QRect(text_left, top, width, height),
@@ -176,7 +268,8 @@ class IssueRowView(FitTableView):
     def __init__(self) -> None:
         super().__init__()
         self.setObjectName("issueTable")
-        self.setItemDelegate(IssueRowDelegate(self))
+        self.row_delegate = IssueRowDelegate(self)
+        self.setItemDelegate(self.row_delegate)
         self.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.setEditTriggers(QAbstractItemView.EditTrigger.EditKeyPressed)
         self.setShowGrid(False)

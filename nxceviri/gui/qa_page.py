@@ -65,6 +65,7 @@ from nxceviri.gui.issue_chips import Disclosure
 from nxceviri.gui.issue_kinds import KIND_GROUPS, KindList
 from nxceviri.gui.issue_rows import ROLE_NUMBER, ROLE_SEVERITY, ROLE_SOURCE, ROLE_TRANSLATION, IssueRowView
 from nxceviri.gui.limits_table import LimitsTable
+from nxceviri.gui.marked_delegate import ROW_ROLE
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.widgets import ActionBar, Banner, Card, PageHeader, button, format_int, label, tip_html
 
@@ -251,6 +252,8 @@ class IssueModel(QAbstractTableModel):
             return self._texts(i)[1]
         if role == ROLE_NUMBER:
             return self._number(i.row_id)
+        if role == ROW_ROLE:
+            return self.rows.get(i.row_id)
         kind = KIND_LABELS.get(i.kind, i.kind)
         if role == Qt.ItemDataRole.AccessibleTextRole:
             return f"{SEVERITY_LABELS[i.severity]}, {kind}: {i.message}"
@@ -1033,6 +1036,11 @@ class QaPage(QWidget):
     def show_issues(self, issues: list[QaIssue], rows: list[TranslationRow]) -> None:
         self.model.set_issues(issues, {r.id: r for r in rows})
         self._issues_changed()
+
+    def set_code_kinds(self, kinds: CodeKinds) -> None:
+        """Proje kod türü eşlemesi: bulgu satırlarındaki kod çiplerinin simgesi ve rengi."""
+        self.table.row_delegate.set_kinds(kinds)
+        self.table.viewport().update()
 
     def reset(self) -> None:
         """Denetim sonuçlarını siler (başka proje açıldı): liste, özet, tür listesi ve düzeltme sayıları boşalır."""
