@@ -135,7 +135,7 @@ def test_severity_column_is_icon_only(qtbot: QtBot, page: QaPage) -> None:
         index = model.index(row, COL_SEVERITY)
         assert index.data(Qt.ItemDataRole.DisplayRole) == ""
         assert not index.data(Qt.ItemDataRole.DecorationRole).isNull()
-        assert index.data(Qt.ItemDataRole.ToolTipRole) == label
+        assert label in index.data(Qt.ItemDataRole.ToolTipRole)
         assert index.data(Qt.ItemDataRole.AccessibleTextRole) == label
 
 

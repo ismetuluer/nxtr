@@ -248,7 +248,9 @@ class IssueModel(QAbstractTableModel):
         name = SEVERITY_LABELS[severity]
         if role == Qt.ItemDataRole.DisplayRole:
             return ""
-        if role in (Qt.ItemDataRole.ToolTipRole, Qt.ItemDataRole.AccessibleTextRole, _SORT_ROLE):
+        if role == Qt.ItemDataRole.ToolTipRole:
+            return tip_html(f"{name}\n\n{OPEN_HINT}")
+        if role in (Qt.ItemDataRole.AccessibleTextRole, _SORT_ROLE):
             return name
         if role == Qt.ItemDataRole.DecorationRole:
             icon_name, tone = _SEVERITY_ICONS[severity]
