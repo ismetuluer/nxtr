@@ -1,6 +1,11 @@
-# HANDOFF — oturum devri (2026-11-14, 0.58.1)
+# HANDOFF — oturum devri (2026-11-15, 0.58.2)
 
 ## Durum
+- **Sürüm 0.58.2** (2026-11-15; CHANGELOG 0.58.2): görsel denetim 8, 11–14, 16 ve Metinleri Tara sütunları kapandı
+  (`theme.py` sekme kuralları ve `row_alt`, tablolarda `setDefaultAlignment`, `statusbar.py` kısa/uzun etiket kararı
+  `_refit`, `scan_page.py` `Disclosure` ile kanıtlar, `export_page.py` hedef satırı). Tam test seti 2409 geçti.
+  Gerçek pencerede denenmedi. Sıradakiler ürün sahibinin kararını bekliyor: boş "Oyunu Ekle" ekranı (öneri: son
+  projeler), yazım denetiminde kesme işaretli sözcükler; içerikten dil okuma ertelendi (`docs/yol-haritasi.md`).
 - **Sürüm 0.58.1** (2026-11-14; CHANGELOG 0.58.1): Sorunlar'da sağ tık sıralaması (`IssueModel.set_sort`, ayar
   `qa/sort`), bulgu satırında kod çipleri (`IssueRowDelegate`, `marked_html` + sınırlı önbellek), terim denetiminde
   `turkish_lower` (`core/qa/checks.py`, `core/qa/autofix.py`), Dışa Aktar ve Kontrol Et ipuçları

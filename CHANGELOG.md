@@ -2,6 +2,21 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.58.2] — 2026-11-15 — Görsel düzenlemeler: sekmeler, başlık hizası, durum çubuğu etiketleri
+
+### Değişti
+- **Kontrol Et sekmeleri** Windows sekmesi yerine düz, yuvarlak köşeli; seçili sekme dolgulu.
+- **Tablo başlıkları** içerikle aynı hizada: metin sütunlarında sola, sayı sütunlarında sağa.
+- **Durum çubuğu** simgelerinin yanında kısa yazılar: "Anahtarlar", "12.345 satır", "%40 çevrildi", "3 hatalı".
+  Çubuk darsa bu ekler birlikte düşer; yarım sözcük kalmaz.
+- **Metinleri Tara:** dar pencerede Tür, Ayrıntı ve Dil sütunları kırpılmaz, dosya yolu ortadan kısalır (tam yol
+  ipucunda). Motor tahmininin teknik kanıtları varsayılan olarak gizli; "Ayrıntılar" ile açılır.
+- **Dışa Aktar:** hedef satırı klasör yapısı yerine ne yapılacağını söyler ("atmosphere klasörünü SD kartın köküne
+  kopyalayın"); klasör yapısı ipucunda.
+
+### Düzeltildi
+- Koyu temada tabloların dönüşümlü satır zemini neredeyse ayırt edilmiyordu; belirginleştirildi.
+
 ## [0.58.1] — 2026-11-14 — Sorunlar'da sıralama ve kod çipleri; Türkçe terim karşılaştırması
 
 ### Eklendi

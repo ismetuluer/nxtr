@@ -119,7 +119,7 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 2. **Yazım denetimi:** kesme işaretli sözcüklerin kökü ("Sifu'n" → Sifu) orijinalde geçmiyorsa denetlenmesi
    (ürün sahibinin sorusu, 2026-11-14; karar bekliyor).
 
-**Yapıldı (0.58.1 sonrası, yayımlanmadı)**
+**Yapıldı (0.58.2)**
 - Metinleri Tara: Tür, Ayrıntı ve Dil sütunları içeriğe göre boyutlanır, kırpılmaz; dar pencerede dosya yolu ortadan
   kısalır (tam yol ipucunda, en az 160 px). Çok dar pencerede tabloda yatay kaydırma çıkar.
 - Kontrol Et sekmeleri (görsel denetim madde 8): Windows sekmesi yerine düz, yuvarlak köşeli; seçili sekme seçim
