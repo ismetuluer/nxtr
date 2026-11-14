@@ -52,8 +52,9 @@ Sırasız; her biri ayrı karar ve onay ister.
    görülürse diğer biçimler. Yalnızca çizim değişir; metin ve dışa aktarma etkilenmez.
 2. **`gui/main_window.py` bölünmesi** (~3.700 satır; TECH_DEBT 69). Davranış değiştirmeyen, tam test setiyle
    yapılacak çok dosyalı iş.
-3. **Adım listesinde öğe başına klavye odağı.** Odak bugün listenin tamamını çevreleyen kenarlıkla görünür; tek tek
-   adımda işaret için `gui/step_nav.py` çizimi değişmeli.
+3. **Adım listesinde klavye odağı.** Listenin çevresindeki mavi odak çerçevesi ürün sahibinin isteğiyle kaldırıldı
+   (2026-11-14); seçili adımın vurgusu odağı gösterir. İstenirse öğe başına ince bir işaret `gui/step_nav.py`
+   çiziminde yapılır.
 4. **Boşluk ve köşe ölçeği.** Arayüzde 10 farklı aralık ve 9 farklı köşe yarıçapı var; ilgili ekran elden geçerken
    sadeleştirilecek (topluca değil).
 5. **Başlatıcı adı ve kök klasör.** `NX Ceviri Studyosu.bat` eski adı taşıyor (ad değişirse kullanıcı kısayolları
@@ -64,6 +65,33 @@ Sırasız; her biri ayrı karar ve onay ister.
    arayüzün ilk yüklemede açıkça uyarıp uyarmadığı incelenmedi.
 8. **Kararsız süre testi.** `tests/test_find_bar_fixes.py::test_keystroke_work_on_large_table_is_fast` tam test
    setinde yük altında bir kez süre sınırını aştı (tek başına geçiyor); eşik ya da ölçüm yöntemi gözden geçirilmeli.
+
+### Görsel denetim bulguları (2026-11-14, 0.57.1 ekran görüntüleri)
+
+Öncelik sırasıyla. İlk grup hata düzeyindedir; ikinci grup tasarım iyileştirmesidir.
+
+**Hata düzeyinde**
+1. Sığdırma: sayı kutularının ok düğmeleri boş kutu görünüyor (oklar çizilmiyor); açılır listelerin oku da aynı.
+2. Sığdırma: "Grup ve anahtar sınırları" tablosunda başlıklar iki yandan kırpılıyor.
+3. Sığdırma: "Sığdırma kapalı" bilgisi iki ayrı satırda yineleniyor (ayar özeti ve 0.57.1'de eklenen sonuç özeti);
+   tek satırda birleşmeli.
+4. Sorunlar: "Tür" ve "Açıklama" sütunları kırpılıyor; "Önem" sütunu her satırda aynı sözcüğü gösterip yer harcıyor
+   (simgeye indirilmeli).
+5. Font ve harfler: en önemli sütun "Ne yapılabilir" kırpılıyor.
+6. Metinleri Tara: sayfa kaydırması içinde tablo kaydırması (iki kaydırma çubuğu); tablonun son satırı yarım görünüyor.
+7. Dışa Aktar: seçili seçenek düğmesi (radyo) gri; onay kutuları gibi vurgu renginde olmalı.
+
+**Tasarım iyileştirmesi**
+8. Kontrol Et sekmeleri eski Windows sekmesi görünümünde; uygulamanın düz, yuvarlak köşeli diline uydurulmalı.
+9. Sorunlar'da iki dolu ana düğme var ("Denetle", "Seçilenleri Düzelt"); ekranda tek ana eylem kalmalı.
+10. Sorun türü çipleri hepsi aynı uyarı renginde; oyunu bozabilecek türler (kod yeri) kırmızı, üslup türleri nötr.
+11. Tablo başlıkları ortalı, hücreler sola yaslı; başlık içerikle aynı hizada olmalı (metin sola, sayı sağa).
+12. Metinleri Tara: "Kanıtlar" satırı (IL2CPP, AssetBundle sayıları) varsayılan olarak gizlenip "Ayrıntılar" altına
+    alınmalı; üç büyük sayı kartı üstteki özet satırıyla birleşebilir.
+13. Dışa Aktar: "İçeriği: atmosphere/contents/<TitleID>/romfs/…" yerine kullanıcıya ne yapacağını söyleyen yönerge.
+14. Durum çubuğu simgeleri (anahtar, ¶, durum noktası, zil) etiketsiz; en az birkaçına kısa etiket.
+15. Boş "Oyunu Ekle" ekranı pencerenin yarısını boş bırakıyor; beş adımı anlatan kısa yol ya da son projeler.
+16. Koyu temada tablo satırlarının dönüşümlü zemini neredeyse ayırt edilmiyor.
 
 ## Çeviri sağlayıcıları (eski CLAUDE.md §4.2)
 
