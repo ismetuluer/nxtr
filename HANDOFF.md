@@ -1,6 +1,12 @@
-# HANDOFF — oturum devri (2026-11-14, 0.57.2)
+# HANDOFF — oturum devri (2026-11-14, 0.58.0)
 
 ## Durum
+- **Sürüm 0.58.0** (2026-11-14; CHANGELOG 0.58.0): ürün sahibinin 0.57.2 geri bildirimi üzerine Kontrol Et → Sorunlar
+  yeniden kuruldu (`gui/issue_kinds.py` tür listesi, `gui/issue_rows.py` bulgu satırları, bağlama göre düzeltme
+  çubuğu) ve Metinleri Tara'ya dosya seçimi, dil sütunu, kaldırma onayı, ipuçları eklendi (`core/pipeline.py`
+  `only_paths`, `Project.translated_counts_by_file`). Tam test seti 2371 geçti. Gerçek pencerede denenmedi. Bilinen
+  sınırlar: Sorunlar listesinde kontrol kodları düz `⟦n⟧`; Metinleri Tara'da dil yalnızca dosya yolundan okunur ve
+  seçim projede saklanmaz (varsayılan, projedeki dosyalardan türetilir). Sıradakiler: `docs/yol-haritasi.md`.
 - **Sürüm 0.57.2** (2026-11-14; görsel düzeltmeler, CHANGELOG 0.57.2): ürün sahibinin ekran görüntülerinden çıkan
   görsel denetimin hata düzeyindeki yedi bulgusu kapandı (oklar, seçenek düğmesi, kırpılan başlık/sütunlar, yinelenen
   "kapalı" satırı, çift kaydırma); kenar çubuğundaki odak çerçevesi kaldırıldı. Tam test seti 2312 geçti. Kalan tasarım

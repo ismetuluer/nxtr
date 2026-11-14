@@ -966,6 +966,22 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     tablo en küçük yüksekliğine indiğinde devreye girer (`gui/scan_page.py`; `gui/qa_page.py` sınır tablosu).
 192. **Adım listesinde liste düzeyinde odak çerçevesi yok** (ürün sahibi kararı); seçim vurgusu odağı gösterir.
 
+### 4.50 0.58.0 kararları (Sorunlar ekranı, tarama seçimi)
+
+193. **Sorunlar tür süzgeci:** soldaki gruplu listedir (`gui/issue_kinds.py` `KIND_GROUPS`; sunum bilgisi, core'da
+    değil); yalnızca bulgusu olan türler listelenir.
+194. **Bulgu görünümü:** tek sütunlu, sabit satır yükseklikli liste (`gui/issue_rows.py`); HTML belgesi kurulmaz; sıra
+    önem → tür → satır numarası, kullanıcı sıralaması yok.
+195. **Düzeltme kapsamı** ayrı bir işaretleme sistemiyle değil seçimle belirlenir: satır seçimi > tür seçimi > "Tüm
+    bulgular" (yalnızca riskli olmayan türler; `RISKY_FIX_KINDS`). `fix_requested` her zaman açık satır kimlikleri
+    gönderir.
+196. **Aktarma seçimi:** `extract_texts(only_paths=…)`; None eski davranıştır. Seçim projede saklanmaz; varsayılan,
+    projede zaten bulunan dosyalardan türetilir (proje boşsa aktarılabilir tüm dosyalar).
+197. **Kaldırma onayı:** `Project.import_texts` aktarımda olmayan dosyaları çevirileriyle siler; bu yüzden arayüz
+    kaldırılacak dosyaları ve çevrilmiş satır sayısını (`translated_counts_by_file`) aktarmadan önce sorar, aktarma
+    sırasında fazladan dosya düşerse yazmadan önce yeniden sorar.
+198. **Dosya dili** arayüzde yalnızca `path_language` ile gösterilir; dosya adından tahmin yapılmaz.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

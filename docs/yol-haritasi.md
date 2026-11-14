@@ -97,22 +97,22 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 
 ### Ürün sahibinin 0.57.2 sonrası geri bildirimi (2026-11-14)
 
-**Yapıldı (yayımlanmadı)**
+**Yapıldı (0.58.0)**
 - Kontrol Et → Sorunlar yeniden kuruldu: solda önem sırasına göre gruplu tür listesi (çip bulutu ve "Tür" sütunu
   kalktı), bulgular üç satırlık liste (açıklama, orijinal, çeviri), sağdaki "Düzeltmeler" paneli yerine listenin
   üstünde bağlama göre düzeltme çubuğu, seçili satırdaki boş kutu hatası giderildi. Yukarıdaki görsel denetim
   listesinin 9. ve 10. maddeleri (tek ana düğme, çip renkleri) bu işle kapandı.
+- Metinleri Tara'da dosya seçimi ("Aktar" kutusu, "Dil" sütunu, dili bilinmeyenler uyarısı), yeniden aktarmada
+  kaldırma onayı ve bu sayfanın açıklama ipuçları.
 
 **Sırada**
-1. **Metinleri Tara'da müdahale.** Sayfa bugün yalnızca bilgi veriyor; tek seçim kaynak dil ve o da dil dosya yolundan
-   ya da eklentiden anlaşılabiliyorsa çalışıyor. Dili anlaşılamayan dosyalar süzülmeden aktarılıyor (ürün sahibinin bir
-   projesinde tüm diller aktarılıp binlerce satırlık ağır bir proje oluştu). İstenen: dosya tablosunda "Aktar" onay
-   kutusu ve "Dil" sütunu; dili anlaşılamayan çok sayıda dosya varsa aktarmadan önce açık uyarı ve seçim.
-2. **Açıklama ipuçları.** "güven: Yüksek", "Metin olasılığı", "Ayrıntı", "Kaynak" gibi terimlerin üzerine gelince ne
-   demek olduğu yazsın (Metinleri Tara başta olmak üzere tüm sayfalarda).
-3. **Sorunlar ekranının devamı.** Gerçek pencerede ve gerçek projeyle denenmedi; liste satırında kontrol kodları düz
+1. **Açıklama ipuçlarının kalanı.** Metinleri Tara'da yapıldı; diğer sayfalardaki terimler (Çevir, Kontrol Et, Dışa
+   Aktar) için de üzerine gelince açıklama.
+2. **Sorunlar ekranının devamı.** Gerçek pencerede ve gerçek projeyle denenmedi; liste satırında kontrol kodları düz
    metin (`⟦n⟧`) olarak görünüyor, çeviri tablosundaki gibi çip olabilir. Kontrol Et sekme çubuğunun görünümü (görsel
    denetim madde 8) hâlâ eski.
+3. **Metinleri Tara'nın devamı.** Dil yalnızca dosya yolundan okunuyor; eklentinin dosya içeriğinden bulduğu dil de
+   tabloda gösterilebilir. Dar pencerede Tür, Ayrıntı ve Dil sütunları kırpılıyor.
 
 ## Çeviri sağlayıcıları (eski CLAUDE.md §4.2)
 

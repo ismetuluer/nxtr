@@ -2,6 +2,39 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.58.0] — 2026-11-14 — Sorunlar ekranı yeniden kuruldu; Metinleri Tara'da dosya seçimi
+
+### Eklendi
+- **Metinleri Tara'da dosya seçimi:** tabloda "Aktar" onay kutusu ve "Dil" sütunu; yalnızca işaretli dosyalar çeviri
+  tablosuna aktarılır. Seçili kaynak dilde olmayan dosyaların kutusu devre dışıdır. "Görünenleri seç" ve "Görünenlerin
+  seçimini kaldır" bağlantıları; alttaki sayaç kaç dosyanın aktarılacağını söyler.
+- **Dili anlaşılamayan dosyalar için uyarı:** birden çok dosyanın dili anlaşılamazsa uyarı şeridi çıkar ve "Yalnızca
+  bunları göster" ile süzülür; istenmeyenlerin işareti kaldırılır (çok dilli, ağır projelerin önüne geçer).
+- **Kaldırma onayı:** zaten aktarılmış projede seçim dışında kalan dosyalar kaldırılmadan önce, silinecek çevrilmiş
+  satır sayısıyla sorulur; varsayılan "Vazgeç". Yeniden taramada varsayılan seçim projedeki dosyalardır.
+- **Açıklama ipuçları (Metinleri Tara):** "güven: Yüksek", "Kanıtlar", sayı kartları ve tablo başlıkları üzerine
+  gelince ne anlama geldiğini söyler.
+
+### Değişti
+- **Kontrol Et → Sorunlar yeniden kuruldu.** Çip bulutu yerine solda önem sırasına göre gruplu tür listesi (Oyunu
+  bozabilir, Ekrana sığmayabilir, Dil ve tutarlılık, Küçük düzeltmeler). Bulgular tablo yerine üç satırlık liste:
+  açıklama ve satır numarası, soluk orijinal, çeviri; sütun ve kırpılma yok.
+- **Düzeltme çubuğu:** sağdaki "Düzeltmeler" paneli kalktı. Listenin üstünde, yalnızca düzeltilebilir bulgu varken
+  görünen tek satır: solda seçilen tür ya da listede seçilen satırlar neyin düzeltileceğini belirler. "Tüm bulgular"da
+  yalnızca güvenli türler düzeltilir; riskli türler ("Türkçe harf eksik" gibi) türü ya da satırı açıkça seçilince ve
+  uyarıyla düzeltilir.
+- Denetimden sonra "Denetle" düğmesi ikincil "Yeniden Denetle" olur; ekranda tek ana eylem kalır.
+
+### Düzeltildi
+- Sorunlar'da seçili satırda önem simgesinin yanında çizilen boş kutu.
+
+### Kaldırıldı
+- Sorunlar'da başlığa tıklayarak sıralama ve sütun genişliğini hatırlama (liste artık önem, tür, satır numarası
+  sırasındadır); düzeltme türlerinin onay kutuları ve "işaretli tür" tercihinin saklanması.
+
+Yeni ekranlar örnek veriyle, uygulama ekrana gösterilmeden görüntülendi; gerçek pencerede ve gerçek oyunla ürün
+sahibinin denetimi bekleniyor.
+
 ## [0.57.2] — 2026-11-14 — Görsel düzeltmeler: oklar, kırpılan sütunlar, tek kaydırma, kenar çubuğu
 
 ### Düzeltildi
