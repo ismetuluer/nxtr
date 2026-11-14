@@ -286,6 +286,7 @@ class ChangesDialog(QDialog):
                     )
                 self.table.setItem(row, col, item)
         h = self.table.horizontalHeader()
+        h.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         h.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         # "Satır"/"İş" sütunu sabit genişlikte ve tek satır: uzun bir anahtar (ör. Despelote'nin yol biçimli
         # anahtarları) metin sütunlarını birkaç piksele sıkıştırmasın. Anahtarın sonu görünür, tamamı ipucunda.

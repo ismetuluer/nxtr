@@ -234,6 +234,10 @@ class ScanTableModel(QAbstractTableModel):
             return _COLUMNS[section]
         if role == Qt.ItemDataRole.ToolTipRole:
             return tip_html(_HEADER_TIPS[section])
+        if role == Qt.ItemDataRole.TextAlignmentRole and section == COL_SIZE:
+            return int(
+                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            )  # başlık, sağa yaslı hücrelerle aynı hizada
         return None
 
     def flags(self, index: _Index) -> Qt.ItemFlag:
@@ -499,6 +503,7 @@ class ReportView(QWidget):
         # Tercih edilen yükseklik yok sayılır: tablo kalan yüksekliği doldurur, sayfa gereksiz kaymaz.
         self.table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)
         h = self.table.horizontalHeader()
+        h.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         for col in range(len(_COLUMNS)):
             h.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
         h.setSectionResizeMode(COL_PATH, QHeaderView.ResizeMode.Interactive)  # genişliğini `_fit_path` verir

@@ -372,6 +372,7 @@ class QaPage(QWidget):
         self.font_table.verticalHeader().hide()
         self.font_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         fh = self.font_table.horizontalHeader()
+        fh.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         for c in (0, 1, 2):
             fh.setSectionResizeMode(c, QHeaderView.ResizeMode.ResizeToContents)
         fh.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)  # "Ne yapılabilir" en önemli sütun: kalanı alır
@@ -379,10 +380,6 @@ class QaPage(QWidget):
         self.font_table.setColumnWidth(4, _FILE_WIDTH)
         self.font_table.setTextElideMode(Qt.TextElideMode.ElideMiddle)  # uzun dosya adı ortadan kısalır
         self.font_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        for c in range(5):
-            head = self.font_table.horizontalHeaderItem(c)
-            if head is not None:
-                head.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.font_table.setMinimumHeight(180)
         self.font_table.setSortingEnabled(True)
         self.font_table.hide()
@@ -633,6 +630,7 @@ class QaPage(QWidget):
         self.fit_kinds.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.fit_kinds.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         kh = self.fit_kinds.horizontalHeader()
+        kh.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         kh.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         kh.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         adv.addWidget(self.fit_kinds)

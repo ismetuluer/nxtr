@@ -235,6 +235,7 @@ class LimitsTable(QWidget):
         self.view.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)
         # Kapsam adları uzun olabilir: kalan genişliği o alır; sayı sütunları başlığına ve değerine göre daralır.
         header = self.view.horizontalHeader()
+        header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         header.setStretchLastSection(False)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         for col in range(1, len(_COLUMNS)):

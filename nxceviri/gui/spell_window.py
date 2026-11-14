@@ -79,6 +79,10 @@ class SpellWindow(QDialog):
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.table.setAlternatingRowColors(True)
         header = self.table.horizontalHeader()
+        header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        count_head = self.table.horizontalHeaderItem(_COUNT_COLUMN)
+        if count_head is not None:  # sayı sütunu: başlık sağa yaslı hücrelerle aynı hizada
+            count_head.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         header.setSectionResizeMode(_WORD_COLUMN, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(_COUNT_COLUMN, QHeaderView.ResizeMode.ResizeToContents)
         self.table.itemSelectionChanged.connect(self._selection_changed)

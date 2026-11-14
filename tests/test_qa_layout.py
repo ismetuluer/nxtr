@@ -189,7 +189,4 @@ def test_font_table_modes_and_tooltips(qtbot: QtBot, page: QaPage) -> None:
 
 def test_font_headers_left_aligned(page: QaPage) -> None:
     page.show_font_report(_font_report(), "")
-    for col in range(5):
-        item = page.font_table.horizontalHeaderItem(col)
-        assert item is not None
-        assert int(item.textAlignment()) & _LEFT
+    assert int(page.font_table.horizontalHeader().defaultAlignment()) & _LEFT

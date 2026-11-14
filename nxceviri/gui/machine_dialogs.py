@@ -903,6 +903,7 @@ class GlossaryDialog(QDialog):
         self.table.verticalHeader().hide()
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         h = self.table.horizontalHeader()
+        h.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         for col in range(3):
             h.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
         lay.addWidget(self.table, 1)
@@ -1043,9 +1044,13 @@ class TermSuggestionsDialog(QDialog):
         self.table.setHorizontalHeaderLabels(["Terim", "Türkçe karşılığı", "Not", "Geçiş"])
         self.table.verticalHeader().hide()
         h = self.table.horizontalHeader()
+        h.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         for col in range(3):
             h.setSectionResizeMode(col, QHeaderView.ResizeMode.Stretch)
         h.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        count_head = self.table.horizontalHeaderItem(3)
+        if count_head is not None:  # sayı sütunu: başlık sağa yaslı hücrelerle aynı hizada
+            count_head.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         lay.addWidget(self.table, 1)
         for s in suggestions:
             r = self.table.rowCount()

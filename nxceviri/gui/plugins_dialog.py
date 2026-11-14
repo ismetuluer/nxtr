@@ -79,6 +79,7 @@ class PluginsDialog(QDialog):
         self.table.verticalHeader().hide()
         self.table.setMinimumHeight(220)
         header = self.table.horizontalHeader()
+        header.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(len(COLUMNS) - 1, QHeaderView.ResizeMode.Stretch)
         self.table.itemSelectionChanged.connect(self._selection_changed)
