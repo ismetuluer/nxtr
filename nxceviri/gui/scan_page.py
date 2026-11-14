@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLineEdit,
     QScrollArea,
+    QSizePolicy,
     QStackedWidget,
     QTableView,
     QVBoxLayout,
@@ -219,7 +220,9 @@ class ReportView(QWidget):
         self.table.verticalHeader().setDefaultSectionSize(26)
         self.table.setWordWrap(False)
         self.table.setTextElideMode(Qt.TextElideMode.ElideLeft)
-        self.table.setMinimumHeight(320)
+        self.table.setMinimumHeight(160)  # ~5 satır; sığmazsa sayfa kayar
+        # Tercih edilen yükseklik yok sayılır: tablo kalan yüksekliği doldurur, sayfa gereksiz kaymaz.
+        self.table.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Ignored)
         h = self.table.horizontalHeader()
         for col in range(len(_COLUMNS)):
             h.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)

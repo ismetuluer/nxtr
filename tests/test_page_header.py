@@ -321,6 +321,38 @@ def test_scan_chip_hidden_outside_report(qtbot: QtBot) -> None:
     assert page.header.chip.isHidden()
 
 
+def _many_files_page(qtbot: QtBot, width: int, height: int) -> ScanPage:
+    page = _scan_page(qtbot)
+    page.show_report(_report([_entry(f"romfs/Message/USen/{i:03d}.msbt", FileKind.MSBT.value) for i in range(200)]))
+    page.resize(width, height)
+    page.show()
+    qtbot.waitExposed(page)
+    for _ in range(3):  # yerleşim birkaç turda oturur
+        QApplication.processEvents()
+    return page
+
+
+def test_scan_report_has_single_scrollbar_at_normal_size(qtbot: QtBot) -> None:
+    page = _many_files_page(qtbot, 1280, 800)
+    assert page.report_scroll.verticalScrollBar().maximum() == 0
+    table = page.report.table
+    assert table.verticalScrollBar().maximum() > 0
+    bottom = table.mapTo(page.report_scroll.viewport(), table.rect().bottomLeft()).y()
+    assert bottom < page.report_scroll.viewport().height()
+
+
+def test_scan_report_single_scrollbar_at_1000x700(qtbot: QtBot) -> None:
+    page = _many_files_page(qtbot, 1000, 700)
+    assert page.report_scroll.verticalScrollBar().maximum() == 0
+    assert page.report.table.verticalScrollBar().maximum() > 0
+
+
+def test_scan_report_table_keeps_minimum_height_in_tiny_window(qtbot: QtBot) -> None:
+    page = _many_files_page(qtbot, 700, 360)
+    assert page.report.table.height() >= page.report.table.minimumHeight() >= 150
+    assert page.report_scroll.verticalScrollBar().maximum() > 0
+
+
 # --- Kontrol Et -------------------------------------------------------------------------
 
 
