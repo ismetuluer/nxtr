@@ -20,6 +20,7 @@ from nxceviri.gui.theme import TOKENS, ThemeMode, apply_theme
 from nxceviri.gui.translate_page import COL_TRANSLATION
 from tests.conftest import GameFiles
 from tests.task_wait import finish_task
+from tests.test_translation_table import NESTED_COMMON
 
 pytestmark = pytest.mark.gui
 
@@ -586,6 +587,159 @@ def test_shortcut_key_names_stay_short_english(qtbot: QtBot) -> None:
         assert QApplication.translate("QShortcut", "Print") != "Print"
     finally:
         app.removeTranslator(translator)
+
+
+def test_import_takes_only_checked_files(qtbot: QtBot, window: MainWindow, game: GameFiles) -> None:
+    window.load_keys_file(game.keys_path)
+    window.add_files([game.base_nsp, game.update_nsp])
+    _wait_idle(qtbot, window)
+    window.start_scan()
+    _wait_idle(qtbot, window)
+    view = window.scan_page.report
+    menu_file = "Message/Ana_Menü.msbt"
+    assert menu_file in view.selected_paths()  # varsayılan: aktarılabilir her dosya işaretli
+    row = next(i for i, e in enumerate(view.model.entries) if e.path == menu_file)
+    view.model.set_checked([row], False)
+    assert menu_file not in view.selected_paths()
+    window.import_texts()
+    _wait_idle(qtbot, window)
+    page = window.translate_page
+    assert {r.file for r in page.model.rows}.isdisjoint({menu_file})
+    assert page.model.rowCount() == 3  # yalnızca iç içe arşivdeki Ortak.msbt
+
+    # Hiç dosya işaretli değilken aktarma düğmesi kapalıdır.
+    window.nav.setCurrentRow(STEP_SCAN)
+    view.model.set_checked(range(view.model.rowCount()), False)
+    assert not view.import_button.isEnabled()
+
+
+def _imported_window(qtbot: QtBot, window: MainWindow, game: GameFiles) -> None:
+    """Oyunu tarar, her şeyi aktarır ve Ana_Menü.msbt'deki bir satırı çevirir (M = 1)."""
+    window.load_keys_file(game.keys_path)
+    window.add_files([game.base_nsp, game.update_nsp])
+    _wait_idle(qtbot, window)
+    window.start_scan()
+    _wait_idle(qtbot, window)
+    window.import_texts()
+    _wait_idle(qtbot, window)
+    page = window.translate_page
+    hello = next(i for i, r in enumerate(page.model.rows) if r.key == "Menu_Hello")
+    assert page.model.setData(page.model.index(hello, COL_TRANSLATION), "Merhaba ⟦1⟧Link⟦2⟧!")
+    window.nav.setCurrentRow(STEP_SCAN)
+
+
+def _uncheck(window: MainWindow, path: str) -> None:
+    view = window.scan_page.report
+    assert path in view.selected_paths()
+    view.model.set_checked([next(i for i, e in enumerate(view.model.entries) if e.path == path)], False)
+
+
+def _asks(window: MainWindow, answer: bool) -> list[tuple[int, int]]:
+    asked: list[tuple[int, int]] = []
+
+    def ask(files: int, translated: int) -> bool:
+        asked.append((files, translated))
+        return answer
+
+    window.ask_remove_files = ask  # type: ignore[method-assign]
+    return asked
+
+
+def test_first_import_does_not_ask_about_removal(qtbot: QtBot, window: MainWindow, game: GameFiles) -> None:
+    asked = _asks(window, False)
+    window.load_keys_file(game.keys_path)
+    window.add_files([game.base_nsp, game.update_nsp])
+    _wait_idle(qtbot, window)
+    window.start_scan()
+    _wait_idle(qtbot, window)
+    _uncheck(window, "Message/Ana_Menü.msbt")
+    window.import_texts()
+    _wait_idle(qtbot, window)
+    assert asked == []  # proje boştu: kaldırılacak dosya yok
+    assert window.translate_page.model.rowCount() == 3
+
+
+def test_removal_is_confirmed_and_can_be_cancelled(qtbot: QtBot, window: MainWindow, game: GameFiles) -> None:
+    _imported_window(qtbot, window, game)
+    view = window.scan_page.report
+    assert view.selected_paths() == {"Message/Ana_Menü.msbt", NESTED_COMMON}  # varsayılan: projedeki dosyalar
+    _uncheck(window, "Message/Ana_Menü.msbt")
+    asked = _asks(window, False)
+    window.import_texts()
+    assert asked == [(1, 1)]
+    assert window.task is None  # aktarma başlamadı
+    assert window.scan_page.stack.currentWidget() is window.scan_page.report_scroll
+    assert {f for f, _tid, _fmt in window.project.text_files()} == {"Message/Ana_Menü.msbt", NESTED_COMMON}
+    assert window.project.translated_counts_by_file()["Message/Ana_Menü.msbt"] == 1
+    assert view.selected_paths() == {NESTED_COMMON}  # sayfa olduğu gibi kaldı
+
+    asked = _asks(window, True)
+    window.import_texts()
+    _wait_idle(qtbot, window)
+    assert asked == [(1, 1)]
+    assert {f for f, _tid, _fmt in window.project.text_files()} == {NESTED_COMMON}
+
+
+def test_removal_without_translations_says_so(qtbot: QtBot, window: MainWindow, game: GameFiles) -> None:
+    _imported_window(qtbot, window, game)
+    _uncheck(window, NESTED_COMMON)  # iç içe arşiv yolu da proje yoluyla eşleşir
+    asked = _asks(window, True)
+    window.import_texts()
+    _wait_idle(qtbot, window)
+    assert asked == [(1, 0)]
+    assert {f for f, _tid, _fmt in window.project.text_files()} == {"Message/Ana_Menü.msbt"}
+
+
+def test_removal_dialog_texts(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    shown: list[QMessageBox] = []
+
+    def fake_exec(self: QMessageBox) -> int:
+        shown.append(self)
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", fake_exec)
+    assert window.ask_remove_files(2, 5) is False  # düğmeye basılmadı: Vazgeç sayılır
+    box = shown[0]
+    assert box.windowTitle() == "Dosyalar projeden kaldırılacak"
+    assert box.text() == (
+        "Seçmediğiniz 2 dosya projeden kaldırılacak. Bu dosyalarda 5 çevrilmiş satır var; "
+        "çevirileri silinir ve geri alınamaz."
+    )
+    assert {b.text() for b in box.buttons()} == {"Kaldır ve Aktar", "Vazgeç"}
+    assert box.defaultButton().text() == "Vazgeç"
+    assert box.escapeButton().text() == "Vazgeç"
+    window.ask_remove_files(1, 0)
+    assert shown[1].text() == "Seçmediğiniz 1 dosya projeden kaldırılacak. Bu dosyalarda çevrilmiş satır yok."
+
+
+def test_extra_file_dropped_by_content_is_confirmed_before_writing(
+    qtbot: QtBot, window: MainWindow, game: GameFiles, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """İçerikten dil nedeniyle fazladan düşen dosya (onaylanmamış silme) yazmadan önce yeniden sorulur."""
+    from nxceviri.core.pipeline import extract_texts as real_extract
+    from nxceviri.gui import main_window
+
+    _imported_window(qtbot, window, game)
+
+    def dropping(*args: Any, **kwargs: Any) -> Any:
+        result = real_extract(*args, **kwargs)
+        result.files[:] = [f for f in result.files if f.path != "Message/Ana_Menü.msbt"]
+        return result
+
+    monkeypatch.setattr(main_window, "extract_texts", dropping)
+    asked = _asks(window, False)
+    window.import_texts()  # her şey işaretli: ilk soru yok
+    _wait_idle(qtbot, window)
+    assert asked == [(1, 1)]  # ikinci güvence, güncel sayılarla
+    assert {f for f, _tid, _fmt in window.project.text_files()} == {"Message/Ana_Menü.msbt", NESTED_COMMON}
+    assert window.project.translated_counts_by_file()["Message/Ana_Menü.msbt"] == 1
+    assert window.pages.currentIndex() == STEP_SCAN
+
+    asked = _asks(window, True)
+    window.import_texts()
+    _wait_idle(qtbot, window)
+    assert asked == [(1, 1)]
+    assert {f for f, _tid, _fmt in window.project.text_files()} == {NESTED_COMMON}
 
 
 def test_row_context_menu_translates_selected(

@@ -679,6 +679,14 @@ class Project:
         rows = self._conn.execute("SELECT path, title_id, format FROM text_files ORDER BY path").fetchall()
         return [(str(p), str(t), str(f)) for p, t, f in rows]
 
+    def translated_counts_by_file(self) -> dict[str, int]:
+        """Aktarılmış her metin dosyası için çevirisi boş olmayan girdi sayısı (tarama yolu → sayı). Salt okunur."""
+        rows = self._conn.execute(
+            "SELECT f.path, COUNT(CASE WHEN e.translation != '' THEN 1 END) FROM text_files f "
+            "LEFT JOIN text_entries e ON e.file_id = f.id GROUP BY f.id"
+        ).fetchall()
+        return {str(path): int(n) for path, n in rows}
+
     def translation_rows(self) -> list[TranslationRow]:
         return [_row(r) for r in self._conn.execute(_ROW_SQL + " ORDER BY f.path, e.idx").fetchall()]
 

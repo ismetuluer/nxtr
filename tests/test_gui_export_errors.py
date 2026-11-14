@@ -96,6 +96,9 @@ def test_export_with_box_reports_error_rows(
     qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
     window.start_scan()
     qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
+    # Projede yalnızca başka bir dosya var: oyunun dosyaları işaretsiz gelir; işaretlenir, eskisi onayla silinir.
+    window.scan_page.report.model.set_checked(range(window.scan_page.report.model.rowCount()), True)
+    window.ask_remove_files = lambda _files, _translated: True  # type: ignore[assignment]
     window.import_texts()
     qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
     rows = {r.key: r for r in window.translate_page.model.rows}

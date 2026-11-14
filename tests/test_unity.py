@@ -8,6 +8,7 @@ from typing import Any
 import pytest
 import UnityPy
 
+from nxceviri.core.errors import ContainerError
 from nxceviri.core.formats.base import FormatError
 from nxceviri.core.formats.unity import UnityPlugin
 from nxceviri.core.formats.unity.unity import detokenize, tokenize
@@ -234,6 +235,31 @@ def unity_game(tmp_path: Path) -> tuple[Inputs, Path]:
     return Inputs((nsp,), load_keys(keys.write(tmp_path / "prod.keys"))), tmp_path
 
 
+def test_extract_texts_only_paths(unity_game: tuple[Inputs, Path]) -> None:
+    inputs, _ = unity_game
+    report = scan_sources(inputs, TaskContext())
+    english = AA + "localization-string-tables-english(en)_assets_all.bundle"
+    japanese = AA + "localization-string-tables-japanese(ja)_assets_all.bundle"
+
+    everything = extract_texts(inputs, report, TaskContext())
+    assert extract_texts(inputs, report, TaskContext(), only_paths=None).files == everything.files
+    assert {f.path for f in everything.files} == {english, japanese}
+
+    only_en = extract_texts(inputs, report, TaskContext(), only_paths={english})
+    assert [f.path for f in only_en.files] == [english]
+    assert only_en.skipped_languages == {}
+
+    # Dil atlama kuralı seçili dosyalara da uygulanır.
+    both = extract_texts(inputs, report, TaskContext(), "en", only_paths={english, japanese})
+    assert [f.path for f in both.files] == [english]
+    assert both.skipped_languages == {"ja": 1}
+
+    for nothing in (set(), {"yok/dosya.bundle"}):
+        with pytest.raises(ContainerError) as exc:
+            extract_texts(inputs, report, TaskContext(), only_paths=nothing)
+        assert "Aktarılacak dosya seçilmedi" in exc.value.message
+
+
 def test_unity_game_import(unity_game: tuple[Inputs, Path]) -> None:
     inputs, tmp_path = unity_game
     report = scan_sources(inputs, TaskContext())
@@ -289,7 +315,8 @@ def test_gui_source_language_choice(qtbot: Any, unity_game: tuple[Inputs, Path])
         assert window.pages.currentIndex() == STEP_TRANSLATE
         rows = window.translate_page.model.rows
         assert [(r.key, r.source) for r in rows] == [("Dialogue_ja/101", "こんにちは")]
-        assert "1 dil dosyası atlandı" in window.translate_page.notice_text
+        # Başka dildeki dosyanın kutusu kapanıp işareti kalktığı için aktarmaya hiç girmez (atlama bildirimi yok).
+        assert "atlandı" not in window.translate_page.notice_text
     finally:
         window.dirty = False
         window.close()

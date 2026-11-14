@@ -89,6 +89,17 @@ def test_no_text_in_source_language_is_an_error(game: GameFiles, monkeypatch: py
     assert "İngilizce (en)" in exc.value.hint  # dosyalarda bulunan dil önerilir
 
 
+def test_translated_counts_by_file(extracted: list[ImportedFile]) -> None:
+    project = Project.new()
+    assert project.translated_counts_by_file() == {}
+    project.import_texts(extracted)
+    assert project.translated_counts_by_file() == {"Message/Ana_Menü.msbt": 0, NESTED_COMMON: 0}  # iç arşiv yolu da
+    row = next(r for r in project.translation_rows() if r.key == "Menu_Hello")
+    project.set_translations([(row.id, "Merhaba ⟦1⟧Link⟦2⟧!")])
+    assert project.translated_counts_by_file()["Message/Ana_Menü.msbt"] == 1
+    assert project.translated_counts_by_file()[NESTED_COMMON] == 0
+
+
 def test_import_and_edit(extracted: list[ImportedFile], tmp_path: Path) -> None:
     project = Project.new()
     stats = project.import_texts(extracted)

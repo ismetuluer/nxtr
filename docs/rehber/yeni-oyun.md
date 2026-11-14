@@ -106,7 +106,8 @@ harfler), `normalize_text` (oyunun özel harf tablosu), `support_files` (Türkç
 Uygulamayı aç (`NX Ceviri Studyosu.bat` ya da `python -m nxceviri`):
 1. **Oyunu Ekle:** base + update (+ DLC) dosyaları, `prod.keys` seçili.
 2. **Metinleri Tara → Taramayı Başlat:** rapor motoru ve desteklenen dosyaları listeler; kaynak dili seç (varsayılan
-   İngilizce); satırları tabloya aktar. "0 metin" hatası alırsan eklenti dosyayı tanımıyordur (`detect`) ya da
+   İngilizce); tablodaki "Aktar" kutularıyla hangi dosyaların alınacağını seç (varsayılan: kaynak dildeki ve dili
+   anlaşılamayan dosyalar); satırları tabloya aktar. "0 metin" hatası alırsan eklenti dosyayı tanımıyordur (`detect`) ya da
    yanlış dil seçilidir.
 3. **Çevir** (Ollama, DeepL ya da elle). Önce 15-20 satır dene; `⟦n⟧` işaretleri ve satır sonları korundu mu bak
    (`docs/translation.md`).

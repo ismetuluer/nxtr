@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
-from collections.abc import Iterator, Mapping
+from collections.abc import Collection, Iterator, Mapping
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -296,16 +296,30 @@ def default_source_language(languages: list[str]) -> str | None:
 
 
 def extract_texts(
-    inputs: Inputs, report: ScanReport, ctx: TaskContext, source_language: str | None = None
+    inputs: Inputs,
+    report: ScanReport,
+    ctx: TaskContext,
+    source_language: str | None = None,
+    only_paths: Collection[str] | None = None,
 ) -> TextExtraction:
     """Tarama raporundaki desteklenen metin dosyalarını açıp girdilerini çıkarır.
 
     `source_language` verilirse, dili bilinen ve bu dilden farklı olan dosyalar atlanır
-    (aynı metnin diğer dillerdeki kopyaları). Bozuk bir dosya tüm işlemi durdurmaz;
+    (aynı metnin diğer dillerdeki kopyaları). `only_paths` verilirse yalnızca bu yollardaki dosyalar
+    açılır (kullanıcının tarama sayfasında işaretledikleri); None, desteklenen tüm dosyalar demektir.
+    Dil atlama kuralı seçilen dosyalara da uygulanır. Bozuk bir dosya tüm işlemi durdurmaz;
     uyarı olarak raporlanır. İki geçiş yapılır: önce eklentilerin ihtiyaç duyduğu bağlam
     (ör. Unity anahtar adları) toplanır, sonra metinler çıkarılır.
     """
     targets = importable_entries(report)
+    if only_paths is not None:
+        chosen = frozenset(only_paths)
+        targets = [e for e in targets if e.path in chosen]
+        if not targets:
+            raise ContainerError(
+                "Aktarılacak dosya seçilmedi.",
+                "Metin dosyaları tablosunda aktarmak istediğiniz dosyaları işaretleyip yeniden deneyin.",
+            )
     if not targets:
         others = unsupported_text_kinds(report)
         raise ContainerError(

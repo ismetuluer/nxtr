@@ -7,7 +7,7 @@ import json
 import logging
 import os
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from pathlib import Path
 
 import httpx
@@ -348,6 +348,9 @@ class MainWindow(QMainWindow):
         self._keys_detail = ""
         self.sources: list[SourceRecord] = []
         self.report: ScanReport | None = None
+        self._confirmed_removals: set[str] = (
+            set()
+        )  # son aktarmada kullanıcının kaldırılmasını onayladığı proje dosyaları
         self.project = Project.new()
         self.dirty = False
         self.task: Task | None = None
@@ -1001,6 +1004,10 @@ class MainWindow(QMainWindow):
         self.nav_header.set_project(name, " · ".join(part for part in detail_parts if part))
         self._update_nav_width()
 
+    def _show_scan_report(self, report: ScanReport) -> None:
+        """Tarama raporunu gösterir; varsayılan seçim projede aktarılmış dosyalara göre kurulur."""
+        self.scan_page.show_report(report, [path for path, _tid, _fmt in self.project.text_files()])
+
     def _go_to(self, row: int) -> None:
         if row < 0:
             return
@@ -1008,7 +1015,7 @@ class MainWindow(QMainWindow):
         self.update_menu_state()
         if row == STEP_SCAN and not self.busy:
             if self.report is not None:
-                self.scan_page.show_report(self.report)
+                self._show_scan_report(self.report)
             else:
                 self.scan_page.show_empty()
         elif row == STEP_QA:
@@ -1371,12 +1378,12 @@ class MainWindow(QMainWindow):
         except NxError as exc:
             self.notify(LEVEL_ERROR, "Proje", exc.user_text())
         self._mark_changed()
-        self.scan_page.show_report(result)
+        self._show_scan_report(result)
         self.statusBar().showMessage(f"Tarama {result.duration_s:.1f} saniyede tamamlandı.", 8000)
 
     def _scan_cancelled(self) -> None:
         if self.report is not None:
-            self.scan_page.show_report(self.report)
+            self._show_scan_report(self.report)
         else:
             self.scan_page.show_empty()
         self.statusBar().showMessage("Tarama iptal edildi.", 5000)
@@ -1398,16 +1405,16 @@ class MainWindow(QMainWindow):
         self.scan_page.show_loading("Dosyalar klasöre çıkarılıyor")
 
         def done(result: object) -> None:
-            self.scan_page.show_report(report)
+            self._show_scan_report(report)
             self.notify(LEVEL_INFO, "Çıkarma tamamlandı", f"{result} dosya şuraya yazıldı:\n{dest}")
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(dest)))
 
         def failed(text: str) -> None:
-            self.scan_page.show_report(report)
+            self._show_scan_report(report)
             self.notify(LEVEL_ERROR, "Çıkarma tamamlanamadı", text)
 
         def cancelled() -> None:
-            self.scan_page.show_report(report)
+            self._show_scan_report(report)
             self.statusBar().showMessage("Çıkarma iptal edildi; yarım kalan dosyalar silindi.", 6000)
 
         self._run(
@@ -1437,16 +1444,16 @@ class MainWindow(QMainWindow):
         self.scan_page.show_loading("Teşhis raporu hazırlanıyor")
 
         def done(result: object) -> None:
-            self.scan_page.show_report(report)
+            self._show_scan_report(report)
             self.notify(LEVEL_INFO, "Teşhis raporu hazır", f"{result}\n\n{UYARI}")
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(dest)))
 
         def failed(text: str) -> None:
-            self.scan_page.show_report(report)
+            self._show_scan_report(report)
             self.notify(LEVEL_ERROR, "Teşhis raporu oluşturulamadı", text)
 
         def cancelled() -> None:
-            self.scan_page.show_report(report)
+            self._show_scan_report(report)
             self.statusBar().showMessage("Teşhis raporu iptal edildi.", 5000)
 
         self._run(
@@ -2568,19 +2575,26 @@ class MainWindow(QMainWindow):
         report = self.report
         language = self.scan_page.report.language.currentData()
         source_language = str(language) if language else None
+        chosen = self.scan_page.report.selected_paths()  # tarama sayfasında işaretli dosyalar
         self._import_language = source_language or "en"
+        # Aktarma, projeyi seçime göre eşitler: seçilmeyen proje dosyaları çevirileriyle silinir. Önce sorulur.
+        self._confirmed_removals = set()
+        dropped = self._files_to_remove(chosen)
+        if dropped and not self._confirm_removal(dropped):
+            return
+        self._confirmed_removals = dropped
         self.scan_page.show_loading("Metinler oyundan çıkarılıyor")
 
         def failed(text: str) -> None:
-            self.scan_page.show_report(report)
+            self._show_scan_report(report)
             self.notify(LEVEL_ERROR, "Metinler aktarılamadı", text)
 
         def cancelled() -> None:
-            self.scan_page.show_report(report)
+            self._show_scan_report(report)
             self.statusBar().showMessage("Aktarma iptal edildi; projede değişiklik yapılmadı.", 6000)
 
         self._run(
-            lambda ctx: extract_texts(inputs, report, ctx, source_language),
+            lambda ctx: extract_texts(inputs, report, ctx, source_language, chosen),
             "Metinler çıkarılıyor",
             on_success=self._texts_extracted,
             on_failure=failed,
@@ -2588,10 +2602,41 @@ class MainWindow(QMainWindow):
             on_cancel=cancelled,
         )
 
+    def _files_to_remove(self, kept: Collection[str]) -> set[str]:
+        """Projede aktarılmış olup `kept` içinde olmayan dosyalar (aktarma bunları çevirileriyle siler)."""
+        return {path for path in self.project.translated_counts_by_file() if path not in kept}
+
+    def _confirm_removal(self, paths: Collection[str]) -> bool:
+        counts = self.project.translated_counts_by_file()
+        return self.ask_remove_files(len(paths), sum(counts.get(p, 0) for p in paths))
+
+    def ask_remove_files(self, files: int, translated: int) -> bool:
+        """Seçilmeyen dosyaların projeden kaldırılmasını onaylatır (testlerde değiştirilir)."""
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setWindowTitle("Dosyalar projeden kaldırılacak")
+        lines = (
+            f"Bu dosyalarda {format_int(translated)} çevrilmiş satır var; çevirileri silinir ve geri alınamaz."
+            if translated
+            else "Bu dosyalarda çevrilmiş satır yok."
+        )
+        box.setText(f"Seçmediğiniz {format_int(files)} dosya projeden kaldırılacak. {lines}")
+        remove = box.addButton("Kaldır ve Aktar", QMessageBox.ButtonRole.DestructiveRole)
+        cancel = box.addButton("Vazgeç", QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(cancel)
+        box.setEscapeButton(cancel)
+        box.exec()
+        return box.clickedButton() is remove
+
     def _texts_extracted(self, result: object) -> None:
         assert isinstance(result, TextExtraction)
         if self.report is not None:
-            self.scan_page.show_report(self.report)
+            self._show_scan_report(self.report)
+        # İçerikten dil nedeniyle düşen dosyalar da silinir: onaylanandan fazlası yazmadan önce yeniden sorulur.
+        actual = self._files_to_remove({f.path for f in result.files})
+        if actual - self._confirmed_removals and not self._confirm_removal(actual):
+            self.statusBar().showMessage("Aktarma durduruldu; projede değişiklik yapılmadı.", 6000)
+            return
         try:
             stats = self.project.import_texts(result.files)
             self.project.set_setting("source_language", self._import_language)

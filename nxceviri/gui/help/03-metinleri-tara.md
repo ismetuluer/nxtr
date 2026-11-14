@@ -7,6 +7,12 @@ Unreal `.locres`, Game Freak mesajları ve bazı oyunlara özel biçimler.
 - Rapor, bulunan metin dosyalarını, satır sayılarını ve tanınmayan dosyaları gösterir.
 - **Kaynak dil:** Türkçe metin, seçtiğiniz dilin (çoğunlukla İngilizce) yerine yazılır. Oyunu da o dilde oynamanız
   gerekir.
+- **Hangi dosyalar aktarılır:** Yalnızca tablodaki **Aktar** kutusu işaretli dosyalar aktarılır; işaretli dosya
+  sayısı tablonun altında görünür. Başka dildeki dosyaların kutusu kapalıdır. Dili anlaşılamayan dosyalar işaretli
+  gelir; istemediklerinizin işaretini kaldırın. Seçim projeye kaydedilmez, her taramada yeniden kurulur. Başlıkların
+  üstüne gelince ne anlama geldikleri görünür.
+- **Proje doluysa:** Tablo, projede zaten aktarılmış dosyaları işaretli getirir; yeni dosyalar işaretsiz kalır.
+  İşaretini kaldırdığınız proje dosyaları aktarmada projeden çıkar; önce sorulur ve çevirileri silinir, geri alınamaz.
 - Aktarınca metinler çeviri tablosuna taşınır. Daha önce çevrilmiş satırlar korunur; kaynak metni değişen satırlar
   işaretlenir.
 
