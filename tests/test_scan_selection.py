@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtWidgets import QHeaderView
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.formats.detection import FileKind, TextLikelihood
@@ -11,7 +12,9 @@ from nxceviri.core.formats.registry import supported_kinds
 from nxceviri.core.formats.scanner import EngineGuess, ScanEntry, ScanReport
 from nxceviri.core.pipeline import language_label
 from nxceviri.gui.scan_page import (
+    COL_DETAIL,
     COL_IMPORT,
+    COL_KIND,
     COL_LANGUAGE,
     COL_PATH,
     MODE_ALL,
@@ -261,6 +264,56 @@ def test_explanatory_tooltips_exist(qtbot: QtBot) -> None:
         assert widget.toolTip(), widget
     assert "Yüksek" in view.engine_line.toolTip()
     assert "Güncelleme" in view.model.headerData(7, Qt.Orientation.Horizontal, Qt.ItemDataRole.ToolTipRole)
+
+
+# --- dar pencerede sütun genişlikleri --------------------------------------------------------
+
+
+def _narrow_view(qtbot: QtBot) -> ReportView:
+    page = _mixed(qtbot)
+    page.resize(700, 700)
+    page.show()
+    qtbot.waitExposed(page)
+    qtbot.wait(50)
+    return page.report
+
+
+def test_narrow_window_does_not_clip_short_columns(qtbot: QtBot) -> None:
+    view = _narrow_view(qtbot)
+    header = view.table.horizontalHeader()
+    metrics = view.table.fontMetrics()
+    for col in (COL_KIND, COL_DETAIL, COL_LANGUAGE):
+        texts = [str(view.proxy.index(r, col).data() or "") for r in range(view.proxy.rowCount())]
+        needed = max(metrics.horizontalAdvance(t) for t in texts)
+        assert header.sectionSize(col) >= needed, col
+
+
+def test_path_column_takes_the_remaining_width(qtbot: QtBot) -> None:
+    page = _mixed(qtbot)
+    page.resize(1400, 700)
+    page.show()
+    qtbot.waitExposed(page)
+    qtbot.wait(50)
+    view = page.report
+    header = view.table.horizontalHeader()
+    for col in (COL_KIND, COL_DETAIL, COL_LANGUAGE):
+        assert header.sectionResizeMode(col) == QHeaderView.ResizeMode.ResizeToContents
+    assert view.table.textElideMode() == Qt.TextElideMode.ElideMiddle
+    total = sum(header.sectionSize(c) for c in range(view.model.columnCount(QModelIndex())))
+    assert abs(total - view.table.viewport().width()) <= 2
+    assert header.sectionSize(COL_PATH) > 160
+
+
+def test_narrow_window_keeps_a_usable_path_column(qtbot: QtBot) -> None:
+    header = _narrow_view(qtbot).table.horizontalHeader()
+    assert header.sectionSize(COL_PATH) >= 160
+
+
+def test_path_cell_tooltip_has_full_path(qtbot: QtBot) -> None:
+    view = _narrow_view(qtbot)
+    row = _row(view, EN)
+    tip = view.model.data(view.model.index(row, COL_PATH), Qt.ItemDataRole.ToolTipRole)
+    assert tip == EN
 
 
 # --- projeye göre varsayılan seçim -----------------------------------------------------------

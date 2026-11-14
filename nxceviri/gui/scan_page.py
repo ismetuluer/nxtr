@@ -83,10 +83,10 @@ _HEADER_TIPS = {
     ),
 }
 _SORT_ROLE = Qt.ItemDataRole.UserRole + 1
-#: Dar pencerede kırpılabilen sütunlar, bunların en az genişliği ve dosya yoluna ayrılan en az genişlik (piksel).
-_FLEXIBLE_COLUMNS = (COL_KIND, COL_DETAIL, COL_LANGUAGE)
-_FLEXIBLE_MIN = 80
-_PATH_MIN = 260
+#: Kısa, içeriğe göre boyutlanan sütunlar; hücre ipucu tam metni taşır.
+_SHORT_COLUMNS = (COL_KIND, COL_DETAIL, COL_LANGUAGE)
+#: Dosya yolu sütununun en az genişliği (piksel): dar pencerede yol kırpılır, kısa sütunlar değil.
+_PATH_MIN = 160
 _LIKELIHOOD_ORDER = {TextLikelihood.HIGH.value: 0, TextLikelihood.MEDIUM.value: 1, TextLikelihood.NONE.value: 2}
 #: Süzgeç listesindeki görünüm seçenekleri.
 MODE_CANDIDATES, MODE_ALL, MODE_UNKNOWN_LANGUAGE = "candidates", "all", "unknown_language"
@@ -284,7 +284,7 @@ class ScanTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.ToolTipRole:
             if col == COL_PATH:
                 return e.path.replace(">", "  ›  ")
-            if col in _FLEXIBLE_COLUMNS:
+            if col in _SHORT_COLUMNS:
                 return self.data(index) or None  # dar sütunda kırpılan metnin tamamı
             if col == COL_IMPORT:
                 if not self._importable[row]:
@@ -334,7 +334,7 @@ class ScanFilterProxy(QSortFilterProxyModel):
 
 
 class _ElideDelegate(QStyledItemDelegate):
-    """Dosya yolu soldan, diğer sütunlar sağdan kırpılır (yolun önemli kısmı sondadır)."""
+    """Dosya yolu ortadan (başı ve sonu görünür), diğer sütunlar sağdan kırpılır."""
 
     def initStyleOption(self, option: QStyleOptionViewItem, index: _Index) -> None:
         super().initStyleOption(option, index)
@@ -493,7 +493,7 @@ class ReportView(QWidget):
         self.table.verticalHeader().hide()
         self.table.verticalHeader().setDefaultSectionSize(26)
         self.table.setWordWrap(False)
-        self.table.setTextElideMode(Qt.TextElideMode.ElideLeft)
+        self.table.setTextElideMode(Qt.TextElideMode.ElideMiddle)
         self.table.setItemDelegate(_ElideDelegate(self.table))
         self.table.setMinimumHeight(160)  # ~5 satır; sığmazsa sayfa kayar
         # Tercih edilen yükseklik yok sayılır: tablo kalan yüksekliği doldurur, sayfa gereksiz kaymaz.
@@ -501,12 +501,11 @@ class ReportView(QWidget):
         h = self.table.horizontalHeader()
         for col in range(len(_COLUMNS)):
             h.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
-        h.setSectionResizeMode(COL_PATH, QHeaderView.ResizeMode.Stretch)
+        h.setSectionResizeMode(COL_PATH, QHeaderView.ResizeMode.Interactive)  # genişliğini `_fit_path` verir
         h.setSectionResizeMode(COL_IMPORT, QHeaderView.ResizeMode.Fixed)  # yalnızca bir onay kutusu taşır
         h.resizeSection(COL_IMPORT, 56)
-        for col in _FLEXIBLE_COLUMNS:  # genişlikleri `_fit_columns` verir: dosya yolu dar kalmasın
-            h.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
-        self.table.resized.connect(self._fit_columns)
+        self.table.resized.connect(self._fit_path)
+        h.sectionResized.connect(self._section_resized)
         self.files_card.body.addWidget(self.table, 1)
 
         bottom = QHBoxLayout()
@@ -524,19 +523,22 @@ class ReportView(QWidget):
     def _refilter(self) -> None:
         self.proxy.update(str(self.mode.currentData()), str(self.kind.currentData()), self.search.text())
         self._update_counts()
-        self._fit_columns()
+        self._fit_path()
 
-    def _fit_columns(self) -> None:
-        """Ayrıntı ve Dil sütunları sığıyorsa içeriğe göre açılır; sığmıyorsa dosya yoluna en az `_PATH_MIN` kalır."""
+    def _section_resized(self, section: int) -> None:
+        if section != COL_PATH:  # kısa sütunlar içerikle değişince yol kalanı alır
+            self._fit_path()
+
+    def _fit_path(self) -> None:
+        """Dosya yolu, diğer sütunlardan kalan genişliği alır (en az `_PATH_MIN`); dar pencerede kırpılan odur.
+
+        `Stretch` kullanılmaz: kısa sütunların içeriği pencereyi aşınca yol 34 pikseline kadar ezilirdi.
+        """
         h = self.table.horizontalHeader()
-        wanted = {c: max(self.table.sizeHintForColumn(c), h.sectionSizeHint(c)) + 16 for c in _FLEXIBLE_COLUMNS}
-        fixed = sum(h.sectionSize(c) for c in range(len(_COLUMNS)) if c != COL_PATH and c not in wanted)
-        room = self.table.viewport().width() - fixed - _PATH_MIN
-        total = sum(wanted.values())
-        for col, width in wanted.items():
-            fit = width if total <= room else max(_FLEXIBLE_MIN, room * width // total)
-            if h.sectionSize(col) != fit:
-                h.resizeSection(col, fit)
+        others = sum(h.sectionSize(c) for c in range(len(_COLUMNS)) if c != COL_PATH)
+        width = max(_PATH_MIN, self.table.viewport().width() - others)
+        if h.sectionSize(COL_PATH) != width:
+            h.resizeSection(COL_PATH, width)
 
     def _source_language(self) -> str | None:
         code = self.language.currentData()
