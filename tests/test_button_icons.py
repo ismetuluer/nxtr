@@ -27,7 +27,7 @@ BUTTON_ICONS = [
     ("scan_page.py", "Tekrar Dene", "refresh-cw"),
     ("qa_page.py", "Fontları Tara", "scan-search"),
     ("qa_page.py", "Denetle", "shield-check"),
-    ("qa_page.py", "Seçilenleri Düzelt", "refresh-cw"),
+    ("qa_page.py", "Düzelt", "refresh-cw"),
     ("export_page.py", "Seç…", "folder-open"),
     ("export_page.py", "Modu Oluştur", "package"),
     ("export_page.py", "Mod Klasörünü Aç", "folder-open"),
@@ -62,7 +62,7 @@ def test_page_buttons_have_icons_and_keep_text(qtbot: QtBot) -> None:
     for button_ in (qa.font_button, qa.check_button, qa.fix_button):
         assert not button_.icon().isNull(), button_.text()
     assert qa.check_button.text() == "Denetle"
-    assert qa.fix_button.text() == "Seçilenleri Düzelt"
+    assert qa.fix_button.text() == "Düzelt"
     assert not export.export_button.icon().isNull()
     assert not export.open_button.icon().isNull()
 

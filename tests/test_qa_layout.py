@@ -13,7 +13,8 @@ from nxceviri.core.qa.checks import KIND_LABELS, SEVERITY_ERROR, SEVERITY_WARNIN
 from nxceviri.core.qa.fonts import KIND_TTF, FontInfo, FontReport
 from nxceviri.core.translate.fit import FitRules
 from nxceviri.core.translate.fitconfig import FitConfig
-from nxceviri.gui.qa_page import COL_SEVERITY, QaPage
+from nxceviri.gui.issue_rows import ROLE_SEVERITY
+from nxceviri.gui.qa_page import QaPage
 from nxceviri.gui.theme import ThemeMode, apply_theme
 
 pytestmark = pytest.mark.gui
@@ -126,25 +127,22 @@ def _issues() -> tuple[list[QaIssue], list[TranslationRow]]:
     return issues, [_row(1, "a", "x"), _row(2, "b", "y")]
 
 
-def test_severity_column_is_icon_only(qtbot: QtBot, page: QaPage) -> None:
+def test_severity_is_a_role_and_in_accessible_text(qtbot: QtBot, page: QaPage) -> None:
     page.show_issues(*_issues())
     _settle(qtbot, page.table)
-    assert page.table.columnWidth(COL_SEVERITY) <= 48
+    assert not page.table.horizontalHeader().isVisible()  # tek sütunlu liste: başlık satırı yok
     model = page.proxy
-    for row, label in ((0, "Hata"), (1, "Uyarı")):
-        index = model.index(row, COL_SEVERITY)
-        assert index.data(Qt.ItemDataRole.DisplayRole) == ""
-        assert not index.data(Qt.ItemDataRole.DecorationRole).isNull()
+    for row, (key, label) in enumerate((("error", "Hata"), ("warning", "Uyarı"))):
+        index = model.index(row, 0)
+        assert index.data(ROLE_SEVERITY) == key
+        assert index.data(Qt.ItemDataRole.AccessibleTextRole).startswith(f"{label}, ")
         assert label in index.data(Qt.ItemDataRole.ToolTipRole)
-        assert index.data(Qt.ItemDataRole.AccessibleTextRole) == label
 
 
-def test_severity_sort_still_orders_by_label(qtbot: QtBot, page: QaPage) -> None:
-    page.show_issues(*_issues())
-    page.proxy.sort(COL_SEVERITY, Qt.SortOrder.DescendingOrder)
-    assert page.proxy.index(0, COL_SEVERITY).data(Qt.ItemDataRole.AccessibleTextRole) == "Uyarı"
-    page.proxy.sort(COL_SEVERITY, Qt.SortOrder.AscendingOrder)
-    assert page.proxy.index(0, COL_SEVERITY).data(Qt.ItemDataRole.AccessibleTextRole) == "Hata"
+def test_severity_default_order_puts_errors_first(qtbot: QtBot, page: QaPage) -> None:
+    issues, rows = _issues()
+    page.show_issues(list(reversed(issues)), rows)  # uyarı önce verilse de hata başa gelir
+    assert [page.proxy.index(r, 0).data(ROLE_SEVERITY) for r in range(2)] == ["error", "warning"]
 
 
 def test_kind_list_fits_longest_kind_name(qtbot: QtBot, page: QaPage) -> None:
@@ -156,12 +154,6 @@ def test_kind_list_fits_longest_kind_name(qtbot: QtBot, page: QaPage) -> None:
     metrics = lst.fontMetrics()
     longest = max(metrics.horizontalAdvance(name) for name in KIND_LABELS.values())
     assert longest + 14 + 6 + 48 <= lst.viewport().width()
-
-
-def test_issue_headers_left_aligned(page: QaPage) -> None:
-    for col in range(page.model.columnCount()):
-        value = page.model.headerData(col, Qt.Orientation.Horizontal, Qt.ItemDataRole.TextAlignmentRole)
-        assert int(value) & _LEFT or col == COL_SEVERITY
 
 
 # --- E: font tablosu -------------------------------------------------------------------------------

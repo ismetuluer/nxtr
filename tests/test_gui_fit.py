@@ -299,7 +299,9 @@ def test_cleanup_options_are_not_a_separate_block(window: MainWindow) -> None:
     """Boşluk ve noktalama temizlikleri ayrı bir "sığdırırken ayrıca" bloğu değil, düzeltme türleridir."""
     page = _page(window)
     assert not hasattr(page, "fit_spaces")
-    assert {"double_space", "extra_dots", "space_before_punct"} <= set(page.fix_boxes)
+    from nxceviri.core.qa.autofix import FIX_KINDS
+
+    assert {"double_space", "extra_dots", "space_before_punct"} <= set(FIX_KINDS)
 
 
 # --- ayar değişince denetim kendiliğinden yenilenir -------------------------------------------

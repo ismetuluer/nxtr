@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-from PySide6.QtCore import QSettings, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QListWidgetItem
 from pytestqt.qtbot import QtBot
 
@@ -13,7 +11,7 @@ from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa.autofix import FIX_KINDS
 from nxceviri.core.qa.checks import KIND_LABELS, QaIssue
 from nxceviri.gui.issue_kinds import KindList
-from nxceviri.gui.qa_page import COL_TRANSLATION, FIX_TIPS, RISKY_FIX_KINDS, QaPage
+from nxceviri.gui.qa_page import FIX_TIPS, RISKY_FIX_KINDS, QaPage
 
 pytestmark = pytest.mark.gui
 
@@ -104,75 +102,90 @@ def test_fix_tips_cover_all_kinds() -> None:
     assert {"end_punctuation", "code_position", "newlines"} <= RISKY_FIX_KINDS
 
 
-def test_fix_boxes_hidden_without_findings_and_have_tips(page: QaPage) -> None:
-    assert page.fix_boxes["spaces"].isVisibleTo(page)
-    assert not page.fix_boxes["markup"].isVisibleTo(page)
-    assert "Boşluk" in page.fix_boxes["spaces"].text()
-    assert page.fix_boxes["spaces"].toolTip()
+def test_no_options_menu_or_side_panel_any_more(page: QaPage) -> None:
+    for name in ("fix_body", "fix_toggle", "scope_selected", "scope_all", "fix_boxes", "fix_options", "fix_menu"):
+        assert not hasattr(page, name)
+    assert not hasattr(page, "fix_kinds_changed")
 
 
-def test_risky_kinds_unchecked_on_first_open(page: QaPage) -> None:
-    assert page.fix_boxes["spaces"].isChecked()
-    for kind in RISKY_FIX_KINDS:
-        assert not page.fix_boxes[kind].isChecked()
-    page.set_checked_fix_kinds(["end_punctuation"])  # kayıtlı seçime uyulur
-    assert page.checked_fix_kinds() == ["end_punctuation"]
+def test_fix_bar_all_view_counts_only_safe_kinds(page: QaPage) -> None:
+    # "Tüm bulgular": kod 1 + boşluk 2; sondaki noktalama riskli olduğundan sayılmaz ve uyarı çıkmaz.
+    assert page.fix_bar.isVisibleTo(page)
+    assert page.fix_text.text() == "3 bulgu güvenle düzeltilebilir."
+    assert page.fix_button.text() == "3 bulguyu düzelt"
+    assert not page.fix_warning.isVisibleTo(page.fix_bar)
+    assert page.fix_button.isEnabled()
 
 
-def test_panel_collapse_and_persistence(qtbot: QtBot, tmp_path: Path) -> None:
-    settings = QSettings(str(tmp_path / "a.ini"), QSettings.Format.IniFormat)
-    p = QaPage()
-    qtbot.addWidget(p)
-    p.bind_settings(settings)
-    p.resize(1400, 800)
-    p.show()
-    assert not p.fixes_collapsed()
-    assert p.fix_body.isVisibleTo(p)
-    p.fix_toggle.click()
-    assert p.fixes_collapsed()
-    assert not p.fix_body.isVisibleTo(p)
-    assert str(settings.value("qa/fixes_collapsed")) in ("1", "true")
-    q = QaPage()
-    qtbot.addWidget(q)
-    q.bind_settings(settings)
-    q.resize(1400, 800)
-    q.show()
-    assert q.fixes_collapsed()
-    q.fix_toggle.click()
-    assert not q.fixes_collapsed()
+def test_fix_bar_selected_kind_counts_all_visible_and_warns_for_risky(qtbot: QtBot, page: QaPage) -> None:
+    _click(qtbot, page.kind_list, page.kind_list.kind_item("spaces"))
+    assert page.fix_text.text() == "Bu 2 bulgu kendiliğinden düzeltilebilir."
+    assert page.fix_button.text() == "2 bulguyu düzelt"
+    assert not page.fix_warning.isVisibleTo(page.fix_bar)
+    _click(qtbot, page.kind_list, page.kind_list.kind_item("end_punctuation"))  # riskli tür: seçmek onaydır
+    assert page.fix_text.text() == "Bu 1 bulgu kendiliğinden düzeltilebilir."
+    assert page.fix_button.text() == "1 bulguyu düzelt"
+    assert page.fix_warning.isVisibleTo(page.fix_bar)
+    assert page.fix_warning.text() == "Bu düzeltmeler yanılabilir; sonucu gözden geçirin."
+    assert page.fix_button.isEnabled()
 
 
-def test_panel_starts_collapsed_when_narrow(qtbot: QtBot) -> None:
-    p = QaPage()
-    qtbot.addWidget(p)
-    p.resize(800, 600)
-    p.show()
-    assert p.fixes_collapsed()
+def test_fix_bar_follows_row_selection_including_risky(page: QaPage) -> None:
+    _select(page, 2)  # yalnızca boşluk
+    assert page.fix_text.text() == "Seçili 1 bulgu kendiliğinden düzeltilebilir."
+    assert page.fix_button.text() == "Seçili 1 bulguyu düzelt"
+    assert not page.fix_warning.isVisibleTo(page.fix_bar)
+    _select(page, 2, 3)  # boşluk, boşluk, sondaki noktalama (riskli, açık seçim onaydır)
+    assert page.fix_text.text() == "Seçili 3 bulgu kendiliğinden düzeltilebilir."
+    assert page.fix_button.text() == "Seçili 3 bulguyu düzelt"
+    assert page.fix_warning.isVisibleTo(page.fix_bar)
+    page.table.clearSelection()
+    assert page.fix_button.text() == "3 bulguyu düzelt"
 
 
-def test_scope_radios(page: QaPage) -> None:
-    assert not page.scope_selected.isEnabled()
-    assert page.scope_all.isChecked()
-    assert page.scope_all.text() == "Tüm bulgular (3)"  # işaretli türlerdeki bulgular: kod 1 + boşluk 2
-    _select(page, 2, 3)
-    assert page.scope_selected.isEnabled()
-    assert page.scope_selected.isChecked()
-    assert page.scope_selected.text() == "Listede seçili 3 bulgu"
+def test_fix_bar_hidden_when_scope_is_empty(qtbot: QtBot, page: QaPage) -> None:
+    _click(qtbot, page.kind_list, page.kind_list.kind_item("spelling"))  # yalnızca düzeltilemeyen tür
+    assert not page.fix_bar.isVisibleTo(page)
+    page.show_issues([], [])
+    assert not page.fix_bar.isVisibleTo(page)
+    only_risky = [QaIssue(3, "k3", "end_punctuation", "warning", "nokta")]
+    page.show_issues(only_risky, [_row(3)])  # "Tüm bulgular"da yalnızca riskli tür: kapsam boş
+    assert not page.fix_bar.isVisibleTo(page)
+
+
+def test_fix_button_emits_scope_kinds_and_row_ids(qtbot: QtBot, page: QaPage) -> None:
     got: list[tuple[list[str], list[int]]] = []
     page.fix_requested.connect(lambda k, r: got.append((k, r)))
     page.fix_button.click()
-    assert got == [(["placeholder", "spaces"], [2, 3])]
-    page.scope_all.setChecked(True)
+    assert got == [(["placeholder", "spaces"], [1, 2, 3])]  # Tüm bulgular: riskli sondaki noktalama yok
+    _select(page, 2, 3)
     page.fix_button.click()
-    assert got[-1] == (["placeholder", "spaces"], [])
+    kinds, row_ids = got[-1]
+    assert set(kinds) == {"spaces", "end_punctuation"}
+    assert row_ids == [2, 3]
+    page.table.clearSelection()
+    _click(qtbot, page.kind_list, page.kind_list.kind_item("end_punctuation"))
+    page.fix_button.click()
+    assert got[-1] == (["end_punctuation"], [3])
+
+
+def test_check_button_becomes_secondary_after_first_check(qtbot: QtBot) -> None:
+    p = QaPage()
+    qtbot.addWidget(p)
+    assert (p.check_button.text(), p.check_button.property("kind")) == ("Denetle", "primary")
+    p.show_issues(_issues(), [_row(i) for i in range(1, 5)])
+    assert (p.check_button.text(), p.check_button.property("kind")) == ("Yeniden Denetle", None)
+    assert p.fix_button.property("kind") == "primary"  # ekrandaki tek dolu düğme düzeltme düğmesi
+    p.reset()
+    assert (p.check_button.text(), p.check_button.property("kind")) == ("Denetle", "primary")
 
 
 def test_inline_edit_signal(page: QaPage) -> None:
     got: list[tuple[int, str]] = []
     page.translation_edited.connect(lambda i, t: got.append((i, t)))
-    index = page.model.index(1, COL_TRANSLATION)
+    src = next(n for n, i in enumerate(page.model.issues) if i.row_id == 2)
+    index = page.model.index(src, 0)
     assert index.flags() & Qt.ItemFlag.ItemIsEditable
-    assert not page.model.index(1, 0).flags() & Qt.ItemFlag.ItemIsEditable
     page.model.setData(index, "Yeni", Qt.ItemDataRole.EditRole)
     assert got == [(2, "Yeni")]
     page.model.setData(index, "Merhaba.", Qt.ItemDataRole.EditRole)  # değişmedi
@@ -186,7 +199,7 @@ def test_replace_row_issues(page: QaPage) -> None:
     page.replace_row_issues(3, [QaIssue(3, "k3", "spaces", "warning", "boşluk")], _row(3, "Yeni"))
     assert "end_punctuation" not in page.kind_list.visible_kinds()
     assert page.kind_list.count_of("spaces") == 2
-    assert page.fix_counts["end_punctuation"] == 0
+    assert page.kind_list.count_of("end_punctuation") == 0
     assert page._selected_row_ids() == [3]  # seçim korundu
     src = [i for i in page.model.issues if i.row_id == 3]
     assert len(src) == 1

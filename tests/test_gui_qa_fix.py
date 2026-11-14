@@ -61,10 +61,8 @@ def _rows(w: MainWindow) -> dict[str, TranslationRow]:
 
 
 def _only(w: MainWindow, *kinds: str) -> None:
-    page = w.qa_page
-    page.fix_none.click()
-    for kind in kinds:
-        page.fix_boxes[kind].setChecked(True)
+    """Soldaki listeden yalnızca bu türleri seçer (türü seçmek düzeltme isteğidir)."""
+    w.qa_page.kind_list.select_kinds(kinds)
 
 
 def _select_issue_row(w: MainWindow, key: str) -> None:
@@ -78,15 +76,13 @@ def _select_issue_row(w: MainWindow, key: str) -> None:
     raise AssertionError(f"{key} için bulgu yok")
 
 
-def test_counts_and_disabled_kinds(window: MainWindow) -> None:
+def test_counts_and_bar_in_all_view(window: MainWindow) -> None:
     page = window.qa_page
-    assert page.fix_counts["spaces"] == 2
-    assert page.fix_counts["end_punctuation"] == 1
-    assert page.fix_counts["repeated_word"] == 1
-    assert page.fix_boxes["spaces"].text() == "Boşluk  2"
-    assert page.fix_boxes["spaces"].isVisibleTo(page.fix_body)
-    assert not page.fix_boxes["markup"].isVisibleTo(page.fix_body)  # bulgusu olmayan tür görünmez
-    assert page.fix_button.text() == "Seçilenleri Düzelt"
+    kl = page.kind_list
+    assert (kl.count_of("spaces"), kl.count_of("end_punctuation"), kl.count_of("repeated_word")) == (2, 1, 1)
+    # "Tüm bulgular": yalnızca güvenli türler (boşluk 2 + tekrarlı sözcük 1); sondaki noktalama riskli, sayılmaz.
+    assert page.fix_text.text() == "3 bulgu güvenle düzeltilebilir."
+    assert page.fix_button.text() == "3 bulguyu düzelt"
 
 
 def test_fix_selected_kinds_report_and_second_round(window: MainWindow) -> None:
@@ -101,9 +97,8 @@ def test_fix_selected_kinds_report_and_second_round(window: MainWindow) -> None:
     notice = window.notifier.history[0]  # sayfada kutu değil, bildirim
     assert notice.title == "1 satır düzeltildi"
     assert [a.label for a in notice.actions] == ["Raporu Gör"]
-    assert page.fix_counts["end_punctuation"] == 0  # denetim kendiliğinden yeniden çalıştı
-    assert not page.fix_boxes["end_punctuation"].isVisibleTo(page.fix_body)
-    assert page.fix_counts["spaces"] == 2
+    assert page.kind_list.count_of("end_punctuation") == 0  # denetim kendiliğinden yeniden çalıştı
+    assert page.kind_list.count_of("spaces") == 2
 
     notice.actions[0].callback()
     dialog = window.changes_dialog
@@ -140,33 +135,13 @@ def test_fix_is_one_undoable_job(window: MainWindow) -> None:
 def test_selected_rows_scope(window: MainWindow) -> None:
     page = window.qa_page
     _select_issue_row(window, "c")
-    assert page.scope_selected.isChecked()
+    assert page.fix_button.text() == "Seçili 1 bulguyu düzelt"
     page.fix_button.click()
     rows = _rows(window)
     assert rows["c"].translation == "Devam et ve bitir"
     assert rows["a"].translation == "Oyunu Başlat."  # seçili olmayan satırlara dokunulmadı
     assert rows["b"].translation == "Merhaba"
     assert page.last_fix_text == "1 satır düzeltildi."
-
-
-def test_no_kind_selected_disables_button(window: MainWindow) -> None:
-    page = window.qa_page
-    page.fix_none.click()
-    assert not page.fix_button.isEnabled()
-    page.fix_all.click()
-    assert page.fix_button.isEnabled()
-
-
-def test_selection_is_remembered(window: MainWindow) -> None:
-    _only(window, "spaces", "markup")  # markup'ın bulgusu yok; yine de hatırlanır
-    assert window.settings.value("qa/fix_kinds") == "markup,spaces"
-    other = MainWindow(window.settings)
-    try:
-        assert other.qa_page.checked_fix_kinds() == ["markup", "spaces"]
-    finally:
-        other.dirty = False
-        other.close()
-        other.deleteLater()
 
 
 def test_ollama_fix_is_gone(window: MainWindow) -> None:

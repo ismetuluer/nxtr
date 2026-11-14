@@ -15,17 +15,8 @@ from pytestqt.qtbot import QtBot
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa.checks import QaIssue
 from nxceviri.core.translate.status import STATUS_LABELS, Status
-from nxceviri.gui.qa_page import (
-    COL_DESCRIPTION,
-    COL_SEVERITY,
-    QaPage,
-)
-from nxceviri.gui.qa_page import (
-    COL_SOURCE as QA_SOURCE,
-)
-from nxceviri.gui.qa_page import (
-    COL_TRANSLATION as QA_TRANSLATION,
-)
+from nxceviri.gui.issue_rows import ROLE_TRANSLATION
+from nxceviri.gui.qa_page import QaPage
 from nxceviri.gui.status_cell import STATUS_ICONS, STATUS_ROLE
 from nxceviri.gui.table_columns import FitTableView
 from nxceviri.gui.translate_page import (
@@ -174,14 +165,20 @@ def test_natural_sort_keeps_turkish_letters(qtbot: QtBot) -> None:
     assert _column(p, COL_SOURCE) == ["cam 1", "çilek 9", "çilek 10", "dünya", "şeker 2"]
 
 
-def test_qa_table_sorts_naturally(qtbot: QtBot) -> None:
+def test_qa_default_order_is_severity_then_kind_then_number(qtbot: QtBot) -> None:
     page = QaPage()
     qtbot.addWidget(page)
     rows = {i: _row(i, f"Satır {i}", f"Satır {i}") for i in (1, 2, 10, 100)}
-    issues = [QaIssue(i, f"K/{i}", "spaces", "warning", "Sorun") for i in (10, 100, 2, 1)]
+    issues = [
+        QaIssue(100, "K/100", "spaces", "warning", "Sorun"),
+        QaIssue(2, "K/2", "spaces", "warning", "Sorun"),
+        QaIssue(10, "K/10", "placeholder", "error", "Sorun"),
+        QaIssue(1, "K/1", "spaces", "warning", "Sorun"),
+    ]
+    page.model.number_of = lambda row_id: {1: 4, 2: 3, 10: 2, 100: 1}[row_id]  # çeviri tablosundaki No
     page.model.set_issues(issues, rows)
-    page.proxy.sort(QA_SOURCE, Qt.SortOrder.AscendingOrder)
-    assert [page.proxy.index(r, QA_SOURCE).data() for r in range(4)] == [f"Satır {i}" for i in (1, 2, 10, 100)]
+    ordered = [page.proxy.index(r, 0).data(ROLE_TRANSLATION) for r in range(4)]
+    assert ordered == ["Satır 10", "Satır 100", "Satır 2", "Satır 1"]  # hata önce; sonra No sırası
 
 
 # --- durum simgeleri ------------------------------------------------------------------------
@@ -296,32 +293,6 @@ def test_hiding_a_column_drops_its_filter(qtbot: QtBot) -> None:
     _toggle(p, "Anahtar")
     assert not p.key_filter.active
     assert p.proxy.rowCount() == 2
-
-
-def test_qa_table_header_menu_and_resizable_columns(qtbot: QtBot, tmp_path: Path) -> None:
-    page = QaPage()
-    qtbot.addWidget(page)
-    page.bind_settings(_ini(tmp_path))
-    page.resize(1000, 700)
-    page.show()
-    h = page.table.horizontalHeader()
-    assert all(h.sectionResizeMode(c) == h.ResizeMode.Interactive for c in range(h.count()))
-    menu = page.column_menu.build_menu()
-    severity = next(a for a in menu.actions() if a.text() == "Önem")
-    assert severity.isEnabled()
-    locked = next(a for a in menu.actions() if a.text() == "Orijinal")
-    assert not locked.isEnabled()
-    severity.toggle()
-    assert page.table.isColumnHidden(COL_SEVERITY)
-    h.resizeSection(QA_TRANSLATION, 321)
-    other = QaPage()
-    qtbot.addWidget(other)
-    other.bind_settings(_ini(tmp_path))
-    other.resize(1000, 700)
-    other.show()
-    assert other.table.isColumnHidden(COL_SEVERITY)
-    assert other.table.horizontalHeader().sectionSize(QA_TRANSLATION) == 321
-    assert COL_DESCRIPTION != COL_SEVERITY
 
 
 # --- akıllı sığdırma ------------------------------------------------------------------------

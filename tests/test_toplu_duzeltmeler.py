@@ -71,6 +71,6 @@ def test_replacing_project_resets_qa_page(qtbot: QtBot, window: MainWindow) -> N
     assert page.proxy.rowCount() == 0
     assert page.summary.text() == "Henüz denetlenmedi."
     assert page.summary_icon.isHidden()
-    assert not any(page.fix_counts.values())
+    assert not page.fix_bar.isVisibleTo(page)
     assert window._qa_count is None
     assert not window._qa_errors

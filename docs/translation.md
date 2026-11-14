@@ -87,14 +87,15 @@ Kod: `nxceviri/core/translate/` — `providers/base.py` (sözleşme), `providers
   eklendiğinde çıkar ("Start Game" → "Oyunu Başlat."); düzeltmesi işareti atar (sondaki boşluk ve kontrol kodları
   kalır). Metin içindeki ünlem/soru denetlenmez (Türkçede doğal). **Tekrarlı noktalama** (4+ nokta, kaynakta
   olmayan "..", "!!!!", ",,") toplanır ("...", "!!!", ","); **Noktalama öncesi boşluk** ("Merhaba !") silinir.
-  İkisi de ayrı düzeltme türüdür ve Kontrol Et → Düzeltmeler'den seçilir; satır sığdırılırken de aynı seçimler
+  İkisi de ayrı düzeltme türüdür ve Kontrol Et'te düzeltme çubuğundan uygulanır; satır sığdırılırken de aynı temizlikler
   geçerlidir.
 - **Çeviriye karışan kod:** model bağlamdan anahtar adı gibi bir ifadeyi (`/(ursa_desc)`, `ursa_desc`) ya da
   orijinalde olmayan bir satır sonu eklerse satır **Şüpheli çeviri** olur ve toplu çeviride modele sorun söylenerek
   yeniden istenir. Modele anahtar adı kod olarak değil, sözcük ipucu olarak ("ursa desc") verilir.
-- **Kontrol Et → Düzeltmeler:** Denetle'den sonra bulguların altında düzeltilebilir türler sayılarıyla listelenir;
-  işaretlediğiniz türler **Seçilenleri Düzelt** ile yerinde düzeltilir (tabloda satır seçiliyse yalnızca o satırlarda,
-  onaylı satırlara dokunulmaz). “Raporu Gör” önceki/yeni hâli ve uygulanan düzeltmeyi gösterir; Ctrl+Z hepsini geri
+- **Kontrol Et → düzeltme çubuğu:** Denetle'den sonra bulgu listesinin üstünde kendiliğinden düzeltilebilen bulgu
+  sayısı ve **N bulguyu düzelt** düğmesi görünür. Kapsam: listede satır seçiliyse seçili bulgular; yoksa solda seçili
+  türlerin bulguları; "Tüm bulgular"dayken yalnızca güvenli (yanılma riski olmayan) türler. Onaylı satırlara
+  dokunulmaz. “Raporu Gör” önceki/yeni hâli ve uygulanan düzeltmeyi gösterir; Ctrl+Z hepsini geri
   alır. Düzeltmeler programla yapılır, model kullanılmaz.
 - **Yazım denetimi (Türkçe):** çevirideki sözcükler paketlenen Türkçe sözlükle (hunspell-tr, MPL-2.0; ~6,1 milyon
   sözcük biçimi, `nxceviri/assets/spell/tr.bloom`) karşılaştırılır. Sözlükte olmayan sözcük **Çevir sayfasında çeviri
@@ -215,7 +216,7 @@ Yerel modeller (ör. gemma4) redaksiyonda bazen özgünde olmayan `<div>` gibi e
 ekler ya da metnin ortasındaki satır sonu kodlarını en sona yığar. Her model sonucu projeye yazılmadan önce
 `core/translate/cleanup.py` bunları temizler (özgünde aynen geçen etiketlere dokunulmaz); sona yığılmış satır
 sonu kodları, metin sözcük sınırlarından özgündeki satır oranlarıyla bölünerek araya yerleştirilir. Kaç satırın
-temizlendiği iş bitince söylenir. Var olan çevirilerde aynı temizlik Kontrol Et → Düzeltmeler (*Fazla etiket*, *Kod yeri*) ile yapılır.
+temizlendiği iş bitince söylenir. Var olan çevirilerde aynı temizlik Kontrol Et'te türü soldan seçip düzeltme çubuğuyla (*Fazla etiket*, *Kod yeri*) ile yapılır.
 
 Çeviri tablosunda çeviri metninin rengi en önemli sorunu gösterir (Görünüm → Sorunları renkle göster; ipucunda
 renklerin açıklaması): kırmızı kontrol kodu hatası, mor fazla etiket, turuncu uzunluk sınırı, camgöbeği satır
@@ -237,7 +238,7 @@ Oyun metin kutusuna sığmayan satırları bulup yeniden bölmek için:
    *değişken* birkaç karakter, *sembol* bir karakter yer kaplar, *biçim* (renk, stil) ve *diğer* yer kaplamaz ve yanındaki
    sözcükten ayrılmaz. Tür etiketten tahmin edilir; yanlışsa açılır listeden düzeltin.
 4. İsterseniz “Düzeltirken temizle” seçeneklerini (gereksiz boşluk, noktalama öncesi boşluk, tekrarlı noktalama) ayarlayın.
-5. **Denetle**: *Satır uzun*, *Sayfa uzun*, *Kötü bölünme* uyarıları listelenir. Düzeltmeler'de bu türleri işaretleyip **Seçilenleri Düzelt**: sorunlu sayfalar
+5. **Denetle**: *Satır uzun*, *Sayfa uzun*, *Kötü bölünme* uyarıları listelenir. Solda bu türleri seçip düzeltme çubuğundaki **bulguyu düzelt** düğmesine basın: sorunlu sayfalar
    noktalamadan, yoksa kelime bitiminden bölünür; sonra **Değişiklikler** penceresinde önceki/sonraki hâli görüp
    satırları tek tek geri alabilirsiniz.
 

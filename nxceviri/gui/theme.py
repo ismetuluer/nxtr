@@ -226,7 +226,15 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QWidget#stepNavColumn {{ background: {t["surface"]}; border-right: 1px solid {t["border"]}; }}
     QListWidget#stepNav {{ background: transparent; border: none; outline: none; padding: 4px 8px 12px 8px; }}
     QListWidget#kindList {{ outline: none; padding: 4px 2px; }}
-    QTableView#issueTable::item:selected {{ background: {t["selection"]}; color: {t["text"]}; }}
+    QTableView#issueTable {{ border-radius: 8px; }}
+    QFrame#fixBar {{ background: {t["selection"]}; border-radius: 8px; }}
+    QFrame#fixBar QLabel {{ color: {t["text"]}; }}
+    QFrame#fixBar QLabel[role="muted"] {{ color: {t["muted"]}; }}
+    QFrame#fixBar QToolButton {{
+        color: {t["text"]}; border: 1px solid transparent; border-radius: 6px; padding: 4px 8px;
+    }}
+    QFrame#fixBar QToolButton:hover {{ background: {t["surface"]}; }}
+    QFrame#fixBar QToolButton::menu-indicator {{ image: none; }}
     QLabel[role="navTitle"] {{ font-weight: 600; font-size: {size(1.1)}; }}
     QTableView, QTableWidget, QTreeWidget, QListWidget, QLineEdit, QComboBox, QSpinBox, QPlainTextEdit {{
         background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: 6px;

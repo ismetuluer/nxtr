@@ -450,7 +450,7 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(self.scan_page)
         self.pages.addWidget(self.translate_page)
         self.qa_page = QaPage()
-        self.qa_page.bind_settings(self.settings)
+        self.qa_page.model.number_of = self.translate_page.model.number
         self.export_page = ExportPage()
         self.pages.addWidget(self.qa_page)
         self.pages.addWidget(self.export_page)
@@ -565,7 +565,6 @@ class MainWindow(QMainWindow):
         self.qa_page.open_row.connect(self._open_row)
         self.qa_page.fix_requested.connect(self.apply_fixes)
         self.qa_page.translation_edited.connect(self._edit_from_issues)
-        self.qa_page.fix_kinds_changed.connect(self._save_fix_kinds)
         self.qa_page.report_requested.connect(self.show_job_changes)
         self.qa_page.fix_notice.connect(self._fix_notice)
         self.qa_page.fit_changed.connect(self._save_fit)
@@ -577,9 +576,6 @@ class MainWindow(QMainWindow):
         self.export_page.open_folder.connect(self._open_export_folder)
         self.export_page.cancel.connect(self._cancel_task)
 
-        saved_kinds = self.settings.value("qa/fix_kinds", None)
-        if saved_kinds is not None:
-            self.qa_page.set_checked_fix_kinds(str(saved_kinds).split(","))
         self._build_menus()
         self._restore_keys()
         self.nav.setCurrentRow(STEP_ADD)
@@ -2132,9 +2128,6 @@ class MainWindow(QMainWindow):
             self._apply_spell_copied()
             self._sync_spell()
             self._recheck_if_done()
-
-    def _save_fix_kinds(self, kinds: list[str]) -> None:
-        self.settings.setValue("qa/fix_kinds", ",".join(kinds))
 
     def _write_row_changes(
         self, plan: list[tuple[int, str]], rows: list[TranslationRow], job_id: str

@@ -226,16 +226,15 @@ def test_newlines_are_shown_as_real_breaks_not_symbols(qtbot: QtBot, page: Trans
 
 def test_qa_table_shows_newlines_as_real_breaks() -> None:
     from nxceviri.core.qa.checks import QaIssue
-    from nxceviri.gui.qa_page import COL_SOURCE as QA_SOURCE
-    from nxceviri.gui.qa_page import COL_TRANSLATION as QA_TRANSLATION
+    from nxceviri.gui.issue_rows import ROLE_SOURCE, ROLE_TRANSLATION
     from nxceviri.gui.qa_page import IssueModel
 
     source, translation = "Birinci\nİkinci", "Birinci\nİkinci"
     rows = {1: _row(1, source, translation)}
     model = IssueModel()
     model.set_issues([QaIssue(1, "K/1", "spaces", "warning", "Sorun")], rows)
-    assert model.index(0, QA_SOURCE).data() == source
-    assert model.index(0, QA_TRANSLATION).data() == translation
+    assert model.index(0, 0).data(ROLE_SOURCE) == source
+    assert model.index(0, 0).data(ROLE_TRANSLATION) == translation
 
 
 def test_row_heights_are_measured_lazily(qtbot: QtBot) -> None:

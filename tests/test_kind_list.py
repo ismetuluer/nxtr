@@ -11,7 +11,7 @@ from pytestqt.qtbot import QtBot
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa.checks import KIND_LABELS, QaIssue
 from nxceviri.gui.issue_kinds import KIND_GROUPS, OTHER_GROUP, KindList
-from nxceviri.gui.qa_page import COL_DESCRIPTION, COL_SEVERITY, QaPage
+from nxceviri.gui.qa_page import QaPage
 
 pytestmark = pytest.mark.gui
 
@@ -239,38 +239,33 @@ def test_overflow_kinds_are_shown_selected_in_list(page: QaPage) -> None:
 
 
 def test_kind_column_is_gone_but_kind_name_stays_in_description_hint(page: QaPage) -> None:
-    headers = [page.model.headerData(c, Qt.Orientation.Horizontal) for c in range(page.model.columnCount())]
-    assert "Tür" not in headers
-    assert headers == ["", "Açıklama", "Orijinal", "Çeviri"]
-    index = page.proxy.index(0, COL_DESCRIPTION)
+    assert page.model.columnCount() == 1  # tek sütun: Tür (ve öteki) sütunları yok
+    index = page.proxy.index(0, 0)
     assert KIND_LABELS["placeholder"] in index.data(Qt.ItemDataRole.ToolTipRole)
     assert KIND_LABELS["placeholder"] in index.data(Qt.ItemDataRole.AccessibleTextRole)
     assert "placeholder iletisi" in index.data(Qt.ItemDataRole.AccessibleTextRole)
 
 
-def test_columns_share_remaining_width(qtbot: QtBot, page: QaPage) -> None:
-    qtbot.wait(150)
-    widths = [page.table.columnWidth(c) for c in range(page.model.columnCount())]
-    assert widths[COL_SEVERITY] <= 48
-    assert min(widths[1:]) >= 100
-    assert abs(sum(widths) - page.table.viewport().width()) <= 4
+def test_single_column_fills_the_viewport_width(qtbot: QtBot, page: QaPage) -> None:
+    qtbot.wait(100)
+    assert page.table.columnWidth(0) >= page.table.viewport().width() - 4
 
 
 # --- hayalet kutu ----------------------------------------------------------------------------------
 
 
-def test_severity_cell_draws_no_ghost_frame_when_selected_and_focused(page: QaPage) -> None:
-    """Boş metinli Önem hücresinde varsayılan çizim, simgenin yanına odak çerçevesi çizerdi."""
-    delegate = page.table.itemDelegateForColumn(COL_SEVERITY)
+def test_selected_row_draws_continuous_selection_without_ghost_frame(page: QaPage) -> None:
+    """Seçili ve odaklı satırda seçim zemini kesintisizdir; satırın kenar bantlarında çerçeve/kutu çizilmez."""
+    delegate = page.table.itemDelegate()
     assert delegate is not None
-    flags = page.model.flags(page.model.index(0, COL_SEVERITY))
-    assert not flags & Qt.ItemFlag.ItemIsEditable
-    width, height = page.table.columnWidth(COL_SEVERITY), 36
+    width, height = 600, page.table.verticalHeader().defaultSectionSize()
     image = QImage(width, height, QImage.Format.Format_ARGB32)
     image.fill(Qt.GlobalColor.transparent)
     option = QStyleOptionViewItem()
     option.widget = page.table
     option.palette = page.table.palette()
+    option.font = page.table.font()
+    option.fontMetrics = page.table.fontMetrics()
     option.rect = QRect(0, 0, width, height)
     option.state = (
         QStyle.StateFlag.State_Enabled
@@ -279,12 +274,11 @@ def test_severity_cell_draws_no_ghost_frame_when_selected_and_focused(page: QaPa
         | QStyle.StateFlag.State_Active
     )
     painter = QPainter(image)
-    delegate.paint(painter, option, page.proxy.index(0, COL_SEVERITY))
+    delegate.paint(painter, option, page.proxy.index(0, 0))
     painter.end()
-    margin = (width - 16) // 2 - 2  # simgenin iki yanındaki boş bant
     side: set[int] = set()
-    for y in range(2, height - 2):
-        for x in list(range(2, margin)) + list(range(width - margin, width - 2)):
+    for y in range(2, height - 3):
+        for x in list(range(1, 8)) + list(range(width - 8, width - 1)):
             side.add(image.pixel(QPoint(x, y)))
-    assert len(side) == 1, "simgenin yanında seçim zemininden başka bir şey (çerçeve) çizilmiş"
-    assert QColor(side.pop()).alpha() == 255  # zemin tüm hücreyi dolduruyor: seçim kesintisiz
+    assert len(side) == 1, "satırın kenarında seçim zemininden başka bir şey (çerçeve) çizilmiş"
+    assert QColor(side.pop()).alpha() == 255  # zemin tüm satırı dolduruyor: seçim kesintisiz

@@ -472,8 +472,8 @@ def test_machine_translation_flow(qtbot: QtBot, window: MainWindow, game: GameFi
 
 
 def test_qa_and_export_flow(qtbot: QtBot, window: MainWindow, game: GameFiles, tmp_path: Path) -> None:
+    from nxceviri.gui.issue_rows import ROLE_TRANSLATION
     from nxceviri.gui.main_window import STEP_EXPORT, STEP_QA
-    from nxceviri.gui.qa_page import COL_TRANSLATION
 
     window.load_keys_file(game.keys_path)
     window.add_files([game.base_nsp, game.update_nsp])
@@ -495,7 +495,7 @@ def test_qa_and_export_flow(qtbot: QtBot, window: MainWindow, game: GameFiles, t
     finish_task(window)
     assert "1 hata" in qa.summary.text()
     assert qa.proxy.rowCount() == 1  # bilgiler (çevrilmedi) varsayılan olarak gizli
-    assert qa.proxy.index(0, COL_TRANSLATION).data() == "Bekleyin"  # bulguda çeviri metni görünür
+    assert qa.proxy.index(0, 0).data(ROLE_TRANSLATION) == "Bekleyin"  # bulguda çeviri metni görünür
     page.search.setText("Maceraya")  # filtre hedef satırı gizlese bile tam o satır açılır
     qa.table.doubleClicked.emit(qa.proxy.index(0, 0))
     assert window.pages.currentIndex() == STEP_TRANSLATE

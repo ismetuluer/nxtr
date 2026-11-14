@@ -51,8 +51,8 @@ anahtar, oyun dosyası, orijinal dosyalara dokunma yok.
 ### C. Metin kutudan taşıyor / satır kaydı bozuk
 1. **Kontrol Et → Sığdırma:** "Sığdırmayı aç", satırda en çok karakter ve sayfada en çok satır değerleri (bilmiyorsa
    "Orijinalden öğren"). Kod türlerini kontrol et: *satır sonu*, *sayfa sonu*, *değişken* (birkaç karakter),
-   *sembol* (bir karakter). Yanlış tahmin edilen tür taşmanın sebebidir. Denetle → Düzeltmeler'de ilgili türleri
-   işaretle → Seçilenleri Düzelt → Değişiklikler penceresinde bak (`docs/translation.md` "Metin sığdırma").
+   *sembol* (bir karakter). Yanlış tahmin edilen tür taşmanın sebebidir. Denetle → soldan ilgili türü seç →
+   düzeltme çubuğundaki düğme → Değişiklikler penceresinde bak (`docs/translation.md` "Metin sığdırma").
 2. Türkçe çeviri İngilizceden %20-40 uzundur; sınırı aşan satırlar için modele kısaltma yaptır.
 3. Sınır karakter sayısıdır, piksel değildir. Geniş harfli fontta (`W`, `M`) taşma olursa sınırı biraz düşür.
 4. Taşma yalnızca bir yerde oluyorsa o dosyaya ayrı sınır ver ("Kapsam").
@@ -78,7 +78,7 @@ dönüştürmeyi seç; açıksa ve hâlâ kutucuk varsa tabloda o fontun "Yamayl
    tabloda ham çeviriyi gör. Bozuk satırı Kontrol Et'te düzelt, yeniden üret.
 2. `{input_0}` gibi değişkenler yerinde değilse çeviri kodu yanlış yere taşımıştır (kod sırası). Yalnızca değer
    taşımayan kodlarda (renk/biçim, satır/sayfa sonu) sıra otomatik düzeltilir; değişkenler elle düzeltilir.
-3. Fazla `<div>` gibi etiketler yerel modelden gelir: Kontrol Et → Düzeltmeler → *Fazla etiket*.
+3. Fazla `<div>` gibi etiketler yerel modelden gelir: Kontrol Et'te soldan *Fazla etiket* türünü seçip düzeltme çubuğundaki düğmeye bas.
 
 ### G. Tüm bunlardan sonra hâlâ belirsiz
 Sorunu **küçült**: tek dosya, tek satır, tek harf. Elle üretilmiş küçük örnekle (yani gerçek oyun dosyası olmadan)
