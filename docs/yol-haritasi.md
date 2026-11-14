@@ -114,12 +114,17 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
   (Bul, Yerine, Onayla, İptal).
 
 **Sırada**
-1. **Kontrol Et sekme çubuğu** (görsel denetim madde 8): tasarım dili değişikliği, ürün sahibinin onayını bekliyor.
-   Sorunlar ekranı gerçek pencerede ve gerçek projeyle hâlâ denenmedi.
+1. **Görsel denetimin kalan maddeleri** (yukarıda 11–16): başlık hizası, "Kanıtlar" satırı, Dışa Aktar'daki teknik
+   satır, durum çubuğu etiketleri, boş "Oyunu Ekle" ekranı, koyu temada satır zemini. Sorunlar ekranı gerçek
+   pencerede ve gerçek projeyle hâlâ denenmedi.
+2. **Yazım denetimi:** kesme işaretli sözcüklerin kökü ("Sifu'n" → Sifu) orijinalde geçmiyorsa denetlenmesi
+   (ürün sahibinin sorusu, 2026-11-14; karar bekliyor).
 
 **Yapıldı (0.58.1 sonrası, yayımlanmadı)**
 - Metinleri Tara: Tür, Ayrıntı ve Dil sütunları içeriğe göre boyutlanır, kırpılmaz; dar pencerede dosya yolu ortadan
   kısalır (tam yol ipucunda, en az 160 px). Çok dar pencerede tabloda yatay kaydırma çıkar.
+- Kontrol Et sekmeleri (görsel denetim madde 8): Windows sekmesi yerine düz, yuvarlak köşeli; seçili sekme seçim
+  renginde dolgulu (ürün sahibinin onayıyla, 2026-11-15). Sekme çubuğunda klavye odağı için ayrı işaret yok.
 
 **Ertelendi**
 - **Metinleri Tara'da eklentinin içerikten bulduğu dil** (2026-11-14). Yerleşik eklentilerin neredeyse hepsi dili
