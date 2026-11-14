@@ -105,7 +105,7 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 - Metinleri Tara'da dosya seçimi ("Aktar" kutusu, "Dil" sütunu, dili bilinmeyenler uyarısı), yeniden aktarmada
   kaldırma onayı ve bu sayfanın açıklama ipuçları.
 
-**Yapıldı (0.58.0 sonrası, yayımlanmadı)**
+**Yapıldı (0.58.1)**
 - Sorunlar listesinde sağ tık → "Sırala": önem, satır numarası, bulguya göre, dosyaya göre; seçim hatırlanır.
 - Terim denetimi büyük/küçük harfi Türkçe kurallarıyla karşılaştırır ("FIRLATMA" = "Fırlatma"); otomatik düzeltme de.
 - Sorunlar satırında kontrol kodları çeviri tablosundaki gibi çip olarak çizilir.

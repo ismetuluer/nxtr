@@ -2,6 +2,22 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.58.1] — 2026-11-14 — Sorunlar'da sıralama ve kod çipleri; Türkçe terim karşılaştırması
+
+### Eklendi
+- **Sorunlar listesinde sıralama:** sağ tık → "Sırala": önem sırası (varsayılan), satır numarası, bulguya göre (aynı
+  terimin bulguları yan yana), dosyaya göre. Seçim hatırlanır.
+- **Açıklama ipuçları (Dışa Aktar, Kontrol Et):** hedef seçenekleri modun nereye kopyalanacağını söyler; mod adı,
+  konum, `<TitleID>`, font tarama, harf dönüştürme seçenekleri, Denetle ve sığdırma alanları üzerine gelince açıklanır.
+
+### Değişti
+- Sorunlar satırında kontrol kodları düz `⟦n⟧` yerine çeviri tablosundaki gibi renkli çip olarak çizilir.
+
+### Düzeltildi
+- **Terim denetimi Türkçe büyük/küçük harfi yanlış karşılaştırıyordu:** sözlükte "Fırlatma" varken çeviride
+  "FIRLATMA" yazınca (I → i) terim bulunamıyor ve haksız "Terminolojide … çeviride yok" bulgusu çıkıyordu. Denetim ve
+  otomatik düzeltme artık Türkçe kurallarıyla karşılaştırır.
+
 ## [0.58.0] — 2026-11-14 — Sorunlar ekranı yeniden kuruldu; Metinleri Tara'da dosya seçimi
 
 ### Eklendi

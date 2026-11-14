@@ -1,6 +1,12 @@
-# HANDOFF — oturum devri (2026-11-14, 0.58.0)
+# HANDOFF — oturum devri (2026-11-14, 0.58.1)
 
 ## Durum
+- **Sürüm 0.58.1** (2026-11-14; CHANGELOG 0.58.1): Sorunlar'da sağ tık sıralaması (`IssueModel.set_sort`, ayar
+  `qa/sort`), bulgu satırında kod çipleri (`IssueRowDelegate`, `marked_html` + sınırlı önbellek), terim denetiminde
+  `turkish_lower` (`core/qa/checks.py`, `core/qa/autofix.py`), Dışa Aktar ve Kontrol Et ipuçları
+  (`tests/test_page_tips.py`). Tam test seti 2383 geçti. Gerçek pencerede denenmedi. Sıradaki: Metinleri Tara'da
+  eklentinin bulduğu dil ve dar pencerede kırpılan sütunlar; Kontrol Et sekme çubuğu ürün sahibinin tasarım onayını
+  bekliyor (`docs/yol-haritasi.md`).
 - **Sürüm 0.58.0** (2026-11-14; CHANGELOG 0.58.0): ürün sahibinin 0.57.2 geri bildirimi üzerine Kontrol Et → Sorunlar
   yeniden kuruldu (`gui/issue_kinds.py` tür listesi, `gui/issue_rows.py` bulgu satırları, bağlama göre düzeltme
   çubuğu) ve Metinleri Tara'ya dosya seçimi, dil sütunu, kaldırma onayı, ipuçları eklendi (`core/pipeline.py`
