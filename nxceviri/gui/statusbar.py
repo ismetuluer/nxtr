@@ -1,4 +1,4 @@
-"""Durum çubuğunun kalıcı bölmeleri: simge + kısa sayı; ayrıntı ipucundadır.
+"""Durum çubuğunun kalıcı bölmeleri: simge + kısa sayı ve etiket; ayrıntı ipucundadır.
 
 Bölmeler: anahtar durumu, satır sayısı, çeviri ilerlemesi, sorunlar, sağlayıcı ve kayıt. Geçici mesajlar
 (`QStatusBar.showMessage`) olduğu gibi çalışır; bölmeler sağda kalıcı bileşenlerdir ve en sağdaki bileşen
@@ -10,13 +10,26 @@ from __future__ import annotations
 
 from PySide6.QtCore import QEvent, QObject, Qt, Signal
 from PySide6.QtGui import QAction, QCursor
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QProgressBar, QStatusBar, QToolButton, QToolTip, QWidget
+from PySide6.QtWidgets import (
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QProgressBar,
+    QStatusBar,
+    QToolButton,
+    QToolTip,
+    QWidget,
+)
 
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.widgets import format_int, repolish
 
 PROGRESS_WIDTH = 60
 PROGRESS_HEIGHT = 4
+#: Anahtar düğmesinin görünen kısa etiketi (durum ve ayrıntı erişilebilir ad ile ipucundadır).
+KEYS_LABEL = "Anahtarlar"
+#: Çubuğun kenar boşluğu, boyut tutamacı ve geçici mesaj alanı için pay (px; ölçülen ~70).
+BAR_SLACK = 80
 #: Anahtar durumu → simge rengi (tema belirteci).
 _KEYS_TOKENS = {"success": "success", "danger": "danger", "neutral": "muted"}
 #: Sağlayıcı türü → simge (Lucide'de marka simgesi yok: bulut = DeepL, işlemci = yerel Ollama).
@@ -72,8 +85,11 @@ class StatusSegments(QObject):
 
     def __init__(self, bar: QStatusBar, update_badge: QWidget) -> None:
         super().__init__(bar)
+        self._bar = bar
+        self._badge = update_badge
+        #: Her etiketin (görünen bileşen, kısa metin, uzun ek); çubuk darsa ek düşer.
+        self._texts: dict[QLabel | QToolButton, tuple[str, str]] = {}
         self.keys_button = _tool_button("keys")
-        self.keys_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         bind_icon(self.keys_button, "key-round", size=14, tone="muted")
         self.keys_button.clicked.connect(self.keys_clicked)
         self.rows_icon = _icon_label("list")
@@ -107,7 +123,7 @@ class StatusSegments(QObject):
         self._cursor = _Segment(self.cursor_label)
         self._symbols = _Segment(self.symbols_button)
         self._save = _Segment(self.save_dot)
-        for segment in (
+        self._segments = (
             self._keys,
             self._rows,
             self._progress,
@@ -116,11 +132,45 @@ class StatusSegments(QObject):
             self._cursor,
             self._symbols,
             self._save,
-        ):
+        )
+        for segment in self._segments:
             bar.addPermanentWidget(segment)
         bar.addPermanentWidget(update_badge)
         for segment in (self._rows, self._progress, self._problems, self._provider, self._cursor):
             segment.hide()
+        self._texts[self.keys_button] = ("", KEYS_LABEL)
+        bar.installEventFilter(self)
+        self._refit()
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if watched is self._bar and event.type() == QEvent.Type.Resize:
+            self._refit()
+        return False
+
+    def _set_text(self, widget: QLabel | QToolButton, short: str, suffix: str = "") -> None:
+        """Etiketin kısa metnini ve (çubuk genişse eklenecek) ekini kaydeder, yerleşimi yeniden ölçer."""
+        self._texts[widget] = (short, suffix)
+        self._refit()
+
+    @staticmethod
+    def _segment_width(segment: _Segment) -> int:
+        """Bölmenin güncel ihtiyacı; yerleşim önbelleği eski kalmasın diye önce geçersiz kılınır."""
+        layout = segment.layout()
+        assert layout is not None
+        layout.invalidate()
+        return layout.sizeHint().width()
+
+    def _refit(self) -> None:
+        """Uzun metinler çubuğa sığıyorsa hepsi görünür, sığmıyorsa tüm ekler birlikte düşer (yarım sözcük yok)."""
+        for compact in (False, True):
+            for widget, (short, suffix) in self._texts.items():
+                widget.setMinimumWidth(0)
+                widget.setText(short if compact else f"{short}{suffix}")
+                widget.setMinimumWidth(widget.sizeHint().width())
+            need = sum(self._segment_width(seg) for seg in self._segments if seg.isVisibleTo(self._bar.window()))
+            need += self._badge.sizeHint().width() + BAR_SLACK
+            if need <= self._bar.width():
+                break
 
     def set_keys(self, state: str, text: str, tip: str) -> None:
         """Anahtar durumu: `state` "success", "danger" ya da "neutral" (simge rengi), `text` başlık, `tip` ayrıntı."""
@@ -139,7 +189,7 @@ class StatusSegments(QObject):
         visible = line is not None and column is not None
         self._cursor.setVisible(visible)
         if visible:
-            self.cursor_label.setText(f"Satır {line} · Sütun {column}")
+            self._set_text(self.cursor_label, f"Satır {line} · Sütun {column}")
 
     def set_provider_tip(self, text: str) -> None:
         """Sağlayıcı ipucunu günceller; ipucu o sırada açıksa yerinde yenilenir."""
@@ -163,7 +213,9 @@ class StatusSegments(QObject):
         percent = round(100 * translated / rows) if has_rows else 0
         self._rows.setVisible(has_rows)
         filtered = shown != rows
-        self.rows_label.setText(f"{format_int(shown)} / {format_int(rows)}" if filtered else format_int(rows))
+        self._set_text(
+            self.rows_label, f"{format_int(shown)} / {format_int(rows)}" if filtered else format_int(rows), " satır"
+        )
         self._rows.setToolTip(
             f"{format_int(rows)} satırdan {format_int(shown)} tanesi süzgeçte gösteriliyor"
             if filtered
@@ -171,20 +223,21 @@ class StatusSegments(QObject):
         )
         self._progress.setVisible(has_rows)
         self.progress.setValue(percent)
-        self.progress_label.setText(f"%{percent}")
+        self._set_text(self.progress_label, f"%{percent}", " çevrildi")
         self._progress.setToolTip(
             f"Çevrilen: {format_int(translated)} / {format_int(rows)}\n"
             f"Onaylı: {format_int(approved)}\nHatalı: {format_int(errors)}"
         )
         self._problems.setVisible(errors > 0)
-        self.problems_button.setText(format_int(errors))
+        self._set_text(self.problems_button, format_int(errors), " hatalı")
         self.problems_button.setToolTip(
             f"{format_int(errors)} hatalı satır var (dışa aktarılmaz). Kontrol Et için tıklayın."
         )
         self._provider.setVisible(bool(provider))
         if provider:
             bind_icon(self.provider_icon, _PROVIDER_ICONS.get(provider, "cpu"), size=14, tone="muted")
-            self.provider_label.setText(_PROVIDER_NAMES.get(provider, provider))
+            self._set_text(self.provider_label, _PROVIDER_NAMES.get(provider, provider))
         self.save_dot.setProperty("state", "success" if saved else "warning")
         self._save.setToolTip("Kaydedildi" if saved else "Kaydedilmedi")
         repolish(self.save_dot)
+        self._refit()

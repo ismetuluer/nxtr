@@ -9,7 +9,7 @@ from pathlib import Path
 import httpx
 import pytest
 from PySide6.QtCore import QSettings, Qt
-from PySide6.QtWidgets import QApplication, QFileDialog
+from PySide6.QtWidgets import QApplication, QFileDialog, QLabel, QToolButton
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.formats.base import TextEntry
@@ -18,6 +18,7 @@ from nxceviri.core.secrets import DEEPL_API_KEY, MemoryStore
 from nxceviri.gui import icons
 from nxceviri.gui.main_window import STEP_QA, MainWindow
 from nxceviri.gui.provider_probe import TTL_S
+from nxceviri.gui.statusbar import StatusSegments
 
 pytestmark = pytest.mark.gui
 
@@ -96,7 +97,8 @@ def test_empty_project_shows_only_save(empty_window: MainWindow) -> None:
     assert not seg.provider_label.isVisibleTo(empty_window)
     assert seg.save_dot.isVisibleTo(empty_window)
     assert seg.keys_button.isVisibleTo(empty_window)  # anahtar durumu her zaman görünür
-    assert seg.keys_button.text() == ""  # yalnızca simge; durum ipucunda
+    assert seg.keys_button.text() == "Anahtarlar"  # simgenin yanında kısa etiket; durum ipucunda
+    assert seg.keys_button.toolButtonStyle() == Qt.ToolButtonStyle.ToolButtonTextBesideIcon
     assert seg.keys_button.toolTip().startswith("Anahtar seçilmedi")
     assert "Dosya → Anahtarlar" in seg.keys_button.toolTip()
 
@@ -118,9 +120,9 @@ def test_keys_icon_color_follows_state(window: MainWindow) -> None:
 def test_counts_after_translation_commit(qtbot: QtBot, window: MainWindow) -> None:
     seg = window.status_segments
     assert seg.rows_label.isVisibleTo(window)
-    assert seg.rows_label.text() == "3"
+    assert seg.rows_label.text() == "3 satır"
     assert seg._rows.toolTip() == "3 satır"
-    assert seg.progress_label.text() == "%67"
+    assert seg.progress_label.text() == "%67 çevrildi"
     assert seg.progress.value() == 67
     tip = seg._progress.toolTip()
     assert "Çevrilen: 2 / 3" in tip
@@ -128,7 +130,7 @@ def test_counts_after_translation_commit(qtbot: QtBot, window: MainWindow) -> No
     assert "Hatalı: 0" in tip
     row = next(r for r in window.translate_page.model.rows if r.key == "d02")
     assert window.translate_page.model.apply([(row.id, "Hoşça kal")])  # tablodan düzenleme yolu
-    qtbot.waitUntil(lambda: seg.progress_label.text() == "%100", timeout=3000)
+    qtbot.waitUntil(lambda: seg.progress_label.text() == "%100 çevrildi", timeout=3000)
     assert seg.progress.value() == 100
 
 
@@ -136,10 +138,10 @@ def test_row_segment_shows_filtered_count(qtbot: QtBot, window: MainWindow) -> N
     seg = window.status_segments
     page = window.translate_page
     page.search.setText("Goodbye")
-    qtbot.waitUntil(lambda: seg.rows_label.text() == "1 / 3", timeout=3000)
+    qtbot.waitUntil(lambda: seg.rows_label.text() == "1 / 3 satır", timeout=3000)
     assert "3 satırdan 1 tanesi" in seg._rows.toolTip()
     page.search.setText("")
-    qtbot.waitUntil(lambda: seg.rows_label.text() == "3", timeout=3000)
+    qtbot.waitUntil(lambda: seg.rows_label.text() == "3 satır", timeout=3000)
 
 
 def test_page_no_longer_repeats_row_counts(window: MainWindow) -> None:
@@ -156,7 +158,7 @@ def test_problems_segment_visible_only_with_errors(qtbot: QtBot, tmp_path: Path,
     try:
         seg2 = broken.status_segments
         assert seg2.problems_button.isVisibleTo(broken)
-        assert seg2.problems_button.text() == "1"
+        assert seg2.problems_button.text() == "1 hatalı"
         assert "1 hatalı satır" in seg2.problems_button.toolTip()
         qtbot.mouseClick(seg2.problems_button, Qt.MouseButton.LeftButton)
         assert broken.pages.currentIndex() == STEP_QA
@@ -315,3 +317,40 @@ def test_keys_segment_opens_key_dialog(window: MainWindow, monkeypatch: pytest.M
     monkeypatch.setattr(QFileDialog, "getOpenFileName", fake_dialog)
     window.status_segments.keys_button.click()
     assert titles == ["prod.keys dosyasını seçin"]
+
+
+def _labels(seg: StatusSegments) -> list[QLabel | QToolButton]:
+    return [seg.rows_label, seg.progress_label, seg.problems_button, seg.cursor_label, seg.provider_label]
+
+
+def _wait_bar_width(qtbot: QtBot, w: MainWindow, width: int) -> None:
+    qtbot.waitUntil(lambda: w.statusBar().width() == width, timeout=3000)
+
+
+def test_narrow_bar_drops_words_without_clipping(qtbot: QtBot, tmp_path: Path) -> None:
+    w = _make_window(qtbot, tmp_path, _project(changed_source=True))
+    try:
+        seg = w.status_segments
+        seg.set_cursor(3, 14)
+        w.settings.setValue("translate/provider", "ollama")
+        w._refresh_status()
+        for width in (1400, 900, 820):
+            w.resize(width, 600)
+            _wait_bar_width(qtbot, w, width)
+            for label in _labels(seg):
+                assert label.width() >= label.sizeHint().width(), (width, label.text())
+        w.resize(1400, 600)
+        qtbot.waitUntil(lambda: "satır" in seg.rows_label.text(), timeout=3000)
+        assert "çevrildi" in seg.progress_label.text()
+        assert "hatalı" in seg.problems_button.text()
+        assert seg.keys_button.text() == "Anahtarlar"
+        w.resize(820, 600)
+        qtbot.waitUntil(lambda: "satır" not in seg.rows_label.text(), timeout=3000)
+        assert "çevrildi" not in seg.progress_label.text()
+        assert "hatalı" not in seg.problems_button.text()
+        assert seg.keys_button.text() == ""
+        assert seg.rows_label.text().strip() == "3"
+    finally:
+        w.dirty = False
+        w.close()
+        w.deleteLater()
