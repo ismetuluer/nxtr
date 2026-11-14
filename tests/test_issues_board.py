@@ -2,16 +2,27 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QListWidgetItem
+from PySide6.QtCore import QSettings, Qt
+from PySide6.QtWidgets import QListWidgetItem, QMenu
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa.autofix import FIX_KINDS
 from nxceviri.core.qa.checks import KIND_LABELS, QaIssue
 from nxceviri.gui.issue_kinds import KindList
-from nxceviri.gui.qa_page import FIX_TIPS, RISKY_FIX_KINDS, QaPage
+from nxceviri.gui.qa_page import (
+    FIX_TIPS,
+    RISKY_FIX_KINDS,
+    SORT_FILE,
+    SORT_FINDING,
+    SORT_NUMBER,
+    SORT_SEVERITY,
+    IssueModel,
+    QaPage,
+)
 
 pytestmark = pytest.mark.gui
 
@@ -215,7 +226,7 @@ def _menu_texts(p: QaPage) -> list[str]:
 
 
 def test_context_menu_by_kind(qtbot: QtBot, page: QaPage) -> None:
-    assert _menu_texts(page) == ["Yazım sözlüğünü aç…"]
+    assert _menu_texts(page) == ["Yazım sözlüğünü aç…", "-", "Sırala"]
     _select(page, 2)
     assert _menu_texts(page) == [
         "Bu satırı düzelt",
@@ -223,11 +234,20 @@ def test_context_menu_by_kind(qtbot: QtBot, page: QaPage) -> None:
         "Çevir'de göster",
         "-",
         "Yazım sözlüğünü aç…",
+        "-",
+        "Sırala",
     ]
     assert all(a.isEnabled() for a in page.context_menu().actions())
     _click(qtbot, page.kind_list, page.kind_list.kind_item("spelling"))
     _select(page, 4)
-    assert _menu_texts(page) == ["Çevir'de göster", "-", "Yazım sözlüğüne ekle…", "Yazım sözlüğünü aç…"]
+    assert _menu_texts(page) == [
+        "Çevir'de göster",
+        "-",
+        "Yazım sözlüğüne ekle…",
+        "Yazım sözlüğünü aç…",
+        "-",
+        "Sırala",
+    ]
 
 
 def test_context_menu_fix_actions(page: QaPage) -> None:
@@ -253,3 +273,90 @@ def test_fit_code_kinds_under_advanced(qtbot: QtBot) -> None:
     assert not p.fit_advanced.body.isVisibleTo(p)
     p.fit_advanced.toggle.click()
     assert p.fit_advanced.body.isVisibleTo(p)
+
+
+# --- Sırala alt menüsü ve sıralama düzenleri ---
+
+
+def _order(model: IssueModel) -> list[tuple[int, str]]:
+    return [(i.row_id, i.kind) for i in model.issues]
+
+
+def _mixed() -> tuple[list[QaIssue], list[TranslationRow]]:
+    issues = [
+        QaIssue(3, "k3", "spaces", "warning", "Boşluk"),
+        QaIssue(1, "k1", "spelling", "info", "yazım"),
+        QaIssue(2, "k2", "placeholder", "error", "Kod"),
+        QaIssue(1, "k1", "spaces", "warning", "boşluk"),
+    ]
+    rows = [
+        TranslationRow(1, "b.msbt", "k1", "H", "M", "machine", "", (), None),
+        TranslationRow(2, "a.msbt", "k2", "H", "M", "machine", "", (), None),
+    ]
+    return issues, rows
+
+
+def test_sort_modes_order(qtbot: QtBot) -> None:
+    issues, rows = _mixed()
+    model = IssueModel()
+    model.set_issues(issues, {r.id: r for r in rows})
+    assert _order(model) == [(2, "placeholder"), (1, "spaces"), (3, "spaces"), (1, "spelling")]
+    model.set_sort(SORT_NUMBER)
+    assert _order(model) == [(1, "spaces"), (1, "spelling"), (2, "placeholder"), (3, "spaces")]
+    model.set_sort(SORT_FINDING)
+    assert [i.message for i in model.issues] == ["boşluk", "Boşluk", "Kod", "yazım"]
+    assert [i.row_id for i in model.issues][:2] == [1, 3]
+    model.set_sort(SORT_FILE)
+    # dosyası olmayan satır (3) boş dize olarak başa gelir; sonra a.msbt, b.msbt
+    assert [i.row_id for i in model.issues] == [3, 2, 1, 1]
+    model.set_sort("bilinmeyen")
+    assert model.sort_mode == SORT_SEVERITY
+
+
+def test_replace_row_respects_sort_mode() -> None:
+    issues, rows = _mixed()
+    for mode, expected in (
+        (SORT_NUMBER, [1, 1, 2, 2, 3]),
+        (SORT_FILE, [3, 2, 2, 1, 1]),
+        (SORT_FINDING, [1, 2, 3, 2, 1]),
+    ):
+        model = IssueModel()
+        model.set_issues(issues, {r.id: r for r in rows})
+        model.set_sort(mode)
+        model.replace_row(2, [QaIssue(2, "k2", "spaces", "warning", "boşluk"), issues[2]], rows[1])
+        assert [i.row_id for i in model.issues] == expected, mode
+
+
+def _sort_menu(p: QaPage) -> QMenu:
+    menu = next(a.menu() for a in p.context_menu().actions() if a.text() == "Sırala")
+    assert isinstance(menu, QMenu)
+    return menu
+
+
+def test_sort_submenu_and_choice(qtbot: QtBot, page: QaPage) -> None:
+    sub = _sort_menu(page)
+    assert [a.text() for a in sub.actions()] == ["Önem sırası", "Satır numarası", "Bulguya göre", "Dosyaya göre"]
+    assert [a.isChecked() for a in sub.actions()] == [True, False, False, False]
+    sub.actions()[1].trigger()
+    assert page.model.sort_mode == SORT_NUMBER
+    assert [i.row_id for i in page.model.issues] == [1, 2, 3, 3, 4]
+    sub2 = _sort_menu(page)
+    assert [a.isChecked() for a in sub2.actions()] == [False, True, False, False]
+
+
+def test_sort_choice_persists(qtbot: QtBot, tmp_path: Path) -> None:
+    ini = tmp_path / "s.ini"
+    p = QaPage()
+    qtbot.addWidget(p)
+    p.bind_settings(QSettings(str(ini), QSettings.Format.IniFormat))
+    p.set_sort_mode(SORT_FILE)
+    q = QaPage()
+    qtbot.addWidget(q)
+    q.bind_settings(QSettings(str(ini), QSettings.Format.IniFormat))
+    assert q.model.sort_mode == SORT_FILE
+    bad = QSettings(str(tmp_path / "b.ini"), QSettings.Format.IniFormat)
+    bad.setValue("qa/sort", "saçma")
+    r = QaPage()
+    qtbot.addWidget(r)
+    r.bind_settings(bad)
+    assert r.model.sort_mode == SORT_SEVERITY

@@ -152,4 +152,4 @@ def test_ollama_fix_is_gone(window: MainWindow) -> None:
     assert not [t for t in texts if "Otomatik Düzelt" in t or "Ollama" in t or "Programla" in t]
     assert not hasattr(window, "auto_fix")
     assert not hasattr(window, "program_fix")
-    assert [a.text() for a in page.context_menu().actions()] == ["Yazım sözlüğünü aç…"]
+    assert [a.text() for a in page.context_menu().actions()] == ["Yazım sözlüğünü aç…", "", "Sırala"]

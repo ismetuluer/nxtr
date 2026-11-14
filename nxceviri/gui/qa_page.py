@@ -15,12 +15,13 @@ from PySide6.QtCore import (
     QObject,
     QPersistentModelIndex,
     QPoint,
+    QSettings,
     QSortFilterProxyModel,
     Qt,
     Signal,
     SignalInstance,
 )
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QButtonGroup,
@@ -134,12 +135,23 @@ FIX_TIPS: dict[str, str] = {
 RISKY_FIX_KINDS = frozenset(
     {"ascii_turkish", "end_punctuation", "code_position", "newlines", "line_too_long", "page_too_tall", "bad_break"}
 )
+#: Bulgu listesinin sıralama düzenleri (ayarda saklanan değer) ve sağ tık menüsündeki adları.
+SORT_SEVERITY, SORT_NUMBER, SORT_FINDING, SORT_FILE = "severity", "number", "finding", "file"
+SORT_LABELS = {
+    SORT_SEVERITY: "Önem sırası",
+    SORT_NUMBER: "Satır numarası",
+    SORT_FINDING: "Bulguya göre",
+    SORT_FILE: "Dosyaya göre",
+}
+_SORT_SETTING = "qa/sort"
+_SortKey = tuple[int | str, ...]
 
 
 class IssueModel(QAbstractTableModel):
     """Bulgu listesi modeli: tek sütun; her satırın bilgisi rollerle (açıklama, orijinal, çeviri, No, önem) okunur.
 
-    Varsayılan sıra: önem (hata, uyarı, bilgi) → tür (listedeki sırayla) → çeviri satırı numarası.
+    Varsayılan sıra: önem (hata, uyarı, bilgi) → tür (listedeki sırayla) → çeviri satırı numarası; `set_sort` ile
+    satır numarasına, bulgu metnine ya da dosyaya göre de sıralanabilir.
     """
 
     #: Kullanıcı çeviriyi değiştirdi: (satır kimliği, yeni metin). Model metni kendisi değiştirmez.
@@ -151,19 +163,29 @@ class IssueModel(QAbstractTableModel):
         self.rows: dict[int, TranslationRow] = {}
         #: Satır kimliğinden çeviri tablosundaki No'ya; yoksa (0) No gösterilmez.
         self.number_of: Callable[[int], int] | None = None
-        self._keys: list[tuple[int, int, int, int]] = []
+        self._keys: list[_SortKey] = []
+        self.sort_mode = SORT_SEVERITY
 
     def _number(self, row_id: int) -> int:
         return self.number_of(row_id) if self.number_of is not None else 0
 
-    def _key(self, issue: QaIssue) -> tuple[int, int, int, int]:
-        number = self._number(issue.row_id)
-        return (
-            -_SEVERITY_ORDER.get(issue.severity, 0),
-            _KIND_ORDER.get(issue.kind, len(_KIND_ORDER)),
-            number or issue.row_id,
-            issue.row_id,
-        )
+    def _key(self, issue: QaIssue) -> _SortKey:
+        number = self._number(issue.row_id) or issue.row_id
+        severity = -_SEVERITY_ORDER.get(issue.severity, 0)
+        kind = _KIND_ORDER.get(issue.kind, len(_KIND_ORDER))
+        if self.sort_mode == SORT_NUMBER:
+            return (number, severity, kind, issue.row_id)
+        if self.sort_mode == SORT_FINDING:
+            return (issue.message.casefold(), number, issue.row_id)
+        if self.sort_mode == SORT_FILE:
+            row = self.rows.get(issue.row_id)
+            return (row.file if row is not None else "", number, issue.row_id)
+        return (severity, kind, number, issue.row_id)
+
+    def set_sort(self, mode: str) -> None:
+        """Sıralama düzenini değiştirir ve listeyi yeniden sıralar; bilinmeyen değer varsayılana düşer."""
+        self.sort_mode = mode if mode in SORT_LABELS else SORT_SEVERITY
+        self.set_issues(self.issues, self.rows)
 
     def set_issues(self, issues: list[QaIssue], rows: dict[int, TranslationRow] | None = None) -> None:
         self.beginResetModel()
@@ -425,6 +447,7 @@ class QaPage(QWidget):
         self.last_fix_text = ""
         self.kind_list = KindList()
         self.kind_list.selection_changed.connect(self._refilter)
+        self._settings: QSettings | None = None
         self.model = IssueModel()
         self.model.translation_edited.connect(self.translation_edited)
         self.proxy = IssueFilter()
@@ -1198,6 +1221,16 @@ class QaPage(QWidget):
     def _fix_now(self, kinds: list[str], row_ids: list[int]) -> None:
         self._commit_pending(lambda: self.fix_requested.emit(kinds, row_ids))
 
+    def bind_settings(self, settings: QSettings) -> None:
+        """Kayıtlı sıralama düzenini geri yükler (bilinmeyen değer varsayılana düşer)."""
+        self._settings = settings
+        self.model.set_sort(str(settings.value(_SORT_SETTING, SORT_SEVERITY)))
+
+    def set_sort_mode(self, mode: str) -> None:
+        self.model.set_sort(mode)
+        if self._settings is not None:
+            self._settings.setValue(_SORT_SETTING, self.model.sort_mode)
+
     def context_menu(self) -> QMenu:
         """Seçili bulguya göre bağlam menüsü; her öğe kullanılabilir olduğunda görünür."""
         menu = QMenu(self)
@@ -1224,6 +1257,15 @@ class QaPage(QWidget):
             not_term.setToolTip("Seçili ifadeler bu projede terim sayılmaz; tutarsızlık aranmaz.")
             not_term.triggered.connect(lambda: self.not_term_requested.emit(phrases))
         menu.addAction(self.user_dict_button)
+        menu.addSeparator()
+        sort_menu = menu.addMenu("Sırala")
+        group = QActionGroup(sort_menu)
+        for mode, text in SORT_LABELS.items():
+            action = sort_menu.addAction(text)
+            action.setCheckable(True)
+            action.setChecked(mode == self.model.sort_mode)
+            group.addAction(action)
+            action.triggered.connect(lambda _checked=False, m=mode: self.set_sort_mode(m))
         return menu
 
     def _show_context_menu(self, pos: QPoint) -> None:

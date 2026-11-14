@@ -454,6 +454,7 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(self.translate_page)
         self.qa_page = QaPage()
         self.qa_page.model.number_of = self.translate_page.model.number
+        self.qa_page.bind_settings(self.settings)
         self.export_page = ExportPage()
         self.pages.addWidget(self.qa_page)
         self.pages.addWidget(self.export_page)
