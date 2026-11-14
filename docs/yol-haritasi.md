@@ -95,6 +95,25 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 15. Boş "Oyunu Ekle" ekranı pencerenin yarısını boş bırakıyor; beş adımı anlatan kısa yol ya da son projeler.
 16. Koyu temada tablo satırlarının dönüşümlü zemini neredeyse ayırt edilmiyor.
 
+### Ürün sahibinin 0.57.2 sonrası geri bildirimi (2026-11-14)
+
+**Yapıldı (yayımlanmadı)**
+- Kontrol Et → Sorunlar yeniden kuruldu: solda önem sırasına göre gruplu tür listesi (çip bulutu ve "Tür" sütunu
+  kalktı), bulgular üç satırlık liste (açıklama, orijinal, çeviri), sağdaki "Düzeltmeler" paneli yerine listenin
+  üstünde bağlama göre düzeltme çubuğu, seçili satırdaki boş kutu hatası giderildi. Yukarıdaki görsel denetim
+  listesinin 9. ve 10. maddeleri (tek ana düğme, çip renkleri) bu işle kapandı.
+
+**Sırada**
+1. **Metinleri Tara'da müdahale.** Sayfa bugün yalnızca bilgi veriyor; tek seçim kaynak dil ve o da dil dosya yolundan
+   ya da eklentiden anlaşılabiliyorsa çalışıyor. Dili anlaşılamayan dosyalar süzülmeden aktarılıyor (ürün sahibinin bir
+   projesinde tüm diller aktarılıp binlerce satırlık ağır bir proje oluştu). İstenen: dosya tablosunda "Aktar" onay
+   kutusu ve "Dil" sütunu; dili anlaşılamayan çok sayıda dosya varsa aktarmadan önce açık uyarı ve seçim.
+2. **Açıklama ipuçları.** "güven: Yüksek", "Metin olasılığı", "Ayrıntı", "Kaynak" gibi terimlerin üzerine gelince ne
+   demek olduğu yazsın (Metinleri Tara başta olmak üzere tüm sayfalarda).
+3. **Sorunlar ekranının devamı.** Gerçek pencerede ve gerçek projeyle denenmedi; liste satırında kontrol kodları düz
+   metin (`⟦n⟧`) olarak görünüyor, çeviri tablosundaki gibi çip olabilir. Kontrol Et sekme çubuğunun görünümü (görsel
+   denetim madde 8) hâlâ eski.
+
 ## Çeviri sağlayıcıları (eski CLAUDE.md §4.2)
 
 Sözleşme:
