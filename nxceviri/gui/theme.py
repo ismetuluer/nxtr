@@ -95,18 +95,46 @@ _CHECK_SVG = (
 )
 
 
-def _check_mark(color: str) -> str:
-    """İşaretli onay kutusunun tik simgesi (QSS `image:` için dosya yolu; renk başına bir kez yazılır)."""
+_CHEVRON_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="{color}" stroke-width="3.2" '
+    'stroke-linecap="round" stroke-linejoin="round"><path d="{path}"/></svg>'
+)
+_CHEVRON_PATHS = {"yukari": "m6 15 6-6 6 6", "asagi": "m6 9 6 6 6-6"}
+_DOT_SVG = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="{color}"/></svg>'
+)
+
+
+def _svg_file(name: str, svg: str) -> str:
+    """QSS `image:` için SVG'yi geçici klasöre yazar (ad başına bir kez; bozuksa yeniden); dosya yolunu döndürür."""
     folder = Path(tempfile.gettempdir()) / "nxtr-tema"
-    path = folder / f"tik-{color.lstrip('#').lower()}.svg"
-    svg = _CHECK_SVG.format(color=color)
+    path = folder / f"{name}.svg"
     try:
         if not path.is_file() or path.read_text(encoding="utf-8") != svg:
             folder.mkdir(parents=True, exist_ok=True)
             path.write_text(svg, encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
-        log.warning("Tik simgesi yazılamadı veya okunamadı (%s): %s", path, exc)
+        log.warning("Tema simgesi yazılamadı veya okunamadı (%s): %s", path, exc)
     return path.as_posix()
+
+
+def _color_svg(prefix: str, template: str, color: str, **fields: str) -> str:
+    return _svg_file(f"{prefix}-{color.lstrip('#').lower()}", template.format(color=color, **fields))
+
+
+def _check_mark(color: str) -> str:
+    """İşaretli onay kutusunun tik simgesi (renk başına bir dosya)."""
+    return _color_svg("tik", _CHECK_SVG, color)
+
+
+def _chevron(direction: str, color: str) -> str:
+    """Yukarı/aşağı ok (`yukari` | `asagi`) simgesi; sayı kutusu ve açılır liste okları için."""
+    return _color_svg(f"ok-{direction}", _CHEVRON_SVG, color, path=_CHEVRON_PATHS[direction])
+
+
+def _radio_dot(color: str) -> str:
+    """Seçili radyo düğmesinin ortadaki noktası."""
+    return _color_svg("nokta", _DOT_SVG, color)
 
 
 def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
@@ -114,6 +142,9 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
         return f"{round(pt * factor, 1)}pt"
 
     check = _check_mark(t["accent_text"])
+    dot = _radio_dot(t["accent_text"])
+    up, down = _chevron("yukari", t["muted"]), _chevron("asagi", t["muted"])
+    up_off, down_off = _chevron("yukari", t["border"]), _chevron("asagi", t["border"])
     return f"""
     QCheckBox::indicator, QAbstractItemView::indicator {{
         width: 14px; height: 14px; border: 1px solid {t["muted"]}; border-radius: 3px; background: {t["surface"]};
@@ -122,6 +153,12 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
         background: {t["accent"]}; border-color: {t["accent"]}; image: url({check});
     }}
     QCheckBox::indicator:disabled, QAbstractItemView::indicator:disabled {{ border-color: {t["border"]}; }}
+    QRadioButton::indicator {{
+        width: 14px; height: 14px; border: 1px solid {t["muted"]}; border-radius: 7px; background: {t["surface"]};
+    }}
+    QRadioButton::indicator:checked {{ background: {t["accent"]}; border-color: {t["accent"]}; image: url({dot}); }}
+    QRadioButton::indicator:disabled {{ border-color: {t["border"]}; }}
+    QRadioButton:disabled {{ color: {t["muted"]}; }}
     QWidget {{ color: {t["text"]}; font-size: {pt}pt; }}
     QMainWindow, QWidget#page, QScrollArea, QScrollArea > QWidget > QWidget {{ background: {t["bg"]}; }}
     QFrame#card {{ background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: 10px; }}
@@ -198,6 +235,23 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QLineEdit:disabled, QComboBox:disabled, QSpinBox:disabled {{
         background: {t["surface2"]}; color: {t["muted"]}; border-color: {t["surface2"]};
     }}
+    QSpinBox::up-button, QSpinBox::down-button {{
+        subcontrol-origin: border; width: 20px; border: none; background: transparent;
+    }}
+    QSpinBox::up-button {{ subcontrol-position: top right; border-top-right-radius: 5px; }}
+    QSpinBox::down-button {{ subcontrol-position: bottom right; border-bottom-right-radius: 5px; }}
+    QSpinBox::up-button:hover, QSpinBox::down-button:hover {{ background: {t["surface2"]}; }}
+    QSpinBox::up-arrow {{ image: url({up}); width: 10px; height: 10px; }}
+    QSpinBox::down-arrow {{ image: url({down}); width: 10px; height: 10px; }}
+    QSpinBox::up-arrow:disabled, QSpinBox::up-arrow:off {{ image: url({up_off}); }}
+    QSpinBox::down-arrow:disabled, QSpinBox::down-arrow:off {{ image: url({down_off}); }}
+    QComboBox::drop-down {{
+        subcontrol-origin: border; subcontrol-position: center right; width: 22px; border: none;
+        border-top-right-radius: 5px; border-bottom-right-radius: 5px; background: transparent;
+    }}
+    QComboBox::drop-down:hover {{ background: {t["surface2"]}; }}
+    QComboBox::down-arrow {{ image: url({down}); width: 10px; height: 10px; }}
+    QComboBox::down-arrow:disabled {{ image: url({down_off}); }}
     QHeaderView::section {{
         background: {t["surface2"]}; color: {t["muted"]}; border: none; border-bottom: 1px solid {t["border"]};
         padding: 5px 8px; font-weight: 600;
@@ -251,6 +305,8 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QPlainTextEdit:focus {{ border-color: {t["accent"]}; }}
     QCheckBox::indicator:focus {{ border-color: {t["accent"]}; }}
     QCheckBox::indicator:checked:focus {{ border-color: {t["text"]}; }}
+    QRadioButton::indicator:focus {{ border-color: {t["accent"]}; }}
+    QRadioButton::indicator:checked:focus {{ border-color: {t["text"]}; }}
     """
 
 

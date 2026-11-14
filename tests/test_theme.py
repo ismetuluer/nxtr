@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import logging
+import re
 import tempfile
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from PySide6.QtWidgets import QApplication, QLineEdit, QPushButton, QStatusBar, QToolButton
+from PySide6.QtWidgets import QApplication, QComboBox, QLineEdit, QPushButton, QSpinBox, QStatusBar, QToolButton
 from pytestqt.qtbot import QtBot
 
 from nxceviri.gui import icons
-from nxceviri.gui.theme import _CHECK_SVG, TOKENS, ThemeMode, _check_mark, _qss, apply_theme
+from nxceviri.gui.theme import _CHECK_SVG, TOKENS, ThemeMode, _check_mark, _qss, _svg_file, apply_theme
 
 _AA = 4.5
 
@@ -207,3 +208,75 @@ def test_check_mark_survives_io_errors(
         result = _check_mark("#ABCDEF")
     assert result.endswith("tik-abcdef.svg")
     assert any("tik" in r.message.lower() for r in caplog.records)
+
+
+_ARROW_SELECTORS = (
+    "QSpinBox::up-arrow",
+    "QSpinBox::down-arrow",
+    "QComboBox::down-arrow",
+    "QRadioButton::indicator",
+    "QRadioButton::indicator:checked",
+)
+
+
+def _rules_for(qss: str, selector: str) -> str:
+    """`selector`ü tam olarak (virgüllü listelerin bir öğesi olarak) taşıyan kuralların gövdeleri."""
+    bodies = []
+    for part in qss.split("}"):
+        head, _, body = part.partition("{")
+        if selector in [s.strip() for s in head.split(",")]:
+            bodies.append(body)
+    return "\n".join(bodies)
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("selector", _ARROW_SELECTORS)
+def test_qss_arrow_images_exist_as_svg(scheme: str, selector: str) -> None:
+    rules = _rules_for(_qss(TOKENS[scheme]), selector)
+    assert rules, f"{selector} için kural yok"
+    paths = re.findall(r"image:\s*url\(([^)]+)\)", rules)
+    if selector != "QRadioButton::indicator":
+        assert paths, f"{selector} için image yok"
+    for raw in paths:
+        path = Path(raw)
+        assert path.is_file()
+        assert path.read_text(encoding="utf-8").lstrip().startswith("<svg")
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_qss_checked_radio_uses_accent(scheme: str) -> None:
+    rules = _rules_for(_qss(TOKENS[scheme]), "QRadioButton::indicator:checked")
+    assert TOKENS[scheme]["accent"] in rules
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_qss_radio_indicator_is_round(scheme: str) -> None:
+    rules = _rules_for(_qss(TOKENS[scheme]), "QRadioButton::indicator")
+    assert "width: 14px" in rules
+    assert "border-radius: 7px" in rules
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("selector", ["QRadioButton::indicator:disabled", "QRadioButton::indicator:focus"])
+def test_qss_radio_has_state_rules(scheme: str, selector: str) -> None:
+    assert _rules_for(_qss(TOKENS[scheme]), selector)
+
+
+def test_arrow_files_are_shared_helper_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path))
+    first = Path(_svg_file("deneme-abc", "<svg/>"))
+    assert first.read_text(encoding="utf-8") == "<svg/>"
+    assert first.parent == tmp_path / "nxtr-tema"
+    assert _svg_file("deneme-abc", "<svg/>") == first.as_posix()
+
+
+@pytest.mark.parametrize("mode", [ThemeMode.LIGHT, ThemeMode.DARK])
+def test_spin_and_combo_keep_line_edit_height(themed_app: QApplication, qtbot: QtBot, mode: ThemeMode) -> None:
+    """Ok düğmeleri eklenince yükseklikler düz metin kutusununkine yakın kalır (sayı kutusu özgünde 3 px uzundu)."""
+    apply_theme(themed_app, mode)
+    edit, spin, combo = QLineEdit("1"), QSpinBox(), QComboBox()
+    combo.addItems(["a", "b"])
+    for widget in (edit, spin, combo):
+        qtbot.addWidget(widget)
+    assert abs(spin.sizeHint().height() - edit.sizeHint().height()) <= 3
+    assert abs(combo.sizeHint().height() - edit.sizeHint().height()) <= 2
