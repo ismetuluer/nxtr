@@ -93,6 +93,20 @@ def test_qss_step_nav_has_no_focus_frame(scheme: str) -> None:
     assert "stepNav:focus" not in _qss(TOKENS[scheme])
 
 
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_qss_check_tabs_are_flat_pills(scheme: str) -> None:
+    """Kontrol Et sekmeleri Windows sekmesi değil, seçilince dolgulu, yuvarlak köşeli düz düğme görünümündedir."""
+    qss = _qss(TOKENS[scheme])
+    rules = {
+        part.split("{")[0].strip(): part.split("{")[1]
+        for part in qss.split("}")
+        if "QTabBar" in part.split("{")[0] or "QTabWidget" in part.split("{")[0]
+    }
+    assert "border-radius" in rules["QTabBar::tab"]
+    assert TOKENS[scheme]["selection"] in rules["QTabBar::tab:selected"]
+    assert "border: none" in rules["QTabWidget::pane"]
+
+
 @pytest.fixture
 def themed_app(qtbot: QtBot) -> Iterator[QApplication]:
     app = QApplication.instance()

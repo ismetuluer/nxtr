@@ -227,6 +227,14 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QListWidget#stepNav {{ background: transparent; border: none; outline: none; padding: 4px 8px 12px 8px; }}
     QListWidget#kindList {{ outline: none; padding: 4px 2px; }}
     QTableView#issueTable {{ border-radius: 8px; }}
+    QTabWidget::pane {{ border: none; }}
+    QTabBar {{ qproperty-drawBase: 0; }}
+    QTabBar::tab {{
+        background: transparent; color: {t["muted"]}; border: none; border-radius: 6px;
+        padding: 6px 14px; margin: 0 4px 6px 0;
+    }}
+    QTabBar::tab:hover {{ background: {t["surface2"]}; color: {t["text"]}; }}
+    QTabBar::tab:selected {{ background: {t["selection"]}; color: {t["text"]}; font-weight: 600; }}
     QFrame#fixBar {{ background: {t["selection"]}; border-radius: 8px; }}
     QFrame#fixBar QLabel {{ color: {t["text"]}; }}
     QFrame#fixBar QLabel[role="muted"] {{ color: {t["muted"]}; }}
