@@ -54,6 +54,9 @@ class ExportPage(QWidget):
             "klasörü üretilir. Oyun dosyalarınız değişmez; tam oyun kopyası üretilmez.",
         )
         self.export_button = button("Modu Oluştur", "primary", icon="package")
+        self.export_button.setToolTip(
+            tip_html("Çevirileri oyun dosyalarına işleyip mod klasörünü seçtiğiniz konuma yazar. Oyununuz değişmez.")
+        )
         self.export_button.clicked.connect(self.export_requested)
         self.header.add_action(self.export_button)
         self._can_export = False
@@ -77,13 +80,24 @@ class ExportPage(QWidget):
             self.layout_buttons[key] = rb
             layouts.addWidget(rb)
         self.layout_buttons[LAYOUT_ATMOSPHERE].setChecked(True)
+        self.layout_buttons[LAYOUT_ATMOSPHERE].setToolTip(
+            tip_html("Konsolda oynamak için. Oluşan atmosphere klasörünü SD kartın köküne kopyalayın.")
+        )
+        self.layout_buttons[LAYOUT_EMULATOR].setToolTip(
+            tip_html(
+                "Bilgisayarda emülatörde oynamak için. Oluşan klasörü emülatörün mod klasörüne kopyalayın "
+                "(Ryujinx: mods/contents, Yuzu türevleri: load)."
+            )
+        )
         form.addRow("Hedef:", layouts)
         self.mod_name = QLineEdit()
+        self.mod_name.setToolTip(tip_html("Emülatörün mod listesinde görünen ad. Klasör adı olarak da kullanılır."))
         form.addRow("Mod adı:", self.mod_name)
         folder_row = QHBoxLayout()
         self.folder = QLineEdit()
         self.folder.setReadOnly(True)
         self.folder.setPlaceholderText("Modun oluşturulacağı klasörü seçin")
+        self.folder.setToolTip(tip_html("Mod klasörünün yazılacağı yer. Oyun dosyalarınızın olduğu klasör olmasın."))
         pick = button("Seç…", icon="folder-open")
         pick.clicked.connect(self.choose_folder)
         folder_row.addWidget(self.folder, 1)
@@ -91,6 +105,9 @@ class ExportPage(QWidget):
         form.addRow("Konum:", folder_row)
         card.body.addLayout(form)
         self.target = label("", "muted", wrap=True)
+        self.target.setToolTip(
+            tip_html("<TitleID>, oyunun kimlik numarasıdır; mod oluşturulurken gerçek numara yazılır.")
+        )
         card.body.addWidget(self.target)
         self.include_errors_box = QCheckBox("Hatalı satırları da aktar")
         self.include_errors_box.setToolTip(
@@ -122,6 +139,7 @@ class ExportPage(QWidget):
         self.graphics_extract.setToolTip("Yazı içeren resimleri klasöre PNG olarak çıkarır (orijinal/).")
         self.graphics_extract.clicked.connect(self.extract_graphics)
         self.graphics_open = button("Klasörü Aç", icon="folder-open")
+        self.graphics_open.setToolTip("Resimlerin durduğu klasörü açar (orijinal/ ve temiz/).")
         self.graphics_open.clicked.connect(self.open_graphics)
         graphics_row.addWidget(self.graphics_extract)
         graphics_row.addWidget(self.graphics_open)
@@ -133,6 +151,7 @@ class ExportPage(QWidget):
         self.result = Banner()
         fl.addWidget(self.result)
         self.open_button = button("Mod Klasörünü Aç", icon="folder-open")
+        self.open_button.setToolTip("Oluşan mod klasörünü Dosya Gezgini'nde açar.")
         self.open_button.clicked.connect(self.open_folder)
         self.open_button.hide()
         fl.addWidget(self.open_button, alignment=Qt.AlignmentFlag.AlignLeft)

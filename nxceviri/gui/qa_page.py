@@ -352,6 +352,9 @@ class QaPage(QWidget):
             )
         )
         self.font_button = button("Fontları Tara", "primary", icon="scan-search")
+        self.font_button.setToolTip(
+            tip_html("Oyunun fontlarında Türkçe harflerin (ç ğ ı İ ö ş ü) olup olmadığına bakar.")
+        )
         self.font_button.clicked.connect(self.scan_fonts)
         self.font_bar.add_action(self.font_button)
         lay.addWidget(self.font_bar)
@@ -424,6 +427,7 @@ class QaPage(QWidget):
         self.mode_buttons: dict[str, QRadioButton] = {}
         for mode in (transliterate.MODE_NONE, transliterate.MODE_MISSING, transliterate.MODE_ALL):
             rb = QRadioButton(transliterate.MODE_LABELS[mode])
+            rb.setToolTip(tip_html(_MODE_TIPS[mode]))
             self.mode_group.addButton(rb)
             self.mode_buttons[mode] = rb
             rb.toggled.connect(lambda checked, m=mode: self._mode_toggled(checked, m))
@@ -437,6 +441,9 @@ class QaPage(QWidget):
         self.check_bar = ActionBar()
         self.check_card = Card("")
         self.check_button = button("Denetle", "primary", icon="shield-check")
+        self.check_button.setToolTip(
+            tip_html("Çevirileri kontrol kodu, uzunluk, terim ve yazım sorunlarına karşı tarar; çeviriler değişmez.")
+        )
         self.check_button.clicked.connect(lambda: self._commit_pending(self.run_checks.emit))
         self.check_bar.add_action(self.check_button)
         self.summary = self.check_bar.status
@@ -530,6 +537,9 @@ class QaPage(QWidget):
         lay.addWidget(self.fit_bar)
         self.fit_card = Card("")
         self.fit_enabled = QCheckBox("Sığdırmayı aç")
+        self.fit_enabled.setToolTip(
+            tip_html("Açıkken çevirilerin oyunun metin kutusuna sığıp sığmadığı aşağıdaki sınırlara göre denetlenir.")
+        )
         self.fit_enabled.toggled.connect(self._fit_toggled)
         self.fit_bar.add_action(self.fit_enabled)
         body = self.fit_card.body
@@ -545,6 +555,7 @@ class QaPage(QWidget):
         self.fit_scope.setToolTip(tip_html("Bir dosya ya da grup seçerek ona ayrı sınır verebilirsiniz."))
         self.fit_scope.currentIndexChanged.connect(self._show_scope)
         self.fit_inherit = QCheckBox("Proje sınırını kullan")
+        self.fit_inherit.setToolTip(tip_html("Seçili dosya ya da grup, tüm projenin sınırlarını kullanır."))
         self.fit_inherit.toggled.connect(self._inherit_toggled)
         scope_row.addWidget(self.fit_scope)
         scope_row.addWidget(self.fit_inherit)
@@ -552,11 +563,15 @@ class QaPage(QWidget):
         self.fit_width = QSpinBox()
         self.fit_width.setRange(1, 999)
         self.fit_width.setValue(_FIT_START_WIDTH)
+        self.fit_width.setToolTip(tip_html("Oyundaki metin kutusunun bir satırına sığan en fazla harf sayısı."))
         self.fit_width.valueChanged.connect(lambda _v: self._fit_changed())
         form.addRow("Satırda en çok karakter:", self.fit_width)
         self.fit_lines = QSpinBox()
         self.fit_lines.setRange(1, 99)
         self.fit_lines.setValue(_FIT_START_LINES)
+        self.fit_lines.setToolTip(
+            tip_html("Metin kutusunun bir sayfasına sığan satır sayısı; fazlası sonraki sayfaya geçer.")
+        )
         self.fit_lines.valueChanged.connect(lambda _v: self._fit_changed())
         form.addRow("Sayfada en çok satır:", self.fit_lines)
         body.addLayout(form)
@@ -1310,6 +1325,12 @@ class QaPage(QWidget):
 
 
 _SEVERITY_ORDER = {"": 0, "info": 1, SEVERITY_WARNING: 2, SEVERITY_ERROR: 3}
+#: Harf dönüştürme seçeneklerinin ipuçları.
+_MODE_TIPS = {
+    transliterate.MODE_NONE: "Fontta Türkçe harf varsa ya da font yaması yaptıysanız bunu seçin.",
+    transliterate.MODE_MISSING: "Yalnızca fontta olmayan harfler benzerine çevrilir (ör. ğ→g); olanlar korunur.",
+    transliterate.MODE_ALL: "Font hiçbir Türkçe harfi göstermiyorsa en güvenli seçenek.",
+}
 
 
 def _worse(a: str, b: str) -> str:
