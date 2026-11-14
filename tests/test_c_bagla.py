@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QSettings
-from PySide6.QtWidgets import QAbstractButton, QMenu
+from PySide6.QtWidgets import QMenu
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.formats.base import ControlCode, TextEntry
@@ -23,7 +23,6 @@ from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.spell.userdict import UserDictionary
 from nxceviri.core.translate.providers.base import GlossaryTerm
 from nxceviri.core.translate.status import Status
-from nxceviri.gui.issue_chips import ChipBar
 from nxceviri.gui.main_window import STEP_QA, MainWindow
 from nxceviri.gui.qa_page import QaPage
 from nxceviri.gui.spell_window import SpellWindow
@@ -322,10 +321,7 @@ def test_broken_terms_ignored_setting(window: MainWindow, caplog: pytest.LogCapt
 # --- çip stili -------------------------------------------------------------------------------
 
 
-def test_chips_use_chip_role_and_theme_styles_it(qtbot: QtBot) -> None:
-    bar = ChipBar()
-    qtbot.addWidget(bar)
-    assert all(isinstance(c, QAbstractButton) and c.property("role") == "chip" for c in bar.chips.values())
+def test_theme_styles_chip_role_buttons() -> None:
     for tokens in TOKENS.values():
         sheet = _qss(tokens)
         assert 'QToolButton[role="chip"]' in sheet

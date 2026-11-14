@@ -352,7 +352,7 @@ def test_fit_result_show_opens_issues_tab_filtered(qtbot: QtBot, window: MainWin
     qtbot.waitUntil(lambda: page.fit_result.text() == "Bu ayarla 1 satır taşıyor.", timeout=30_000)
     page.fit_result_show.click()
     assert page.tabs.currentIndex() == 0
-    assert page.chip_bar.selected_kinds() == {"line_too_long", "page_too_tall"}
+    assert page.kind_list.selected_kinds() == {"line_too_long"}  # yalnızca bulgusu olan tür listede durur
     assert page.proxy.rowCount() == 1
 
 

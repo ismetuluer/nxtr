@@ -6,11 +6,13 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QSettings, Qt
+from PySide6.QtWidgets import QListWidgetItem
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa.autofix import FIX_KINDS
 from nxceviri.core.qa.checks import KIND_LABELS, QaIssue
+from nxceviri.gui.issue_kinds import KindList
 from nxceviri.gui.qa_page import COL_TRANSLATION, FIX_TIPS, RISKY_FIX_KINDS, QaPage
 
 pytestmark = pytest.mark.gui
@@ -40,6 +42,12 @@ def page(qtbot: QtBot) -> QaPage:
     return p
 
 
+def _click(
+    qtbot: QtBot, lst: KindList, item: QListWidgetItem, mod: Qt.KeyboardModifier = Qt.KeyboardModifier.NoModifier
+) -> None:
+    qtbot.mouseClick(lst.viewport(), Qt.MouseButton.LeftButton, mod, lst.visualItemRect(item).center())
+
+
 def _select(p: QaPage, *row_ids: int) -> None:
     p.table.clearSelection()
     for r in range(p.proxy.rowCount()):
@@ -55,30 +63,33 @@ def test_tab_is_named_sorunlar(page: QaPage) -> None:
     assert page.tabs.tabText(0) == "Sorunlar"
 
 
-def test_chips_show_only_kinds_with_findings_and_counts(page: QaPage) -> None:
-    kinds = page.chip_bar.visible_kinds()
-    assert kinds == ["placeholder", "spaces", "spelling", "end_punctuation"]
-    assert page.chip_bar.chips["spaces"].text() == f"{KIND_LABELS['spaces']} 2"
-    assert page.chip_bar.chips["markup"].isHidden()
+def test_kind_list_shows_only_kinds_with_findings_and_counts(page: QaPage) -> None:
+    kinds = page.kind_list.visible_kinds()
+    assert kinds == ["placeholder", "spelling", "end_punctuation", "spaces"]  # grup sırası: önemden küçüğe
+    assert page.kind_list.count_of("spaces") == 2
+    assert page.kind_list.kind_item("spaces").text() == KIND_LABELS["spaces"]
+    assert "markup" not in kinds
 
 
-def test_chip_selection_filters_table(page: QaPage) -> None:
+def test_kind_selection_filters_table(qtbot: QtBot, page: QaPage) -> None:
+    lst = page.kind_list
+    ctrl = Qt.KeyboardModifier.ControlModifier
     assert page.proxy.rowCount() == 4  # bilgi (yazım) varsayılan gizli
-    page.chip_bar.chips["spaces"].click()
+    _click(qtbot, lst, lst.kind_item("spaces"))
     assert page.proxy.rowCount() == 2
-    page.chip_bar.chips["end_punctuation"].click()
+    _click(qtbot, lst, lst.kind_item("end_punctuation"), ctrl)
     assert page.proxy.rowCount() == 3
-    page.chip_bar.chips["spaces"].click()
-    page.chip_bar.chips["end_punctuation"].click()
+    _click(qtbot, lst, lst.kind_item("spaces"), ctrl)
+    _click(qtbot, lst, lst.kind_item("end_punctuation"), ctrl)
     assert page.proxy.rowCount() == 4  # hiçbiri seçili değil: hepsi
-    page.chip_bar.chips["spelling"].click()
+    _click(qtbot, lst, lst.kind_item("spelling"))
     assert page.proxy.rowCount() == 1
 
 
-def test_selected_chip_dropped_when_kind_disappears(page: QaPage) -> None:
-    page.chip_bar.chips["placeholder"].click()
+def test_selected_kind_dropped_when_it_disappears(qtbot: QtBot, page: QaPage) -> None:
+    _click(qtbot, page.kind_list, page.kind_list.kind_item("placeholder"))
     page.show_issues([i for i in _issues() if i.kind != "placeholder"], [_row(i) for i in range(1, 5)])
-    assert page.chip_bar.selected_kinds() == frozenset()
+    assert page.kind_list.selected_kinds() == frozenset()
     assert page.proxy.rowCount() == 3
 
 
@@ -173,8 +184,8 @@ def test_replace_row_issues(page: QaPage) -> None:
     assert len(page._selected_row_ids()) == 1
     page.table.verticalScrollBar().setValue(0)
     page.replace_row_issues(3, [QaIssue(3, "k3", "spaces", "warning", "boşluk")], _row(3, "Yeni"))
-    assert page.chip_bar.chips["end_punctuation"].isHidden()
-    assert page.chip_bar.chips["spaces"].text() == f"{KIND_LABELS['spaces']} 2"
+    assert "end_punctuation" not in page.kind_list.visible_kinds()
+    assert page.kind_list.count_of("spaces") == 2
     assert page.fix_counts["end_punctuation"] == 0
     assert page._selected_row_ids() == [3]  # seçim korundu
     src = [i for i in page.model.issues if i.row_id == 3]
@@ -190,7 +201,7 @@ def _menu_texts(p: QaPage) -> list[str]:
     return [a.text() if not a.isSeparator() else "-" for a in p.context_menu().actions()]
 
 
-def test_context_menu_by_kind(page: QaPage) -> None:
+def test_context_menu_by_kind(qtbot: QtBot, page: QaPage) -> None:
     assert _menu_texts(page) == ["Yazım sözlüğünü aç…"]
     _select(page, 2)
     assert _menu_texts(page) == [
@@ -201,7 +212,7 @@ def test_context_menu_by_kind(page: QaPage) -> None:
         "Yazım sözlüğünü aç…",
     ]
     assert all(a.isEnabled() for a in page.context_menu().actions())
-    page.chip_bar.chips["spelling"].click()
+    _click(qtbot, page.kind_list, page.kind_list.kind_item("spelling"))
     _select(page, 4)
     assert _menu_texts(page) == ["Çevir'de göster", "-", "Yazım sözlüğüne ekle…", "Yazım sözlüğünü aç…"]
 

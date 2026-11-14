@@ -2,8 +2,10 @@
 
 ## Sorunlar
 
-**Denetle** bütün satırları arka planda tarar; bitince bildirim gelir. Çiplerle türe göre süzün. Bir satıra çift
-tıklayın ya da Enter'a basın: satır çeviri ekranında düzenlemeye açılır.
+**Denetle** bütün satırları arka planda tarar; bitince bildirim gelir. Soldaki listeden türe göre süzün: en üstte
+oyunu bozabilecek sorunlar durur. Bir türe tıklayın; birkaç tür için Ctrl'ye basılı tutun; grup başlığına tıklayınca
+grubun hepsi seçilir; **Tüm bulgular** süzgeci kaldırır. Bir satıra çift tıklayın ya da Enter'a basın: satır çeviri
+ekranında düzenlemeye açılır.
 
 Denetimler: kontrol kodu (sayı, tür, sıra), boş çeviri, taşma, terim tutarsızlığı, aynı metnin farklı çevirisi,
 noktalama, çift boşluk, yazım ve uydurma şüphesi. Satırlar düzenlenirken de anlık denetlenir.

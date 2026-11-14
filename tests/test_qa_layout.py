@@ -13,7 +13,7 @@ from nxceviri.core.qa.checks import KIND_LABELS, SEVERITY_ERROR, SEVERITY_WARNIN
 from nxceviri.core.qa.fonts import KIND_TTF, FontInfo, FontReport
 from nxceviri.core.translate.fit import FitRules
 from nxceviri.core.translate.fitconfig import FitConfig
-from nxceviri.gui.qa_page import COL_KIND, COL_SEVERITY, QaPage
+from nxceviri.gui.qa_page import COL_SEVERITY, QaPage
 from nxceviri.gui.theme import ThemeMode, apply_theme
 
 pytestmark = pytest.mark.gui
@@ -147,12 +147,15 @@ def test_severity_sort_still_orders_by_label(qtbot: QtBot, page: QaPage) -> None
     assert page.proxy.index(0, COL_SEVERITY).data(Qt.ItemDataRole.AccessibleTextRole) == "Hata"
 
 
-def test_kind_column_fits_longest_kind(qtbot: QtBot, page: QaPage) -> None:
-    page.show_issues(*_issues())
-    _settle(qtbot, page.table)
-    metrics = page.table.fontMetrics()
+def test_kind_list_fits_longest_kind_name(qtbot: QtBot, page: QaPage) -> None:
+    """Tür adı artık soldaki listede durur: en uzun ad kırpılmadan sığmalı."""
+    kinds = list(KIND_LABELS)
+    issues = [QaIssue(n, f"k{n}", kind, SEVERITY_WARNING, "x") for n, kind in enumerate(kinds)]
+    page.show_issues(issues, [_row(n, f"k{n}", "x") for n in range(len(kinds))])
+    lst = page.kind_list
+    metrics = lst.fontMetrics()
     longest = max(metrics.horizontalAdvance(name) for name in KIND_LABELS.values())
-    assert longest + 16 <= page.table.columnWidth(COL_KIND)
+    assert longest + 14 + 6 + 48 <= lst.viewport().width()
 
 
 def test_issue_headers_left_aligned(page: QaPage) -> None:

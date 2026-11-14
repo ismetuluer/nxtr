@@ -17,7 +17,7 @@ from nxceviri.core.qa.checks import QaIssue
 from nxceviri.core.translate.status import STATUS_LABELS, Status
 from nxceviri.gui.qa_page import (
     COL_DESCRIPTION,
-    COL_KIND,
+    COL_SEVERITY,
     QaPage,
 )
 from nxceviri.gui.qa_page import (
@@ -307,21 +307,21 @@ def test_qa_table_header_menu_and_resizable_columns(qtbot: QtBot, tmp_path: Path
     h = page.table.horizontalHeader()
     assert all(h.sectionResizeMode(c) == h.ResizeMode.Interactive for c in range(h.count()))
     menu = page.column_menu.build_menu()
-    kind = next(a for a in menu.actions() if a.text() == "Tür")
-    assert kind.isEnabled()
+    severity = next(a for a in menu.actions() if a.text() == "Önem")
+    assert severity.isEnabled()
     locked = next(a for a in menu.actions() if a.text() == "Orijinal")
     assert not locked.isEnabled()
-    kind.toggle()
-    assert page.table.isColumnHidden(COL_KIND)
+    severity.toggle()
+    assert page.table.isColumnHidden(COL_SEVERITY)
     h.resizeSection(QA_TRANSLATION, 321)
     other = QaPage()
     qtbot.addWidget(other)
     other.bind_settings(_ini(tmp_path))
     other.resize(1000, 700)
     other.show()
-    assert other.table.isColumnHidden(COL_KIND)
+    assert other.table.isColumnHidden(COL_SEVERITY)
     assert other.table.horizontalHeader().sectionSize(QA_TRANSLATION) == 321
-    assert COL_DESCRIPTION != COL_KIND
+    assert COL_DESCRIPTION != COL_SEVERITY
 
 
 # --- akıllı sığdırma ------------------------------------------------------------------------

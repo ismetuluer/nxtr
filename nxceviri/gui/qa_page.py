@@ -14,6 +14,7 @@ from PySide6.QtCore import (
     QModelIndex,
     QPersistentModelIndex,
     QPoint,
+    QRect,
     QSettings,
     QSortFilterProxyModel,
     Qt,
@@ -21,9 +22,10 @@ from PySide6.QtCore import (
     Signal,
     SignalInstance,
 )
-from PySide6.QtGui import QAction, QShowEvent
+from PySide6.QtGui import QAction, QIcon, QPainter, QShowEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QButtonGroup,
     QCheckBox,
     QComboBox,
@@ -37,6 +39,7 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSizePolicy,
     QSpinBox,
+    QStyle,
     QStyledItemDelegate,
     QStyleOptionViewItem,
     QTableWidget,
@@ -65,7 +68,8 @@ from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, PROBLEM_LINE, PR
 from nxceviri.core.translate.fitconfig import EACH_GROUP, GROUP_PREFIX, FitConfig
 from nxceviri.core.translate.limits import SCOPE_GROUP, SCOPE_KEY
 from nxceviri.gui.icons import bind_icon, icon
-from nxceviri.gui.issue_chips import ChipBar, Disclosure
+from nxceviri.gui.issue_chips import Disclosure
+from nxceviri.gui.issue_kinds import KindList
 from nxceviri.gui.limits_table import LimitsTable
 from nxceviri.gui.table_columns import ColumnFitter, FitTableView, HeaderColumnMenu
 from nxceviri.gui.theme import current_tokens
@@ -75,8 +79,8 @@ from nxceviri.gui.widgets import ActionBar, Banner, Card, PageHeader, button, fo
 _Index = QModelIndex | QPersistentModelIndex
 #: Bu kadar bulguya kadar satırlar metne göre yükseltilir (üstünde ipucundan okunur).
 _FIT_ROWS_LIMIT = 3000
-_COLUMNS = ("Önem", "Tür", "Açıklama", "Orijinal", "Çeviri")
-COL_SEVERITY, COL_KIND, COL_DESCRIPTION, COL_SOURCE, COL_TRANSLATION = range(5)
+_COLUMNS = ("Önem", "Açıklama", "Orijinal", "Çeviri")
+COL_SEVERITY, COL_DESCRIPTION, COL_SOURCE, COL_TRANSLATION = range(4)
 #: Sığdırma ilk açıldığında (henüz sınır yokken) kutularda görünen değerler.
 _FIT_START_WIDTH, _FIT_START_LINES = 40, 3
 _FIT_OFF_TEXT = "Sınır girilmedi; sığdırma kapalı."
@@ -108,8 +112,6 @@ _SEVERITY_ICONS = {
     SEVERITY_WARNING: ("triangle-alert", "warning"),
     SEVERITY_INFO: ("info", "muted"),
 }
-#: Tür sütunu en uzun tür adına göre açılır; bu kadar piksel dolgu ve en çok bu genişlik.
-_KIND_PADDING, _KIND_MAX_WIDTH = 28, 240
 #: Önem sütunu yalnızca simgedir; Dosya sütunu dar başlar (tam yol ipucunda).
 _SEVERITY_WIDTH, _FILE_WIDTH = 44, 150
 
@@ -224,13 +226,11 @@ class IssueModel(QAbstractTableModel):
             return self._texts(i)[1]
         if role == Qt.ItemDataRole.DisplayRole:
             source, translation = self._texts(i)
-            return (
-                SEVERITY_LABELS[i.severity],
-                KIND_LABELS[i.kind],
-                i.message,
-                source,
-                translation,
-            )[col]
+            return (SEVERITY_LABELS[i.severity], i.message, source, translation)[col]
+        # Tür sütunu yok (tür soldaki listeden okunur); satırın türü açıklamanın ipucunda ve erişilebilir metninde.
+        kind = KIND_LABELS.get(i.kind, i.kind)
+        if role == Qt.ItemDataRole.AccessibleTextRole and col == COL_DESCRIPTION:
+            return f"{kind}: {i.message}"
         if role == Qt.ItemDataRole.ToolTipRole:
             source, translation = self._texts(i)
             if col == COL_SOURCE and source:
@@ -238,7 +238,7 @@ class IssueModel(QAbstractTableModel):
             elif col == COL_TRANSLATION and translation:
                 text = translation
             else:
-                text = f"{i.message}\n\nAnahtar: {i.key}"
+                text = f"{kind}\n\n{i.message}\n\nAnahtar: {i.key}"
             return tip_html(f"{text}\n\n{EDIT_HINT if col == COL_TRANSLATION else OPEN_HINT}")
         return None
 
@@ -283,6 +283,32 @@ class IssueFilter(QSortFilterProxyModel):
         if self.kinds:
             return i.kind in self.kinds
         return self.show_info or i.severity != "info"
+
+
+class _SeverityDelegate(QStyledItemDelegate):
+    """Önem hücresi: yalnızca ortalanmış simge.
+
+    Hücrede simge var, metin boş; varsayılan çizim odaklı hücrenin metin alanına boş bir odak çerçevesi
+    ("hayalet kutu") çizerdi. Burada odak çerçevesi hiç çizilmez; seçim zemini tüm satırla kesintisiz sürer.
+    """
+
+    def paint(
+        self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex | QPersistentModelIndex
+    ) -> None:
+        opt = QStyleOptionViewItem(option)
+        self.initStyleOption(opt, index)
+        opt.state &= ~QStyle.StateFlag.State_HasFocus
+        opt.features &= ~QStyleOptionViewItem.ViewItemFeature.HasDecoration
+        opt.icon = QIcon()
+        opt.text = ""
+        widget = opt.widget
+        style = widget.style() if widget is not None else QApplication.style()
+        style.drawControl(QStyle.ControlElement.CE_ItemViewItem, opt, painter, widget)
+        mark = index.data(Qt.ItemDataRole.DecorationRole)
+        if isinstance(mark, QIcon):
+            area = QRect(0, 0, _SEVERITY_ICON_SIZE, _SEVERITY_ICON_SIZE)
+            area.moveCenter(option.rect.center())
+            mark.paint(painter, area)
 
 
 class _TranslationDelegate(QStyledItemDelegate):
@@ -473,20 +499,21 @@ class QaPage(QWidget):
         row.insertWidget(0, self.summary_icon)
         #: Son düzeltme sonucu (bildirim merkezine gönderilen metin).
         self.last_fix_text = ""
-        self.chip_bar = ChipBar()
-        self.chip_bar.selection_changed.connect(self._refilter)
-        self.check_card.body.addWidget(self.chip_bar)
+        self.kind_list = KindList()
+        self.kind_list.selection_changed.connect(self._refilter)
         self.model = IssueModel()
         self.model.translation_edited.connect(self.translation_edited)
         self.proxy = IssueFilter()
         self.proxy.setSourceModel(self.model)
         self.table = FitTableView()
+        self.table.setObjectName("issueTable")
         self.table.setModel(self.proxy)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setEditTriggers(
             QAbstractItemView.EditTrigger.DoubleClicked | QAbstractItemView.EditTrigger.EditKeyPressed
         )
         self.table.setItemDelegateForColumn(COL_TRANSLATION, _TranslationDelegate(self.table))
+        self.table.setItemDelegateForColumn(COL_SEVERITY, _SeverityDelegate(self.table))
         self.table.verticalHeader().hide()
         self.table.setAlternatingRowColors(True)
         self.table.setSortingEnabled(True)  # başlığa tıklayınca sıralar; üçüncü tıklama özgün sıraya döner
@@ -497,13 +524,9 @@ class QaPage(QWidget):
         h = self.table.horizontalHeader()
         h.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)  # sütunlar sürüklenerek ayarlanır
         h.setMinimumSectionSize(40)
-        kind_width = min(
-            _KIND_MAX_WIDTH,
-            max(self.table.fontMetrics().horizontalAdvance(name) for name in KIND_LABELS.values()) + _KIND_PADDING,
-        )
         self.fitter = ColumnFitter(
             self.table,
-            {COL_SEVERITY: (_SEVERITY_WIDTH, 40), COL_KIND: (kind_width, kind_width)},
+            {COL_SEVERITY: (_SEVERITY_WIDTH, 40)},
             {COL_DESCRIPTION: (0.3, 100), COL_SOURCE: (0.35, 100), COL_TRANSLATION: (0.35, 100)},
         )
         self.column_menu = HeaderColumnMenu(
@@ -536,6 +559,7 @@ class QaPage(QWidget):
         self._fixes_collapsed_saved = False
         split = QHBoxLayout()
         split.setSpacing(12)
+        split.addWidget(self.kind_list)
         split.addWidget(self.table, 1)
         split.addWidget(self._build_fix_section(), 0, Qt.AlignmentFlag.AlignTop)
         self.check_card.body.addLayout(split, 1)
@@ -727,11 +751,7 @@ class QaPage(QWidget):
 
     def _show_overflow(self) -> None:
         """Göster: Sorunlar sekmesi taşma türleriyle süzülmüş olarak açılır."""
-        for kind, chip in self.chip_bar.chips.items():
-            chip.blockSignals(True)
-            chip.setChecked(kind in _OVERFLOW_KINDS)
-            chip.blockSignals(False)
-        self._refilter()
+        self.kind_list.select_kinds(_OVERFLOW_KINDS)
         self.tabs.setCurrentIndex(0)
 
     def _open_fit_advanced(self) -> None:
@@ -1100,9 +1120,9 @@ class QaPage(QWidget):
         self._issues_changed()
 
     def reset(self) -> None:
-        """Denetim sonuçlarını siler (başka proje açıldı): liste, özet, çipler ve düzeltme sayıları boşalır."""
+        """Denetim sonuçlarını siler (başka proje açıldı): liste, özet, tür listesi ve düzeltme sayıları boşalır."""
         self.model.set_issues([])
-        self.chip_bar.set_counts({}, {})
+        self.kind_list.set_counts({}, {}, 0)
         self._update_fix_counts([])
         self._refilter()
         self.summary.setText("Henüz denetlenmedi.")
@@ -1114,14 +1134,14 @@ class QaPage(QWidget):
     def replace_row_issues(self, row_id: int, issues: list[QaIssue], row: TranslationRow) -> None:
         """Tek satırın bulgularını yenisiyle değiştirir (yerinde düzenleme sonrası); bulgu kalmadıysa satır düşer.
 
-        Seçim ve kaydırma konumu korunur; çipler, düzeltme sayıları ve özet güncellenir.
+        Seçim ve kaydırma konumu korunur; tür listesi, düzeltme sayıları ve özet güncellenir.
         """
         self.replace_rows_issues({row_id: issues}, [row])
 
     def replace_rows_issues(self, issues_by_row: dict[int, list[QaIssue]], rows: Sequence[TranslationRow]) -> None:
         """Birkaç satırın bulgularını tek seferde yenisiyle değiştirir (düzenlenen satır ve eşdeşleri).
 
-        Özet, çipler ve düzeltme sayıları yalnızca bir kez hesaplanır; seçim ve kaydırma konumu korunur.
+        Özet, tür listesi ve düzeltme sayıları yalnızca bir kez hesaplanır; seçim ve kaydırma konumu korunur.
         """
         selected = set(self._selected_row_ids())
         scroll = self.table.verticalScrollBar().value()
@@ -1142,7 +1162,7 @@ class QaPage(QWidget):
                 )
 
     def _issues_changed(self) -> None:
-        """Bulgu listesi değişti: özet, çipler ve düzeltme sayıları yeniden hesaplanır."""
+        """Bulgu listesi değişti: özet, tür listesi ve düzeltme sayıları yeniden hesaplanır."""
         issues = self.model.issues
         errors = sum(1 for i in issues if i.severity == SEVERITY_ERROR)
         warnings = sum(1 for i in issues if i.severity == SEVERITY_WARNING)
@@ -1170,7 +1190,7 @@ class QaPage(QWidget):
         for i in issues:
             counts[i.kind] = counts.get(i.kind, 0) + 1
             severities[i.kind] = _worse(severities.get(i.kind, ""), i.severity)
-        self.chip_bar.set_counts(counts, severities)
+        self.kind_list.set_counts(counts, severities, sum(1 for i in issues if i.severity != SEVERITY_INFO))
         self._update_fix_counts(issues)
         self._refilter()
 
@@ -1184,7 +1204,7 @@ class QaPage(QWidget):
             self.set_fixes_collapsed(str(saved).lower() in ("1", "true"))
 
     def _refilter(self) -> None:
-        self.proxy.update(self.chip_bar.selected_kinds(), show_info=False)
+        self.proxy.update(self.kind_list.selected_kinds(), show_info=False)
         self._fit_rows()
         self._update_fix_boxes()
 
