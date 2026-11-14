@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.export.layeredfs import LAYOUT_ATMOSPHERE, LAYOUT_EMULATOR
@@ -18,7 +20,6 @@ def test_export_terms_have_tooltips(qtbot: QtBot) -> None:
         page.layout_buttons[LAYOUT_EMULATOR],
         page.mod_name,
         page.folder,
-        page.target,
         page.export_button,
         page.open_button,
         page.graphics_open,
@@ -27,6 +28,21 @@ def test_export_terms_have_tooltips(qtbot: QtBot) -> None:
         assert widget.toolTip(), widget
     assert "SD kart" in page.layout_buttons[LAYOUT_ATMOSPHERE].toolTip()
     assert "mods" in page.layout_buttons[LAYOUT_EMULATOR].toolTip()
+
+
+def test_export_target_line_tells_what_to_do(qtbot: QtBot, tmp_path: Path) -> None:
+    """Hedef satırı teknik klasör yapısını değil, kullanıcının ne yapacağını söyler; yapı ipucundadır."""
+    page = ExportPage()
+    qtbot.addWidget(page)
+    page.folder.setText(str(tmp_path))
+    page.mod_name.setText("Turkce")
+    page.update_target()
+    assert "SD kart" in page.target.text()
+    assert "<TitleID>" not in page.target.text()
+    assert "atmosphere/contents/&lt;TitleID&gt;/romfs" in page.target.toolTip()
+    page.layout_buttons[LAYOUT_EMULATOR].setChecked(True)
+    assert "emülatör" in page.target.text()
+    assert "&lt;TitleID&gt;/Turkce/romfs" in page.target.toolTip()
 
 
 def test_check_page_terms_have_tooltips(qtbot: QtBot) -> None:

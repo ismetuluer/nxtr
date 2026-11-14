@@ -105,9 +105,6 @@ class ExportPage(QWidget):
         form.addRow("Konum:", folder_row)
         card.body.addLayout(form)
         self.target = label("", "muted", wrap=True)
-        self.target.setToolTip(
-            tip_html("<TitleID>, oyunun kimlik numarasıdır; mod oluşturulurken gerçek numara yazılır.")
-        )
         card.body.addWidget(self.target)
         self.include_errors_box = QCheckBox("Hatalı satırları da aktar")
         self.include_errors_box.setToolTip(
@@ -198,9 +195,14 @@ class ExportPage(QWidget):
             return
         if self.layout_key == LAYOUT_ATMOSPHERE:
             inner = "atmosphere/contents/<TitleID>/romfs/…"
+            todo = "Sonra içindeki atmosphere klasörünü SD kartın köküne kopyalayın."
         else:
             inner = f"<TitleID>/{safe_mod_name(self.mod_name.text())}/romfs/…"
-        self.target.setText(f"Oluşturulacak klasör: {dest}\nİçeriği: {inner}")
+            todo = "Sonra içindeki klasörü emülatörün mod klasörüne kopyalayın."
+        self.target.setText(f"Oluşturulacak klasör: {dest}\n{todo}")
+        self.target.setToolTip(
+            tip_html(f"Klasörün içi: {inner}\n<TitleID>, oyunun kimlik numarasıdır; mod oluşturulurken yazılır.")
+        )
 
     def set_include_errors(self, *, errors: int, checked: bool) -> None:
         """Kutuyu proje ayarına göre kurar; hatalı satır yoksa kutu gizlenir."""
