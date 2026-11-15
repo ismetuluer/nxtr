@@ -30,7 +30,9 @@ koddan çalıştırıyorsan depo içi `eklentiler/*` zaten git'e girmez (`eklent
 ### 2. Klasörü sıkıştırıp ver
 1. `eklentiler/<ad>/` (ya da `%LOCALAPPDATA%` altındaki) klasörünü zip'le: içinde `eklenti.toml`, `plugin.py`,
    `tests/`, `NOT.md`.
-2. Kullanıcı kendi uygulamasında **Araçlar → Eklentiler → Eklenti Ekle…** ile zip'i ya da klasörü seçer.
+2. Kullanıcı kendi uygulamasında **Araçlar → Eklentiler → Eklenti Ekle…** ile zip'i ya da klasörü seçer (böyle
+   kurulan eklenti onaylı sayılır). Klasörü elle eklenti klasörüne kopyalarsa uygulama ilk açılışta "Yeni eklenti
+   bulundu" diye sorar; "Yükle" denmeden kodu çalışmaz. Komut satırı araçları sormaz.
 3. Zip'i alacak kişiye uyar: eklenti kod çalıştırır, korumalı alan yoktur; güvendiğin kişiden al, `plugin.py`'yi oku.
 4. Zip'te anahtar ve oyun verisi olmadığını doğrula.
 

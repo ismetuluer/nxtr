@@ -41,7 +41,12 @@ from nxceviri.core.export.layeredfs import (
 )
 from nxceviri.core.export.layeredfs import export_mod as export_layeredfs
 from nxceviri.core.formats.derived import GraphicsSupport, graphics_status
-from nxceviri.core.formats.registry import BUILTIN_PLUGINS, plugin_for_kind, user_plugin_report
+from nxceviri.core.formats.registry import (
+    BUILTIN_PLUGINS,
+    load_user_plugins,
+    plugin_for_kind,
+    user_plugin_report,
+)
 from nxceviri.core.formats.scanner import ScanReport
 from nxceviri.core.keys import KeySet, load_keys, load_title_keys
 from nxceviri.core.pipeline import (
@@ -59,7 +64,9 @@ from nxceviri.core.pipeline import (
     scan_sources,
     version_warnings,
 )
+from nxceviri.core.plugins.loader import PluginInfo, PluginReport
 from nxceviri.core.plugins.record import plugin_warnings, record_extraction
+from nxceviri.core.plugins.trust import PluginTrust
 from nxceviri.core.progress import TaskContext
 from nxceviri.core.project import PROJECT_SUFFIX, Change, Project, SourceRecord, TranslationRow, row_group
 from nxceviri.core.qa import transliterate
@@ -183,6 +190,7 @@ from nxceviri.gui.notify import (
     NotificationCenter,
     split_notice,
 )
+from nxceviri.gui.plugin_approval import ask_approval, offer_pending
 from nxceviri.gui.plugins_dialog import PluginsDialog
 from nxceviri.gui.provider_probe import ProviderProbe
 from nxceviri.gui.qa_page import QaPage
@@ -400,6 +408,7 @@ class MainWindow(QMainWindow):
         self._update_task: Task | None = None
         self.recent = RecentProjects(settings)
         self.recovery = RecoveryKeeper(default_recovery_dir())
+        self.plugin_trust = PluginTrust()  # yalnızca kullanıcı bir eklentiyi onaylayınca yazılır
         self._recovery_due = False  # son kopyadan beri değişiklik var mı
         self._recovery_timer = QTimer(self)
         self._recovery_timer.setInterval(RECOVERY_INTERVAL_MS)
@@ -709,7 +718,31 @@ class MainWindow(QMainWindow):
         self._set_font_size(sizes[max(0, min(len(sizes) - 1, i))])
 
     def open_plugins(self) -> None:
-        PluginsDialog(self, report=user_plugin_report(), builtin=BUILTIN_PLUGINS).exec()
+        PluginsDialog(
+            self,
+            report=user_plugin_report(),
+            builtin=BUILTIN_PLUGINS,
+            trust=self.plugin_trust,
+            reload=lambda: None if self.busy else self.reload_plugins(),
+        ).exec()
+
+    def reload_plugins(self, dirs: Sequence[Path] | None = None) -> PluginReport:
+        """Kayıt defterini onay denetimiyle yeniden yükler (yalnızca iş çalışmıyorken çağrılır)."""
+        return load_user_plugins(dirs, self.plugin_trust.is_trusted)
+
+    def offer_new_plugins(self, dirs: Sequence[Path] | None = None) -> None:
+        """Açılışta: onay bekleyen her kullanıcı eklentisini bir kez sorar; onaylananlar hemen yüklenir."""
+        if self.busy:
+            return
+        errors = offer_pending(
+            user_plugin_report(), self.plugin_trust, self.ask_plugin_approval, lambda: self.reload_plugins(dirs)
+        )
+        for exc in errors:
+            self.notify(LEVEL_ERROR, "Eklenti onayı kaydedilemedi", exc.user_text())
+
+    def ask_plugin_approval(self, info: PluginInfo, changed: bool) -> bool:
+        """Yeni/değişmiş eklenti sorusu; "Yükle" seçildiyse True (testlerde değiştirilir)."""
+        return ask_approval(self, info, changed)
 
     def _open_logs(self) -> None:
         log_dir().mkdir(parents=True, exist_ok=True)

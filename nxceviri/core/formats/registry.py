@@ -1,6 +1,7 @@
 """Kayıtlı format eklentileri: yerleşikler (buraya eklenerek etkinleşir) ve kullanıcı eklentileri.
 
-Kullanıcı eklentileri açılışta bir kez `load_user_plugins()` ile yüklenir ve yerleşiklerden ÖNCE denenir."""
+Kullanıcı eklentileri açılışta `load_user_plugins()` ile yüklenir (arayüz onay denetimiyle; kullanıcı yeni bir
+eklentiyi onaylayınca yeniden yüklenir) ve yerleşiklerden ÖNCE denenir."""
 
 from __future__ import annotations
 
@@ -22,7 +23,7 @@ from nxceviri.core.formats.srt import SrtPlugin
 from nxceviri.core.formats.unity import UnityPlugin
 from nxceviri.core.formats.unreal import LocresPlugin
 from nxceviri.core.formats.ysorigin import YsOriginPlugin
-from nxceviri.core.plugins.loader import PluginInfo, PluginReport, load_plugins
+from nxceviri.core.plugins.loader import PluginInfo, PluginReport, TrustCheck, load_plugins
 
 log = logging.getLogger(__name__)
 
@@ -47,13 +48,19 @@ _user_report = PluginReport()
 _failed_detect: set[str] = set()
 
 
-def load_user_plugins(dirs: Sequence[Path] | None = None) -> PluginReport:
-    """Kullanıcı eklentilerini (yeniden) yükler ve kayıt defterine koyar."""
+def load_user_plugins(dirs: Sequence[Path] | None = None, trusted: TrustCheck | None = None) -> PluginReport:
+    """Kullanıcı eklentilerini (yeniden) yükler ve kayıt defterine koyar.
+
+    `trusted` (onay denetimi) yalnızca arayüz verir: onaylanmamış kullanıcı eklentisi içe aktarılmaz. Verilmezse
+    (komut satırı araçları, kullanıcı bilerek çalıştırır) hepsi yüklenir."""
     global _user_report  # noqa: PLW0603 - uygulama genelinde tek kayıt defteri
     _failed_detect.clear()
-    _user_report = load_plugins(dirs, {p.name for p in BUILTIN_PLUGINS})
+    _user_report = load_plugins(dirs, {p.name for p in BUILTIN_PLUGINS}, trusted)
     for info in _user_report.errors:
         log.warning("Eklenti yüklenemedi: %s: %s", info.ad, info.hata)
+    for info in _user_report.infos:
+        if info.onay_bekliyor:
+            log.info("Eklenti onay bekliyor, yüklenmedi: %s (%s)", info.ad, info.yol)
     return _user_report
 
 

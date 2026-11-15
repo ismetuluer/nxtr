@@ -10,17 +10,23 @@ Bir eklenti bir klasördür:
 Hatalı bir eklenti uygulamayı durdurmaz: nedeni `PluginInfo.hata` içinde, ne yapılacağıyla birlikte
 Türkçe olarak raporlanır. Eklenti kodu korumasız çalışır (korumalı alan yoktur); yalnızca güvenilen
 kaynaklardan eklenti kurulmalıdır.
+
+Onay denetimi (`trusted`) verilirse, kullanıcı klasöründeki eklenti ancak klasörünün parmak izi
+(`plugin_fingerprint`) onaylanmışsa içe aktarılır; değilse kodu hiç çalıştırılmadan "onay bekliyor"
+olarak raporlanır. Depo klasörü (`repo_plugin_dir`) uygulama koduyla aynı güven düzeyindedir, onay istemez.
 """
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import logging
 import os
 import re
+import shutil
 import sys
 import tomllib
-from collections.abc import Collection, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
@@ -83,11 +89,15 @@ class PluginInfo:
     tur: str = ""
     #: Aynı eklentinin öncelikli bir klasördeki kopyası kullanıldığı için bu kopya yüklenmedi (hata değil).
     golge: bool = False
+    #: Kullanıcı bu eklentiyi (ya da şimdiki içeriğini) henüz onaylamadı; kodu çalıştırılmadı (hata değil).
+    onay_bekliyor: bool = False
+    #: Onay bekleyen eklentinin denetlenen içeriğinin parmak izi (`plugin_fingerprint`); onay bununla kaydedilir.
+    parmak_izi: str = ""
     plugin: FormatPlugin | None = field(default=None, compare=False, repr=False)
 
     @property
     def yuklu(self) -> bool:
-        return not self.hata
+        return not self.hata and not self.onay_bekliyor
 
 
 @dataclass(frozen=True)
@@ -170,6 +180,29 @@ class GuardedPlugin:
             return self._call(fn, *args)
 
         return guarded
+
+
+#: Onay denetimi: (eklenti klasörü, şimdiki parmak izi) onaylıysa True.
+TrustCheck = Callable[[Path, str], bool]
+
+
+def plugin_fingerprint(folder: Path) -> str:
+    """Eklenti klasörünün SHA-256 parmak izi: tüm dosyalar (göreli yol + içerik, sıralı); `__pycache__` hariç.
+
+    Yol ve içerik uzunluk önekiyle eklenir; iki dosyanın sınırı kayarak aynı iz üretilemez. Okunamayan dosya
+    `OSError` verir."""
+    files = sorted(
+        (path.relative_to(folder).as_posix(), path)
+        for path in folder.rglob("*")
+        if path.is_file() and "__pycache__" not in path.relative_to(folder).parts
+    )
+    digest = hashlib.sha256()
+    for rel, path in files:
+        name = rel.encode("utf-8")
+        data = path.read_bytes()
+        digest.update(len(name).to_bytes(8, "little") + name)
+        digest.update(len(data).to_bytes(8, "little") + data)
+    return digest.hexdigest()
 
 
 def slug(text: str) -> str:
@@ -275,7 +308,35 @@ def _failed(folder: Path, data: Mapping[str, Any] | None, error: str) -> PluginI
     )
 
 
-def _load_one(folder: Path, module_name: str, taken: Mapping[str, str], builtin_names: Collection[str]) -> PluginInfo:
+def _remove_bytecode_caches(folder: Path) -> None:
+    """Eklenti klasöründeki tüm `__pycache__` dizinlerini siler; silinemeyen olursa `OSError` verir."""
+    for cache in sorted(p for p in folder.rglob("__pycache__") if p.is_dir()):
+        if cache.exists():  # üstteki bir önbellekle birlikte silinmiş olabilir
+            shutil.rmtree(cache)
+
+
+def _pending(folder: Path, data: Mapping[str, Any], fingerprint: str) -> PluginInfo:
+    """Onay bekleyen eklenti: bilgiler yalnızca (doğrulanmış) manifestten; kod çalıştırılmadı."""
+    return PluginInfo(
+        ad=data["ad"].strip(),
+        surum=data["surum"].strip(),
+        yazar=data["yazar"].strip(),
+        yol=folder,
+        api=data["api"],
+        oyunlar=tuple(g.upper() for g in data.get("oyunlar", [])),
+        aciklama=data.get("aciklama", "").strip(),
+        onay_bekliyor=True,
+        parmak_izi=fingerprint,
+    )
+
+
+def _load_one(
+    folder: Path,
+    module_name: str,
+    taken: Mapping[str, str],
+    builtin_names: Collection[str],
+    trusted: TrustCheck | None,
+) -> PluginInfo:
     data, error = read_manifest(folder)
     if data is None:
         return _failed(folder, None, error)
@@ -286,6 +347,28 @@ def _load_one(folder: Path, module_name: str, taken: Mapping[str, str], builtin_
         return _failed(folder, data, _api_problem(data["api"]))
     if not (folder / ENTRY_NAME).is_file():
         return _failed(folder, data, f"{ENTRY_NAME} bulunamadı. Eklenti klasöründe {ENTRY_NAME} dosyası olmalı.")
+    if trusted is not None:
+        # Bayt kodu önbelleği ize girmez ve kaynağın yerine çalışabilir: önce silinir (kaynaktan yeniden derlenir).
+        try:
+            _remove_bytecode_caches(folder)
+        except OSError as exc:
+            log.warning("Eklenti önbelleği temizlenemedi: %s", folder, exc_info=True)
+            return _failed(
+                folder,
+                data,
+                f"Eklentinin önbelleği (__pycache__) temizlenemedi ({exc}); eklenti yüklenmedi. "
+                "Klasörü silip eklentiyi yeniden kurun ya da dosya izinlerini denetleyin.",
+            )
+        # İz, içe aktarmadan hemen önce yeniden hesaplanır: onaydan sonra değişen içerik çalıştırılmaz.
+        try:
+            fingerprint = plugin_fingerprint(folder)
+        except OSError as exc:
+            log.warning("Eklenti dosyaları okunamadı: %s", folder, exc_info=True)
+            return _failed(
+                folder, data, f"Eklenti dosyaları okunamadı ({exc}). Dosya izinlerini denetleyin; eklenti yüklenmedi."
+            )
+        if not trusted(folder, fingerprint):
+            return _pending(folder, data, fingerprint)
     try:
         module = _import_plugin(folder, module_name)
     except Exception as exc:  # kullanıcı kodu: her türlü hata eklenti hatası olarak raporlanır
@@ -350,8 +433,23 @@ def _load_one(folder: Path, module_name: str, taken: Mapping[str, str], builtin_
     )
 
 
-def load_plugins(dirs: Sequence[Path] | None = None, builtin_names: Collection[str] | None = None) -> PluginReport:
-    """Eklenti klasörlerini tarar ve yükler. Hatalı eklenti atlanır, nedeni rapora yazılır."""
+def _needs_approval(base: Path, trusted: TrustCheck | None) -> TrustCheck | None:
+    """Bu kök klasör için uygulanacak onay denetimi; depo klasörü onaydan muaftır."""
+    repo = repo_plugin_dir()
+    if trusted is None or (repo is not None and base.resolve() == repo.resolve()):
+        return None
+    return trusted
+
+
+def load_plugins(
+    dirs: Sequence[Path] | None = None,
+    builtin_names: Collection[str] | None = None,
+    trusted: TrustCheck | None = None,
+) -> PluginReport:
+    """Eklenti klasörlerini tarar ve yükler. Hatalı eklenti atlanır, nedeni rapora yazılır.
+
+    `trusted` verilirse onaylanmamış kullanıcı eklentisi içe aktarılmaz, "onay bekliyor" olarak raporlanır;
+    verilmezse (komut satırı araçları) hepsi yüklenir."""
     if dirs is None:
         dirs = user_plugin_dirs()
     if builtin_names is None:
@@ -366,9 +464,10 @@ def load_plugins(dirs: Sequence[Path] | None = None, builtin_names: Collection[s
     for base in dirs:
         if not base.is_dir():
             continue
+        check = _needs_approval(base, trusted)
         for folder in sorted(p for p in base.iterdir() if p.is_dir() and not p.name.startswith((".", "_"))):
             counter += 1
-            info = _load_one(folder, f"{MODULE_PREFIX}{counter}_{slug(folder.name)}", taken, builtin_names)
+            info = _load_one(folder, f"{MODULE_PREFIX}{counter}_{slug(folder.name)}", taken, builtin_names, check)
             if info.yuklu and not info.golge:
                 taken[info.tur] = info.ad
             infos.append(info)

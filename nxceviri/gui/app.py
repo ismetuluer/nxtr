@@ -15,6 +15,7 @@ from PySide6.QtWidgets import QApplication
 
 from nxceviri import __version__
 from nxceviri.core.formats.registry import load_user_plugins
+from nxceviri.core.plugins.trust import PluginTrust
 from nxceviri.core.selfupdate import take_install_failure
 from nxceviri.core.update import UpdateError, app_root, apply_staged, relaunch
 from nxceviri.gui.gcguard import GarbageCollector
@@ -139,7 +140,9 @@ def main(argv: list[str] | None = None) -> int:
     app.setStyle("Fusion")
     app.setWindowIcon(app_icon())
     install_qt_translations(app)
-    load_user_plugins()  # hatalı eklenti uygulamayı durdurmaz; nedeni Araçlar → Eklentiler'de görünür
+    # Onaylanmamış kullanıcı eklentisinin kodu çalıştırılmaz; pencere açılınca sorulur. Hatalı eklenti uygulamayı
+    # durdurmaz; nedeni Araçlar → Eklentiler'de görünür.
+    load_user_plugins(trusted=PluginTrust().is_trusted)
     settings = QSettings()
     try:
         mode = ThemeMode(str(settings.value("ui/theme", ThemeMode.SYSTEM.value)))
@@ -158,6 +161,7 @@ def main(argv: list[str] | None = None) -> int:
     install_failure = take_install_failure()
     if install_failure:
         window.notify_update_failure(f"Eski sürümle açıldı; projeleriniz etkilenmedi. Neden: {install_failure}")
+    window.offer_new_plugins()  # proje açılmadan önce: eksik eklenti uyarısı onaylanan eklentiyi görsün
     if project_args:
         window.open_project(project_args[0])
     else:

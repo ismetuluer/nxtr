@@ -25,6 +25,15 @@ klasöründe varsa kullanıcı klasöründeki kullanılır, diğeri "gölgelendi
 
 > **Güvenlik:** Eklenti kod çalıştırır, korumalı alan yoktur. Başkasından aldığın eklentinin `plugin.py`'sini çalıştırmadan
 > önce oku; kullanıcıya da söyle.
+>
+> **Onay:** Uygulama, kullanıcı eklenti klasörüne konmuş yeni ya da içeriği değişmiş bir eklentiyi açılışta sorar
+> ("Yeni eklenti bulundu": Yükle / Şimdi Değil); onaylanana kadar kodu çalıştırılmaz, Araçlar → Eklentiler'de
+> "Onay bekliyor" görünür ve oradan "Onayla ve Yükle" ile de onaylanabilir. Onay, klasördeki dosyaların parmak izi
+> (SHA-256, `__pycache__` hariç) olarak `%LOCALAPPDATA%\NXCeviri\eklenti_onaylari.json` dosyasında tutulur; dosya
+> değişince yeniden sorulur. "Eklenti Ekle…" ile kurulan eklenti onaylı sayılır. Depo içi `eklentiler/` klasörü ve komut
+> satırı araçları (`python -m nxceviri.arac …`) onay sormaz; eklenti geliştirirken her değişiklikte uygulama yeniden
+> soracağı için önce araçlarla dene. Bu, bilmeden kopyalanan eklentinin sessizce çalışmasını önler; klasöre ve onay
+> dosyasına yazabilen birine karşı koruma değildir.
 
 `plugin.py`'nin dışa açtığı ad ve düzen için `eklenti-olustur`un ürettiği iskeleti temel al; komutun bayrakları için
 `--help`.
