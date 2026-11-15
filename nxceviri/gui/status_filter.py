@@ -45,6 +45,8 @@ class StatusFilterBar(QWidget):
     """Tek seçimli simge düğmeleri şeridi; ilk seçenek (değeri boş) "Tümü"dür."""
 
     changed = Signal(str)
+    #: "Tümü" düğmesine her basış (zaten seçiliyken de): sayfa bütün süzgeçleri kaldırır.
+    all_clicked = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -63,9 +65,10 @@ class StatusFilterBar(QWidget):
 
         Yalnızca yazılar değiştiyse düğmeler yeniden kurulmaz (klavye odağı kaybolmasın).
         """
-        if [replace(o, text="") for o in options] == [replace(o, text="") for o in self._options]:
+        if [replace(o, text="", tip="") for o in options] == [replace(o, text="", tip="") for o in self._options]:
             for option in options:
                 self.set_text(option.value, option.text)
+                self.set_tip(option.value, option.tip)
             self._options = list(options)
             return
         self._options = list(options)
@@ -120,6 +123,20 @@ class StatusFilterBar(QWidget):
         if button is not None:
             self._set_button_text(button, text)
 
+    def set_tip(self, value: str, tip: str) -> None:
+        button = self._buttons.get(value)
+        if button is not None:
+            button.setToolTip(tip)
+
+    def set_marked(self, value: str, marked: bool) -> None:
+        """Düğmeyi "eksik gösteriyorum" biçiminde (kesikli çerçeve, vurgu rengi) işaretler ya da işareti kaldırır."""
+        button = self._buttons.get(value)
+        if button is not None and button.property("marked") != marked:
+            button.setProperty("marked", marked)
+            style = button.style()
+            style.unpolish(button)
+            style.polish(button)
+
     @staticmethod
     def _set_button_text(button: QToolButton, text: str) -> None:
         button.setText(text)
@@ -133,3 +150,5 @@ class StatusFilterBar(QWidget):
         if value != self._current:
             self._current = value
             self.changed.emit(value)
+        if value == "":
+            self.all_clicked.emit()

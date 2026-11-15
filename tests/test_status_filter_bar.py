@@ -96,6 +96,26 @@ def test_bar_set_options_keeps_current_silently(qtbot: QtBot) -> None:
     assert len(_buttons(bar)) == 2
 
 
+def test_bar_all_button_signals_even_when_already_selected(qtbot: QtBot) -> None:
+    bar = _bar(qtbot)
+    clicks: list[bool] = []
+    bar.all_clicked.connect(lambda: clicks.append(True))
+    QTest.mouseClick(_buttons(bar)[0], Qt.MouseButton.LeftButton)  # zaten seçili
+    assert clicks == [True]
+    QTest.mouseClick(_buttons(bar)[1], Qt.MouseButton.LeftButton)
+    assert clicks == [True]
+
+
+def test_bar_set_marked_and_tip(qtbot: QtBot) -> None:
+    bar = _bar(qtbot)
+    bar.set_marked("", True)
+    assert _buttons(bar)[0].property("marked") is True
+    bar.set_marked("", False)
+    assert not _buttons(bar)[0].property("marked")
+    bar.set_tip("", "Yeni ipucu")
+    assert _buttons(bar)[0].toolTip() == "Yeni ipucu"
+
+
 def test_bar_set_text_updates_button(qtbot: QtBot) -> None:
     bar = _bar(qtbot)
     bar.set_text("error", "3")

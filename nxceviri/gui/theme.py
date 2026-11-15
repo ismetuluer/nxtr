@@ -197,6 +197,7 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QToolButton[role="chip"]:checked {{
         background: {t["selection"]}; border-color: {t["accent"]}; color: {t["accent"]};
     }}
+    QToolButton[role="chip"][marked="true"] {{ border: 1px dashed {t["accent"]}; color: {t["accent"]}; }}
     QFrame#chipPopup {{ background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: 8px; }}
     QLabel[role="danger"] {{ color: {t["danger"]}; }}
     QLabel[role="warning"] {{ color: {t["warning"]}; }}

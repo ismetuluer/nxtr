@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QSettings
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QToolButton
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.translate.regexguard import RISKY_MESSAGE, TIMEOUT_MESSAGE, Deadline, SearchTimeout, is_risky
@@ -17,6 +17,7 @@ from nxceviri.core.translate.replace import find_pattern, plan_replace, replacem
 from nxceviri.gui.find_replace import SCOPE_ALL, SCOPE_VISIBLE
 from nxceviri.gui.main_window import MANUAL_LIMIT_KEY, STEP_TRANSLATE, MainWindow
 from nxceviri.gui.translate_page import TranslatePage
+from nxceviri.gui.widgets import format_int
 from tests.test_editor import _project
 from tests.test_find_bar import Writer, make_page
 from tests.test_marked_delegate import make_row
@@ -152,18 +153,23 @@ def test_pending_filter_on_hidden_column_is_dropped(qtbot: QtBot) -> None:
         page.set_rows(rows)
         assert not page.key_filter.active
         assert page.proxy.rowCount() == 2
-        assert not page.filter_chip.isVisibleTo(page)
+        assert not page.find_filters_active()
 
 
-def test_filter_chip_shows_when_a_filter_is_active_and_clears(qtbot: QtBot) -> None:
+def test_all_button_shows_partial_view_and_clears_every_filter(qtbot: QtBot) -> None:
     page, _ = make_page(qtbot)
-    assert not page.filter_chip.isVisibleTo(page)
+    all_button = page.status_filter.findChildren(QToolButton)[0]
+    total = format_int(page.model.rowCount())
+    assert all_button.text() == total
     page.search.setText("limit")
-    assert page.filter_chip.isVisibleTo(page)
-    assert "Süzgeç etkin" in page.filter_chip.text()
-    page.filter_chip.click()
+    assert all_button.text() == f"{format_int(page.proxy.rowCount())} / {total}"
+    assert all_button.property("marked") is True
+    assert "arama ve süzgeçler kalkar" in all_button.toolTip()
+    all_button.click()  # durum süzgeci zaten "Tümü": yine de arama ve süzgeçler kalkar
     assert page.search.text() == ""
-    assert not page.filter_chip.isVisibleTo(page)
+    assert all_button.text() == total
+    assert not all_button.property("marked")
+    assert all_button.toolTip() == "Bütün satırlar"
 
 
 # --- 6. Felaket regex --------------------------------------------------------------------------

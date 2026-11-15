@@ -59,6 +59,7 @@ from nxceviri.core.translate.codekinds import CodeKinds
 from nxceviri.core.translate.fitconfig import FitConfig
 from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_REVISE, ACTION_TRANSLATE, target_rows
 from nxceviri.core.translate.status import STATUS_LABELS, Status
+from nxceviri.core.translate.textsearch import fold_search
 from nxceviri.core.translate.uppercase import UppercaseRules
 from nxceviri.gui.changes_dialog import HtmlDelegate, diff_html
 from nxceviri.gui.editor_pane import EditorPane
@@ -604,7 +605,7 @@ class TranslationFilter(QSortFilterProxyModel):
         self.beginFilterChange()
         self.status, self.groups, self.keys = status, groups, keys
         # "#120" satıra gitmek içindir, metin araması değildir.
-        self.text = "" if _NUMBER_QUERY.fullmatch(text.strip()) else text.casefold()
+        self.text = "" if _NUMBER_QUERY.fullmatch(text.strip()) else fold_search(text)
         self.endFilterChange()
 
     def filterAcceptsRow(self, source_row: int, source_parent: _Index) -> bool:
@@ -628,7 +629,7 @@ class TranslationFilter(QSortFilterProxyModel):
         # Yalnızca orijinal ve çeviri sütunları: anahtar ve dosya adı aramaya karışmaz (ör. "/(" hepsini getirirdi).
         cached = self._folded.get(r.id)
         if cached is None or cached[0] is not r.source or cached[1] is not r.translation:
-            cached = (r.source, r.translation, r.source.casefold(), r.translation.casefold())
+            cached = (r.source, r.translation, fold_search(r.source), fold_search(r.translation))
             self._folded[r.id] = cached
         return self.text in cached[2] or self.text in cached[3]
 
@@ -817,15 +818,6 @@ class TranslatePage(QWidget):
         self.key_filter = ValueFilter("Anahtar")
         filters.addWidget(self.search, 2)
         filters.addWidget(self.status_filter)
-        # Süzgeç etkinken satırların neden azaldığını gösterir; süzgeç yokken görünmez (kalıcı düğme değil).
-        self.filter_chip = QToolButton()
-        self.filter_chip.setProperty("role", "link")
-        self.filter_chip.setText("Süzgeç etkin · Temizle")
-        self.filter_chip.setToolTip("Arama ve süzgeçlerin hepsini kaldırır.")
-        self.filter_chip.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.filter_chip.clicked.connect(self._clear_filters)
-        self.filter_chip.hide()
-        filters.addWidget(self.filter_chip)
         filters.addStretch(1)
         # Görünüm seçenekleri menü çubuğundadır (Görünüm menüsü); eylemler burada yaşar, tablo durumu bunlara bağlıdır.
         self.wrap_box = QAction("Metni Kaydır", self, checkable=True)
@@ -981,6 +973,7 @@ class TranslatePage(QWidget):
         self.search.textChanged.connect(self._search_edited)
         self.search.returnPressed.connect(self._apply_search_now)
         self.status_filter.changed.connect(self._refilter)
+        self.status_filter.all_clicked.connect(self._clear_filters)
         self.group_filter.changed.connect(self._filters_edited)
         self.key_filter.changed.connect(self._filters_edited)
         self.model.dataChanged.connect(lambda *_args: self.find_bar.rows_changed())
@@ -1416,7 +1409,7 @@ class TranslatePage(QWidget):
             self.key_filter.selected,
             self.search.text(),
         )
-        self.filter_chip.setVisible(self.find_filters_active())
+        self._update_all_button()
         self.view_changed.emit()
         self._schedule_fit_rows()
         if current is not None:
@@ -1919,7 +1912,8 @@ class TranslatePage(QWidget):
         counts: dict[str, int] = {}
         for r in self.model.rows:
             counts[r.status] = counts.get(r.status, 0) + 1
-        options = [FilterOption("", "list", None, "Tümü", "Bütün satırlar", format_int(len(self.model.rows)))]
+        text, tip = self._all_text_tip()
+        options = [FilterOption("", "list", None, "Tümü", tip, text)]
         for s in Status:
             # Seçili durum, son satırı değişse bile listede kalır: düzenlerken süzgeç kendiliğinden "Tümü"ne düşmesin.
             if s in (Status.MACHINE, Status.REDACTED) and s not in counts and s.value != self.status_filter.current():
@@ -1944,10 +1938,27 @@ class TranslatePage(QWidget):
             )
         return options
 
+    def _all_text_tip(self) -> tuple[str, str]:
+        """ "Tümü" düğmesinin yazısı ve ipucu: süzgeç etkinken "görünen / toplam" ve sıfırlama ipucu."""
+        total = format_int(len(self.model.rows))
+        if self.find_filters_active():
+            return (
+                f"{format_int(self.proxy.rowCount())} / {total}",
+                "Bütün satırları göster (arama ve süzgeçler kalkar)",
+            )
+        return total, "Bütün satırlar"
+
+    def _update_all_button(self) -> None:
+        text, tip = self._all_text_tip()
+        self.status_filter.set_text("", text)
+        self.status_filter.set_tip("", tip)
+        self.status_filter.set_marked("", self.find_filters_active())
+
     def _refresh_status_filter(self) -> bool:
         """Durum şeridini satırlara göre yeniler; seçili düğme kalktığı için süzgeç değiştiyse True döner."""
         before = self.status_filter.current()
         self.status_filter.set_options(self._status_options())
+        self._update_all_button()
         return self.status_filter.current() != before
 
     def _status_counts_changed(self) -> None:
