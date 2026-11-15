@@ -8,9 +8,10 @@ import pytest
 from PySide6.QtCore import QItemSelectionModel, QRect, QSettings, Qt
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QStyleOptionViewItem
+from PySide6.QtWidgets import QPlainTextEdit, QStyleOptionViewItem
 from pytestqt.qtbot import QtBot
 
+from nxceviri.core.errors import ProjectError
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa.checks import SEVERITY_WARNING, QaIssue
 from nxceviri.core.qa.live import LiveChecker
@@ -338,6 +339,121 @@ def test_column_sort_sorts_inside_groups(qtbot: QtBot) -> None:
     p.model.sort_by(COL_SOURCE, Qt.SortOrder.DescendingOrder)
     ids = [r.id if r else None for r in (p._row_at(v) for v in range(p.proxy.rowCount()))]
     assert ids == [None, 7, 4, 1, None, 8, 5, 2, None, 9, 6, 3]
+
+
+def _mapping(p: TranslatePage) -> list[int]:
+    flt = p.filter
+    return [flt.mapToSource(flt.index(i, 0)).row() for i in range(flt.rowCount())]
+
+
+def _assert_accepted_matches(p: TranslatePage) -> None:
+    assert p.filter.accepted_rows() == _mapping(p)
+    keys = p._group_keys()
+    assert keys == [p._row_groups[p.model.rows[i].id] for i in _mapping(p)]
+
+
+def test_accepted_rows_cache_matches_filter_mapping(qtbot: QtBot) -> None:
+    p = _grouped(qtbot)
+    _assert_accepted_matches(p)
+    for order in (Qt.SortOrder.AscendingOrder, Qt.SortOrder.DescendingOrder):  # (a) sütun sıralaması
+        p.model.sort_by(COL_SOURCE, order)
+        _assert_accepted_matches(p)
+    p.status_filter.set_current(Status.MACHINE.value)  # (b) durum süzgeci
+    _assert_accepted_matches(p)
+    p.search.setText("Kaynak 0")  # (b) arama
+    p._apply_search_now()
+    _assert_accepted_matches(p)
+    before = _mapping(p)
+    assert p.model.apply([(1, "Onaylandı artık")])  # (c) durum değişti ama satır yerinde kalır
+    assert p.model.row_by_id(1).status == Status.APPROVED  # type: ignore[union-attr]
+    assert _mapping(p) == before
+    _assert_accepted_matches(p)
+    p.set_rows([*ROWS, _row(10, "d.msbt"), _row(11, "a.msbt", Status.UNTRANSLATED, "")])  # (d) sayı artar
+    _assert_accepted_matches(p)
+    p.set_rows(ROWS[:5])  # (d) sayı azalır
+    _assert_accepted_matches(p)
+    p.status_filter.set_current("")  # (e) süzgeçler temizlenir
+    p.search.setText("")
+    p._apply_search_now()
+    _assert_accepted_matches(p)
+    assert p.filter.accepted_rows() == list(range(5))
+
+
+def test_accepted_rows_falls_back_when_record_is_inconsistent(qtbot: QtBot) -> None:
+    p = _grouped(qtbot)
+    p.status_filter.set_current(Status.MACHINE.value)
+    expected = [p._row_groups[p.model.rows[i].id] for i in _mapping(p)]
+    p.filter._accepted = [True] * len(p.model.rows)  # kayıt süzgeçle uyuşmuyor (sayı tutmuyor)
+    assert p.filter.accepted_rows() is None
+    assert p._group_keys() == expected  # yavaş ama kesin yol (`filtered_rows`)
+
+
+# --- katlarken kaydedilmemiş metin -------------------------------------------------------------
+
+
+def _fail_commit(p: TranslatePage) -> None:
+    def fail(changes: list[tuple[int, str]]) -> list[TranslationRow]:
+        raise ProjectError("Proje dosyasına yazılamadı.", "Diskte yer olduğundan emin olun.")
+
+    p.model.commit = fail
+
+
+def _pane_text(p: TranslatePage, row_id: int, text: str) -> None:
+    p.select_row(row_id)
+    p.pane.translation_edit.setPlainText(text)
+    assert p.pane.has_pending()
+
+
+def _fold_by_click(p: TranslatePage) -> None:
+    _click_header(p, "b.msbt")
+
+
+def _fold_by_key(p: TranslatePage) -> None:
+    header = p.proxy.index(_header_row(p, "b.msbt"), COL_TRANSLATION)
+    p.table.selectionModel().setCurrentIndex(header, QItemSelectionModel.SelectionFlag.NoUpdate)
+    p.table.setFocus()
+    QTest.keyClick(p.table, Qt.Key.Key_Left)
+
+
+def _fold_all_by_menu(p: TranslatePage) -> None:
+    p.build_header_menu().actions()[0].trigger()
+
+
+FOLDS = [_fold_by_click, _fold_by_key, _fold_all_by_menu]
+
+
+@pytest.mark.parametrize("fold", FOLDS)
+def test_collapsing_saves_pending_pane_text(qtbot: QtBot, fold: object) -> None:
+    p = _grouped(qtbot)
+    _pane_text(p, 5, "Panelde yazıldı")
+    fold(p)  # type: ignore[operator]
+    assert p.group_proxy.is_collapsed("b.msbt")
+    assert p.model.row_by_id(5).translation == "Panelde yazıldı"  # type: ignore[union-attr]
+    assert not p.pane.has_pending()
+
+
+@pytest.mark.parametrize("fold", FOLDS)
+def test_collapsing_is_refused_when_pane_text_cannot_be_saved(qtbot: QtBot, fold: object) -> None:
+    p = _grouped(qtbot)
+    _pane_text(p, 5, "Kaydedilemeyen")
+    _fail_commit(p)
+    fold(p)  # type: ignore[operator]
+    assert not p.group_proxy.is_collapsed("b.msbt")
+    assert p.pane.has_pending()
+    assert p.pane.translation_edit.toPlainText() == "Kaydedilemeyen"
+
+
+def test_collapse_all_saves_open_cell_editor(qtbot: QtBot) -> None:
+    p = _grouped(qtbot)
+    index = p._view_index(p.model.position(5) or 0, COL_TRANSLATION)
+    p.table.setCurrentIndex(index)
+    p.table.edit(index)
+    editors = p.table.viewport().findChildren(QPlainTextEdit)
+    assert editors
+    editors[0].setPlainText("Hücrede yazıldı")
+    _fold_all_by_menu(p)
+    assert p.group_proxy.is_collapsed("b.msbt")
+    assert p.model.row_by_id(5).translation == "Hücrede yazıldı"  # type: ignore[union-attr]
 
 
 def test_find_visible_scope_tip_mentions_collapsed_groups(qtbot: QtBot) -> None:

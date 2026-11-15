@@ -1675,11 +1675,14 @@ class TranslatePage(QWidget):
         return "" if info is None else header_tip(info)
 
     def _fold(self, view_row: int, fold: bool | None) -> None:
-        """Başlıkta katlama isteği (`None`: aç/kapa). Katlanan grubun içindeki geçerli satır başlığa taşınır."""
+        """Başlıkta katlama isteği (`None`: aç/kapa). Katlanan grubun içindeki geçerli satır başlığa taşınır.
+        Katlamadan önce açık düzenleme kaydedilir; kaydedilemezse grup katlanmaz (yazılan metin kaybolmasın)."""
         name = self.group_proxy.header_group(view_row) if self._grouped else None
         if name is None:
             return
         collapse = not self.group_proxy.is_collapsed(name) if fold is None else fold
+        if collapse and not self._commit_editing():
+            return
         current_group = self._current_group()
         self.group_proxy.set_collapsed(name, collapse)
         if collapse and current_group == name:
@@ -1699,8 +1702,9 @@ class TranslatePage(QWidget):
             )
 
     def set_all_collapsed(self, collapsed: bool) -> None:
-        """Bütün grupları katlar/açar; katlanınca geçerli satır kendi grubunun başlığına taşınır."""
-        if not self._grouped:
+        """Bütün grupları katlar/açar; katlanınca geçerli satır kendi grubunun başlığına taşınır. Katlamadan önce açık
+        düzenleme kaydedilir; kaydedilemezse katlanmaz."""
+        if not self._grouped or (collapsed and not self._commit_editing()):
             return
         current_group = self._current_group()
         self.group_proxy.set_all_collapsed(collapsed)
