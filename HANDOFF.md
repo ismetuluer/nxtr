@@ -1,6 +1,15 @@
-# HANDOFF — oturum devri (2026-11-15, 0.58.2)
+# HANDOFF — oturum devri (2026-11-15, 0.58.3)
 
 ## Durum
+- **Sürüm 0.58.3** (2026-11-15; CHANGELOG 0.58.3): kullanıcı eklentilerinde onay (`core/plugins/trust.py`,
+  `core/plugins/loader.py` `plugin_fingerprint` ve `trusted`, `gui/plugin_approval.py`; onaylar
+  `%LOCALAPPDATA%\NXCeviri\eklenti_onaylari.json`), kaydedilmemiş değişiklik sorusu Evet / Hayır / İptal
+  (`main_window.py` `build_save_box`, `ask_save_changes`), boş Oyunu Ekle ekranında "Son projeler" kartı,
+  `sd_kontrol.py` ve `SD Kontrol.bat` kaldırıldı, iki süre testi en iyi ölçüme bakıyor. Tam test seti 2448 geçti.
+  Gerçek pencerede denenmedi (onay sorusu, kaydetme sorusu, son projeler kartı); `gui/app.py` içindeki onay
+  bağlantısının testi yok. Testlerde pencere soruları `MainWindow.ask_...` yöntemleriyle sürülür;
+  `QMessageBox.question` yaması `exec()` ile açılan kutuları etkilemez, test asılır. Yol haritasında açık kalan iki
+  madde "istenirse" (`docs/yol-haritasi.md`).
 - **Sürüm 0.58.2** (2026-11-15; CHANGELOG 0.58.2): görsel denetim 8, 11–14, 16 ve Metinleri Tara sütunları kapandı
   (`theme.py` sekme kuralları ve `row_alt`, tablolarda `setDefaultAlignment`, `statusbar.py` kısa/uzun etiket kararı
   `_refit`, `scan_page.py` `Disclosure` ile kanıtlar, `export_page.py` hedef satırı). Tam test seti 2409 geçti.

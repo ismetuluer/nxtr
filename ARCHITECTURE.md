@@ -982,6 +982,19 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     sırasında fazladan dosya düşerse yazmadan önce yeniden sorar.
 198. **Dosya dili** arayüzde yalnızca `path_language` ile gösterilir; dosya adından tahmin yapılmaz.
 
+### 4.51 0.58.3 kararları (eklenti onayı, kaydetme sorusu)
+
+199. **Eklenti onayı:** kullanıcı eklentisi rastgele Python kodudur; bu yüzden `load_plugins(..., trusted=…)` yalnızca
+    onaylı klasörü içe aktarır. Onay, klasörün içerik parmak izine (`plugin_fingerprint`, SHA-256; `__pycache__`
+    hariç) bağlıdır; içerik değişince onay düşer. Onaylar proje dosyasında değil kullanıcı profilinde durur
+    (`core/plugins/trust.py`, `eklenti_onaylari.json`, atomik yazım). `trusted=None` eski davranıştır: komut satırı
+    araçları sormaz; depo eklenti klasörü de muaftır (uygulamanın kendi kodu).
+200. **Derlenmiş önbellek:** parmak izi `__pycache__` içermediği için hazır bir `.pyc` onaylı kaynağın yerine
+    çalışabilirdi; yükleyici içe aktarmadan önce eklentinin `__pycache__` klasörlerini siler.
+201. **Kaydetme sorusu:** olumlu soru ve üç yanıt (Evet kaydeder ve varsayılandır, Hayır kaydetmez, İptal ve Esc
+    projeye döner); okumadan "Evet" diyen kullanıcı veri kaybetmez. Kutu `build_save_box` ile kurulur, testler
+    `MainWindow.ask_save_changes` üzerinden sürer.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

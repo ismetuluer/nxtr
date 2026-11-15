@@ -2,6 +2,26 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.58.3] — 2026-11-15 — Eklenti onayı, yeni kaydetme sorusu, son projeler kartı
+
+### Eklendi
+- **Eklenti onayı:** eklenti klasörüne yeni konmuş ya da içeriği değişmiş bir eklenti, siz onaylamadan çalıştırılmaz.
+  Uygulama açılışta sorar ("Yükle" / "Şimdi Değil"); bekleyenler Eklentiler penceresinde "Onay bekliyor" olarak
+  görünür ve oradan "Onayla ve Yükle" ile açılır. Eklentiler penceresinden kurulan eklenti onaylı sayılır.
+  Güncellemeden sonraki ilk açılışta mevcut eklentileriniz bir kez sorulur.
+- **Oyunu Ekle:** ekran boşken "Son projeler" kartı; tıklayınca proje açılır.
+
+### Değişti
+- **Kaydedilmemiş değişiklik sorusu** artık "Çıkmadan önce kaydedilsin mi?" diye sorar: Evet (varsayılan, kaydeder),
+  Hayır (kaydetmeden devam eder), İptal (projeye döner).
+
+### Kaldırıldı
+- Tek oyuna özel SD kart denetim betiği (`sd_kontrol.py`, `SD Kontrol.bat`).
+
+### Güvenlik
+- Eklentiyle birlikte gelen derlenmiş önbellek (`__pycache__`) yüklemeden önce silinir; onaylanan kaynak kod dışında
+  bir dosya çalışamaz.
+
 ## [0.58.2] — 2026-11-15 — Görsel düzenlemeler: sekmeler, başlık hizası, durum çubuğu etiketleri
 
 ### Değişti

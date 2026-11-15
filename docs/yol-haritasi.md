@@ -100,7 +100,7 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 Görsel denetim listesi ve 0.57.2 sonrası geri bildirim kapandı. Sıradaki iş, yukarıdaki "Sonraki yapılacaklar"
 listesinden ürün sahibinin seçimiyle belirlenir.
 
-**Yapıldı (0.58.2 sonrası, yayımlanmadı)**
+**Yapıldı (0.58.3)**
 - Boş "Oyunu Ekle" ekranında "Son projeler" kartı (görsel denetim madde 15; ürün sahibinin onayıyla, 2026-11-15):
   Dosya → Son Projeler listesini kullanır, diskte olmayanları göstermez, kaynak eklenince gizlenir.
 - Tek oyuna özel SD kart denetim betiği (`sd_kontrol.py`, `SD Kontrol.bat`) ürün sahibinin isteğiyle kaldırıldı.
