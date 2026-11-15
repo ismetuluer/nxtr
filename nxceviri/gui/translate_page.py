@@ -11,8 +11,11 @@ from typing import Any
 
 from PySide6.QtCore import (
     QAbstractItemModel,
+    QAbstractProxyModel,
     QAbstractTableModel,
     QEvent,
+    QItemSelection,
+    QItemSelectionModel,
     QModelIndex,
     QPersistentModelIndex,
     QPoint,
@@ -73,6 +76,7 @@ from nxceviri.gui.find_replace import (
     FindMarks,
     FindWindow,
 )
+from nxceviri.gui.group_proxy import GroupProxy
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.marked_delegate import ROW_ROLE, MarkedDelegate, kind_of_row
 from nxceviri.gui.shortcuts import ShortcutRegistry, display_text
@@ -850,12 +854,19 @@ class TranslatePage(QWidget):
 
         self.model = TranslationModel()
         self.model.setParent(self)  # model sayfayla birlikte yok olsun (geç kalan sinyaller ölü tabloya gitmesin)
-        self.proxy = TranslationFilter()
-        self.proxy.setSourceModel(self.model)
+        self.filter = TranslationFilter()
+        self.filter.setSourceModel(self.model)
+        # Gruplu görünüm vekili yalnızca gruplama açıkken süzgece bağlanır ve tabloya takılır (`_set_grouped`);
+        # kapalıyken tablo doğrudan süzgeci görür (hücre başına Python katmanı yok). Tablo satırından çeviri
+        # satırına `_row_at` / `_view_index` ile geçilir.
+        self.group_proxy = GroupProxy(self)
+        self._grouped = False
+        self._row_groups: dict[int, str] = {}  # satır kimliği → grup (`row_group`)
+        self._group_rank: dict[str, int] = {}  # grup → dosyadaki ilk görülme sırası
         self.table = FitTableView()
         self.filter_header = FilterHeader(self.table)
         self.table.setHorizontalHeader(self.filter_header)
-        self.table.setModel(self.proxy)
+        self.table.setModel(self.filter)
         self.source_delegate = MarkedDelegate(self.table, "source")
         self.translation_delegate = TranslationDelegate(self.table)
         self.table.setItemDelegateForColumn(COL_SOURCE, self.source_delegate)
@@ -980,13 +991,7 @@ class TranslatePage(QWidget):
         self.model.modelReset.connect(self.find_bar.rows_changed)
         self.model.commit_failed.connect(lambda text: self.show_notice("danger", text))
         self.model.commit_failed.connect(self._remember_commit_error)
-        selection = self.table.selectionModel()
-        selection.selectionChanged.connect(lambda *_args: self._sync_pane())
-        selection.selectionChanged.connect(lambda *_args: self.selection_changed.emit())
-        selection.currentChanged.connect(lambda *_args: self._sync_pane())
-        self.proxy.rowsRemoved.connect(lambda *_args: self._sync_pane())
-        self.proxy.layoutChanged.connect(lambda *_args: self._sync_pane())
-        self.proxy.modelReset.connect(lambda *_args: self._sync_pane())
+        self._connect_view(connect=True)
         self.model.dataChanged.connect(lambda *_args: self._refresh_idle_pane())
         self._apply_pane()
         self._sync_pane(force=True)
@@ -1232,12 +1237,12 @@ class TranslatePage(QWidget):
         edit.setTextCursor(cursor)
 
     def _navigate(self, step: int) -> None:
-        total = self.proxy.rowCount()
+        total = self.filter.rowCount()
         if not total:
             return
-        index = self.table.currentIndex().row()
+        index = self._current_position()
         target = (0 if step > 0 else total - 1) if index < 0 else min(max(index + step, 0), total - 1)
-        self._select_proxy_row(target)
+        self._select_position(target)
         self.pane.translation_edit.setFocus()
 
     def _approve_from_pane(self) -> None:
@@ -1332,7 +1337,7 @@ class TranslatePage(QWidget):
         if source is None:
             self._goto_row_id = None
             return
-        index = self.proxy.mapFromSource(self.model.index(source, COL_TRANSLATION))
+        index = self._view_index(source, COL_TRANSLATION)
         if not index.isValid():
             self._goto_row_id = None
             return
@@ -1347,15 +1352,20 @@ class TranslatePage(QWidget):
         # Satırlar yeniden kurulurken önceki süzgeçten kalan "seçili satıra dön" isteği geçersizdir.
         self._scroll_row_id = None
         self._scroll_timer.stop()
-        self.model.set_rows(rows)
-        self._refresh_status_filter()
         groups: dict[str, int] = {}
         keys: dict[str, int] = {}
+        row_groups: dict[int, str] = {}
         for r in rows:
             g = row_group(r)
+            row_groups[r.id] = g
             groups[g] = groups.get(g, 0) + 1
             k = r.context or r.key
             keys[k] = keys.get(k, 0) + 1
+        # Gruplu görünüm model sıfırlanırken grupları buradan okur: önce bunlar güncellenir.
+        self._row_groups = row_groups
+        self._group_rank = {g: i for i, g in enumerate(groups)}
+        self.model.set_rows(rows)
+        self._refresh_status_filter()
         self.group_filter.set_values(groups)
         self.key_filter.set_values(keys)
         if self._pending_filters is not None:  # proje değişti: kayıtlı süzgeçler artık değerler bilindiği için yüklenir
@@ -1403,12 +1413,13 @@ class TranslatePage(QWidget):
         self._search_timer.stop()  # bekleyen yazma süzgeci bu çağrıyla zaten uygulanır
         # Süzgeç gevşeyince görünüm başa dönmesin: seçili (geçerli) satır görünür kalırsa oraya dönülür.
         current = self.current_row()
-        self.proxy.update(
-            self.status_filter.current(),
-            self.group_filter.selected,
-            self.key_filter.selected,
-            self.search.text(),
-        )
+        with self.group_proxy.source_change():  # gruplu görünümde düzen bir kez kurulur
+            self.filter.update(
+                self.status_filter.current(),
+                self.group_filter.selected,
+                self.key_filter.selected,
+                self.search.text(),
+            )
         self._update_all_button()
         self.view_changed.emit()
         self._schedule_fit_rows()
@@ -1426,7 +1437,7 @@ class TranslatePage(QWidget):
         source = None if row is None else self.model.position(row.id)
         if source is None:
             return False
-        index = self.proxy.mapFromSource(self.model.index(source, 0))
+        index = self._view_index(source, 0, reveal=True)
         if not index.isValid():
             return False
         self._select_proxy_row(index.row(), center=True)
@@ -1499,25 +1510,170 @@ class TranslatePage(QWidget):
         source = self.model.position(row_id)
         if source is None:
             return
-        index = self.proxy.mapFromSource(self.model.index(source, COL_TRANSLATION))
+        index = self._view_index(source, COL_TRANSLATION)
         if index.isValid():
             self.table.scrollTo(index, QAbstractItemView.ScrollHint.EnsureVisible)
 
+    # --- tablonun modeli: süzgeç ya da (gruplu görünümde) grup vekili ----------------------------
+
+    @property
+    def proxy(self) -> QAbstractProxyModel:
+        """Tablonun o anki modeli: gruplama kapalıyken süzgeç, açıkken gruplu görünüm vekili."""
+        return self.group_proxy if self._grouped else self.filter
+
+    def _connect_view(self, connect: bool) -> None:
+        """Tablonun seçim modeline ve modeline bağlı sinyaller; model değişirken eskiden kopar, yeniye bağlanır."""
+        selection = self.table.selectionModel()
+        model = self.table.model()
+        pairs = [
+            (selection.selectionChanged, self._view_selection_changed),
+            (selection.currentChanged, self._view_changed),
+            (model.rowsRemoved, self._view_changed),
+            (model.layoutChanged, self._view_changed),
+            (model.modelReset, self._view_changed),
+        ]
+        for signal, slot in pairs:
+            if connect:
+                signal.connect(slot)
+            else:
+                signal.disconnect(slot)
+
+    def _view_selection_changed(self, *_args: object) -> None:
+        self._sync_pane()
+        self.selection_changed.emit()
+
+    def _view_changed(self, *_args: object) -> None:
+        self._sync_pane()
+
+    def _commit_editing(self) -> bool:
+        """Açık hücre düzenleyicisini ve paneldeki kaydedilmemiş metni kaydeder; panel kaydı başarısızsa False."""
+        for editor in self.table.viewport().findChildren(_Editor):
+            self.translation_delegate.commitData.emit(editor)
+            self.translation_delegate.closeEditor.emit(editor, QStyledItemDelegate.EndEditHint.NoHint)
+        return self.flush_pending()
+
+    def _group_keys(self) -> list[str]:
+        groups = self._row_groups
+        return [groups[r.id] for r in self.filtered_rows()]
+
+    def _set_grouped(self, on: bool) -> bool:
+        """Gruplu görünümü açar/kapatır: tablonun modeli değişir, sütun düzeni aynı kalır; geçerli satır ve seçim
+        satır kimliğiyle korunur. Açık düzenleme önce kaydedilir; kaydedilemezse geçiş yapılmaz (False)."""
+        if on == self._grouped:
+            return True
+        if not self._commit_editing():
+            return False
+        current = self.current_row()
+        column = max(self.table.currentIndex().column(), 0)
+        selected = [r.id for r in self.selected_rows()]
+        self._scroll_row_id = None
+        self._scroll_timer.stop()
+        self._connect_view(connect=False)
+        old_selection = self.table.selectionModel()
+        if on:
+            self.group_proxy.setSourceModel(self.filter)
+            self.group_proxy.set_grouping(self._group_keys, self._group_rank)
+        self._grouped = on
+        self.table.setModel(self.proxy)
+        old_selection.deleteLater()
+        if not on:  # vekil süzgeçten kopar: kapalıyken hiçbir sinyal işlemez (katlı gruplar hatırlanır)
+            self.group_proxy.set_grouping(None)
+            self.group_proxy.setSourceModel(None)
+        self._connect_view(connect=True)
+        self._restore_selection(selected, current, column)
+        self._schedule_fit_rows()
+        self._sync_pane()
+        return True
+
+    def _restore_selection(self, ids: list[int], current: TranslationRow | None, column: int) -> None:
+        """Geçişten sonra geçerli satırı (katlı gruptaysa grubu açarak) ve seçimi kimlikle geri kurar; seçili satırlar
+        bitişik aralıklar olarak tek seferde seçilir. Katlı gruplardaki seçili satırlar görünmediği için seçilmez."""
+        selection = self.table.selectionModel()
+        current_index = QModelIndex()
+        if current is not None:
+            position = self.model.position(current.id)
+            if position is not None:
+                current_index = self._view_index(position, column, reveal=True)
+        rows = sorted(
+            index.row()
+            for p in (self.model.position(i) for i in ids)
+            if p is not None and (index := self._view_index(p)).isValid()
+        )
+        ranges = QItemSelection()
+        last = self.proxy.columnCount() - 1
+        start = previous = -2
+        for row in [*rows, -2]:
+            if row != previous + 1:
+                if start >= 0:
+                    ranges.select(self.proxy.index(start, 0), self.proxy.index(previous, last))
+                start = row
+            previous = row
+        if current_index.isValid():
+            selection.setCurrentIndex(current_index, QItemSelectionModel.SelectionFlag.NoUpdate)
+        selection.select(ranges, QItemSelectionModel.SelectionFlag.ClearAndSelect)
+        if current_index.isValid():
+            self.table.scrollTo(current_index, QAbstractItemView.ScrollHint.PositionAtCenter)
+
+    # --- tablo satırı ↔ çeviri satırı ---------------------------------------------------------
+
+    def _model_row(self, filter_row: int) -> TranslationRow:
+        flt = self.filter
+        return self.model.rows[flt.mapToSource(flt.index(filter_row, 0)).row()]
+
+    def _row_at(self, view_row: int) -> TranslationRow | None:
+        """Tablo satırındaki çeviri satırı; grup başlığında ya da aralık dışında `None`."""
+        filter_row = self.group_proxy.source_row(view_row) if self._grouped else view_row
+        if not 0 <= filter_row < self.filter.rowCount():
+            return None
+        return self._model_row(filter_row)
+
+    def _view_index(self, source: int, column: int = 0, reveal: bool = False) -> QModelIndex:
+        """Model satırının tablodaki dizini. Süzgeç gizliyorsa geçersizdir; katlı gruptaysa `reveal` ile grup açılır,
+        yoksa geçersizdir."""
+        filtered = self.filter.mapFromSource(self.model.index(source, column))
+        if not filtered.isValid():
+            return QModelIndex()
+        row = filtered.row()
+        if self._grouped:
+            row = self.group_proxy.reveal(row) if reveal else self.group_proxy.view_row(row)
+        return QModelIndex() if row < 0 else self.proxy.index(row, column)
+
+    def _current_position(self) -> int:
+        """Geçerli satırın görünüm sırasındaki yeri (katlı gruplar dahil); geçerli satır yoksa -1."""
+        row = self.table.currentIndex().row()
+        if not self._grouped:
+            return row
+        filter_row = self.group_proxy.source_row(row)
+        return self.group_proxy.order_position(filter_row) if filter_row >= 0 else -1
+
+    def _filter_row_at_position(self, position: int) -> int:
+        order = self.group_proxy.order() if self._grouped else None
+        return position if order is None else order[position]
+
+    def _select_position(self, position: int) -> None:
+        """Görünüm sırasındaki yerdeki satırı seçer; katlı gruptaysa grup açılır."""
+        row = self._filter_row_at_position(position)
+        if self._grouped:
+            row = self.group_proxy.reveal(row)
+        if row >= 0:
+            self._select_proxy_row(row)
+
     def selected_rows(self) -> list[TranslationRow]:
-        """Seçili satırlar (tablodaki sırayla). Tüm satır seçimi olduğundan seçim aralıkları gezilir;
-        `selectedRows()` her satırı sütun sütun sorguladığından 50.000 satırda saniyelerce sürer."""
-        rows = self.model.rows
-        proxy = self.proxy
+        """Seçili satırlar (tablodaki sırayla); grup başlıkları atlanır. Tüm satır seçimi olduğundan seçim aralıkları
+        gezilir; `selectedRows()` her satırı sütun sütun sorguladığından 50.000 satırda saniyelerce sürer."""
         picked: set[int] = set()
         for part in self.table.selectionModel().selection():  # type: ignore[attr-defined]
             picked.update(range(part.top(), part.bottom() + 1))
-        return [rows[proxy.mapToSource(proxy.index(r, 0)).row()] for r in sorted(picked)]
+        rows = self.model.rows
+        flt = self.filter
+        if not self._grouped:  # tablo satırı süzgeç satırıdır
+            return [rows[flt.mapToSource(flt.index(r, 0)).row()] for r in sorted(picked)]
+        return [r for r in (self._row_at(v) for v in sorted(picked)) if r is not None]
 
     def filtered_rows(self) -> list[TranslationRow]:
-        """Arama ve filtrelere uyan (tabloda görünen) satırlar."""
-        return [
-            self.model.rows[self.proxy.mapToSource(self.proxy.index(i, 0)).row()] for i in range(self.proxy.rowCount())
-        ]
+        """Arama ve filtrelere uyan satırlar (katlı gruplardakiler dahil; katlamak süzmek değildir)."""
+        flt = self.filter
+        return [self.model.rows[flt.mapToSource(flt.index(i, 0)).row()] for i in range(flt.rowCount())]
 
     # --- gezinme ve seçim -----------------------------------------------------------------------
 
@@ -1558,7 +1714,14 @@ class TranslatePage(QWidget):
         return None if row is None else row.id
 
     def find_order(self, row_id: int) -> int:
-        return self.model.position(row_id) or 0
+        """Eşleşmelerin sırası: tablodaki sıra. Gruplu görünümde grup sırası; süzgecin gizlediği satırlar sonda."""
+        position = self.model.position(row_id) or 0
+        if not self._grouped:
+            return position
+        filtered = self.filter.mapFromSource(self.model.index(position, 0))
+        if not filtered.isValid():
+            return len(self.model.rows) + position
+        return self.group_proxy.order_position(filtered.row())
 
     def find_view_ids(self) -> frozenset[int]:
         """Tabloda görünen (ve çevresindeki) satırların kimlikleri; önizleme yalnızca bunlar için hesaplanır."""
@@ -1568,15 +1731,12 @@ class TranslatePage(QWidget):
         first = max(self.table.rowAt(0), 0)
         last = self.table.rowAt(self.table.viewport().height() - 1)
         last = min(first + _VIEW_ROWS_CAP, total - 1) if last < 0 else last
-        return frozenset(
-            self.model.rows[self.proxy.mapToSource(self.proxy.index(i, 0)).row()].id
-            for i in range(max(first - _ROW_MARGIN, 0), min(last + _ROW_MARGIN, total - 1) + 1)
-        )
+        rows = (self._row_at(i) for i in range(max(first - _ROW_MARGIN, 0), min(last + _ROW_MARGIN, total - 1) + 1))
+        return frozenset(r.id for r in rows if r is not None)
 
     def find_filters_active(self) -> bool:
-        return bool(
-            self.proxy.status or self.proxy.text or self.proxy.groups is not None or self.proxy.keys is not None
-        )
+        flt = self.filter
+        return bool(flt.status or flt.text or flt.groups is not None or flt.keys is not None)
 
     def find_clear_filters(self) -> None:
         self._clear_filters()
@@ -1587,7 +1747,7 @@ class TranslatePage(QWidget):
         source = self.model.position(row_id)
         if source is None:
             return False
-        index = self.proxy.mapFromSource(self.model.index(source, 0))
+        index = self._view_index(source, 0, reveal=True)
         if not index.isValid():
             return False
         self._select_proxy_row(index.row())
@@ -1606,18 +1766,18 @@ class TranslatePage(QWidget):
         index = self.table.currentIndex()
         if not index.isValid():
             return None
-        return self.model.rows[self.proxy.mapToSource(index).row()]
+        return self._row_at(index.row())
 
     def next_open(self, step: int = 1) -> None:
         """Sonraki (`step` = -1: önceki) bakılacak satır: onaylanmamış (çevrilmemiş, makine, redakte, hatalı),
-        uca gelince öbür uca döner."""
-        total = self.proxy.rowCount()
-        start = self.table.currentIndex().row()
+        uca gelince öbür uca döner. Gruplu görünümde katlı gruplar da aranır; bulunan satırın grubu açılır."""
+        total = self.filter.rowCount()
+        start = self._current_position()
         for offset in range(1, total + 1):
             i = (start + step * offset) % total
-            r = self.model.rows[self.proxy.mapToSource(self.proxy.index(i, 0)).row()]
+            r = self._model_row(self._filter_row_at_position(i))
             if r.status != Status.APPROVED and r.source.strip():
-                self._select_proxy_row(i)
+                self._select_position(i)
                 self.table.setFocus()
                 return
         self.show_notice("success", "Görünen satırların hepsi onaylanmış.")
@@ -1627,10 +1787,10 @@ class TranslatePage(QWidget):
         source = self.model.position(row_id)
         if source is None:
             return
-        index = self.proxy.mapFromSource(self.model.index(source, 0))
+        index = self._view_index(source, 0, reveal=True)
         if not index.isValid():
             self._clear_filters()
-            index = self.proxy.mapFromSource(self.model.index(source, 0))
+            index = self._view_index(source, 0, reveal=True)
         if index.isValid():
             self._select_proxy_row(index.row())
             self.table.setFocus()
@@ -1645,7 +1805,7 @@ class TranslatePage(QWidget):
         if source is None:
             return
         cleared = self._clear_filters()
-        index = self.proxy.mapFromSource(self.model.index(source, 0))
+        index = self._view_index(source, 0, reveal=True)
         if not index.isValid():  # süzgeçler temizlendiğine göre buraya düşmemeli
             return
         self._select_proxy_row(index.row(), center=True)
@@ -1687,7 +1847,8 @@ class TranslatePage(QWidget):
         self.table.selectRow(i)
         hint = QAbstractItemView.ScrollHint.PositionAtCenter if center else QAbstractItemView.ScrollHint.EnsureVisible
         self.table.scrollTo(index, hint)
-        self._goto_row_id = self.model.rows[self.proxy.mapToSource(index).row()].id
+        row = self._row_at(i)
+        self._goto_row_id = None if row is None else row.id
         self._goto_passes = _GOTO_PASSES
         self._schedule_fit_rows()
 
@@ -1699,6 +1860,8 @@ class TranslatePage(QWidget):
     def _show_context_menu(self, pos: QPoint) -> None:
         """Sağ tık menüsü: tıklanan satır seçili değilse yalnızca o satır seçilir."""
         index = self.table.indexAt(pos)
+        if index.isValid() and self._grouped and self.group_proxy.header_group(index.row()) is not None:
+            return  # grup başlığının menüsü yok
         selection = self.table.selectionModel()
         if index.isValid() and not selection.isRowSelected(index.row(), index.parent()):
             self.table.selectRow(index.row())
@@ -1891,7 +2054,7 @@ class TranslatePage(QWidget):
     def copy_to_clipboard(self, what: str) -> None:
         """Seçili satırların metnini panoya koyar: "source", "translation" veya "both" (orijinal + çeviri)."""
         indexes = sorted(self.table.selectionModel().selectedRows(), key=lambda i: i.row())  # tablodaki sırayla
-        rows = [self.model.rows[self.proxy.mapToSource(i).row()] for i in indexes]
+        rows = [r for r in (self._row_at(i.row()) for i in indexes) if r is not None]
         if not rows:
             return
         QApplication.clipboard().setText(clipboard_text(rows, what))
@@ -1943,7 +2106,7 @@ class TranslatePage(QWidget):
         total = format_int(len(self.model.rows))
         if self.find_filters_active():
             return (
-                f"{format_int(self.proxy.rowCount())} / {total}",
+                f"{format_int(self.filter.rowCount())} / {total}",  # katlama sayıyı değiştirmez
                 "Bütün satırları göster (arama ve süzgeçler kalkar)",
             )
         return total, "Bütün satırlar"
@@ -1998,7 +2161,7 @@ class TranslatePage(QWidget):
         QTimer.singleShot(_FLASH_MS, self, lambda: self.model.set_flash(ids, False))  # sayfa kapanırsa çalışmaz
         pos = self.model.position(ids[-1])
         if self.follow_box.isChecked() and pos is not None:
-            index = self.proxy.mapFromSource(self.model.index(pos, 0))
+            index = self._view_index(pos, 0)
             if index.isValid():
                 self.table.scrollTo(index, QAbstractItemView.ScrollHint.PositionAtCenter)
         self._schedule_fit_rows()

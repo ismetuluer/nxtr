@@ -974,7 +974,7 @@ class MainWindow(QMainWindow):
         rows = self.translate_page.model.rows
         self.status_segments.update(
             rows=len(rows),
-            shown=self.translate_page.proxy.rowCount(),
+            shown=self.translate_page.filter.rowCount(),  # grup başlıkları ve katlama sayılmaz
             translated=sum(1 for r in rows if r.status in TRANSLATED_STATUSES),
             approved=sum(1 for r in rows if r.status == Status.APPROVED),
             errors=sum(1 for r in rows if r.status == Status.ERROR),
