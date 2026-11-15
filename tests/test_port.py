@@ -127,8 +127,9 @@ def test_port_matches_by_normalized_key_and_protects_approved(tmp_path: Path) ->
 
 
 @pytest.fixture
-def window(qtbot: QtBot, tmp_path: Path) -> Iterator[MainWindow]:
+def window(qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[MainWindow]:
     w = MainWindow(QSettings(str(tmp_path / "a.ini"), QSettings.Format.IniFormat))
+    monkeypatch.setattr(w, "ask_save_changes", lambda _closing: "discard")  # pytest-qt'nin kapatışı soru açmasın
     qtbot.addWidget(w)
     w.show()
     yield w

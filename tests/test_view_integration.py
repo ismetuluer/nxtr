@@ -36,8 +36,9 @@ def _restore_app(qtbot: QtBot) -> Iterator[None]:
 
 @pytest.fixture(autouse=True)
 def _no_modal_question(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Kapanışta "kaydedilmemiş proje" sorusu testi kilitlemesin."""
-    monkeypatch.setattr(QMessageBox, "question", lambda *_a, **_k: QMessageBox.StandardButton.Discard)
+    """Kapanışta "kaydedilmemiş değişiklikler" sorusu testi kilitlemesin."""
+    monkeypatch.setattr(MainWindow, "ask_save_changes", lambda *_a, **_k: "discard")
+    monkeypatch.setattr(QMessageBox, "question", lambda *_a, **_k: QMessageBox.StandardButton.No)
 
 
 def _close(w: MainWindow) -> None:
@@ -129,9 +130,7 @@ def test_code_kinds_feed_chips(qtbot: QtBot, tmp_path: Path) -> None:
 
 
 def test_close_flushes_pending_pane_text(qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        QMessageBox, "question", lambda *_a, **_k: QMessageBox.StandardButton.Discard
-    )  # kaydedilmemiş proje sorusu
+    monkeypatch.setattr(MainWindow, "ask_save_changes", lambda *_a, **_k: "discard")  # kaydedilmemiş değişiklik sorusu
     w = _make_window(qtbot, tmp_path, _project())
     page = w.translate_page
     page._select_proxy_row(0)

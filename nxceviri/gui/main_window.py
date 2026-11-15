@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenu,
     QMessageBox,
+    QPushButton,
     QStackedWidget,
     QToolButton,
     QVBoxLayout,
@@ -289,6 +290,23 @@ def choose_button(parent: QWidget, text: str, buttons: list[str]) -> str:
     box.exec()
     clicked = box.clickedButton()
     return next((label for label, b in zip(buttons, made, strict=True) if b is clicked), buttons[-1])
+
+
+def build_save_box(parent: QWidget, closing: bool) -> tuple[QMessageBox, QPushButton, QPushButton]:
+    """Kaydedilmemiş değişiklik sorusu: (pencere, "Evet" düğmesi, "Hayır" düğmesi); "İptal" Esc ve çarpı düğmesidir."""
+    when = "Çıkmadan önce" if closing else "Devam etmeden önce"
+    box = QMessageBox(
+        QMessageBox.Icon.Question,
+        "Kaydedilmemiş değişiklikler",
+        f"Projede kaydedilmemiş değişiklikler var. {when} kaydedilsin mi?",
+        parent=parent,
+    )
+    save = box.addButton("Evet", QMessageBox.ButtonRole.AcceptRole)
+    discard_button = box.addButton("Hayır", QMessageBox.ButtonRole.DestructiveRole)
+    cancel = box.addButton("İptal", QMessageBox.ButtonRole.RejectRole)
+    box.setDefaultButton(save)
+    box.setEscapeButton(cancel)
+    return box, save, discard_button
 
 
 def ask_full_folder(parent: QWidget, dest: Path) -> str:
@@ -3498,19 +3516,21 @@ class MainWindow(QMainWindow):
 
     # --- proje -----------------------------------------------------------------------------
 
-    def _confirm_discard(self) -> bool:
+    def _confirm_discard(self, closing: bool = False) -> bool:
         """Kaydedilmemiş değişiklik varsa kullanıcıya sorar. Devam edilebilirse True."""
         if not self.dirty:
             return True
-        answer = QMessageBox.question(
-            self,
-            "Kaydedilmemiş proje",
-            "Projede kaydedilmemiş değişiklikler var. Kaydetmek ister misiniz?",
-            QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
-        )
-        if answer == QMessageBox.StandardButton.Save:
+        answer = self.ask_save_changes(closing)
+        if answer == "save":
             return self.save_project()
-        return answer == QMessageBox.StandardButton.Discard
+        return answer == "discard"
+
+    def ask_save_changes(self, closing: bool) -> str:
+        """ "save", "discard" ya da "cancel" (testlerde değiştirilir)."""
+        box, save, discard_button = build_save_box(self, closing)
+        box.exec()
+        clicked = box.clickedButton()
+        return "save" if clicked is save else "discard" if clicked is discard_button else "cancel"
 
     def new_project(self) -> None:
         if self.busy or not self._confirm_discard():
@@ -3653,7 +3673,7 @@ class MainWindow(QMainWindow):
             if answer != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
-        if not self._confirm_discard():
+        if not self._confirm_discard(closing=True):
             event.ignore()
             return
         # Tüm onaylar alındı: önce iptaller, sonra pencere gizlenir, ardından iş parçacıkları beklenir

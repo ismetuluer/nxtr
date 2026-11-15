@@ -231,15 +231,15 @@ def test_close_unsaved_asks(qtbot: QtBot, window: MainWindow, game: GameFiles, m
     window.load_keys_file(game.keys_path)
     window.add_files([game.base_nsp])
     _wait_idle(qtbot, window)
-    asked: list[str] = []
+    asked: list[bool] = []
 
-    def fake_question(*args: object, **_kw: object) -> QMessageBox.StandardButton:
-        asked.append(str(args[1]))
-        return QMessageBox.StandardButton.Cancel
+    def fake_ask(closing: bool) -> str:
+        asked.append(closing)
+        return "cancel"
 
-    monkeypatch.setattr(QMessageBox, "question", fake_question)
+    monkeypatch.setattr(window, "ask_save_changes", fake_ask)
     window.close()
-    assert asked == ["Kaydedilmemiş proje"]
+    assert asked == [True]
     assert window.isVisible()
 
 
@@ -264,7 +264,8 @@ class _FakeThread:
 def test_close_declined_cancels_and_waits_for_nothing(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
     update, spell, work = (_FakeThread(n, calls) for n in ("update", "spell", "task"))
-    monkeypatch.setattr(QMessageBox, "question", lambda *_a, **_k: QMessageBox.StandardButton.Cancel)
+    monkeypatch.setattr(QMessageBox, "question", lambda *_a, **_k: QMessageBox.StandardButton.Yes)  # "İşlem sürüyor"
+    monkeypatch.setattr(window, "ask_save_changes", lambda _closing: "cancel")
     window._update_task = update  # type: ignore[assignment]
     window._spell_scan = spell  # type: ignore[assignment]
     window.task = work  # type: ignore[assignment]
