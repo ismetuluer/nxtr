@@ -43,27 +43,19 @@ M6, M2'den hemen sonra yapılır. Güncel sıra: M1 → M2 → **M6** → M3 →
 
 Sırasız; her biri ayrı karar ve onay ister.
 
-1. **Kontrol kodlarının önizlemesi (renk, kalın, italik).** İstek: satırdaki kod bir renk ya da biçim koduysa
-   uygulama bunu çözüp metni o renkte/biçimde göstersin. Bugün eklentiler koda yalnızca etiket verir ("Renk",
-   "Kod 0x05"); hangi renk ya da biçim olduğu bilgisi tutulmaz (`core/translate/codekinds.py` türü etiketten tahmin
-   eder). Gerekenler: eklenti sözleşmesine isteğe bağlı anlam alanı (renk değeri, kalın/italik, açılış–kapanış eşi),
-   biçim eklentilerinin bunu doldurması, tablo ve panel çiziminin (`gui/textmarks.py`, `gui/editor_pane.py`) bunu
-   uygulaması. Maliyet yüksek (çok dosyalı, sözleşme değişir). Öneri: önce yalnızca MSBT'de renk; işe yaradığı
-   görülürse diğer biçimler. Yalnızca çizim değişir; metin ve dışa aktarma etkilenmez.
-2. **`gui/main_window.py` bölünmesi** (~3.700 satır; TECH_DEBT 69). Davranış değiştirmeyen, tam test setiyle
+1. **`gui/main_window.py` bölünmesi** (~3.700 satır; TECH_DEBT 69). Davranış değiştirmeyen, tam test setiyle
    yapılacak çok dosyalı iş.
-3. **Adım listesinde klavye odağı.** Listenin çevresindeki mavi odak çerçevesi ürün sahibinin isteğiyle kaldırıldı
+2. **Adım listesinde klavye odağı.** Listenin çevresindeki mavi odak çerçevesi ürün sahibinin isteğiyle kaldırıldı
    (2026-11-14); seçili adımın vurgusu odağı gösterir. İstenirse öğe başına ince bir işaret `gui/step_nav.py`
    çiziminde yapılır.
-4. **Boşluk ve köşe ölçeği.** Arayüzde 10 farklı aralık ve 9 farklı köşe yarıçapı var; ilgili ekran elden geçerken
+3. **Boşluk ve köşe ölçeği.** Arayüzde 10 farklı aralık ve 9 farklı köşe yarıçapı var; ilgili ekran elden geçerken
    sadeleştirilecek (topluca değil).
-5. **Başlatıcı adı ve kök klasör.** `NX Ceviri Studyosu.bat` eski adı taşıyor (ad değişirse kullanıcı kısayolları
-   bozulur); tek oyuna özel `sd_kontrol.py` kökte duruyor (`tools/` altına taşınabilir).
-6. **Güncelleme paketinde imza.** SHA-256 dosyası paketle aynı sürümden gelir: bozuk indirmeyi yakalar, ele geçirilmiş
+4. **Başlatıcı adı.** `NX Ceviri Studyosu.bat` eski adı taşıyor (ad değişirse kullanıcı kısayolları bozulur).
+5. **Güncelleme paketinde imza.** SHA-256 dosyası paketle aynı sürümden gelir: bozuk indirmeyi yakalar, ele geçirilmiş
    bir sürümü yakalamaz. İmza, yeni bağımlılık ve anahtar yönetimi ister.
-7. **Kullanıcı eklentilerinde ilk yükleme uyarısı.** Eklenti klasöründeki kod doğrudan çalışır (tasarım gereği);
+6. **Kullanıcı eklentilerinde ilk yükleme uyarısı.** Eklenti klasöründeki kod doğrudan çalışır (tasarım gereği);
    arayüzün ilk yüklemede açıkça uyarıp uyarmadığı incelenmedi.
-8. **Kararsız süre testi.** `tests/test_find_bar_fixes.py::test_keystroke_work_on_large_table_is_fast` tam test
+7. **Kararsız süre testi.** `tests/test_find_bar_fixes.py::test_keystroke_work_on_large_table_is_fast` tam test
    setinde yük altında bir kez süre sınırını aştı (tek başına geçiyor); eşik ya da ölçüm yöntemi gözden geçirilmeli.
 
 ### Görsel denetim bulguları (2026-11-14, 0.57.1 ekran görüntüleri)
@@ -120,6 +112,7 @@ listesinden ürün sahibinin seçimiyle belirlenir.
 **Yapıldı (0.58.2 sonrası, yayımlanmadı)**
 - Boş "Oyunu Ekle" ekranında "Son projeler" kartı (görsel denetim madde 15; ürün sahibinin onayıyla, 2026-11-15):
   Dosya → Son Projeler listesini kullanır, diskte olmayanları göstermez, kaynak eklenince gizlenir.
+- Tek oyuna özel SD kart denetim betiği (`sd_kontrol.py`, `SD Kontrol.bat`) ürün sahibinin isteğiyle kaldırıldı.
 
 **Yapıldı (0.58.2)**
 - Metinleri Tara: Tür, Ayrıntı ve Dil sütunları içeriğe göre boyutlanır, kırpılmaz; dar pencerede dosya yolu ortadan
@@ -132,6 +125,8 @@ listesinden ürün sahibinin seçimiyle belirlenir.
   düşer, yarım sözcük kalmaz); koyu temada dönüşümlü satır zemini belirgin (`row_alt`).
 
 **Ertelendi**
+- **Kontrol kodlarının renk/kalın/italik önizlemesi:** ürün sahibi iptal etti (2026-11-15). Gerekçe ve maliyet notu
+  için git geçmişinde bu dosyanın önceki sürümüne bakın (eklenti sözleşmesine anlam alanı gerekiyordu).
 - **Yazım denetiminde kesme işaretli sözcüklerin kökü** ("Sifu'n" → Sifu): ürün sahibi istemedi (2026-11-15).
 - **Metinleri Tara'da eklentinin içerikten bulduğu dil** (2026-11-14). Yerleşik eklentilerin neredeyse hepsi dili
   yoldan okur (`language()` → `None`); içerikten bulan yalnızca FMSB. Tarama dosyanın yalnızca baş/son baytlarını
