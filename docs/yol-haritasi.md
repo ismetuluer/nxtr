@@ -48,13 +48,6 @@ Sırasız; her biri ayrı karar ve onay ister.
    çiziminde yapılır.
 2. **Boşluk ve köşe ölçeği.** Arayüzde 10 farklı aralık ve 9 farklı köşe yarıçapı var; ilgili ekran elden geçerken
    sadeleştirilecek (topluca değil).
-3. **Başlatıcı adı.** `NX Ceviri Studyosu.bat` eski adı taşıyor (ad değişirse kullanıcı kısayolları bozulur).
-4. **Güncelleme paketinde imza.** SHA-256 dosyası paketle aynı sürümden gelir: bozuk indirmeyi yakalar, ele geçirilmiş
-   bir sürümü yakalamaz. İmza, yeni bağımlılık ve anahtar yönetimi ister.
-5. **Kullanıcı eklentilerinde ilk yükleme uyarısı.** Eklenti klasöründeki kod doğrudan çalışır (tasarım gereği);
-   arayüzün ilk yüklemede açıkça uyarıp uyarmadığı incelenmedi.
-6. **Kararsız süre testi.** `tests/test_find_bar_fixes.py::test_keystroke_work_on_large_table_is_fast` tam test
-   setinde yük altında bir kez süre sınırını aştı (tek başına geçiyor); eşik ya da ölçüm yöntemi gözden geçirilmeli.
 
 ### Görsel denetim bulguları (2026-11-14, 0.57.1 ekran görüntüleri)
 
@@ -111,6 +104,13 @@ listesinden ürün sahibinin seçimiyle belirlenir.
 - Boş "Oyunu Ekle" ekranında "Son projeler" kartı (görsel denetim madde 15; ürün sahibinin onayıyla, 2026-11-15):
   Dosya → Son Projeler listesini kullanır, diskte olmayanları göstermez, kaynak eklenince gizlenir.
 - Tek oyuna özel SD kart denetim betiği (`sd_kontrol.py`, `SD Kontrol.bat`) ürün sahibinin isteğiyle kaldırıldı.
+- Kullanıcı eklentilerinde onay: yeni ya da değişmiş eklenti onaylanmadan çalıştırılmaz (`core/plugins/trust.py`,
+  `gui/plugin_approval.py`); komut satırı araçları ve depo eklenti klasörü onay istemez.
+- Süre testleri (`test_keystroke_work_on_large_table_is_fast`, `test_5000_rows_scrolling_stays_fast`) en iyi ölçümü
+  eşikle karşılaştırır. Aynı tek-ölçüm kalıbında 15 kadar süre testi daha var; yanlış alarm verirse aynı yöntem.
+- Kaydedilmemiş değişiklik sorusu olumlu ve evet/hayır biçiminde (ürün sahibinin isteği, 2026-11-15): "Çıkmadan önce
+  kaydedilsin mi?" → Evet (varsayılan; kaydeder) / Hayır (kaydetmeden) / İptal (projeye döner). Qt'nin "At" düğmesi
+  kalktı. Testler soruyu `MainWindow.ask_save_changes` ile sürer; `QMessageBox.question` yaması bu soruyu ETKİLEMEZ.
 
 **Yapıldı (0.58.2)**
 - Metinleri Tara: Tür, Ayrıntı ve Dil sütunları içeriğe göre boyutlanır, kırpılmaz; dar pencerede dosya yolu ortadan
@@ -123,6 +123,10 @@ listesinden ürün sahibinin seçimiyle belirlenir.
   düşer, yarım sözcük kalmaz); koyu temada dönüşümlü satır zemini belirgin (`row_alt`).
 
 **Ertelendi**
+- **Başlatıcı adı** (`NX Ceviri Studyosu.bat` eski adı taşıyor): değiştirilmeyecek; ad değişirse kullanıcı
+  kısayolları bozulur (2026-11-15).
+- **Güncelleme paketinde imza:** ertelendi (2026-11-15). SHA-256 dosyası bozuk indirmeyi yakalar, ele geçirilmiş bir
+  sürümü yakalamaz; imza yeni bağımlılık ve anahtar yönetimi ister.
 - **`gui/main_window.py` bölünmesi** (~3.700 satır; TECH_DEBT 69): ürün sahibi erteledi (2026-11-15); bir bölüme büyük
   özellik eklenirken o bölüm ayrılır. Ön inceleme: mixin + `self: MainWindow` strict mypy'da reddediliyor ("erased
   type of self … is not a supertype"); uygulanabilir yol, `win: MainWindow` tutan denetleyici nesne ve pencerede
