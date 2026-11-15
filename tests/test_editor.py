@@ -138,7 +138,7 @@ def test_show_row_in_place_clears_filters(window: MainWindow) -> None:
     """Arama sonucunda tek başına görünen satır, komşularıyla birlikte gerçek yerinde gösterilir."""
     page = window.translate_page
     s03 = _rows(window)["s03"]
-    page.status_filter.setCurrentIndex(page.status_filter.findData(Status.UNTRANSLATED.value))
+    page.status_filter.set_current(Status.UNTRANSLATED.value)
     page.group_filter.set_selected([row_group(s03)])
     page.search.setText("goal")
     assert page.proxy.rowCount() == 1
@@ -150,7 +150,7 @@ def test_show_row_in_place_clears_filters(window: MainWindow) -> None:
     reveal.trigger()
     menu.close()
     assert page.search.text() == ""
-    assert page.status_filter.currentIndex() == 0
+    assert page.status_filter.current() == ""
     assert not page.group_filter.active
     assert page.proxy.rowCount() == page.model.rowCount()
     current = page.current_row()
@@ -220,7 +220,7 @@ def test_issue_colors_filter_and_toggle(window: MainWindow) -> None:
     assert "⚠ Fazla etiket" in tip
     assert "&lt;div&gt;" in tip  # etiket ipucunda biçim olarak yorumlanmaz
 
-    page.status_filter.setCurrentIndex(page.status_filter.findData(ISSUES_FILTER))
+    page.status_filter.set_current(ISSUES_FILTER)
     assert page.proxy.rowCount() == 2
     page.colors_box.setChecked(False)
     assert color("s01") is None

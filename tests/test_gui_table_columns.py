@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QImage
-from PySide6.QtWidgets import QAbstractItemView
+from PySide6.QtWidgets import QAbstractItemView, QToolButton
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.project import TranslationRow
@@ -134,7 +134,7 @@ def test_hash_search_jumps_to_row_without_filtering(qtbot: QtBot) -> None:
 
 def test_hash_search_respects_other_filters(qtbot: QtBot) -> None:
     p = _page(qtbot, [_row(1, "A", status=Status.APPROVED), _row(2, "B"), _row(3, "C")])
-    p.status_filter.setCurrentIndex(p.status_filter.findData(Status.UNTRANSLATED.value))
+    p.status_filter.set_current(Status.UNTRANSLATED.value)
     assert not p.go_to_number(1)  # 1 numaralı satır durum süzgeciyle gizli
     assert p.go_to_number(2)
 
@@ -237,9 +237,8 @@ def test_status_cell_paints_an_icon_not_text(qtbot: QtBot) -> None:
 
 def test_status_filter_items_have_icons(qtbot: QtBot) -> None:
     p = _page(qtbot, [_row(1, "A", "Be", Status.MACHINE), _row(2, "B")])
-    for i in range(p.status_filter.count()):
-        if p.status_filter.itemData(i) in {s.value for s in Status}:
-            assert not p.status_filter.itemIcon(i).isNull()
+    assert set(p.status_filter.values()) >= {s.value for s in Status if s != Status.REDACTED}
+    assert all(not b.icon().isNull() for b in p.status_filter.findChildren(QToolButton))
 
 
 # --- sütun gizle / göster -------------------------------------------------------------------

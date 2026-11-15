@@ -28,7 +28,6 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QCheckBox,
-    QComboBox,
     QHBoxLayout,
     QHeaderView,
     QLineEdit,
@@ -76,7 +75,8 @@ from nxceviri.gui.find_replace import (
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.marked_delegate import ROW_ROLE, MarkedDelegate, kind_of_row
 from nxceviri.gui.shortcuts import ShortcutRegistry, display_text
-from nxceviri.gui.status_cell import STATUS_ICONS, STATUS_ROLE, StatusDelegate, cell_width, issue_icon, status_icon
+from nxceviri.gui.status_cell import ISSUE_ICON, STATUS_ICONS, STATUS_ROLE, StatusDelegate, cell_width
+from nxceviri.gui.status_filter import FilterOption, StatusFilterBar
 from nxceviri.gui.table_columns import ColumnFitter, FitTableView, HeaderColumnMenu
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.value_filter import FilterHeader, FilterPopup, ValueFilter
@@ -91,6 +91,14 @@ _NUMBER_QUERY = re.compile(r"#\s*(\d+)")
 CHANGED_FILTER = "@changed"
 #: Durum süzgecinde yalnızca renkle işaretli (sorunlu) satırlar.
 ISSUES_FILTER = "@issues"
+#: Durum şeridindeki düğmelerin ipucu cümleleri.
+_STATUS_TIPS = {
+    Status.UNTRANSLATED: "Henüz çevrilmemiş satırlar",
+    Status.MACHINE: "Makine çevirisi olan satırlar",
+    Status.REDACTED: "Makine çevirisi redakte edilmiş satırlar",
+    Status.APPROVED: "Onaylanmış satırlar",
+    Status.ERROR: "Hatalı satırlar",
+}
 #: Sorun türü → çeviri metninin rengi (tema belirteci).
 ISSUE_COLORS = {
     "placeholder": "danger",
@@ -803,7 +811,7 @@ class TranslatePage(QWidget):
         self.search.setToolTip("Orijinal ve çeviri sütunlarında arar. Satıra gitmek için #120 yazın.")
         self.search.setClearButtonEnabled(True)
         self.search.setMinimumWidth(110)  # dar pencerede arama kutusu süzgeçlerden önce ezilmesin
-        self.status_filter = QComboBox()
+        self.status_filter = StatusFilterBar()
         # Dosya/grup ve anahtar süzgeçleri sütun başlığındaki huniyle açılır (Excel tarzı, çoklu seçim).
         self.group_filter = ValueFilter("Dosya ve grup")
         self.key_filter = ValueFilter("Anahtar")
@@ -965,9 +973,14 @@ class TranslatePage(QWidget):
         self._search_timer.setSingleShot(True)
         self._search_timer.setInterval(SEARCH_DEBOUNCE_MS)
         self._search_timer.timeout.connect(self._refilter)
+        self._status_timer = QTimer(self)  # düzenlemeler sırasında durum sayıları gecikmeli yenilenir
+        self._status_timer.setSingleShot(True)
+        self._status_timer.setInterval(SEARCH_DEBOUNCE_MS)
+        self._status_timer.timeout.connect(self._status_counts_changed)
+        self.model.dataChanged.connect(lambda *_args: self._status_timer.start())
         self.search.textChanged.connect(self._search_edited)
         self.search.returnPressed.connect(self._apply_search_now)
-        self.status_filter.currentIndexChanged.connect(self._refilter)
+        self.status_filter.changed.connect(self._refilter)
         self.group_filter.changed.connect(self._filters_edited)
         self.key_filter.changed.connect(self._filters_edited)
         self.model.dataChanged.connect(lambda *_args: self.find_bar.rows_changed())
@@ -1342,20 +1355,7 @@ class TranslatePage(QWidget):
         self._scroll_row_id = None
         self._scroll_timer.stop()
         self.model.set_rows(rows)
-        # "Makine" ve "Redakte" durumları yalnızca o durumda satır varsa listelenir.
-        present = {r.status for r in rows}
-        current_status = self.status_filter.currentData()
-        self.status_filter.blockSignals(True)
-        self.status_filter.clear()
-        self.status_filter.addItem("Tüm durumlar", "")
-        for s in Status:
-            if s not in (Status.MACHINE, Status.REDACTED) or s in present:
-                self.status_filter.addItem(status_icon(s), STATUS_LABELS[s], s.value)
-        self.status_filter.addItem(issue_icon("warning"), "Hata veya uyarısı olan satırlar", ISSUES_FILTER)
-        if self.model.previous:
-            self.status_filter.addItem(f"Son işte değişenler ({format_int(len(self.model.previous))})", CHANGED_FILTER)
-        self.status_filter.setCurrentIndex(max(self.status_filter.findData(current_status), 0))
-        self.status_filter.blockSignals(False)
+        self._refresh_status_filter()
         groups: dict[str, int] = {}
         keys: dict[str, int] = {}
         for r in rows:
@@ -1411,7 +1411,7 @@ class TranslatePage(QWidget):
         # Süzgeç gevşeyince görünüm başa dönmesin: seçili (geçerli) satır görünür kalırsa oraya dönülür.
         current = self.current_row()
         self.proxy.update(
-            str(self.status_filter.currentData()),
+            self.status_filter.current(),
             self.group_filter.selected,
             self.key_filter.selected,
             self.search.text(),
@@ -1664,7 +1664,7 @@ class TranslatePage(QWidget):
         """Arama metnini, durum, grup ve anahtar süzgeçlerini birlikte temizler; bir şey değiştiyse True döner."""
         changed = (
             bool(self.search.text())
-            or bool(str(self.status_filter.currentData() or ""))
+            or bool(self.status_filter.current())
             or self.group_filter.active
             or self.key_filter.active
         )
@@ -1675,7 +1675,7 @@ class TranslatePage(QWidget):
             widget.blockSignals(True)
         try:
             self.search.clear()
-            self.status_filter.setCurrentIndex(0)
+            self.status_filter.set_current("")
             self.group_filter.clear()
             self.key_filter.clear()
         finally:
@@ -1914,6 +1914,46 @@ class TranslatePage(QWidget):
 
     # --- makine çevirisi şeridi -----------------------------------------------------------
 
+    def _status_options(self) -> list[FilterOption]:
+        """Durum şeridinin düğmeleri; Makine ve Redakte yalnızca o durumda satır varsa, değişenler değişen varsa."""
+        counts: dict[str, int] = {}
+        for r in self.model.rows:
+            counts[r.status] = counts.get(r.status, 0) + 1
+        options = [FilterOption("", "list", None, "Tümü", "Bütün satırlar", format_int(len(self.model.rows)))]
+        for s in Status:
+            # Seçili durum, son satırı değişse bile listede kalır: düzenlerken süzgeç kendiliğinden "Tümü"ne düşmesin.
+            if s in (Status.MACHINE, Status.REDACTED) and s not in counts and s.value != self.status_filter.current():
+                continue
+            name, tone = STATUS_ICONS[s]
+            # Hatalı satırlar dışarı aktarılmadığı için sayısı da görünür (0 ise yalnızca simge).
+            text = format_int(counts[s]) if s == Status.ERROR and s in counts else ""
+            options.append(FilterOption(s.value, name, tone, STATUS_LABELS[s], _STATUS_TIPS[s], text))
+        options.append(
+            FilterOption(ISSUES_FILTER, ISSUE_ICON, "warning", "Hata veya uyarılı", "Hata veya uyarısı olan satırlar")
+        )
+        if self.model.previous:
+            options.append(
+                FilterOption(
+                    CHANGED_FILTER,
+                    "git-compare",
+                    None,
+                    "Son işte değişenler",
+                    "Son işte değişen satırlar",
+                    format_int(len(self.model.previous)),
+                )
+            )
+        return options
+
+    def _refresh_status_filter(self) -> bool:
+        """Durum şeridini satırlara göre yeniler; seçili düğme kalktığı için süzgeç değiştiyse True döner."""
+        before = self.status_filter.current()
+        self.status_filter.set_options(self._status_options())
+        return self.status_filter.current() != before
+
+    def _status_counts_changed(self) -> None:
+        if self._refresh_status_filter():
+            self._refilter()
+
     def set_last_changes(self, previous: dict[int, str]) -> None:
         """Son işte değişen satırlar (kimlik → önceki çeviri): düğme, "Önceki çeviri" sütunu ve süzgeç güncellenir."""
         count = len(previous)
@@ -1927,16 +1967,7 @@ class TranslatePage(QWidget):
         self.previous_box.setToolTip(_PREVIOUS_TIP if count else NO_CHANGES_TIP)
         if not count and self.previous_box.isChecked():
             self.previous_box.setChecked(False)
-        current = self.status_filter.currentData()
-        self.status_filter.blockSignals(True)
-        idx = self.status_filter.findData(CHANGED_FILTER)
-        if idx >= 0:
-            self.status_filter.removeItem(idx)
-        if count:
-            self.status_filter.addItem(f"Son işte değişenler ({format_int(count)})", CHANGED_FILTER)
-        self.status_filter.setCurrentIndex(max(self.status_filter.findData(current), 0))
-        self.status_filter.blockSignals(False)
-        if current == CHANGED_FILTER or self.status_filter.currentData() != current:
+        if self._refresh_status_filter():
             self._refilter()
 
     def _show_previous(self, on: bool) -> None:

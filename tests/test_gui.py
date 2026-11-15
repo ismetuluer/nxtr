@@ -161,7 +161,7 @@ def test_full_flow_drop_scan_save_reopen(qtbot: QtBot, window: MainWindow, game:
     wait_row = next(r for r in page.model.rows if r.key == "Wait")
     assert (wait_row.translation, wait_row.status) == ("Please wait⟦1⟧", "approved")
     page.search.clear()
-    page.status_filter.setCurrentIndex(page.status_filter.findData("error"))
+    page.status_filter.set_current("error")
     assert page.proxy.rowCount() == 1
 
     target = tmp_path / "Projelerim ğüş" / "Deneme Çeviri.nxproj"
@@ -413,7 +413,7 @@ def test_machine_translation_flow(qtbot: QtBot, window: MainWindow, game: GameFi
     assert after["Menu_Hello"].status == "machine"
     assert after["Yes"].translation == "Evet"  # onaylanan satıra dokunulmadı
     assert window.notifier.history[0].title == "Otomatik çeviri bitti"
-    assert page.status_filter.findData("machine") > 0  # makine satırları olunca filtrede görünür
+    assert "machine" in page.status_filter.values()  # makine satırları olunca filtrede görünür
     assert window.project.setting("translation_notes") == "Deneme notu"
 
     # Ollama kapalıysa anlaşılır hata ve hiçbir satır değişmez.

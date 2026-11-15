@@ -100,6 +100,11 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 Görsel denetim listesi ve 0.57.2 sonrası geri bildirim kapandı. Sıradaki iş, yukarıdaki "Sonraki yapılacaklar"
 listesinden ürün sahibinin seçimiyle belirlenir.
 
+**Yapıldı (0.58.3 sonrası, yayımlanmadı)**
+- Çevir: durum süzgeci açılır kutu yerine simge düğmeleri şeridi (`gui/status_filter.py`; ürün sahibinin onayladığı
+  "D" çizimi, 2026-11-15). Sıradaki: gruplu görünüm (katlanır grup başlıkları; yalnızca dosya/gruba göre, anahtara
+  göre gruplama ölçümde oyundan oyuna tutmadığı için kapsam dışı).
+
 **Yapıldı (0.58.3)**
 - Boş "Oyunu Ekle" ekranında "Son projeler" kartı (görsel denetim madde 15; ürün sahibinin onayıyla, 2026-11-15):
   Dosya → Son Projeler listesini kullanır, diskte olmayanları göstermez, kaynak eklenince gizlenir.

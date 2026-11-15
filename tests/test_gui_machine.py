@@ -552,7 +552,7 @@ def test_table_shows_marks_previous_column_and_live_updates(qtbot: QtBot, window
     assert page.previous_box.isEnabled()
     page.previous_box.setChecked(True)
     assert not page.table.isColumnHidden(COL_PREVIOUS)
-    page.status_filter.setCurrentIndex(page.status_filter.findData(CHANGED_FILTER))
+    page.status_filter.set_current(CHANGED_FILTER)
     assert page.proxy.rowCount() == 2
     page.previous_box.setChecked(False)
     assert page.table.isColumnHidden(COL_PREVIOUS)
