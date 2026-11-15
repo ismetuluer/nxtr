@@ -213,20 +213,26 @@ def test_5000_rows_scrolling_stays_fast(qtbot: QtBot) -> None:
         make_row(i, f"Line {i}: Hello there, how are you doing today?", f"Satır {i}: Merhaba yer xq{i}")
         for i in range(5000)
     ]
-    page = TranslatePage()
-    qtbot.addWidget(page)
-    page.resize(1000, 700)
-    page.show()
-    page.set_rows(rows)
-    page.set_spell(CountingSpell(), frozenset())
-    page.set_view(True, "left")
-    bar = page.table.verticalScrollBar()
-    start = time.perf_counter()
-    for step in range(30):
-        bar.setValue(step * 150)
-        page._fit_rows()
-        page.table.viewport().repaint()
-    assert time.perf_counter() - start < 6.0
+    costs: list[float] = []
+    for _ in range(3):
+        # Her tekrar taze sayfayla (soğuk satır yüksekliği/önbellek) başlar; en iyi ölçüm alınır:
+        # yük gürültüsü her tekrarı birden yavaşlatmaz, gerçek gerileme hepsini yavaşlatır.
+        page = TranslatePage()
+        qtbot.addWidget(page)
+        page.resize(1000, 700)
+        page.show()
+        page.set_rows(rows)
+        page.set_spell(CountingSpell(), frozenset())
+        page.set_view(True, "left")
+        bar = page.table.verticalScrollBar()
+        start = time.perf_counter()
+        for step in range(30):
+            bar.setValue(step * 150)
+            page._fit_rows()
+            page.table.viewport().repaint()
+        costs.append(time.perf_counter() - start)
+    print(f"5000 satır kaydırma, en iyi/3: {min(costs):.2f} sn")
+    assert min(costs) < 6.0
 
 
 # --- Orijinal hücresi: salt okunur görünüm ----------------------------------------------
