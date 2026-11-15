@@ -181,6 +181,16 @@ class LiveChecker:
         found = memo.get(row.id)
         return [] if found is None else [found]
 
+    def cache_size(self) -> int:
+        """Önbellekteki satır sayısı (önbelleğe dayanan özetler büyüdüğünü buradan anlar)."""
+        return len(self._cache)
+
+    def cached(self, row: TranslationRow) -> list[QaIssue] | None:
+        """Satırın daha önce hesaplanmış bulguları (tutarlılık hariç); hesaplanmamışsa ya da satır değiştiyse `None`.
+        Hiçbir denetim çalıştırmaz (ör. grup başlığı yalnızca bilinenleri gösterir)."""
+        cached = self._cache.get(row.id)
+        return cached[1] if cached is not None and cached[0] is row else None
+
     def check(self, row: TranslationRow) -> list[QaIssue]:
         kinds = self._context.kinds
         cached = self._cache.get(row.id)

@@ -80,6 +80,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("view.issue_colors", "Sorunları Renkle Göster", CATEGORY_VIEW),
     Command("view.error_rows", "Hatalı Satırları Vurgula", CATEGORY_VIEW),
     Command("view.previous", "Önceki Çeviri Sütunu", CATEGORY_VIEW),
+    Command("view.grouped", "Gruplu Görünüm", CATEGORY_VIEW),
     Command("view.font_bigger", "Yazıyı Büyüt", CATEGORY_VIEW, "Ctrl+="),
     Command("view.font_smaller", "Yazıyı Küçült", CATEGORY_VIEW, "Ctrl+-"),
     Command("view.font_reset", "Varsayılan Yazı Boyutu", CATEGORY_VIEW, "Ctrl+0"),

@@ -15,3 +15,4 @@ Bu klasördeki `*.svg` dosyaları [Lucide](https://lucide.dev) simge setindendir
 - Bildirimler (D aşaması): `bell` (aynı sürüm, 1.66.0).
 - Görseller (F aşaması): `image` (aynı sürüm, 1.66.0).
 - Menü çubuğu ve bağlam menüsü (B aşaması): `file-plus`, `save-all`, `trash-2`, `log-out`, `wrap-text`, `copy`, `eraser`, `panel-left`, `pen-line`, `git-compare`, `file-up`, `file-down`, `circle-x`, `activity`, `spell-check`, `puzzle`, `info`, `folder-output` (aynı sürüm, 1.66.0).
+- Çevir tablosu gruplu görünüm düğmesi: `list-tree` (aynı sürüm, 1.66.0).

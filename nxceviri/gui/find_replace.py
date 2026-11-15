@@ -41,6 +41,11 @@ SCOPE_ALL = 0
 SCOPE_VISIBLE = 1
 SCOPE_SELECTED = 2
 _SCOPE_NAMES = {SCOPE_ALL: "Tümü", SCOPE_VISIBLE: "Görünenler", SCOPE_SELECTED: "Seçili"}
+_SCOPE_TIPS = {
+    SCOPE_ALL: "Bütün satırlar.",
+    SCOPE_VISIBLE: "Arama ve süzgeçlere uyan satırlar; katlanmış gruplardaki satırlar da dahildir.",
+    SCOPE_SELECTED: "Seçili satırlar.",
+}
 
 FIELD_TRANSLATION = "translation"
 FIELD_SOURCE = "source"
@@ -180,6 +185,11 @@ class FindBar(QWidget):
         self.scope_button, self._scope_actions = self._choice_button("Kapsam", _SCOPE_NAMES, self.set_scope)
         self.field_button, self._field_actions = self._choice_button("Alan", _FIELD_NAMES, self.set_field)
         self.scope_button.setText(_SCOPE_NAMES[SCOPE_ALL])
+        for scope, action in self._scope_actions.items():
+            action.setToolTip(self.scope_tip(scope))
+        scope_menu = self.scope_button.menu()
+        if scope_menu is not None:
+            scope_menu.setToolTipsVisible(True)
         self.field_button.setText(_FIELD_NAMES[FIELD_TRANSLATION])
         self.close_button = self._tool("x", "Kapat (Esc)")
         # Tuşlu ipuçları kayıt defterinden üretilir; tuş değişince yenilenir.
@@ -356,6 +366,11 @@ class FindBar(QWidget):
         self._update_state()
 
     # --- seçenekler ------------------------------------------------------------------------
+
+    @staticmethod
+    def scope_tip(scope: int) -> str:
+        """Kapsam seçeneğinin ipucu."""
+        return _SCOPE_TIPS[scope]
 
     def set_scope(self, scope: int) -> None:
         """Kullanıcının seçtiği kapsam; süzgeç etkinken bile bu seçim korunur."""

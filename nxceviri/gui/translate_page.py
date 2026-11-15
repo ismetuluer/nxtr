@@ -61,7 +61,7 @@ from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.translate.codekinds import CodeKinds
 from nxceviri.core.translate.fitconfig import FitConfig
 from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_REVISE, ACTION_TRANSLATE, target_rows
-from nxceviri.core.translate.status import STATUS_LABELS, Status
+from nxceviri.core.translate.status import STATUS_LABELS, TRANSLATED_STATUSES, Status
 from nxceviri.core.translate.textsearch import fold_search
 from nxceviri.core.translate.uppercase import UppercaseRules
 from nxceviri.gui.changes_dialog import HtmlDelegate, diff_html
@@ -76,13 +76,14 @@ from nxceviri.gui.find_replace import (
     FindMarks,
     FindWindow,
 )
+from nxceviri.gui.group_header import GroupHeader, GroupTableView, header_tip
 from nxceviri.gui.group_proxy import GroupProxy
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.marked_delegate import ROW_ROLE, MarkedDelegate, kind_of_row
 from nxceviri.gui.shortcuts import ShortcutRegistry, display_text
 from nxceviri.gui.status_cell import ISSUE_ICON, STATUS_ICONS, STATUS_ROLE, StatusDelegate, cell_width
 from nxceviri.gui.status_filter import FilterOption, StatusFilterBar
-from nxceviri.gui.table_columns import ColumnFitter, FitTableView, HeaderColumnMenu
+from nxceviri.gui.table_columns import ColumnFitter, HeaderColumnMenu
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.value_filter import FilterHeader, FilterPopup, ValueFilter
 from nxceviri.gui.view_actions import PANE_RIGHT, ViewActions
@@ -115,6 +116,8 @@ ISSUE_COLORS = {
 }
 #: Son işte değişiklik yokken "Önceki Çeviri Sütunu" ve "Son İşin Değişiklikleri" öğelerinin ipucu.
 NO_CHANGES_TIP = "Son işte değişiklik yok"
+_GROUP_TIP = "Satırları dosyaya ya da gruba göre öbekle"
+KEY_GROUPED = "translate/grouped"
 _PREVIOUS_TIP = (
     "Son yeniden çeviri, düzeltme veya otomatik düzeltmede değişen satırların önceki çevirisini ayrı "
     "sütunda gösterir. Yalnızca değişenleri görmek için durum süzgecinden “Son işte değişenler”i seçin."
@@ -284,6 +287,18 @@ class TranslationModel(QAbstractTableModel):
     def issues(self, r: TranslationRow) -> list[QaIssue]:
         """Satırın hata ve uyarıları (bilgi düzeyi sayılmaz)."""
         return [i for i in self._all_issues(r) if i.severity in (SEVERITY_ERROR, SEVERITY_WARNING)]
+
+    def known_problem(self, r: TranslationRow) -> bool:
+        """Satırın bilinen bir hatası/uyarısı var mı: hatalı durum, son Kontrol Et sonucu (çeviri değişmediyse) ya da
+        anlık denetimin önbelleği. Yeni denetim çalıştırmaz (grup başlığı binlerce satırı denetlemesin)."""
+        if r.status == Status.ERROR:
+            return True
+        serious = (SEVERITY_ERROR, SEVERITY_WARNING)
+        qa = self._qa.get(r.id)
+        if qa is not None and qa[0] == r.translation and any(i.severity in serious for i in qa[1]):
+            return True
+        live = self.live.cached(r)
+        return live is not None and any(i.severity in serious for i in live)
 
     def set_qa_issues(self, issues: list[QaIssue], checked: list[TranslationRow]) -> None:
         """Kontrol Et sonuçlarını (`checked` satırlarının o anki çevirisiyle) durum hücresine bağlar."""
@@ -601,6 +616,7 @@ class TranslationFilter(QSortFilterProxyModel):
         # onbinlerce metni yeniden küçültmemek için; metin nesnesi değiştiyse (düzenleme) satır yeniden hesaplanır.
         self._folded: dict[int, tuple[str, str, str, str]] = {}
         self.modelReset.connect(self._folded.clear)
+        self._accepted: list[bool] = []  # model satırı → süzgeçten geçti mi (bkz. `accepted_rows`)
         # Düzenleme sırasında satırlar süzgeçten çıkıp yer değiştirmesin: süzgeç yalnızca süzgeç
         # değişince yeniden uygulanır. Sıralama proxy'de değil modelde yapılır (bkz. TranslationModel.sort_by).
         self.setDynamicSortFilter(False)
@@ -612,9 +628,24 @@ class TranslationFilter(QSortFilterProxyModel):
         self.text = "" if _NUMBER_QUERY.fullmatch(text.strip()) else fold_search(text)
         self.endFilterChange()
 
+    def accepted_rows(self) -> list[int] | None:
+        """Süzgeçten geçen model satırları, süzgeç sırasıyla (süzgeç sıralamaz: model sırasıdır). Qt her süzgeç
+        değişikliğinde bütün satırları `filterAcceptsRow` ile yeniden sorar; sonuçlar orada kaydedilir. Kayıt süzgeçle
+        uyuşmuyorsa (sayı tutmuyorsa) `None` döner, çağıran yavaş ama kesin yola düşer."""
+        count = self.rowCount()  # önce: sıfırlamadan sonra eşlemeyi (ve kayıtları) Qt şimdi kurar
+        rows = [i for i, ok in enumerate(self._accepted) if ok]
+        return rows if len(rows) == count else None
+
     def filterAcceptsRow(self, source_row: int, source_parent: _Index) -> bool:
         model = self.sourceModel()
         assert isinstance(model, TranslationModel)
+        if len(self._accepted) != len(model.rows):
+            self._accepted = [False] * len(model.rows)
+        ok = self._accepts(model, source_row)
+        self._accepted[source_row] = ok
+        return ok
+
+    def _accepts(self, model: TranslationModel, source_row: int) -> bool:
         r = model.rows[source_row]
         if self.status == CHANGED_FILTER:
             if r.id not in model.previous:
@@ -822,6 +853,21 @@ class TranslatePage(QWidget):
         self.key_filter = ValueFilter("Anahtar")
         filters.addWidget(self.search, 2)
         filters.addWidget(self.status_filter)
+        # Gruplu görünüm: şeridin sağında, çiplerle aynı biçemde aç/kapa düğmesi (Görünüm menüsüyle aynı eylem).
+        self.group_action = QAction("Gruplu Görünüm", self, checkable=True)
+        self.shortcuts.bind("view.grouped", self.group_action, tip=_GROUP_TIP)
+        bind_icon(self.group_action, "list-tree")
+        self.group_action.toggled.connect(self._group_toggled)
+        self.group_button = QToolButton()
+        self.group_button.setDefaultAction(self.group_action)
+        self.group_button.setProperty("role", "chip")
+        self.group_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        self.group_button.setIconSize(QSize(16, 16))
+        self.group_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.group_button.setAccessibleName("Gruplu görünüm")
+        self._group_pref = False  # kullanıcının tercihi; tek gruplu projede gruplama yine kapalı davranır
+        self._group_possible = False  # projede birden çok grup var mı
+        filters.addWidget(self.group_button)
         filters.addStretch(1)
         # Görünüm seçenekleri menü çubuğundadır (Görünüm menüsü); eylemler burada yaşar, tablo durumu bunlara bağlıdır.
         self.wrap_box = QAction("Metni Kaydır", self, checkable=True)
@@ -863,7 +909,12 @@ class TranslatePage(QWidget):
         self._grouped = False
         self._row_groups: dict[int, str] = {}  # satır kimliği → grup (`row_group`)
         self._group_rank: dict[str, int] = {}  # grup → dosyadaki ilk görülme sırası
-        self.table = FitTableView()
+        self.table = GroupTableView()
+        self.table.header_at = self.header_info
+        self.table.fold_requested.connect(self._fold)
+        self._group_ids: dict[str, list[int]] = {}  # grup → süzgeçten geçen satır kimlikleri (`_group_keys` kurar)
+        #: Grup → (anlık denetim önbelleği boyu, başlık bilgisi); düzenleme ve süzgeçte boşaltılır.
+        self._header_stats: dict[str, tuple[int, GroupHeader]] = {}
         self.filter_header = FilterHeader(self.table)
         self.table.setHorizontalHeader(self.filter_header)
         self.table.setModel(self.filter)
@@ -988,6 +1039,7 @@ class TranslatePage(QWidget):
         self.group_filter.changed.connect(self._filters_edited)
         self.key_filter.changed.connect(self._filters_edited)
         self.model.dataChanged.connect(lambda *_args: self.find_bar.rows_changed())
+        self.model.dataChanged.connect(lambda *_args: self._header_stats.clear())  # başlık sayıları yenilensin
         self.model.modelReset.connect(self.find_bar.rows_changed)
         self.model.commit_failed.connect(lambda text: self.show_notice("danger", text))
         self.model.commit_failed.connect(self._remember_commit_error)
@@ -1009,6 +1061,8 @@ class TranslatePage(QWidget):
         self.follow_box.setChecked(str(settings.value("translate/follow", "1")) != "0")
         self.view_actions.bind_settings(settings)
         self.find_window.bind_settings(settings)
+        self._group_pref = str(settings.value(KEY_GROUPED, "0")) == "1"
+        self._apply_grouping()
         self._apply_view()
         self._apply_pane()
 
@@ -1298,6 +1352,7 @@ class TranslatePage(QWidget):
     def set_qa_issues(self, issues: list[QaIssue], checked: list[TranslationRow]) -> None:
         """Kontrol Et sonuçlarını tabloya bağlar; durum hücresi uzayabileceği için satır yükseklikleri yenilenir."""
         self.model.set_qa_issues(issues, checked)
+        self._header_stats.clear()  # başlıktaki uyarı simgesi son Kontrol Et sonucunu da kullanır
         self._schedule_fit_rows()
 
     def _schedule_fit_rows(self) -> None:
@@ -1317,8 +1372,11 @@ class TranslatePage(QWidget):
         first = max(self.table.rowAt(0), 0)
         last = self.table.rowAt(self.table.viewport().height() - 1)
         last = total - 1 if last < 0 else last
+        grouped = self._grouped
         for row in range(max(first - _ROW_MARGIN, 0), min(last + _ROW_MARGIN, total - 1) + 1):
-            if wrap:
+            if grouped and self.group_proxy.header_group(row) is not None:
+                self.table.setRowHeight(row, single)  # grup başlığı: sabit yükseklik
+            elif wrap:
                 self.table.resizeRowToContents(row)
             else:
                 self.table.setRowHeight(row, single)
@@ -1364,6 +1422,8 @@ class TranslatePage(QWidget):
         # Gruplu görünüm model sıfırlanırken grupları buradan okur: önce bunlar güncellenir.
         self._row_groups = row_groups
         self._group_rank = {g: i for i, g in enumerate(groups)}
+        self._group_possible = len(groups) > 1
+        self._header_stats.clear()
         self.model.set_rows(rows)
         self._refresh_status_filter()
         self.group_filter.set_values(groups)
@@ -1386,6 +1446,7 @@ class TranslatePage(QWidget):
         self.stack.setCurrentWidget(self.content if rows else self.empty)
         self.notice_text = ""
         self._refilter()
+        self._apply_grouping()  # tek gruplu projede düğme gizlenir, gruplama kapalı davranır
         self._schedule_fit_rows()
 
     def show_notice(self, state: str, text: str) -> None:
@@ -1553,8 +1614,106 @@ class TranslatePage(QWidget):
         return self.flush_pending()
 
     def _group_keys(self) -> list[str]:
+        """Süzgeç satırlarının grupları (süzgeç sırasıyla); başlık sayıları için grup → satır kimlikleri de kurulur.
+        Süzgecin kaydettiği kabul listesinden tek geçişte çıkar (satır başına Qt çağrısı yok)."""
         groups = self._row_groups
-        return [groups[r.id] for r in self.filtered_rows()]
+        accepted = self.filter.accepted_rows()
+        rows = self.model.rows
+        ids = [rows[i].id for i in accepted] if accepted is not None else [r.id for r in self.filtered_rows()]
+        keys = [groups[i] for i in ids]
+        members: dict[str, list[int]] = {}
+        for row_id, key in zip(ids, keys, strict=True):
+            members.setdefault(key, []).append(row_id)
+        self._group_ids = members
+        self._header_stats.clear()
+        return keys
+
+    # --- gruplu görünüm: tercih, başlık bilgisi, katlama ----------------------------------------
+
+    def _group_toggled(self, on: bool) -> None:
+        """Düğme, menü ya da kısayol: tercih kaydedilir; proje izin veriyorsa gruplama açılır/kapanır."""
+        self._group_pref = on
+        if self.settings is not None:
+            self.settings.setValue(KEY_GROUPED, "1" if on else "0")
+        if not self._apply_grouping():  # paneldeki metin kaydedilemedi: geçiş yapılmadı, düğme eski hâline döner
+            self._group_pref = self._grouped
+            self.group_action.blockSignals(True)
+            self.group_action.setChecked(self._grouped)
+            self.group_action.blockSignals(False)
+
+    def _apply_grouping(self) -> bool:
+        """Düğmenin görünürlüğünü ve gruplamayı tercih ile projedeki grup sayısına göre ayarlar."""
+        possible = self._group_possible
+        self.group_action.setEnabled(possible)
+        self.group_action.setVisible(possible)
+        self.group_button.setVisible(possible)
+        self.group_action.blockSignals(True)
+        self.group_action.setChecked(self._group_pref)
+        self.group_action.blockSignals(False)
+        return self._set_grouped(self._group_pref and possible)
+
+    def header_info(self, view_row: int) -> GroupHeader | None:
+        """Görünüm satırı bir grup başlığıysa gösterdikleri; değilse `None`. Sayılar süzgeçten geçen satırlara göredir;
+        uyarı yalnızca bilinenlerden gelir (hatalı durum, son Kontrol Et, anlık denetimin önbelleği)."""
+        if not self._grouped:
+            return None
+        name = self.group_proxy.header_group(view_row)
+        if name is None:
+            return None
+        live = self.model.live.cache_size()
+        cached = self._header_stats.get(name)
+        if cached is None or cached[0] != live:
+            rows = [r for r in (self.model.row_by_id(i) for i in self._group_ids.get(name, ())) if r is not None]
+            translated = sum(1 for r in rows if r.status in TRANSLATED_STATUSES)
+            warned = any(self.model.known_problem(r) for r in rows)
+            cached = (live, GroupHeader(name, len(rows), translated, warned, False))
+            self._header_stats[name] = cached
+        return dataclasses.replace(cached[1], collapsed=self.group_proxy.is_collapsed(name))
+
+    def header_tip(self, view_row: int) -> str:
+        info = self.header_info(view_row)
+        return "" if info is None else header_tip(info)
+
+    def _fold(self, view_row: int, fold: bool | None) -> None:
+        """Başlıkta katlama isteği (`None`: aç/kapa). Katlanan grubun içindeki geçerli satır başlığa taşınır."""
+        name = self.group_proxy.header_group(view_row) if self._grouped else None
+        if name is None:
+            return
+        collapse = not self.group_proxy.is_collapsed(name) if fold is None else fold
+        current_group = self._current_group()
+        self.group_proxy.set_collapsed(name, collapse)
+        if collapse and current_group == name:
+            self._current_to_header(name)
+        self._schedule_fit_rows()
+
+    def _current_group(self) -> str | None:
+        row = self.current_row()
+        return None if row is None else self._row_groups.get(row.id)
+
+    def _current_to_header(self, name: str) -> None:
+        header = self.group_proxy.header_row(name)
+        if header >= 0:
+            column = max(self.table.currentIndex().column(), 0)
+            self.table.selectionModel().setCurrentIndex(
+                self.proxy.index(header, column), QItemSelectionModel.SelectionFlag.NoUpdate
+            )
+
+    def set_all_collapsed(self, collapsed: bool) -> None:
+        """Bütün grupları katlar/açar; katlanınca geçerli satır kendi grubunun başlığına taşınır."""
+        if not self._grouped:
+            return
+        current_group = self._current_group()
+        self.group_proxy.set_all_collapsed(collapsed)
+        if collapsed and current_group is not None:
+            self._current_to_header(current_group)
+        self._schedule_fit_rows()
+
+    def build_header_menu(self) -> QMenu:
+        """Grup başlığının sağ tık menüsü."""
+        menu = QMenu(self)
+        menu.addAction("Bütün Grupları Katla").triggered.connect(lambda: self.set_all_collapsed(True))
+        menu.addAction("Bütün Grupları Aç").triggered.connect(lambda: self.set_all_collapsed(False))
+        return menu
 
     def _set_grouped(self, on: bool) -> bool:
         """Gruplu görünümü açar/kapatır: tablonun modeli değişir, sütun düzeni aynı kalır; geçerli satır ve seçim
@@ -1861,7 +2020,11 @@ class TranslatePage(QWidget):
         """Sağ tık menüsü: tıklanan satır seçili değilse yalnızca o satır seçilir."""
         index = self.table.indexAt(pos)
         if index.isValid() and self._grouped and self.group_proxy.header_group(index.row()) is not None:
-            return  # grup başlığının menüsü yok
+            # Grup başlığında satır menüsü yok; yalnızca katla/aç.
+            menu = self.build_header_menu()
+            menu.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            menu.popup(self.table.viewport().mapToGlobal(pos))
+            return
         selection = self.table.selectionModel()
         if index.isValid() and not selection.isRowSelected(index.row(), index.parent()):
             self.table.selectRow(index.row())

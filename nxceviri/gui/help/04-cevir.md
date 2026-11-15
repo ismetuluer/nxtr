@@ -28,3 +28,7 @@ Tablo her satırı gösterir: **No**, orijinal, çeviri, durum ve dosya. Binlerc
 
 Sütun başlığına sağ tıklayarak sütun gizleyebilir, sembolleri (`Ctrl+Shift+8`) ve satır kaydırmayı açabilirsiniz.
 **Ayarlar → Görünüm**'de tema, yazı boyutu ve renkler.
+
+**Gruplu görünüm** (süzgeç şeridinin sağındaki düğme ya da Görünüm menüsü) satırları dosyaya ya da gruba göre
+öbekler; başlığa tıklayınca grup katlanır ya da açılır, başlıkta sağ tıkla hepsini birden katlayıp açabilirsiniz.
+Katlamak süzmek değildir: sayılar, Otomatik Çeviri ve Bul/Değiştir'in "Görünenler" kapsamı katlı satırları da sayar.

@@ -130,6 +130,22 @@ def test_collapse_and_expand() -> None:
     assert _texts(proxy)[:4] == ["[a]", "a1", "a2", "a3"]
 
 
+def test_collapse_all_and_expand_all_keep_selection(qtbot: QtBot) -> None:
+    _model, flt, proxy = _chain()
+    proxy.set_grouping(_group(flt), {"a": 0, "b": 1, "c": 2})
+    view = QTableView()
+    qtbot.addWidget(view)
+    view.setModel(proxy)
+    view.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+    view.setCurrentIndex(proxy.index(proxy._header_at["b"], 0))
+    proxy.set_all_collapsed(True)
+    assert _texts(proxy) == ["[a]", "[b]", "[c]"]
+    assert view.currentIndex().row() == 1  # başlık geçerli kalır
+    proxy.set_all_collapsed(False)
+    assert len(_texts(proxy)) == 9
+    assert proxy.header_group(view.currentIndex().row()) == "b"
+
+
 def test_reveal_opens_collapsed_group() -> None:
     _model, flt, proxy = _chain()
     proxy.set_grouping(_group(flt), {"a": 0, "b": 1, "c": 2})

@@ -51,6 +51,18 @@ def test_detects_row_problems_with_default_context() -> None:
     assert checker.check(make_row(2, "Bye", "")) == []
 
 
+def test_cached_returns_only_already_checked_results() -> None:
+    checker = LiveChecker()
+    row = make_row(1, "Hi ⟦1⟧", "Selam", labels=("<c>",))
+    assert checker.cached(row) is None  # denetlenmemiş satır için denetim yapılmaz
+    checker.check(row)
+    cached = checker.cached(row)
+    assert cached is not None
+    assert "placeholder" in {i.kind for i in cached}
+    changed = make_row(1, "Hi ⟦1⟧", "Selam ⟦1⟧", labels=("<c>",))
+    assert checker.cached(changed) is None  # çeviri değişti: önbellek geçersiz
+
+
 def test_disabled_kind_is_not_reported() -> None:
     checker = LiveChecker()
     row = make_row(1, "Hi\nthere", "Selam")

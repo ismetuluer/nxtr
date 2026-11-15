@@ -42,12 +42,20 @@ from nxceviri.core.project import TranslationRow
 from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.translate.codekinds import KIND_OTHER, CodeKinds, KindOf
 from nxceviri.gui.find_replace import FIND_SPANS_ROLE, FindCell
+from nxceviri.gui.group_proxy import GroupProxy
 from nxceviri.gui.textmarks import marked_html
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.view_actions import ALIGN_CENTER, ALIGN_LEFT, ALIGN_RIGHT
 
 #: Modelin bu rolde döndürdüğü `TranslationRow`.
 ROW_ROLE = Qt.ItemDataRole.UserRole + 10
+
+
+def _is_group_header(index: _Index) -> bool:
+    """Gruplu görünümün başlık satırı mı (yalnızca vekilde vardır; gruplama kapalıyken tablo modeli süzgeçtir)."""
+    model = index.model()
+    return isinstance(model, GroupProxy) and model.header_group(index.row()) is not None
+
 
 _Index = QModelIndex | QPersistentModelIndex
 _ALIGNMENTS = {
@@ -266,6 +274,8 @@ class MarkedDelegate(QStyledItemDelegate):
     # --- çizim -----------------------------------------------------------------------------
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: _Index) -> None:
+        if _is_group_header(index):
+            return  # grup başlığını tablo kendisi çizer (bkz. `group_header`)
         opt = QStyleOptionViewItem(option)
         self.initStyleOption(opt, index)
         doc = self.document(opt, index)
@@ -282,6 +292,8 @@ class MarkedDelegate(QStyledItemDelegate):
         painter.restore()
 
     def sizeHint(self, option: QStyleOptionViewItem, index: _Index) -> QSize:
+        if _is_group_header(index):
+            return QSize(0, 0)  # başlık yüksekliğini tablo verir
         opt = QStyleOptionViewItem(option)
         self.initStyleOption(opt, index)
         doc = self.document(opt, index)

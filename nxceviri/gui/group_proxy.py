@@ -99,6 +99,23 @@ class GroupProxy(QAbstractProxyModel):
             self._layout()
             self.endInsertRows()
 
+    def set_all_collapsed(self, collapsed: bool) -> None:
+        """Bütün grupları katlar ya da açar (tek yerleşim değişikliği; seçim ve geçerli satır korunur)."""
+        wanted = set(self._names) if collapsed else set()
+        if not self.grouped or wanted == self._collapsed & set(self._names):
+            if not collapsed:
+                self._collapsed.clear()
+            return
+        self._begin_layout()
+        if collapsed:
+            self._collapsed.update(self._names)
+        else:
+            self._collapsed.clear()
+        self._end_layout(rebuild=False)
+
+    def collapsed_groups(self) -> frozenset[str]:
+        return frozenset(self._collapsed)
+
     def source_row(self, view_row: int) -> int:
         """Görünüm satırının kaynak (süzgeç) satırı; başlıkta ya da aralık dışında -1."""
         if not self.grouped:
@@ -118,6 +135,10 @@ class GroupProxy(QAbstractProxyModel):
         if self.grouped and 0 <= view_row < len(self._view) and self._view[view_row] < 0:
             return self._names[-self._view[view_row] - 1]
         return None
+
+    def header_row(self, name: str) -> int:
+        """Grubun başlık satırı; grup görünmüyorsa -1."""
+        return self._header_at.get(name, -1) if self.grouped else -1
 
     def group_of(self, source_row: int) -> str | None:
         if self.grouped and 0 <= source_row < len(self._group_of):
@@ -210,8 +231,11 @@ class GroupProxy(QAbstractProxyModel):
         saved = self.persistentIndexList()
         self._saved = (saved, [self._anchor(i) for i in saved])
 
-    def _end_layout(self) -> None:
-        self._rebuild()
+    def _end_layout(self, rebuild: bool = True) -> None:
+        if rebuild:
+            self._rebuild()
+        else:
+            self._layout()
         if self._saved is not None:
             before, anchors = self._saved
             self._saved = None

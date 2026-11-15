@@ -224,6 +224,7 @@ class Menus:
         self._share(menu, page.colors_box, "view.issue_colors", "triangle-alert")
         self._share(menu, page.error_rows_box, "view.error_rows", "circle-x")
         self._share(menu, page.previous_box, "view.previous", "git-compare")
+        self._share(menu, page.group_action, "view.grouped")
         menu.addSeparator()
         theme_menu = self._submenu(menu, "Tema", "monitor")
         w.theme_group = QActionGroup(w)
