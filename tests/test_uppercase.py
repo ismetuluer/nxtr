@@ -17,7 +17,7 @@ from nxceviri.core.translate.uppercase import UppercaseRules, dotted_capitals
 
 
 def _row(i: int, key: str, translation: str, context: str, status: str = "approved") -> TranslationRow:
-    return TranslationRow(i, "tables.bundle", key, "src", translation, status, "", (), None, context)
+    return TranslationRow(i, "tables.bundle", key, "src", translation, status, "", (), None, context, "unity")
 
 
 def test_dotted_capitals_only_touches_lowercase_i() -> None:

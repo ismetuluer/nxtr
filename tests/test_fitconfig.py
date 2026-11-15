@@ -118,7 +118,7 @@ def test_learn_rules_from_sources() -> None:
 
 
 def _grow(source: str, file: str = "a.msbt", context: str = "") -> TranslationRow:
-    return TranslationRow(1, file, "k", source, "", "untranslated", "", (), None, context)
+    return TranslationRow(1, file, "k", source, "", "untranslated", "", (), None, context, "unity")
 
 
 def test_rules_for_row_priority_group_over_file_over_project() -> None:

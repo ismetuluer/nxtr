@@ -16,6 +16,7 @@ import logging
 import os
 import shutil
 import sqlite3
+import sys
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -185,11 +186,25 @@ def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
+#: Bağlama "Koleksiyon/anahtar" yazan biçimler: Unity Localization tablosu ("Dialogue/Jade_Intro_01") ve Unreal
+#: locres ad alanı ("Menu/Start"). Diğer biçimlerin bağlamındaki "/" (ör. "sayfa 0 / text") koleksiyon değildir.
+COLLECTION_FORMATS = frozenset({"unity", "unreal"})
+
+
+def in_collection(r: TranslationRow) -> bool:
+    """Satırın grubu bağlamdaki koleksiyon adından mı geliyor (dosya adından değil)."""
+    return r.format in COLLECTION_FORMATS and "/" in r.context
+
+
+def _file_group(path: str) -> str:
+    return path.rsplit(">", 1)[-1].rsplit("/", 1)[-1]
+
+
 def row_group(r: TranslationRow) -> str:
-    """Satırın grubu: Unity'de tablo koleksiyonu (ör. "Dialogue"), diğerlerinde dosya adı."""
-    if "/" in r.context:
+    """Satırın grubu: Unity/Unreal'da koleksiyon (ör. "Dialogue"), diğerlerinde dosya adı."""
+    if in_collection(r):
         return r.context.split("/", 1)[0]
-    return r.file.rsplit(">", 1)[-1].rsplit("/", 1)[-1]
+    return _file_group(r.file)
 
 
 @dataclass(frozen=True)
@@ -311,6 +326,7 @@ class TranslationRow:
     code_labels: tuple[str, ...]
     max_length: int | None
     context: str = ""
+    format: str = ""  # dosyanın biçim eklentisi (ör. "unity"); grubun nereden geldiğini belirler
 
 
 def _codes_json(entry: TextEntry) -> str:
@@ -318,7 +334,7 @@ def _codes_json(entry: TextEntry) -> str:
 
 
 _ROW_SQL = (
-    "SELECT e.id, f.path, e.key, e.source, e.translation, e.status, e.note, e.codes, e.max_length, e.context "
+    "SELECT e.id, f.path, e.key, e.source, e.translation, e.status, e.note, e.codes, e.max_length, e.context, f.format "
     "FROM text_entries e JOIN text_files f ON f.id = e.file_id"
 )
 
@@ -336,6 +352,7 @@ def _row(r: tuple[object, ...]) -> TranslationRow:
         code_labels=tuple(str(c[1]) for c in codes),
         max_length=None if r[8] is None else int(str(r[8])),
         context=str(r[9]),
+        format=sys.intern(str(r[10])),  # binlerce satır aynı birkaç biçim adını paylaşır
     )
 
 
@@ -941,7 +958,36 @@ class Project:
             )
 
     def uppercase_rules(self) -> UppercaseRules:
-        return UppercaseRules.load(self.setting(GROUPS_KEY), self.setting(ROWS_KEY), self.setting(EXCEPT_KEY))
+        rules = UppercaseRules.load(self.setting(GROUPS_KEY), self.setting(ROWS_KEY), self.setting(EXCEPT_KEY))
+        return self._with_legacy_groups(rules) if rules.groups else rules
+
+    def _with_legacy_groups(self, rules: UppercaseRules) -> UppercaseRules:
+        """Eski grup adlarıyla kaydedilmiş tablo işaretlerini aynı satırlara satır işareti olarak uygular.
+
+        0.58.3 ve öncesi, bağlamında "/" olan her satırın grubunu "/" öncesinden alıyordu (ör. "sayfa 0 ", "");
+        bu adla işaretlenmiş satırlar dışa aktarımda `i` → `İ` almaya devam eder. Dönüşüm yalnızca bellekte yapılır
+        (proje dosyasına yazılmaz); kullanıcı bir işareti değiştirince kayda geçer. Artık hiçbir satırın grubu
+        olmayan eski adlar düşer, böylece satır işaretini kaldırmak kalıcı olur.
+        """
+        slashed = self._conn.execute(
+            "SELECT f.path, e.key, e.context, f.format FROM text_entries e JOIN text_files f ON f.id = e.file_id "
+            "WHERE instr(e.context, '/') > 0"
+        ).fetchall()
+        rows = set(rules.rows)
+        used: set[str] = set()
+        current: set[str] = set()  # bugünkü koleksiyon grupları
+        for path, key, context, fmt in slashed:
+            name = str(context).split("/", 1)[0]
+            if fmt in COLLECTION_FORMATS:
+                current.add(name)
+            elif name in rules.groups and name != _file_group(str(path)):
+                used.add(name)
+                if (path, key) not in rules.excluded:
+                    rows.add((str(path), str(key)))
+        if not used:
+            return rules
+        current.update(_file_group(str(p)) for (p,) in self._conn.execute("SELECT path FROM text_files"))
+        return UppercaseRules(rules.groups - (used - current), frozenset(rows), rules.excluded)
 
     def set_uppercase_rules(self, rules: UppercaseRules) -> None:
         groups, rows, excluded = rules.dump()

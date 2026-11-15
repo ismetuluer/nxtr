@@ -39,7 +39,7 @@ def fake_spell() -> SpellChecker:
 
 def _row(row_id: int, key: str, source: str, file: str, context: str = "", translation: str = "") -> TranslationRow:
     status = "machine" if translation else "untranslated"
-    return TranslationRow(row_id, file, key, source, translation, status, "", (), None, context)
+    return TranslationRow(row_id, file, key, source, translation, status, "", (), None, context, "unity")
 
 
 LIMIT_ROWS = [
@@ -324,6 +324,7 @@ def _big_rows(count: int = 50_000) -> list[TranslationRow]:
             (),
             None,
             f"Group{i % 40}/key{i}",
+            "unity",
         )
         for i in range(count)
     ]

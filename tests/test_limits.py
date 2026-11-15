@@ -16,7 +16,7 @@ def _row(
     context: str = "",
     labels: tuple[str, ...] = (),
 ) -> TranslationRow:
-    return TranslationRow(1, file, key, source, "", "untranslated", "", labels, None, context)
+    return TranslationRow(1, file, key, source, "", "untranslated", "", labels, None, context, "unity")
 
 
 def test_key_pattern_beats_group_file_and_project() -> None:

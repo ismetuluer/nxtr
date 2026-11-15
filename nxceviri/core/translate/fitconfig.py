@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 from fnmatch import fnmatchcase
 from typing import NamedTuple
 
-from nxceviri.core.project import Project, TranslationRow, row_group
+from nxceviri.core.project import Project, TranslationRow, in_collection, row_group
 from nxceviri.core.translate.codekinds import KIND_OTHER, CodeKinds, KindOf
 from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, FitRules, split_lines, split_pages, visible_width
 
@@ -63,10 +63,10 @@ class FitConfig:
             by_key = self.key_rules_for(row)
             if by_key is not None:
                 return by_key
-        group = row_group(row)
-        if "/" not in row.context and row.file in self.per_file:
-            group = ""  # bağlamdan gelmeyen (dosya adı) grup kuralı, dosyanın kendi kuralını ezmez
-        return self.rules_for(row.file, group)
+        if not in_collection(row) and row.file in self.per_file:
+            # bağlamdan gelmeyen (dosya adı) grup kuralı, dosyanın kendi kuralını ezmez
+            return self.per_file[row.file] if self.enabled else None
+        return self.rules_for(row.file, row_group(row))
 
     def key_rules_for(self, row: TranslationRow) -> FitRules | None:
         """Satırın anahtarına uyan en özgül (en uzun) desenin kuralı; uyan desen yoksa `None`."""
@@ -236,7 +236,7 @@ def separate_groups(rows: Sequence[TranslationRow]) -> list[str]:
     for r in rows:
         group = row_group(r)
         files.setdefault(group, set()).add(r.file)
-        if "/" in r.context:
+        if in_collection(r):
             explicit.add(group)
     return sorted(g for g, paths in files.items() if g in explicit or len(paths) > 1)
 
@@ -261,7 +261,7 @@ def learn_group_rules(rows: Sequence[TranslationRow], config: FitConfig) -> dict
         if group not in real:
             result.pop(group, None)
             continue
-        explicit = any("/" in r.context for r in members)
+        explicit = any(in_collection(r) for r in members)
         if not explicit and all(r.file in config.per_file for r in members):
             result.pop(group, None)
             continue

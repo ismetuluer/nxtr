@@ -12,6 +12,7 @@ from nxceviri.core.project.store import (
     Project,
     SourceRecord,
     TranslationRow,
+    in_collection,
     row_group,
 )
 
@@ -27,5 +28,6 @@ __all__ = [
     "Project",
     "SourceRecord",
     "TranslationRow",
+    "in_collection",
     "row_group",
 ]

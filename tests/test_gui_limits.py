@@ -15,7 +15,7 @@ pytestmark = pytest.mark.gui
 
 
 def _row(key: str, source: str, file: str = "a.msbt", context: str = "") -> TranslationRow:
-    return TranslationRow(1, file, key, source, "", "untranslated", "", (), None, context)
+    return TranslationRow(1, file, key, source, "", "untranslated", "", (), None, context, "unity")
 
 
 ROWS = [
