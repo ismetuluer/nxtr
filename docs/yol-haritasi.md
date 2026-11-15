@@ -43,19 +43,17 @@ M6, M2'den hemen sonra yapılır. Güncel sıra: M1 → M2 → **M6** → M3 →
 
 Sırasız; her biri ayrı karar ve onay ister.
 
-1. **`gui/main_window.py` bölünmesi** (~3.700 satır; TECH_DEBT 69). Davranış değiştirmeyen, tam test setiyle
-   yapılacak çok dosyalı iş.
-2. **Adım listesinde klavye odağı.** Listenin çevresindeki mavi odak çerçevesi ürün sahibinin isteğiyle kaldırıldı
+1. **Adım listesinde klavye odağı.** Listenin çevresindeki mavi odak çerçevesi ürün sahibinin isteğiyle kaldırıldı
    (2026-11-14); seçili adımın vurgusu odağı gösterir. İstenirse öğe başına ince bir işaret `gui/step_nav.py`
    çiziminde yapılır.
-3. **Boşluk ve köşe ölçeği.** Arayüzde 10 farklı aralık ve 9 farklı köşe yarıçapı var; ilgili ekran elden geçerken
+2. **Boşluk ve köşe ölçeği.** Arayüzde 10 farklı aralık ve 9 farklı köşe yarıçapı var; ilgili ekran elden geçerken
    sadeleştirilecek (topluca değil).
-4. **Başlatıcı adı.** `NX Ceviri Studyosu.bat` eski adı taşıyor (ad değişirse kullanıcı kısayolları bozulur).
-5. **Güncelleme paketinde imza.** SHA-256 dosyası paketle aynı sürümden gelir: bozuk indirmeyi yakalar, ele geçirilmiş
+3. **Başlatıcı adı.** `NX Ceviri Studyosu.bat` eski adı taşıyor (ad değişirse kullanıcı kısayolları bozulur).
+4. **Güncelleme paketinde imza.** SHA-256 dosyası paketle aynı sürümden gelir: bozuk indirmeyi yakalar, ele geçirilmiş
    bir sürümü yakalamaz. İmza, yeni bağımlılık ve anahtar yönetimi ister.
-6. **Kullanıcı eklentilerinde ilk yükleme uyarısı.** Eklenti klasöründeki kod doğrudan çalışır (tasarım gereği);
+5. **Kullanıcı eklentilerinde ilk yükleme uyarısı.** Eklenti klasöründeki kod doğrudan çalışır (tasarım gereği);
    arayüzün ilk yüklemede açıkça uyarıp uyarmadığı incelenmedi.
-7. **Kararsız süre testi.** `tests/test_find_bar_fixes.py::test_keystroke_work_on_large_table_is_fast` tam test
+6. **Kararsız süre testi.** `tests/test_find_bar_fixes.py::test_keystroke_work_on_large_table_is_fast` tam test
    setinde yük altında bir kez süre sınırını aştı (tek başına geçiyor); eşik ya da ölçüm yöntemi gözden geçirilmeli.
 
 ### Görsel denetim bulguları (2026-11-14, 0.57.1 ekran görüntüleri)
@@ -125,6 +123,14 @@ listesinden ürün sahibinin seçimiyle belirlenir.
   düşer, yarım sözcük kalmaz); koyu temada dönüşümlü satır zemini belirgin (`row_alt`).
 
 **Ertelendi**
+- **`gui/main_window.py` bölünmesi** (~3.700 satır; TECH_DEBT 69): ürün sahibi erteledi (2026-11-15); bir bölüme büyük
+  özellik eklenirken o bölüm ayrılır. Ön inceleme: mixin + `self: MainWindow` strict mypy'da reddediliyor ("erased
+  type of self … is not a supertype"); uygulanabilir yol, `win: MainWindow` tutan denetleyici nesne ve pencerede
+  testlerin çağırdığı/değiştirdiği adlar için ince yönlendirmeler. Testler modül düzeyinde `ChangesDialog`,
+  `CsvExportDialog`, `UpdateDialog`, `extract_texts`, `check_sources`, `opened_view`, `MemberReader`,
+  `choose_button`, `log_dir`, `animations_enabled`, `MASCOT_DONE_MS` adlarını `main_window` üzerinde değiştiriyor;
+  bunları kullanan kod taşınırsa yama sessizce etkisiz kalır. Güvenli ilk adaylar: Yazım Denetimi penceresi, makine
+  çevirisi bölümü.
 - **Kontrol kodlarının renk/kalın/italik önizlemesi:** ürün sahibi iptal etti (2026-11-15). Gerekçe ve maliyet notu
   için git geçmişinde bu dosyanın önceki sürümüne bakın (eklenti sözleşmesine anlam alanı gerekiyordu).
 - **Yazım denetiminde kesme işaretli sözcüklerin kökü** ("Sifu'n" → Sifu): ürün sahibi istemedi (2026-11-15).
