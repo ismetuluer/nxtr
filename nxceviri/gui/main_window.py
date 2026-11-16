@@ -92,6 +92,7 @@ from nxceviri.core.selfupdate import PreparedInstall, current_install, discard_p
 from nxceviri.core.spell.checker import SpellChecker, turkish_lower
 from nxceviri.core.spell.loader import load_spell_checker
 from nxceviri.core.spell.report import UnknownWordCache, replace_unknown
+from nxceviri.core.spell.suggest import Suggestion, suggestions
 from nxceviri.core.spell.userdict import UserDictionary, default_user_dictionary_path
 from nxceviri.core.translate.codekinds import suspected_line_breaks
 from nxceviri.core.translate.csvio import (
@@ -393,9 +394,14 @@ class MainWindow(QMainWindow):
         self._live_context: LiveContext | None = None
         #: Açık Yazım Denetimi penceresi için satır başına bilinmeyen sözcükler (yalnızca değişen satırlar taranır).
         self._spell_cache = UnknownWordCache()
+        #: (sözcük, tek düzenleme de arandı mı) → öneri; yazım ya da oyun sözlüğü, yoksayılanlar değişince silinir.
+        self._spell_hints: dict[tuple[str, bool], Suggestion] = {}
         self._spell_extra_key: frozenset[str] | None = None
         self._spell_scan: Task | None = None
         self._spell_scan_ok = False
+        #: Yazım düzeltmesinden sonra panoda yerinde yeniden denetim (arka planda; aynı anda tek).
+        self._board_task: Task | None = None
+        self._board_pending: dict[int, TranslationRow] = {}
         self._recheck_pending = False
         #: Sığdırma ayarı değişince art arda değişiklikler tek denetimde toplanır.
         self._fit_recheck_timer = QTimer(self)
@@ -1961,30 +1967,95 @@ class MainWindow(QMainWindow):
         self._recheck_board_rows(rows[0])
 
     def _recheck_board_rows(self, row: TranslationRow) -> None:
-        """Düzenlenen satırı ve aynı kaynaklı satırları (tutarsızlık değişir) panoda yeniden denetler.
+        """Düzenlenen satırı ve aynı kaynaklı satırları (tutarsızlık değişir) panoda yeniden denetler."""
+        self._recheck_board_group([row])
+
+    def _board_recheck_job(
+        self, edited: Sequence[TranslationRow]
+    ) -> tuple[list[TranslationRow], Callable[[], dict[int, list[QaIssue]]]] | None:
+        """Düzenlenen satırlar ve aynı kaynaklı satırlar için denetim işi: (satırlar, bulguları döndüren iş).
+
+        Durum bu iş parçacığında okunur, iş her iş parçacığında çalışabilir. Kontrol Et hiç çalıştırılmadıysa
+        yapılacak bir şey yoktur (`None`).
+        """
+        if self._qa_count is None or self._qa_count[0] is not self.project:
+            return None
+        all_rows = list(self.translate_page.model.rows)
+        sources = {r.source for r in edited if r.source.strip()}
+        ids = {r.id for r in edited}
+        group = [r for r in all_rows if r.id in ids or r.source in sources]
+        glossary = self.project.glossary()
+        ignored_terms = self._terms_ignored()
+        missing, transliterate, fit = self._missing_letters(), self._transliterate_letters(), self._fit_config()
+        spell, spell_ignored = self.spell, self._spell_ignored()
+
+        def job() -> dict[int, list[QaIssue]]:
+            issues = run_qa_checks(
+                group,
+                missing,
+                transliterate,
+                glossary,
+                fit,
+                spell=spell,
+                ignored_terms=ignored_terms,
+                spell_ignored=spell_ignored,
+                terms=project_terms(all_rows, glossary, ignored_terms),
+            )
+            by_row: dict[int, list[QaIssue]] = {}
+            for issue in issues:
+                by_row.setdefault(issue.row_id, []).append(issue)
+            return by_row
+
+        return group, job
+
+    def _show_board_recheck(self, group: list[TranslationRow], by_row: dict[int, list[QaIssue]]) -> None:
+        self.qa_page.replace_rows_issues(by_row, group)
+        self._recount_qa()
+
+    def _recheck_board_group(self, edited: Sequence[TranslationRow]) -> None:
+        """Düzenlenen satırları ve aynı kaynaklı satırları panoda yerinde yeniden denetler (arka plan işi açmaz).
 
         Terimler tüm projeden çıkarılır (tek satırdan çıkmaz); sayaç ve adım çubuğu güncellenir.
         """
-        all_rows = self.translate_page.model.rows
-        group = [r for r in all_rows if r.source == row.source] if row.source.strip() else [row]
-        glossary = self.project.glossary()
-        ignored_terms = self._terms_ignored()
-        issues = run_qa_checks(
-            group,
-            self._missing_letters(),
-            self._transliterate_letters(),
-            glossary,
-            self._fit_config(),
-            spell=self.spell,
-            ignored_terms=ignored_terms,
-            spell_ignored=self._spell_ignored(),
-            terms=project_terms(all_rows, glossary, ignored_terms),
-        )
-        by_row: dict[int, list[QaIssue]] = {}
-        for issue in issues:
-            by_row.setdefault(issue.row_id, []).append(issue)
-        self.qa_page.replace_rows_issues(by_row, group)
-        self._recount_qa()
+        planned = self._board_recheck_job(edited)
+        if planned is not None:
+            self._show_board_recheck(planned[0], planned[1]())
+
+    def _recheck_board_later(self, edited: Sequence[TranslationRow]) -> None:
+        """`_recheck_board_group`un arka plan sürümü: çok satır değişince (toplu düzeltme) arayüz beklemez.
+
+        Aynı anda tek denetim çalışır; sürerken gelen satırlar sonrakine eklenir. Sonuç, proje ya da denetim
+        sonucu bu arada değiştiyse atılır.
+        """
+        if self._board_task is not None:
+            self._board_pending.update({r.id: r for r in edited})
+            return
+        planned = self._board_recheck_job(edited)
+        if planned is None:
+            return
+        group, job = planned
+        project = self.project
+        result: dict[str, dict[int, list[QaIssue]]] = {}
+
+        def done(value: object) -> None:
+            assert isinstance(value, dict)
+            result["by_row"] = value
+
+        def finished() -> None:
+            task, self._board_task = self._board_task, None
+            if task is not None:
+                release_thread(task)
+            if "by_row" in result and self.project is project and self._qa_count is not None:
+                self._show_board_recheck(group, result["by_row"])
+            pending, self._board_pending = list(self._board_pending.values()), {}
+            if pending:
+                self._recheck_board_later(pending)
+
+        task = Task(lambda _ctx: job(), "Denetim yenileniyor")
+        self._board_task = task
+        task.succeeded.connect(done)
+        task.finished.connect(finished)
+        task.start()
 
     def _recount_qa(self) -> None:
         """Panodaki bulgulardan Kontrol Et sayacını ve adım çubuğunu yeniler (Kontrol Et çalıştırılmışsa)."""
@@ -2064,6 +2135,8 @@ class MainWindow(QMainWindow):
             win.ignore_requested.connect(self.ignore_spell_words)
             win.add_requested.connect(self._add_from_spell_window)
             win.replace_requested.connect(self._replace_spell_word)
+            win.fix_all_requested.connect(self._fix_spell_words)
+            win.suggest_fn = self._spell_hint
             self._spell_window = win
         self._refresh_spell_window(force=True)
         win.show()
@@ -2082,6 +2155,7 @@ class MainWindow(QMainWindow):
         extra = glossary_words(self.project.glossary())
         if extra != self._spell_extra_key:
             self._spell_cache.clear()
+            self._spell_hints.clear()
             self._spell_extra_key = extra
         stale = self._spell_cache.stale(rows)
         if len(stale) > SPELL_SYNC_ROWS:
@@ -2132,35 +2206,86 @@ class MainWindow(QMainWindow):
         self.add_spell_words([str(w) for w in words])
         self._refresh_spell_window()
 
-    def _replace_spell_word(self, old: str, new: str) -> None:
-        """Sözcüğü pencerenin listelediği geçişlerde değiştirir; tek iştir, Geri Al hepsini geri alır.
+    def _spell_hint(self, word: str, edits: bool) -> Suggestion:
+        """Pencerenin öneri kaynağı: yazım sözlüğü ve oyun sözlüğüyle üretilir, sözcük başına bellekte tutulur."""
+        key = (word, edits)
+        found = self._spell_hints.get(key)
+        if found is None:
+            if self.spell is None:
+                return Suggestion()
+            extra = self._spell_extra_key if self._spell_extra_key is not None else frozenset()
+            found = self._spell_hints[key] = suggestions(word, self.spell, extra, edits=edits)
+        return found
+
+    def _spell_word_rows(self, words: list[str]) -> dict[str, list[TranslationRow]] | None:
+        """Her sözcüğün geçtiği satırlar (pencerenin listelediği geçişler); yalnızca değişen satırlar taranır.
+
+        Tarama büyük bir değişiklikten sonra arka planda sürüyorsa `None` döner ve neden durum çubuğunda söylenir.
+        """
+        spell = self.spell
+        if spell is None:
+            return None
+        rows = self.translate_page.model.rows
+        extra = glossary_words(self.project.glossary())
+        if extra != self._spell_extra_key:
+            self._spell_cache.clear()
+            self._spell_hints.clear()
+            self._spell_extra_key = extra
+        stale = self._spell_cache.stale(rows)
+        if len(stale) > SPELL_SYNC_ROWS:
+            self.statusBar().showMessage("Sözcükler taranıyor; tarama bitince yeniden deneyin.", 5000)
+            return None
+        self._spell_cache.store(self._spell_cache.scan(stale, spell, extra))
+        by_id = {r.id: r for r in rows}
+        return {w: [by_id[i] for i in ids if i in by_id] for w, ids in self._spell_cache.row_ids(words).items()}
+
+    def _spell_changes(self, pairs: list[tuple[str, str]]) -> list[tuple[int, str]] | None:
+        """Sözcük çiftlerinin yalnızca geçtiği satırlardaki değişiklikleri; her satır için tek yeni metin.
 
         Kaynakta da geçen, tamamı büyük harfli, özel ad ve çevrilmemiş kopya geçişlere dokunulmaz (pencere de
         bunları saymaz); böylece değişen satır sayısı penceredeki sayıyla aynıdır.
         """
         spell = self.spell
-        if spell is None:
-            return
+        found = self._spell_word_rows([old for old, _new in pairs])
+        if spell is None or found is None:
+            return None
         extra = glossary_words(self.project.glossary())
-        changes = []
-        for row in self.translate_page.model.rows:
-            text = replace_unknown(row.translation, row.source, spell, extra, word=old, new=new)
-            if text != row.translation:
-                changes.append((row.id, text))
-        if not changes:
+        texts: dict[int, str] = {}
+        for old, new in pairs:
+            for row in found[old]:
+                text = replace_unknown(texts.get(row.id, row.translation), row.source, spell, extra, word=old, new=new)
+                if text != row.translation:
+                    texts[row.id] = text
+        return list(texts.items())
+
+    def _replace_spell_word(self, old: str, new: str) -> None:
+        """Sözcüğü pencerenin listelediği geçişlerde değiştirir; tek iştir, Geri Al hepsini geri alır."""
+        self._apply_spell_changes([(old, new)])
+
+    def _fix_spell_words(self, pairs: list[tuple[str, str]]) -> None:
+        """ "Tek önerisi olanları düzelt": bütün çiftler tek işte uygulanır; onaylı satırlar onaylı kalır."""
+        self._apply_spell_changes([(str(old), str(new)) for old, new in pairs])
+
+    def _apply_spell_changes(self, pairs: list[tuple[str, str]]) -> None:
+        if not pairs or self.spell is None:
             return
         if self.busy:
             self.statusBar().showMessage("Bir iş sürerken değiştirilemez; iş bitince yeniden deneyin.", 5000)
             return
-        if self._replace_translations(changes) is None:
+        changes = self._spell_changes(pairs)
+        if not changes:
+            return
+        rows = self._replace_translations(changes)
+        if rows is None:
             return  # neden Çevir sayfasında bildirildi
         self.statusBar().showMessage(f"{format_int(len(changes))} satırda değiştirildi.", 5000)
         self._refresh_spell_window()
-        self._recheck_if_done()
+        self._recheck_board_later(rows)
 
     def _sync_spell(self) -> None:
         """Editördeki yazım işaretlerini güncel denetleyici ve oyun sözlüğüyle yeniler."""
         self._spell_cache.clear()  # sözlük ya da yoksayılanlar değişti
+        self._spell_hints.clear()
         self.translate_page.set_spell(self.spell, spell_extra_words(self.project.glossary(), self._spell_ignored()))
         self._sync_live(force=True)
         self.update_menu_state()
@@ -3066,10 +3191,24 @@ class MainWindow(QMainWindow):
         self.translate_page.set_last_changes({c.entry_id: c.old_text for c in changes})
         return len(changes)
 
-    def _refresh_marks(self) -> None:
-        """Durum sütunundaki "· redaksiyon" gibi işaretler: satırın son değişikliğini yapan iş."""
-        marks = {eid: label for eid, job in self.project.last_jobs().items() if (label := mark_label(job))}
-        self.translate_page.model.set_marks(marks)
+    def _refresh_marks(self, ids: Sequence[int] | None = None) -> None:
+        """Durum sütunundaki "· redaksiyon" gibi işaretler: satırın son değişikliğini yapan iş.
+
+        `ids` verilirse yalnızca o satırların işareti yenilenir (az satır değişen işlerde bütün geçmişi okumaz).
+        """
+        model = self.translate_page.model
+        if ids is None:
+            marks = {eid: label for eid, job in self.project.last_jobs().items() if (label := mark_label(job))}
+        else:
+            marks = dict(model.marks)
+            latest = self.project.last_jobs(ids)
+            for eid in ids:
+                text = mark_label(latest[eid]) if eid in latest else ""
+                if text:
+                    marks[eid] = text
+                else:
+                    marks.pop(eid, None)
+        model.set_marks(marks)
 
     def show_job_changes(self) -> None:
         """Son işin değişikliklerini gösterir; işaretlenenler geri alınır."""
@@ -3170,7 +3309,7 @@ class MainWindow(QMainWindow):
             return None
         page.model.update_rows(rows)
         self._mark_changed()
-        self._refresh_marks()
+        self._refresh_marks([r.id for r in rows])
         self._set_last_job(job_id)
         return rows
 
@@ -3712,7 +3851,7 @@ class MainWindow(QMainWindow):
         # Tüm onaylar alındı: önce iptaller, sonra pencere gizlenir, ardından iş parçacıkları beklenir
         # (beklenmeden bırakılan iş parçacığı çökmeye yol açar; bkz. tasks.release_thread).
         self.translate_page.find_window.close()  # açık Bul penceresinin konumu kaybolmasın
-        running = [t for t in (self.task, self._update_task, self._spell_scan) if t is not None]
+        running = [t for t in (self.task, self._update_task, self._spell_scan, self._board_task) if t is not None]
         for thread in running:
             thread.cancel()
         self.hide()  # bekleme sürerken pencere "yanıt vermiyor" görünmesin

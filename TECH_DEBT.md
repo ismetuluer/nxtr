@@ -77,14 +77,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     `grafik_temizleme` ya da `NXCEVIRI_YS_GRAFIK` ortam değişkenidir. fsd biçimi grafikleriyle aynı
     sınır (TECH_DEBT 49 civarı). *Ne zaman:* arayüzde "Grafikler" ayarı eklendiğinde (iki oyun için ortak).
 
-77. **Yazım denetimi düzeltme önerisi vermez (0.43.0).** Süzgeç yalnızca "bu sözcük sözlükte var mı?"
-    sorusunu yanıtlar (Bloom süzgeci); "şunu mu demek istediniz" önerisi için sözcük listesi gerekir ve
-    6,1 milyon biçim paketlenmedi. Hata oranı: hunspell-tr'nin kendi ölçütünde (trspell-10) hata
-    yakalama kesinliği %99,9, duyarlılığı %97,3; süzgeç bunu aynen korur. Kök bilinmeyen ek zincirleri
-    ve yabancı sözcükler uyarı verebilir: bunlar "Sözlüğe ekle" ile kalıcı kabul edilir. *Ne zaman:*
-    öneri istenirse Ollama'ya "bu sözcüğün doğru yazımı nedir" sorulabilir (aday listesi küçük olduğu
-    için ucuz).
-
 83. **Bir Unity oyununda metin aktarma yavaş (0.45.0): ≈3 dk.** 179 Unity dosyası (en büyüğü 280 MB)
     üçer kez (`collect_context`, `language`, `extract`) UnityPy ile yükleniyor; metin yalnızca
     `resources.assets`'te. Çözüm adayı: yüklenen `env`'in dosya başına önbelleğe alınması ya da
@@ -426,3 +418,15 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 18. ~~Çeviri tablosunda geri al (undo) yok.~~ — **Kapandı:** Geri Al (oturum içinde son 100 işlem; toplu işler tek
     adım) daha önce eklenmişti, kayıt eskimişti; Yinele 0.60.0 sonrasında eklendi. Yığın oturumluktur; kalıcı
     değişiklik geçmişinden satır bazlı geri dönüş ayrıca vardır.
+
+77. ~~Yazım denetimi düzeltme önerisi vermez (0.43.0).~~ — **Kapandı:** öneriyi uygulamanın kendisi üretir
+    (`core/spell/suggest.py`, çevrimdışı, yapay zekâ yok): sözcükten aday yazımlar üretilip her biri Bloom süzgecine
+    (yanlış olumlu oranı %0,1; ölçümde rastgele dizilerde %0,07) sorulur. Önce Türkçe harf değişimi (ı↔i, ş↔s, ğ↔g,
+    ü↔u, ö↔o, ç↔c; en çok 3 harf, en çok 12 değişebilir konum: aday sayısı ≤ 298), yalnızca o boşsa tek düzenleme
+    (ilk harf korunur, ≥ 4 harf, en çok 2 isabet, 6 harften uzun adayın kökü de sözlükte). Aday başına %0,1 risk:
+    toplu düzeltmeye yalnızca harf değişimiyle tek isabet girer ve ya aday sayısı ≤ 7 (risk ≤ %0,7) ya da kök
+    doğrulanmıştır; tek düzenleme toplu düzeltmeye hiç girmez. Sınırlar: sözlükte olmayan ama doğru sözcüğün (özel ad,
+    yeni imla) sözlükteki yakın bir akrabaya çevrilmesi önerilebilir ("öğeyi" → "ögeyi"); bu Bloom gürültüsü değil
+    sözlük kapsamıdır, bu yüzden toplu düzeltme listesi önce Öneri sütunundan gözden geçirilir ve Geri Al ile döner.
+    Yer değiştirme/ünlü uyumu ya da sözcük sıklığı bilinmediği için önerilerin sırası olasılığa değil değişen harf
+    sayısına dayanır.

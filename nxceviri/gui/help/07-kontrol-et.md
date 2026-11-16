@@ -29,7 +29,10 @@ basmış olmanız gerekir); kaç satırın taştığı bu sekmede görünür, **
 
 ## Yazım Denetimi
 
-**Araçlar → Yazım Denetimi** (`F7`): Türkçe yazım hatalarını tek tek gezer; öneri seçin, yok sayın ya da sözlüğe
-ekleyin.
+**Araçlar → Yazım Denetimi** (`F7`): Türkçe yazım hatalarını tek tek gezer; program doğru yazımı kendisi önerir (önce
+ı/i, ş/s, ğ/g, ü/u, ö/o, ç/c harf hatası, yoksa tek harflik hata), öneriye tıklayıp hepsinde birden değiştirir, yok
+sayar ya da sözlüğe eklersiniz. **Tek önerisi olanları düzelt** harf hatasıyla tek önerisi olan sözcüklerin hepsini tek
+işte düzeltir (Geri Al hepsini geri alır); önce Öneri sütununa bakın, doğru ama sözlükte olmayan sözcükleri Yoksay ya da
+Sözlüğe Ekle ile ayırın.
 
 Font ve Türkçe harfler için **Font ve harfler** konusuna bakın.
