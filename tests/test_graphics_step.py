@@ -24,10 +24,10 @@ def test_status_counts_originals_and_ready(tmp_path: Path) -> None:
     assert graphics_status(tmp_path) == (3, 1)
 
 
-def test_ys_origin_supports_graphics() -> None:
-    from nxceviri.core.formats.ysorigin.plugin import YsOriginPlugin
+def test_nnitext_supports_graphics() -> None:
+    from nxceviri.core.formats.nnitext.plugin import NniTextPlugin
 
-    support = YsOriginPlugin.graphics
+    support = NniTextPlugin.graphics
     assert isinstance(support, GraphicsSupport)
     assert support.folder_name == "grafik_temizleme"
 

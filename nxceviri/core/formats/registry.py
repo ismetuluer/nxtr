@@ -11,18 +11,18 @@ from pathlib import Path
 
 from nxceviri.core.errors import NxError
 from nxceviri.core.formats.base import FormatPlugin
-from nxceviri.core.formats.danganronpa import DanganronpaPlugin
 from nxceviri.core.formats.detection import KIND_LABELS, FileKind
-from nxceviri.core.formats.dmc1 import Dmc1Plugin
 from nxceviri.core.formats.fmsb import FmsbPlugin
+from nxceviri.core.formats.fsdmsg import FsdMsgPlugin
 from nxceviri.core.formats.gfmsg import GfMsgPlugin
-from nxceviri.core.formats.m2text import M2TextPlugin
-from nxceviri.core.formats.mina import MinaPlugin
 from nxceviri.core.formats.msbt import MsbtPlugin
+from nxceviri.core.formats.nnitext import NniTextPlugin
+from nxceviri.core.formats.pakyc import PakYcPlugin
+from nxceviri.core.formats.psbtext import PsbTextPlugin
 from nxceviri.core.formats.srt import SrtPlugin
 from nxceviri.core.formats.unity import UnityPlugin
 from nxceviri.core.formats.unreal import LocresPlugin
-from nxceviri.core.formats.ysorigin import YsOriginPlugin
+from nxceviri.core.formats.wadlin import WadLinPlugin
 from nxceviri.core.plugins.loader import PluginInfo, PluginReport, TrustCheck, load_plugins
 
 log = logging.getLogger(__name__)
@@ -32,13 +32,13 @@ BUILTIN_PLUGINS: tuple[FormatPlugin, ...] = (
     UnityPlugin(),
     LocresPlugin(),
     GfMsgPlugin(),
-    MinaPlugin(),
-    Dmc1Plugin(),
-    M2TextPlugin(),
-    YsOriginPlugin(),
+    PakYcPlugin(),
+    FsdMsgPlugin(),
+    PsbTextPlugin(),
+    NniTextPlugin(),
     FmsbPlugin(),
     SrtPlugin(),
-    DanganronpaPlugin(),
+    WadLinPlugin(),
 )
 
 

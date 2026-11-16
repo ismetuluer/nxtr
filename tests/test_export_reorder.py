@@ -14,8 +14,8 @@ from nxceviri.core.formats.fmsb import FmsbPlugin
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.status import Status
-from tests.test_unicorn import TID, _tree
-from tests.ysuobuild import build_cpk, build_fmsb
+from tests.nnicpkbuild import build_cpk, build_fmsb
+from tests.test_cpk_fmsb import TID, _tree
 
 VAR = "Değişken %d"
 NAME = "Ad değişkeni #FN(Bob)"

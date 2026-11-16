@@ -19,9 +19,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from nxceviri.core.errors import NxError
-from nxceviri.core.formats.dmc1 import yama as dmc1_yama
-from nxceviri.core.formats.mina import ycd
-from nxceviri.core.formats.mina.plugin import table_key, tokenize
+from nxceviri.core.formats.fsdmsg import yama as fsdmsg_yama
+from nxceviri.core.formats.pakyc import ycd
+from nxceviri.core.formats.pakyc.plugin import table_key, tokenize
 from nxceviri.core.formats.unity import UnityPlugin
 from nxceviri.core.progress import TaskContext
 from nxceviri.core.project import Project, TranslationRow
@@ -115,7 +115,7 @@ def read_unity_translations(root: Path, ctx: TaskContext | None = None) -> dict[
     return result
 
 
-def _mina_files(root: Path) -> list[Path]:
+def _pakyc_files(root: Path) -> list[Path]:
     if root.is_file():
         return [root]
     if not root.is_dir():
@@ -123,9 +123,9 @@ def _mina_files(root: Path) -> list[Path]:
     return sorted(p for p in root.rglob("*.yc") if p.is_file())
 
 
-def is_mina_patch(root: Path) -> bool:
+def is_pakyc_patch(root: Path) -> bool:
     """Klasörde (veya dosyada) Yacht Club YCD paketi var mı?"""
-    for p in _mina_files(root) if root.exists() else []:
+    for p in _pakyc_files(root) if root.exists() else []:
         try:
             with p.open("rb") as fh:
                 if ycd.is_ycd(fh.read(4)):
@@ -153,7 +153,7 @@ def _extra_translations(root: Path) -> dict[str, str]:
     return extra
 
 
-def read_mina_translations(root: Path, ctx: TaskContext | None = None) -> ReadyTranslations:
+def read_pakyc_translations(root: Path, ctx: TaskContext | None = None) -> ReadyTranslations:
     """Mina the Hollower yamasındaki Türkçe tabloları okur.
 
     Yama, her dil tablosunun yeni bir kopyasını dosyanın sonuna ekler ve Türkçe metni
@@ -163,7 +163,7 @@ def read_mina_translations(root: Path, ctx: TaskContext | None = None) -> ReadyT
     ctx = ctx or TaskContext()
     texts: dict[str, str] = {}
     sources: dict[str, set[str]] = {}
-    files = [p for p in _mina_files(root) if p.stat().st_size <= _MAX_BUNDLE_BYTES]
+    files = [p for p in _pakyc_files(root) if p.stat().st_size <= _MAX_BUNDLE_BYTES]
     for i, path in enumerate(files):
         ctx.report(i, len(files), f"Okunuyor: {path.name}")
         ctx.check()
@@ -206,33 +206,33 @@ def read_mina_translations(root: Path, ctx: TaskContext | None = None) -> ReadyT
     return ReadyTranslations(texts, {k: frozenset(v) for k, v in sources.items()}, by_source)
 
 
-def _dmc1_yama_files(root: Path) -> list[Path]:
+def _fsdmsg_yama_files(root: Path) -> list[Path]:
     if root.is_file():
         return [root] if root.name == "fsd_tr.yama" else []
     return sorted(root.rglob("fsd_tr.yama")) if root.is_dir() else []
 
 
-def is_dmc1_patch(root: Path) -> bool:
+def is_fsdmsg_patch(root: Path) -> bool:
     """Klasörde Devil May Cry HD Collection Türkçe yaması (`fsd_tr.yama`) var mı?"""
-    return bool(_dmc1_yama_files(root))
+    return bool(_fsdmsg_yama_files(root))
 
 
-def read_dmc1_translations(root: Path, ctx: TaskContext | None = None) -> ReadyTranslations:
+def read_fsdmsg_translations(root: Path, ctx: TaskContext | None = None) -> ReadyTranslations:
     """PC (HD Collection) Türkçe yamasından DMC1 çevirilerini okur: `fsd_tr.yama` + `common.msg`."""
     ctx = ctx or TaskContext()
     texts: dict[str, str] = {}
-    for yama_path in _dmc1_yama_files(root):
+    for yama_path in _fsdmsg_yama_files(root):
         ctx.check()
-        for table in dmc1_yama.read_yama(yama_path.read_bytes()):
+        for table in fsdmsg_yama.read_yama(yama_path.read_bytes()):
             for i, text in enumerate(table.texts):
                 texts[f"{table.file}|{i}"] = text
         base = root if root.is_dir() else root.parent
         for msg in sorted(base.rglob("common.msg")):
-            table = dmc1_yama.read_message_file(msg.read_bytes(), msg.name)
+            table = fsdmsg_yama.read_message_file(msg.read_bytes(), msg.name)
             for i, text in enumerate(table.texts):
                 texts[f"{table.file}|{i}"] = text
         for status in sorted(base.rglob("st_init.dat")):
-            table = dmc1_yama.read_status_file(status.read_bytes(), status.name)
+            table = fsdmsg_yama.read_status_file(status.read_bytes(), status.name)
             for i, text in enumerate(table.texts):
                 texts[f"{table.file}|{i}"] = text
     if not texts:
@@ -243,10 +243,10 @@ def read_dmc1_translations(root: Path, ctx: TaskContext | None = None) -> ReadyT
 
 def read_ready_translations(root: Path, ctx: TaskContext | None = None) -> ReadyTranslations:
     """Klasörün yama türünü (Mina YCD, DMC1 yaması veya Unity metin tabloları) anlayıp çevirileri okur."""
-    if is_dmc1_patch(root):
-        return read_dmc1_translations(root, ctx)
-    if is_mina_patch(root):
-        return read_mina_translations(root, ctx)
+    if is_fsdmsg_patch(root):
+        return read_fsdmsg_translations(root, ctx)
+    if is_pakyc_patch(root):
+        return read_pakyc_translations(root, ctx)
     return ReadyTranslations(read_unity_translations(root, ctx))
 
 

@@ -385,10 +385,12 @@ def locoliser_raw(
 
 #: DKCR HD `Localization` yuvası: metin (tekli öğe) ya da çoklu öğe (çocuklar: yeni metin, ya da `int` = aynı dilin
 #: o sıradaki doğrudan yuvasına başvuru).
-DkSlot = str | list[str | int]
+SerializeRefSlot = str | list[str | int]
 
 
-def dk_localization_raw(languages: list[tuple[int, list[DkSlot]]], named: bool = False, tag: str = "*") -> bytes:
+def serializeref_localization_raw(
+    languages: list[tuple[int, list[SerializeRefSlot]]], named: bool = False, tag: str = "*"
+) -> bytes:
     """DKCR HD `Localization` MonoBehaviour'unun ham baytları (SerializeReference kayıt defteri, elle yazılmış)."""
     entries: list[bytes] = []
     next_rid = [1000]

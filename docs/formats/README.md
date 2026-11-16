@@ -14,14 +14,14 @@ altındadır.
 | Unity | Unity Localization string tabloları (AssetBundle) | `unity` (`unity/unity.py`) | `unity.md` |
 | Unity | I2 Localization (ham bayt, tip ağacı yok) | `unity` (`unity/i2.py`) | `unity.md` ("I2 Localization") |
 | Unity | Düz `TextAsset` (SRT + TSV) ve `Locoliser` önbelleği | `unity` (`unity/loctext.py`, `locoliser.py`) | `unity.md` ("Düz metin yerelleştirmesi") |
-| Unity | `Localization` nesnesi (`[SerializeReference]` kayıt defteri) | `unity` (`unity/dklocal.py`) | `unity-serializereference.md` |
-| Unity (metin Unity dışında) | AGAR/WAD arşivi, `.lin` betikleri, `.pak` tabloları | `danganronpa` (`danganronpa/`) | `wad-lin.md` |
+| Unity | `Localization` nesnesi (`[SerializeReference]` kayıt defteri) | `unity` (`unity/serializeref.py`) | `unity-serializereference.md` |
+| Unity (metin Unity dışında) | AGAR/WAD arşivi, `.lin` betikleri, `.pak` tabloları | `danganronpa` (`wadlin/`) | `wad-lin.md` |
 | Unreal Engine | `.locres`, `.pak` | `unreal` (`unreal/locres.py`) | `unreal.md` |
 | Switch mesaj biçimi | `.dat` + `.tbl` mesaj dosyaları (GFMSG) | `gfmsg` (`gfmsg/`) | `gfmsg.md` |
-| Özel | YCD (`.yc`), `pak.yc` | `mina` (`mina/`) | `pak-yc.md` |
-| Özel | `.fsd` / `.msg` / `.atm` mesaj tabloları, oyun harf tablosu | `dmc1` (`dmc1/`) | `fsd-msg.md` |
-| M2 | `.psb.m` + `.bin` arşivi, mdf, PSB | `m2text` (`m2text/`; arşiv: `core/archives/m2.py`, `psb.py`) | `m2.md` |
-| Özel | NNI arşivi (`.ni`/`.na`), XSO betikleri, arayüz XML'i | `ysorigin` (`ysorigin/`) | `nni.md` |
+| Özel | YCD (`.yc`), `pak.yc` | `mina` (`pakyc/`) | `pak-yc.md` |
+| Özel | `.fsd` / `.msg` / `.atm` mesaj tabloları, oyun harf tablosu | `dmc1` (`fsdmsg/`) | `fsd-msg.md` |
+| M2 | `.psb.m` + `.bin` arşivi, mdf, PSB | `m2text` (`psbtext/`; arşiv: `core/archives/psb_archive.py`, `psb.py`) | `psb.md` |
+| Özel | NNI arşivi (`.ni`/`.na`), XSO betikleri, arayüz XML'i | `ysorigin` (`nnitext/`) | `nni.md` |
 | Genel | SubRip altyazı (`.srt`) | `srt` (`srt/`) | `nni.md` ("Altyazı") |
 | CRI | CPK + CRILAYLA kapsayıcısı, FMSB MsgSheet | `fmsb` (`fmsb/`; arşiv: `core/archives/cpk.py`) | `cpk-fmsb.md` |
 
@@ -34,8 +34,8 @@ Bu biçimlerin hangi durumda olduğu (okuma, yazma, font) için `docs/uyumluluk.
 |---|---|---|
 | Unity TextMeshPro fontları, TTF/OTF yaması | `tmp-font.md` | `core/fontpatch/` (`sdf.py`, `tmp.py`, `unity.py`, `ttf.py`) |
 | Switch sistem fontu (`.bfttf`/`.bfotf`) | `tmp-font.md` ("Vektör fontlar") | `core/fontpatch/switchfont.py` |
-| BMFont | `nni.md` ("Yazı tipi yaması") | `core/fontpatch/bmfont.py`, `ys_fonts.py` |
-| Oyun resimlerindeki yazılar (`.fsd`/`.msg` ve NNI biçimleri) | `fsd-msg.md`, `nni.md` ("Grafikler") | `core/fontpatch/dmc1_*.py`, `labels.py`, `bc7.py`, `ys_graphics.py` |
+| BMFont | `nni.md` ("Yazı tipi yaması") | `core/fontpatch/bmfont.py`, `nni_fonts.py` |
+| Oyun resimlerindeki yazılar (`.fsd`/`.msg` ve NNI biçimleri) | `fsd-msg.md`, `nni.md` ("Grafikler") | `core/fontpatch/fsdmsg*.py`, `labels.py`, `bc7.py`, `nni_graphics.py` |
 
 ## Altyapı (kapsayıcılar ve şifreleme)
 

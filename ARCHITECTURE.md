@@ -40,7 +40,7 @@ uzantıları yapıyor). Antivirüs riskini azaltmak için tek dosya (`--onefile`
 | `keyring` | ≥25,<26 (25.7.0 test edildi) | MIT | DeepL API anahtarını Windows Kimlik Bilgisi Yöneticisi'nde saklamak (CLAUDE.md §4.2). Windows'ta `WinVaultKeyring` arka ucu doğrulandı. |
 | `httpx` | ≥0.27,<1 (0.28.1 test edildi) | BSD-3 | Ollama (M4'te DeepL) HTTP istekleri; ayrıntılı zaman aşımı ve bağlantı hatası türleri; `MockTransport` ile testlerde ağsız sahte sunucu. Standart `urllib` ile aynı güvenilirlikte hata ayrımı ve test kolaylığı elde etmek daha çok kod gerektirirdi. |
 | `UnityPy` | ≥1.25,<2 (1.25.4 test edildi) | MIT | Unity AssetBundle (UnityFS, LZ4/LZMA) ve SerializedFile okuma/yazma; tip ağacıyla MonoBehaviour okuma/yazma. Etkin bakımda, cp38–cp314 wheel'leri var. Kendimiz yazmak (bundle sıkıştırma blokları, SerializedFile v22+ meta verisi, typetree okuyucu/yazıcı) çok daha büyük ve riskli olurdu. **Bedeli:** zorunlu bağımlılıkları (Pillow, texture2ddecoder, etcpak, astc-encoder-py, fmod_toolkit/pyfmodex, brotli, lz4, fsspec, attrs, tpk_ar) paket boyutunu büyütür; M9'da PyInstaller ile kullanılmayan modüllerin dışlanması denenecek. |
-| `Pillow` | ≥10 (13.0.0 test edildi) | HPND | Devil May Cry yazı dokusunun (`fontpatch/dmc1.py`) çizimi ve BC7 dokuların okunması. UnityPy'nin de bağımlılığı olduğundan ek yük getirmez. |
+| `Pillow` | ≥10 (13.0.0 test edildi) | HPND | Devil May Cry yazı dokusunun (`fontpatch/fsdmsg.py`) çizimi ve BC7 dokuların okunması. UnityPy'nin de bağımlılığı olduğundan ek yük getirmez. |
 
 ### Geliştirme
 
@@ -81,7 +81,7 @@ nxceviri/
     archives/              # SARC (oku/kur), Yaz0, ZSTD (aç/sıkıştır), nested.py (iç içe yollar)
       pak.py               # Unreal .pak okuma (v1–11) ve yama pak'ı yazma
       psb.py               # M2 PSB (v2–4) okuma, dizge tablosunu yerinde yeniden yazma
-      m2.py                # mdf aç/kodla, oyun anahtarını kullanıcının kodundan bulma, .psb.m + .bin
+      psb_archive.py       # mdf aç/kodla, oyun anahtarını kullanıcının kodundan bulma, .psb.m + .bin
       nni.py               # Falcom NNI (.ni dizini + .na veri, Ys Origin): oku, değişen üyeleri sona ekleyerek yaz
       cpk.py               # CRI CPK (@UTF tabloları, CRILAYLA açma): oku, değişen dosyalarla yeniden kur
       access.py            # iç içe yoldan okuma; pak/M2/NNI/CPK'da yalnızca dizin + girdi
@@ -91,12 +91,12 @@ nxceviri/
       base.py              # format eklentisi sözleşmesi: detect / extract / inject
       registry.py          # kayıtlı eklentiler
       msbt/                # MSBT eklentisi (M2)
-      unity/               # Unity Localization string tabloları (M6, UnityPy); i2.py: I2 Localization (ham bayt); dklocal.py: DKCR HD SerializeReference kayıt defteri
+      unity/               # Unity Localization string tabloları (M6, UnityPy); i2.py: I2 Localization (ham bayt); serializeref.py: DKCR HD SerializeReference kayıt defteri
       unreal/              # .locres (M7)
       gfmsg/               # Game Freak mesajları (.dat + .tbl, Pokémon)
-      ysorigin/            # Ys Origin: XSO betik dizgeleri (Japonca kopyayla metin/kimlik ayrımı) + arayüz XML'i
+      nnitext/             # Ys Origin: XSO betik dizgeleri (Japonca kopyayla metin/kimlik ayrımı) + arayüz XML'i
       fmsb/                # Vanillaware FMSB MsgSheet (Unicorn Overlord)
-      danganronpa/         # Danganronpa: .lin betik metinleri + .pak metin tabloları (WAD içinde)
+      wadlin/              # Danganronpa: .lin betik metinleri + .pak metin tabloları (WAD içinde)
     project/store.py       # .nxproj şeması, göçler, atomik "farklı kaydet"
     pipeline.py            # arayüzün çağırdığı iş akışı adımları
     translate/
@@ -350,7 +350,7 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
     (dosya boyutu aynı). Çeviri verilmezse dosya bayt bayt aynıdır (round-trip, CLAUDE.md §4.1). Cihazda
     doğrulanana kadar deneyseldir; adım adım denenir (`docs/formats/pak-yc.md`).
 59. **Dizgiler betimleyicilerden okunur.** Dosyadaki dizgi havuzu tekilleştirilmiştir; "sıradaki dizgi"
-    varsayımı yanlış sütuna metin koyar. Her satır 16 baytlık betimleyici dizisi olarak ayrıştırılır (`mina/ycd.py`).
+    varsayımı yanlış sütuna metin koyar. Her satır 16 baytlık betimleyici dizisi olarak ayrıştırılır (`pakyc/ycd.py`).
 60. **Hazır çeviri kaynak metne bakar.** `ReadyTranslations.sources` verilmişse satır yalnızca yamanın
     dayandığı özgün metin projedekiyle eşitse eşleşir. Kimlikleri sürümler arasında kayabilen biçimlerde
     (Mina diyalog kimlikleri) yanlış satıra çeviri yazılmasını önler; Unity için kullanılmaz (kimlikler kalıcı).
@@ -359,7 +359,7 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
 
 61. **mdf anahtarı uygulamada yoktur, kullanıcının dökümünden bulunur.** CLAUDE.md §2 gereği uygulama
     şifreleme anahtarı içermez. M2 oyunlarının arşiv anahtarı oyunun kendi kodunda geçen bir dizgedir;
-    `m2.find_key`, kullanıcının ExeFS `main` kodundaki dizgeleri dener ve gerçek bir `.psb.m` dosyasını açanı
+    `psb_archive.find_key`, kullanıcının ExeFS `main` kodundaki dizgeleri dener ve gerçek bir `.psb.m` dosyasını açanı
     seçer. Anahtar yalnızca bellekte tutulur; loglanmaz, hata mesajına ve proje dosyasına yazılmaz.
 62. **Yeni bağımlılık yok.** MT19937 (init_by_array) ve MD5 standart kütüphaneyle/kendi kodumuzla;
     NSO açma için zaten var olan `lz4` kullanıldı. MT19937 uygulaması testte Python'un `random`
@@ -368,7 +368,7 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
     Yaz0/ZSTD ile aynı ilke: içerik değişmediyse orijinal baytlar döner (round-trip, CLAUDE.md §4.1).
 64. **PSB'ye metin yalnızca dizge tablosu üzerinden yazılır.** Kök ağaç yeniden serileştirilmez (bayt
     düzeyinde korunur); sonraki bölümler hizalamayı koruyarak kayar, sağlama toplamı yeniden hesaplanır.
-    Gerçek dökümdeki 620 PSB'nin tamamında doğrulandı (`docs/formats/m2.md`).
+    Gerçek dökümdeki 620 PSB'nin tamamında doğrulandı (`docs/formats/psb.md`).
 
 ### 4.15 0.21.0 kararları (M2 mod yazımı araştırması)
 
@@ -384,13 +384,13 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
 ### 4.16 0.23.0 kararları (MGS metin çevirisi)
 
 67. **Satırlar dizge başına tekilleştirilir.** PSB dizge tablosu aynı yazıyı bir kez tutar ve birden çok yerden
-    başvurur; eklenti (`formats/m2text`) bu yüzden ağaçtaki her konum yerine her *dizge* için bir satır çıkarır
+    başvurur; eklenti (`formats/psbtext`) bu yüzden ağaçtaki her konum yerine her *dizge* için bir satır çıkarır
     (anahtar: ilk geçtiği yol, bağlam: kullanıldığı anahtarlar). Çeviri dizgeyi yerinde değiştirir; kök ağacı yeniden
     serileştirmek gerekmez. Bir dizge metin dışı bir yerden de (kimlik) başvuruluyorsa çıkarılmaz.
 68. **M2 üyeleri `ContentTree.code` ile açılır.** Arşiv anahtarı oyunun kodundan bulunduğundan görünüm, kodu tembel
     okuyan bir işlev taşır (önce güncelleme, sonra ana oyun). `MemberReader`, tarama, çıkarma ve dışa aktarma aynı
     yolu kullanır; yol biçimi `alldata.psb.m>system/config/menu_item.psb.m`.
-69. **Dışa aktarma cihazda doğrulanan yöntemi kullanır** (docs/formats/m2.md): değişen üyelerin girdisi
+69. **Dışa aktarma cihazda doğrulanan yöntemi kullanır** (docs/formats/psb.md): değişen üyelerin girdisi
     `alldata.psb.m`'den çıkarılır, üyeler (mdf kodlu) aynı yolda gevşek dosya olarak yazılır; `.bin` yazılmaz.
     Yazmadan önce her üye yeniden okunup doğrulanır ve yeni dizin özgün `.bin` ile açılarak sınanır.
 70. **Harf dönüştürme gerekmedi.** MGS1'in 21 menü fontunun hepsinde Türkçe harfler var (`m2text`, ayrı bir
@@ -732,7 +732,7 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
 
 ### 4.31 0.45.0 kararları (Donkey Kong Country Returns HD)
 
-119. **DKCR HD `Localization`'ı Unity eklentisinin içinde, ham bayttan okunur** (`dklocal.py`; `i2`/`locoliser` ile aynı yol):
+119. **DKCR HD `Localization`'ı Unity eklentisinin içinde, ham bayttan okunur** (`serializeref.py`; `i2`/`locoliser` ile aynı yol):
      tip ağacı yok, nesne `[SerializeReference]` kayıt defteri. Yapı kesin doğrulanır (kayıt defteri nesnenin son baytında
      bitmeli, kimlikler tutarlı olmalı); doğrulanamayan nesne hiç okunmaz. Değişiklik yokken bayt bayt aynı yazılır.
 120. **İki düzen tek ayrıştırıcıda** (v0 adlı, güncelleme adsız): ikisi sırayla denenir, tüm kayıt defterini bitiren kazanır.

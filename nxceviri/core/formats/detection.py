@@ -17,13 +17,13 @@ from nxceviri.core.archives import cpk, nni, sarc, wad, yaz0, zstd
 class FileKind(StrEnum):
     MSBT = "msbt"
     GFMSG = "gfmsg"
-    MINA = "mina"
-    DMC1 = "dmc1"
-    M2TEXT = "m2text"
-    YSORIGIN = "ysorigin"
+    PAKYC = "mina"
+    FSDMSG = "dmc1"
+    PSBTEXT = "m2text"
+    NNITEXT = "ysorigin"
     FMSB = "fmsb"
     SRT = "srt"
-    DANGANRONPA = "danganronpa"
+    WADLIN = "danganronpa"
     UNITY = "unity"
     UNREAL = "unreal"
     TEXT = "text"
@@ -34,13 +34,13 @@ class FileKind(StrEnum):
 KIND_LABELS = {
     FileKind.MSBT: "MSBT",
     FileKind.GFMSG: "Game Freak mesajı",
-    FileKind.MINA: "Yacht Club YCD",
-    FileKind.DMC1: "Devil May Cry mesajı",
-    FileKind.M2TEXT: "M2 PSB metni",
-    FileKind.YSORIGIN: "Ys Origin metni",
+    FileKind.PAKYC: "Yacht Club YCD",
+    FileKind.FSDMSG: "Devil May Cry mesajı",
+    FileKind.PSBTEXT: "M2 PSB metni",
+    FileKind.NNITEXT: "Ys Origin metni",
     FileKind.FMSB: "Vanillaware MsgSheet",
     FileKind.SRT: "SubRip altyazısı",
-    FileKind.DANGANRONPA: "Danganronpa metni",
+    FileKind.WADLIN: "Danganronpa metni",
     FileKind.UNITY: "Unity",
     FileKind.UNREAL: "Unreal",
     FileKind.TEXT: "Düz metin / JSON / CSV",
@@ -58,13 +58,13 @@ class TextLikelihood(StrEnum):
 LIKELIHOOD_LABELS = {TextLikelihood.HIGH: "Yüksek", TextLikelihood.MEDIUM: "Olası", TextLikelihood.NONE: "—"}
 
 #: M2 arşivinin (`alldata.psb.m` gibi mdf kodlu PSB dizini) tespit ayrıntısı.
-M2_ARCHIVE_DETAIL = "M2 arşivi (mdf)"
+PSB_ARCHIVE_DETAIL = "M2 arşivi (mdf)"
 #: Falcom NNI arşivinin (`data-en.ni` dizini + `.na` verisi) ve CRI CPK arşivinin tespit ayrıntıları.
 NNI_ARCHIVE_DETAIL = "Falcom NNI arşivi"
 CPK_ARCHIVE_DETAIL = "CRI CPK arşivi"
 WAD_ARCHIVE_DETAIL = "Spike Chunsoft WAD arşivi"
 #: Ys Origin'in arayüz dizgeleri: `ys_data/data/loc/strings/english.xml`.
-_YS_STRINGS = re.compile(r"(?:^|/)loc/strings/[^/]+\.xml$", re.IGNORECASE)
+_NNI_STRINGS = re.compile(r"(?:^|/)loc/strings/[^/]+\.xml$", re.IGNORECASE)
 _UTF8_BOM = bytes.fromhex("efbbbf")
 #: SubRip dosya başı (isteğe bağlı BOM, sıra numarası, zaman satırı).
 _SRT_HEAD = re.compile(rb"\A(?:\xef\xbb\xbf)?\s*\d+[ \t]*\r?\n\d\d:\d\d:\d\d[,.]\d{3} --> \d\d:\d\d:\d\d[,.]\d{3}")
@@ -166,29 +166,29 @@ def detect(path: str, head: bytes, tail: bytes = b"") -> Detection:
     if ext == ".tbl" and head.startswith(b"AHTB"):
         return Detection(FileKind.GFMSG, "Game Freak etiket tablosu (AHTB)", TextLikelihood.NONE)
     if ext == ".fsd" and "/dmc1/" in path.lower():
-        return Detection(FileKind.DMC1, "Devil May Cry sahne dosyası (.fsd)", TextLikelihood.HIGH)
+        return Detection(FileKind.FSDMSG, "Devil May Cry sahne dosyası (.fsd)", TextLikelihood.HIGH)
     if path.lower().endswith("/st_init.dat") and "/dmc1/" in path.lower():
-        return Detection(FileKind.DMC1, "Devil May Cry durum ve eşya metinleri (st_init.dat)", TextLikelihood.MEDIUM)
+        return Detection(FileKind.FSDMSG, "Devil May Cry durum ve eşya metinleri (st_init.dat)", TextLikelihood.MEDIUM)
     if path.lower().endswith("/etc_u/memicon.dat") and "/dmc1/" in path.lower():
-        return Detection(FileKind.DMC1, "Devil May Cry kayıt ekranı mesajları (memicon.dat)", TextLikelihood.MEDIUM)
+        return Detection(FileKind.FSDMSG, "Devil May Cry kayıt ekranı mesajları (memicon.dat)", TextLikelihood.MEDIUM)
     if ext == ".atm" and "/dmc1/" in path.lower():
-        return Detection(FileKind.DMC1, "Devil May Cry başarım/galeri metni (.atm)", TextLikelihood.MEDIUM)
+        return Detection(FileKind.FSDMSG, "Devil May Cry başarım/galeri metni (.atm)", TextLikelihood.MEDIUM)
     if ext == ".msg" and "/dmc1/" in path.lower():
-        return Detection(FileKind.DMC1, "Devil May Cry mesaj dosyası (.msg)", TextLikelihood.MEDIUM)
+        return Detection(FileKind.FSDMSG, "Devil May Cry mesaj dosyası (.msg)", TextLikelihood.MEDIUM)
     if head.startswith(b"YCD\0") and ext == ".yc":
         # Yacht Club paketi: dil tabloları genellikle adında "global" geçen paketlerdedir.
         likely = TextLikelihood.HIGH if "global" in path.lower() else TextLikelihood.MEDIUM
-        return Detection(FileKind.MINA, "Yacht Club YCD paketi (Mina the Hollower)", likely)
+        return Detection(FileKind.PAKYC, "Yacht Club YCD paketi (Mina the Hollower)", likely)
     if head.startswith(b"mdf\0") and path.lower().endswith(".psb.m"):
-        return Detection(FileKind.ARCHIVE, M2_ARCHIVE_DETAIL, TextLikelihood.NONE)
+        return Detection(FileKind.ARCHIVE, PSB_ARCHIVE_DETAIL, TextLikelihood.NONE)
     if nni.is_index(path, head):
         return Detection(FileKind.ARCHIVE, NNI_ARCHIVE_DETAIL, TextLikelihood.NONE)
     if cpk.is_cpk(path, head):
         return Detection(FileKind.ARCHIVE, CPK_ARCHIVE_DETAIL, TextLikelihood.NONE)
     if wad.is_wad(path, head):
         return Detection(FileKind.ARCHIVE, WAD_ARCHIVE_DETAIL, TextLikelihood.NONE)
-    if _YS_STRINGS.search(path) and head.startswith((b"<?xml", _UTF8_BOM + b"<?xml")) and b"<dict>" in head:
-        return Detection(FileKind.YSORIGIN, "Ys Origin arayüz dizgeleri (XML)", TextLikelihood.HIGH)
+    if _NNI_STRINGS.search(path) and head.startswith((b"<?xml", _UTF8_BOM + b"<?xml")) and b"<dict>" in head:
+        return Detection(FileKind.NNITEXT, "Ys Origin arayüz dizgeleri (XML)", TextLikelihood.HIGH)
     if ext == ".srt" and _SRT_HEAD.match(head):
         return Detection(FileKind.SRT, "SubRip altyazısı (.srt)", TextLikelihood.HIGH)
     if head.startswith(b"MsgPrjBn"):

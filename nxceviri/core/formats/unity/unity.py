@@ -22,7 +22,7 @@ adındaki `[en]` etiketinden) ve dil sütunlu TSV tabloları (`es`, `en`, `fr` �
 diller aynı dosyadadır; kaynak dilin sütunu/altyazısı aktarılır, Türkçe aynı yere yazılır.
 
 Donkey Kong Country Returns HD'nin `Localization` nesnesi de tip ağacı silinmiş `resources.assets` içindedir ve
-bir `[SerializeReference]` kayıt defteridir (`dklocal.py`); İngilizce yuva aktarılır, Türkçe aynı yuvaya yazılır.
+bir `[SerializeReference]` kayıt defteridir (`serializeref.py`); İngilizce yuva aktarılır, Türkçe aynı yuvaya yazılır.
 
 Geri yazma: yalnızca değişen tablolar yeniden serileştirilir; bundle orijinal sıkıştırma
 ayarlarıyla kaydedilir ve döndürülmeden önce yeniden okunarak doğrulanır. Hiçbir metin
@@ -42,7 +42,7 @@ from UnityPy.files import BundleFile
 
 from nxceviri.core.formats.base import SOURCE_LANGUAGE, Context, ControlCode, FormatError, TextEntry
 from nxceviri.core.formats.detection import is_unity_serialized
-from nxceviri.core.formats.unity import dklocal, i2, locoliser, loctext
+from nxceviri.core.formats.unity import i2, locoliser, loctext, serializeref
 from nxceviri.core.languages import same_language
 from nxceviri.core.translate import markup, placeholders
 
@@ -428,72 +428,72 @@ def _locoliser_update(
 
 
 #: Donkey Kong Country Returns HD `Localization` metinlerinin anahtar öneki (`DK|<nesne>|<dil sırası>|<yuva>`).
-_DK_PREFIX = "DK|"
+_SERIALIZEREF_PREFIX = "DK|"
 #: Bundan küçük nesne bu yapıda olamaz; büyük dosyalardaki binlerce küçük nesne okunmaz.
-_DK_MIN_SIZE = 4096
+_SERIALIZEREF_MIN_SIZE = 4096
 #: Ses ve animasyon kimlikleri (`\3630bddf\27b05a76`, `\\boss_clingpound`) metin gibi durur ama çevrilmez.
-_DK_ASSET_ID = re.compile(r"\\[\\0-9A-Za-z_]*")
+_SERIALIZEREF_ASSET_ID = re.compile(r"\\[\\0-9A-Za-z_]*")
 
 
-def _dk_documents(env: Any) -> list[tuple[Any, dklocal.Document]]:
+def _serializeref_documents(env: Any) -> list[tuple[Any, serializeref.Document]]:
     found = []
     for obj in env.objects:
-        if obj.type.name != "MonoBehaviour" or obj.byte_size < _DK_MIN_SIZE:
+        if obj.type.name != "MonoBehaviour" or obj.byte_size < _SERIALIZEREF_MIN_SIZE:
             continue
         raw = bytes(obj.get_raw_data())
         if raw[32:44] != b"Localization":
             continue
-        doc = dklocal.parse(raw)
+        doc = serializeref.parse(raw)
         if doc is not None:
             found.append((obj, doc))
     return found
 
 
-def _dk_key(path_id: int, language: int, slot: str) -> str:
-    return f"{_DK_PREFIX}{path_id}|{language}|{slot}"
+def _serializeref_key(path_id: int, language: int, slot: str) -> str:
+    return f"{_SERIALIZEREF_PREFIX}{path_id}|{language}|{slot}"
 
 
-def _dk_translatable(text: str) -> bool:
-    return not _DK_ASSET_ID.fullmatch(text) and any(ch.isalpha() for ch in _TAG_RE.sub("", text))
+def _serializeref_translatable(text: str) -> bool:
+    return not _SERIALIZEREF_ASSET_ID.fullmatch(text) and any(ch.isalpha() for ch in _TAG_RE.sub("", text))
 
 
-def _dk_source(doc: dklocal.Document, context: Context | None) -> dklocal.Language:
+def _serializeref_source(doc: serializeref.Document, context: Context | None) -> serializeref.Language:
     """Aktarılacak dil: seçilen dil, yoksa İngilizce (Rusça topluluk yaması da yalnızca bu yuvayı değiştirir)."""
     wanted = context.get(SOURCE_LANGUAGE) if context else None
     for target in ([str(wanted)] if wanted else []) + ["en"]:
         for language in doc.languages:
-            code = dklocal.language_code(language)
+            code = serializeref.language_code(language)
             if code and same_language(code, target):
                 return language
     return doc.languages[0]
 
 
-def _dk_snapshot(path_id: int, doc: dklocal.Document) -> dict[str, str]:
+def _serializeref_snapshot(path_id: int, doc: serializeref.Document) -> dict[str, str]:
     return {
-        _dk_key(path_id, language.index, slot): single.text
+        _serializeref_key(path_id, language.index, slot): single.text
         for language in doc.languages
-        for slot, single in dklocal.unique_slots(doc, language)
+        for slot, single in serializeref.unique_slots(doc, language)
     }
 
 
-def _dk_inject(
+def _serializeref_inject(
     path_id: int,
-    doc: dklocal.Document,
+    doc: serializeref.Document,
     translations: Mapping[str, str],
     known: set[str],
     expected: dict[str, str],
-) -> dklocal.Document | None:
+) -> serializeref.Document | None:
     """Çevirileri kayıt defterine işler; değişiklik yoksa None.
 
     Aynı dili taşıyan ikinci yuvada (İngilizce 0 ve 7) aynı sıradaki satır özgün metinde de özdeşse aynı çeviri oraya
     da yazılır; böylece oyun hangi İngilizce yuvayı okursa okusun Türkçe görünür.
     """
-    by_language = {language.index: dklocal.unique_slots(doc, language) for language in doc.languages}
+    by_language = {language.index: serializeref.unique_slots(doc, language) for language in doc.languages}
     changes: dict[int, str] = {}
     for language in doc.languages:
-        code = dklocal.language_code(language)
+        code = serializeref.language_code(language)
         for slot, single in by_language[language.index]:
-            key = _dk_key(path_id, language.index, slot)
+            key = _serializeref_key(path_id, language.index, slot)
             known.add(key)
             new = translations.get(key)
             if new is None:
@@ -505,13 +505,13 @@ def _dk_inject(
             changes[single.rid] = text
             expected[key] = text
             for other in doc.languages:
-                if other.index == language.index or not code or dklocal.language_code(other) != code:
+                if other.index == language.index or not code or serializeref.language_code(other) != code:
                     continue
                 twin = dict(by_language[other.index]).get(slot)
                 if twin is not None and twin.text == single.text and twin.rid not in changes:
                     changes[twin.rid] = text
-                    expected[_dk_key(path_id, other.index, slot)] = text
-    return dklocal.with_texts(doc, changes) if changes else None
+                    expected[_serializeref_key(path_id, other.index, slot)] = text
+    return serializeref.with_texts(doc, changes) if changes else None
 
 
 def _snapshot(env: Any) -> dict[str, str]:
@@ -525,8 +525,8 @@ def _snapshot(env: Any) -> dict[str, str]:
             got[cell.key] = cell.text
     for obj, loc in _locolisers(env):
         got.update(_locoliser_keys(obj.path_id, loc))
-    for obj, doc in _dk_documents(env):
-        got.update(_dk_snapshot(obj.path_id, doc))
+    for obj, doc in _serializeref_documents(env):
+        got.update(_serializeref_snapshot(obj.path_id, doc))
     return got
 
 
@@ -615,16 +615,18 @@ class UnityPlugin:
                     continue
                 display, codes = tokenize(_readable(cell.text), (_LITERAL_NEWLINE,))
                 entries.append(TextEntry(cell.key, len(entries), display, codes, context=cell.context))
-        for obj, doc in _dk_documents(env):
-            language = _dk_source(doc, context)
-            for slot, single in dklocal.unique_slots(doc, language):
+        for obj, doc in _serializeref_documents(env):
+            language = _serializeref_source(doc, context)
+            for slot, single in serializeref.unique_slots(doc, language):
                 text = _readable(single.text)
-                if not _dk_translatable(text):
+                if not _serializeref_translatable(text):
                     continue
                 display, codes = tokenize(text)
                 note = single.name or (single.tag if single.tag.isalpha() else "")
                 entries.append(
-                    TextEntry(_dk_key(obj.path_id, language.index, slot), len(entries), display, codes, context=note)
+                    TextEntry(
+                        _serializeref_key(obj.path_id, language.index, slot), len(entries), display, codes, context=note
+                    )
                 )
         return entries
 
@@ -706,10 +708,10 @@ class UnityPlugin:
             updated = _locoliser_update(obj.path_id, loc, tsv_tables, row_text, expected)
             if updated is not None:
                 raw_changes.append((obj, locoliser.serialize(updated)))
-        for obj, dk_doc in _dk_documents(env):
-            updated_doc = _dk_inject(obj.path_id, dk_doc, translations, known, expected)
+        for obj, serializeref_doc in _serializeref_documents(env):
+            updated_doc = _serializeref_inject(obj.path_id, serializeref_doc, translations, known, expected)
             if updated_doc is not None:
-                raw_changes.append((obj, dklocal.serialize(updated_doc)))
+                raw_changes.append((obj, serializeref.serialize(updated_doc)))
         unknown = [k for k in translations if k not in known]
         if unknown:
             raise FormatError(f"Unity dosyasında olmayan girdiler için çeviri verildi: {', '.join(unknown[:5])}")

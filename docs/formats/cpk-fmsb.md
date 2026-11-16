@@ -1,6 +1,6 @@
 # CRI CPK + CRILAYLA ve FMSB MsgSheet (Switch)
 
-Kod: `core/archives/cpk.py` (CRI CPK + CRILAYLA), `core/formats/fmsb/` (metin eklentisi). Test: `tests/test_unicorn.py`.
+Kod: `core/archives/cpk.py` (CRI CPK + CRILAYLA), `core/formats/fmsb/` (metin eklentisi). Test: `tests/test_cpk_fmsb.py`.
 
 ## Nerede ne var
 

@@ -42,7 +42,7 @@ Tek baytlık oyun tablosu (ASCII değil):
 
 ## Okuma eklentisi (0.20.0)
 
-`nxceviri/core/formats/dmc1/`. Sonuçlar (Switch v0): 410 satır (`etc_e/common.msg` + 74 `fsd` dosyası). Kurallar:
+`nxceviri/core/formats/fsdmsg/`. Sonuçlar (Switch v0): 410 satır (`etc_e/common.msg` + 74 `fsd` dosyası). Kurallar:
 
 - Anahtar: `fsd` için `<tablo konumu (hex)>/<dizgi no>`, `.msg` için dizgi no.
 - Metin: harfler `0x0E`/`0x28`'den, rakamlar `0x00`–`0x09`, noktalama `0x43 .`, `0x44 ,`, `0x45 :`, `0x4A !`,
@@ -95,7 +95,7 @@ dosyaları da aynıdır (`dmc2-0.nbz`: 3.882 girdi).
 - `fsd_tr.yama` (`D1FS`): 80 `.fsd` için yerinde bayt yamaları. Yama bloklarının içindeki 80 Türkçe mesaj tablosunun
   hepsi, Switch `.fsd` dosyalarındaki İngilizce tabloyla aynı dizgi sayısına sahiptir; 65'inin konumu birebir aynı,
   15'i birkaç yüz bayt kaymıştır (PC dosyası biraz farklı). Bu yüzden eşleşme konuma göre değil **dosya adı + dizgi sırasıyla** kurulur.
-- Aktarma: `nxceviri/core/formats/dmc1/yama.py` + `translate/port.py` (Hazır Çeviriyi İçe Aktar, klasörde `fsd_tr.yama` varsa).
+- Aktarma: `nxceviri/core/formats/fsdmsg/yama.py` + `translate/port.py` (Hazır Çeviriyi İçe Aktar, klasörde `fsd_tr.yama` varsa).
   Gerçek veride 491/491 satır eşleşti, kod uyuşmazlığı yok.
 - `Etc_e/common.msg` (21 mesaj) aynı yolla alınır. `status_e/st_init.dat` (eşya/durum adları) bu sürümde okunmuyor.
 
@@ -133,7 +133,7 @@ Durum menüsünün başlıkları resimdir. Bölüm 1–4 T32 dokularıdır; Swit
 (BC7_UNORM, 1 bayt/piksel; bölüm 4'ün 2. sayfası sıkıştırılmamış BGRA). Sayfa 1 normal, sayfa 2 seçili (altın) hâldir.
 Doku kimliği (0x14): `AECBB6FE` Weapon/New/Total Exp/Action/Map/Item, `3729D0FF` File/Exit, `F6A70F3F` harita ekranı
 (Floor Select mode / Move MAP mode / Roll MAP). PC Türkçe yamasında bu dokular İngilizcedir (yalnızca sıkıştırılmamış
-biçime çevrilmiş). `fontpatch/dmc1_menu.py` sözcüğü siler, Türkçesini aynı boy ve taban çizgisinde özgün renk ve
+biçime çevrilmiş). `fontpatch/fsdmsg_menu.py` sözcüğü siler, Türkçesini aynı boy ve taban çizgisinde özgün renk ve
 parıltıyla çizer, dokuyu PC biçiminde yazar (başlık 0xC0, 0x3C = bir sayfanın boyu, sayfa başına BGRA DDS). Oyun
 toplamsal karıştırma kullanır (alfa her yerde 255, siyah görünmez). Aynı resimler `status_u/st_init.dat` içinde de var (kimlikler `7C3C275B`, `E5DE415A`, `24509E9A`; o dosyanın metni
 Japoncadır ve çevrilmez). Yalnızca `status_e` değiştirildiğinde (Mod #11) başlıklar cihazda İngilizce kaldı; dışa aktarma
@@ -155,7 +155,7 @@ Taramada (`status/`, `status_u/`, `etc/`, `etc_e/`, `etc_u/`, `pack_e/`, `pack_c
 bağımsız `status/` klasöründedir. Kapsayıcılar çeşitlidir (`.itm`, `.dat`, `.tm2`, `.t32`, `.pack`, `.bnd`); hepsinde
 sayfalar sıradan DDS başlıklarıyla durur (BC7 DX10, 32 bit BGRA; birkaçı DXT3/DXT5).
 
-`fontpatch/dmc1_images.py` kapsayıcıları çözmez: dosyadaki DDS başlıklarını bulur, sayfayı çözer, içerik özetiyle
+`fontpatch/fsdmsg_images.py` kapsayıcıları çözmez: dosyadaki DDS başlıklarını bulur, sayfayı çözer, içerik özetiyle
 (`page_key`, çözülmüş RGBA'nın SHA-1'i) tanır ve değiştirilen sayfayı **aynı biçimde, yerinde** yazar (BC7'de yalnız
 değişen 4×4 bloklar yeniden kodlanır: `fontpatch/bc7.py`, kip 6). Dosya boyu ve diğer baytlar değişmez. Aynı resim
 dosyalarda onlarca kez tekrar eder (ör. silah adları `wp_init.itm`, `spdinit.itm`); özet aynı olduğu için hepsi değişir.
@@ -195,10 +195,10 @@ kodlamasıyla, dil dil art arda durur (Japonca, İngilizce 147 metin, Fransızca
 İngilizce bölge 0x70D9E3–0x714786 (28.067 bayt). Oyun bunlara bir işaretçi dizisiyle (bellekte 0x8AD238'den, 1346 giriş)
 ulaşır; dizinin değerleri `.rela.dyn` R_AARCH64_RELATIVE kayıtlarının addend alanlarından gelir.
 
-`formats/dmc1/exe.py` Türkçe metinleri İngilizce bölgeye art arda yazar ve kayıtların addend'lerini yeni adreslere
+`formats/fsdmsg/exe.py` Türkçe metinleri İngilizce bölgeye art arda yazar ve kayıtların addend'lerini yeni adreslere
 çevirir (tek tek değil, toplamda sığması yeterli). Çıktı bir IPS32 yamasıdır: Atmosphère'de
 `atmosphere/exefs_patches/<mod>/<build id>.ips`, emülatörde `<TitleID>/<mod>/exefs/<build id>.ips`. Türkçe metinler
-`nxceviri/assets/dmc1/dusman_aciklamalari.json` dosyasındadır; özgün İngilizce metin depoda tutulmaz, yalnızca SHA-256 özeti (satır sonu ve satır sonu boşlukları atılarak) saklanır ve koddakiyle özetler eşleşmezse yama
+`nxceviri/assets/fsdmsg/dusman_aciklamalari.json` dosyasındadır; özgün İngilizce metin depoda tutulmaz, yalnızca SHA-256 özeti (satır sonu ve satır sonu boşlukları atılarak) saklanır ve koddakiyle özetler eşleşmezse yama
 üretilmez (başka sürüm). PC Türkçe yaması bu metinleri çevirmemişti. Cihazda **henüz doğrulanmadı** (Mod #17).
 
 Not: sahne dosyalarında (`fsd`) 23. bölüm dışında da İngilizce metin bulunabiliyor (ör. r11b 26. bölüm); oyunun bunları
@@ -220,13 +220,13 @@ kullanıp kullanmadığı doğrulanmadı.
 ## Kullanıcının hazırladığı grafikler ve animasyonlar (Mod #19)
 Zor sayfalar (kontrol şemaları, hareket açıklamaları, görev kartları, zorluk ve sonuç ekranları) resim olarak
 `D:/Oyunlar/<oyun>/grafik_temizleme/orijinal` klasörüne çıkarılır; kullanıcı yazıyı silip Türkçeyi çizerek aynı adla
-`temiz` klasörüne koyar. `fontpatch/dmc1_graphics.py` değişmiş çiftleri okur (`NXCEVIRI_DMC1_GRAFIK` ortam değişkeni
+`temiz` klasörüne koyar. `fontpatch/fsdmsg_graphics.py` değişmiş çiftleri okur (`NXCEVIRI_DMC1_GRAFIK` ortam değişkeni
 klasörü gösterir), özgün sayfanın içerik özetiyle oyundaki her kopyasını bulur (`dizin.json`: 22 dosya) ve hazır sayfayı
 yerinde yazar; hazır sayfa varsa etiket çizimi yerine geçer. Yazılan sayfalar BC7 kayıplı kodlandığı için sonuç hazır
 resme ~29–42 dB yakındır (özgüne 15–28 dB).
 
 Görev girişi animasyonları (`status_u/mssn_ips_NN.ip2`, 60 kare DXT1): kullanıcı yalnızca `*_son_kare.png` dosyasını
-Türkçeleştirir; `fontpatch/dmc1_animation.py` ara kareleri türetir: son karede özgün ile Türkçe arasında farklı
+Türkçeleştirir; `fontpatch/fsdmsg_animation.py` ara kareleri türetir: son karede özgün ile Türkçe arasında farklı
 bölgeler parçalara ayrılır, her parçanın belirme eğrisi özgün karelerin parlaklığından ölçülür, kare başına özgün
 yazı çevreden doldurulur ve Türkçe son karenin bu oranda karışımı konur. Dalgalanma efekti yoktur. 38 animasyon, 21 sn/adet.
 "Mission Clear" animasyonları (`mssn_ips_00–15, 42`) ve çözülemeyen sayfalar bu sürümde yapılmadı.

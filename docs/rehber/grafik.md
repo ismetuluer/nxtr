@@ -31,16 +31,16 @@ Resmin içindeki yazı çeviri tablosuna girmez. İş akışı iki yarıdır:
 
 ## Çözülmüş örnekler
 
-### NNI arşivli oyun (`fontpatch/ys_graphics.py`, `docs/formats/nni.md` "Grafikler")
+### NNI arşivli oyun (`fontpatch/nni_graphics.py`, `docs/formats/nni.md` "Grafikler")
 - 150 çevrilebilir resim: `data-en.ni` içinde `EXTENSION/STORY/EN/*.DDS` (140: harita ve patron adları, hikâye ve rehber
   sayfaları) ve `EXTENSION/MENU/*/*_EN.DDS` (8: seçenek düğmeleri, onay kutuları); serbest `menu/categories_atlas.dds`
   ve `demo/demo_over.dds` (baş aşağı saklanır, PNG'de dik gösterilir).
 - Biçim: DDS, BC3 (DXGI 77) veya BC1, mip zincirli, DX10 başlığı. Ana arşivdeki (`data.ni`, 946 MB) resimler kapsam
   dışıdır (TECH_DEBT 74).
-- `orijinal/` klasörü şimdilik bir betikle üretilir: `ys_graphics.export_originals(read, members, folder)`
+- `orijinal/` klasörü şimdilik bir betikle üretilir: `nni_graphics.export_originals(read, members, folder)`
   (arayüz yok, TECH_DEBT 75). Betiği çalıştırmak gerekiyorsa kullanıcıya söyle; kendiliğinden oyun dosyası arama.
 
-### `.fsd`/`.msg` biçimli oyun (`fontpatch/dmc1_images.py`, `dmc1_graphics.py`, `labels.py`, `dmc1_menu.py`, `dmc1_animation.py`; `docs/formats/fsd-msg.md`)
+### `.fsd`/`.msg` biçimli oyun (`fontpatch/fsdmsg_images.py`, `fsdmsg_graphics.py`, `labels.py`, `fsdmsg_menu.py`, `fsdmsg_animation.py`; `docs/formats/fsd-msg.md`)
 - Sayfalar çeşitli kapsayıcılardadır (`.itm`, `.dat`, `.tm2`, `.t32`, `.pack`, `.bnd`); hepsinde sıradan DDS başlıkları
   durur (BC7 DX10, 32 bit BGRA; birkaçı DXT3/DXT5). Uygulama kapsayıcıyı çözmez: dosyadaki DDS başlıklarını bulur,
   sayfayı çözer, **içerik özetiyle** (çözülmüş RGBA'nın SHA-1'i) tanır ve değiştirileni aynı biçimde, **yerinde**
@@ -52,7 +52,7 @@ Resmin içindeki yazı çeviri tablosuna girmez. İş akışı iki yarıdır:
 - Yazıların bulunması: `ara` bulamaz; taramada ~150 farklı yazılı resim çıktı. Dil klasörü sırası `status_e` →
   `status_u` → `status` olduğundan birçok resim dilden bağımsız `status/` içindedir.
 - Görev girişi animasyonları (60 kare DXT1): kullanıcı yalnızca `*_son_kare.png` dosyasını Türkçeleştirir;
-  ara kareler `dmc1_animation.py` ile türetilir.
+  ara kareler `fsdmsg_animation.py` ile türetilir.
 - Yazılar video içinde de olabilir (açılış uyarısı `title.mp4`): bu uygulama dışında ffmpeg ile yapıldı (TECH_DEBT).
 - Bilinen sınır: BC7 kayıplı kodlandığı için sonuç hazır resme ~29-42 dB yakındır.
 

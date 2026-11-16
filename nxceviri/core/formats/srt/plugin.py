@@ -20,7 +20,7 @@ import re
 from collections.abc import Mapping
 
 from nxceviri.core.formats.base import Context, ControlCode, FormatError, TextEntry
-from nxceviri.core.formats.ysorigin.extras import derived_files
+from nxceviri.core.formats.nnitext.extras import derived_files
 from nxceviri.core.translate import markup, placeholders
 
 _BOM = b"\xef\xbb\xbf"

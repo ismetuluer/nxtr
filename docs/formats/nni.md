@@ -1,6 +1,6 @@
 # NNI arşivi, XSO betikleri ve arayüz XML'i (Switch)
 
-Kod: `core/archives/nni.py` (arşiv), `core/formats/ysorigin/` (metin eklentisi). Test: `tests/test_ysorigin.py`.
+Kod: `core/archives/nni.py` (arşiv), `core/formats/nnitext/` (metin eklentisi). Test: `tests/test_nnitext.py`.
 
 ## Nerede ne var
 
@@ -88,7 +88,7 @@ dönüştürme yapılmaz. Breve fontun kendi çizimi değildir (TECH_DEBT 76).
 Seçenek ekranı düğmeleri, onay kutuları, harita/patron adları, hikâye ve rehber sayfaları ve menü başlıkları resimdir
 (DDS: BC3 = DXGI 77 veya BC1; mip zincirli; DX10 başlığı). Çevrilebilen 150 resim: `data-en.ni` içinde
 `EXTENSION/STORY/EN/*.DDS` (140) ve `EXTENSION/MENU/*/*_EN.DDS` (8), serbest `menu/categories_atlas.dds` ve
-`demo/demo_over.dds` (baş aşağı saklanır; PNG'de dik gösterilir). Klasör düzeni ve kullanım `fontpatch/ys_graphics.py`
+`demo/demo_over.dds` (baş aşağı saklanır; PNG'de dik gösterilir). Klasör düzeni ve kullanım `fontpatch/nni_graphics.py`
 başında ve klasördeki `OKUBENI.txt` dosyasında. Yazma: özgün başlık ve mip sayısı korunur, her mip seviyesi
 (saydam renkler önceden çarpılarak küçültülür) yeniden kodlanır, dosya boyu doğrulanır. Ana arşivdeki resimler
 (`MENU/CHRSELECT.DDS` "Character Select") kapsam dışı (TECH_DEBT 74).

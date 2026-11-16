@@ -35,7 +35,7 @@ nxceviri = "nxceviri.gui.app:main"
 include = ["nxceviri*"]
 
 [tool.setuptools.package-data]
-nxceviri = ["assets/fonts/*", "assets/spell/*", "assets/dmc1/*", "gui/icons/*", "gui/appicon/*", "gui/help/*"]  # OFL yazı tipleri (lisansları yanlarında) ve DMC1 düşman açıklamaları
+nxceviri = ["assets/fonts/*", "assets/spell/*", "assets/fsdmsg/*", "gui/icons/*", "gui/appicon/*", "gui/help/*"]  # OFL yazı tipleri (lisansları yanlarında) ve DMC1 düşman açıklamaları
 
 [tool.ruff]
 line-length = 120

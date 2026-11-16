@@ -21,15 +21,15 @@ from nxceviri.core.errors import ArchiveError, NxError
 from nxceviri.core.formats.detection import (
     CPK_ARCHIVE_DETAIL,
     HEAD_SIZE,
-    M2_ARCHIVE_DETAIL,
     NNI_ARCHIVE_DETAIL,
+    PSB_ARCHIVE_DETAIL,
     WAD_ARCHIVE_DETAIL,
     Detection,
     FileKind,
     TextLikelihood,
     detect,
 )
-from nxceviri.core.formats.m2text import is_text_member
+from nxceviri.core.formats.psbtext import is_text_member
 from nxceviri.core.formats.registry import user_plugin_for_file
 from nxceviri.core.progress import TaskContext
 
@@ -39,8 +39,8 @@ MAX_NESTED_OUTPUT = 256 * 1024 * 1024
 MAX_DEPTH = 4
 NESTED_SEPARATOR = ">"
 #: M2 arşivinde metin aranan üyelerin en büyük boyutu ve atlanan klasörler (yazı tipi, hareket, görsel).
-MAX_M2_MEMBER = 4 * 1024 * 1024
-_M2_SKIPPED_DIRS = ("font/", "motion/", "image/", "texture/", "sound/", "roms/", "patch/")
+MAX_PSB_ARCHIVE_MEMBER = 4 * 1024 * 1024
+_PSB_ARCHIVE_SKIPPED_DIRS = ("font/", "motion/", "image/", "texture/", "sound/", "roms/", "patch/")
 #: Danganronpa: betikler ve metin tabloları `Dr1/data/<dil>/script/*.lin|*.pak` (WAD içinde).
 _DR_SCRIPT = re.compile(r"(?:^|/)script/[^/]+\.(?:lin|pak)$", re.IGNORECASE)
 #: Dizini okunan büyük arşivlerde metin üyeleri: (tespit ayrıntısı) → (üye seçici, tür, açıklama).
@@ -48,13 +48,13 @@ _DR_SCRIPT = re.compile(r"(?:^|/)script/[^/]+\.(?:lin|pak)$", re.IGNORECASE)
 _MEMBER_TEXT: dict[str, tuple[Callable[[str], bool], FileKind, str]] = {
     NNI_ARCHIVE_DETAIL: (
         lambda m: m.upper().startswith("LOC/") and m.upper().endswith(".XSO"),
-        FileKind.YSORIGIN,
+        FileKind.NNITEXT,
         "Ys Origin betik metni (XSO)",
     ),
     CPK_ARCHIVE_DETAIL: (lambda m: m.lower().endswith(".fms"), FileKind.FMSB, "Vanillaware MsgSheet (FMSB)"),
     WAD_ARCHIVE_DETAIL: (
         lambda m: _DR_SCRIPT.search(m) is not None,
-        FileKind.DANGANRONPA,
+        FileKind.WADLIN,
         "Danganronpa betiği / metin tablosu",
     ),
 }
@@ -215,19 +215,21 @@ def _scan_pak(
         warnings.append(f"{path}: {len(pak.entries):,} dosya içeren pak'ta olası metin dosyası bulunamadı.")
 
 
-def _scan_m2(
+def _scan_psb_archive(
     tree: ContentTree, path: str, origin: str, *, out: list[ScanEntry], warnings: list[str], ctx: TaskContext
 ) -> None:
     """M2 arşivinin (mdf kodlu PSB dizini) üyelerini tarar; yalnızca çevrilebilir metin içerenleri listeler."""
     try:
-        archive = MemberReader(tree.view, tree.code).m2(path)
+        archive = MemberReader(tree.view, tree.code).psb_archive(path)
     except NxError as exc:
         warnings.append(f"{path}: {exc.message}")
         return
     members = [
         m
         for m, e in archive.entries.items()
-        if m.lower().endswith(".psb.m") and e.size <= MAX_M2_MEMBER and not any(d in m for d in _M2_SKIPPED_DIRS)
+        if m.lower().endswith(".psb.m")
+        and e.size <= MAX_PSB_ARCHIVE_MEMBER
+        and not any(d in m for d in _PSB_ARCHIVE_SKIPPED_DIRS)
     ]
     found = 0
     for i, member in enumerate(sorted(members)):
@@ -244,7 +246,7 @@ def _scan_m2(
                     tree.title_id,
                     f"{path}{NESTED_SEPARATOR}{member}",
                     len(data),
-                    FileKind.M2TEXT.value,
+                    FileKind.PSBTEXT.value,
                     "M2 PSB metni",
                     TextLikelihood.HIGH.value,
                     origin,
@@ -314,13 +316,13 @@ def scan_view(view: GameView, ctx: TaskContext | None = None) -> ScanReport:
                     )
                 )
                 continue
-            if det.detail == M2_ARCHIVE_DETAIL:
+            if det.detail == PSB_ARCHIVE_DETAIL:
                 entries.append(
                     ScanEntry(
                         tree.title_id, vf.path, vf.size, det.kind.value, det.detail, det.likelihood.value, vf.origin
                     )
                 )
-                _scan_m2(tree, vf.path, vf.origin, out=entries, warnings=warnings, ctx=ctx)
+                _scan_psb_archive(tree, vf.path, vf.origin, out=entries, warnings=warnings, ctx=ctx)
                 continue
             if det.detail in _MEMBER_TEXT:
                 entries.append(
@@ -382,14 +384,14 @@ _RULES: tuple[_Rule, ...] = (
     ("unreal", "Unreal yerelleştirme dosyaları", _count(lambda e: e.detail.startswith("Unreal yerelleştirme"))),
     ("unreal", "Unreal varlıkları (.uasset)", _count(lambda e: e.detail.startswith("Unreal varlığı"))),
     ("unreal", "Unreal Content/Paks klasörü", _count(lambda e: "/Content/Paks/" in e.path)),
-    ("m2", "M2 arşivleri (mdf)", _count(lambda e: e.detail == M2_ARCHIVE_DETAIL)),
-    ("m2", "M2 PSB metin dosyaları", _count(lambda e: e.kind == FileKind.M2TEXT)),
+    ("m2", "M2 arşivleri (mdf)", _count(lambda e: e.detail == PSB_ARCHIVE_DETAIL)),
+    ("m2", "M2 PSB metin dosyaları", _count(lambda e: e.kind == FileKind.PSBTEXT)),
     ("falcom", "Falcom NNI arşivleri", _count(lambda e: e.detail == NNI_ARCHIVE_DETAIL)),
-    ("falcom", "Ys Origin betik/arayüz metinleri", _count(lambda e: e.kind == FileKind.YSORIGIN)),
+    ("falcom", "Ys Origin betik/arayüz metinleri", _count(lambda e: e.kind == FileKind.NNITEXT)),
     ("vanillaware", "CRI CPK arşivleri", _count(lambda e: e.detail == CPK_ARCHIVE_DETAIL)),
     ("vanillaware", "Vanillaware MsgSheet dosyaları", _count(lambda e: e.kind == FileKind.FMSB)),
     ("spike", "Spike Chunsoft WAD arşivleri", _count(lambda e: e.detail == WAD_ARCHIVE_DETAIL)),
-    ("spike", "Danganronpa betik ve metin tabloları", _count(lambda e: e.kind == FileKind.DANGANRONPA)),
+    ("spike", "Danganronpa betik ve metin tabloları", _count(lambda e: e.kind == FileKind.WADLIN)),
     ("nintendo", "MSBT metin dosyaları", _count(lambda e: e.kind == FileKind.MSBT)),
     ("gamefreak", "Game Freak mesaj dosyaları", _count(lambda e: e.detail == "Game Freak mesaj dosyası")),
     ("gamefreak", "AHTB etiket tabloları", _count(lambda e: e.detail.startswith("Game Freak etiket"))),

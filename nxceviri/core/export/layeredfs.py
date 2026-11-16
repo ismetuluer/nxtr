@@ -25,13 +25,13 @@ from datetime import datetime
 from pathlib import Path
 
 from nxceviri import __version__
-from nxceviri.core.archives import cpk, m2, nested, nni, wad
+from nxceviri.core.archives import cpk, nested, nni, psb_archive, wad
 from nxceviri.core.archives.access import (
     MemberReader,
     is_cpk_path,
-    is_m2_path,
     is_nni_path,
     is_pak_path,
+    is_psb_archive_path,
     is_wad_path,
 )
 from nxceviri.core.archives.pak import PakFile, build_patch_pak, relative_to_mount
@@ -324,7 +324,7 @@ def _info_text(info: ExportInfo, options: ExportOptions, result: ExportResult) -
             "Ryujinx: oyuna sağ tık → 'Open Mods Directory' (mods/contents/<TitleID>/ içine).\n"
             "Yuzu türevleri: oyuna sağ tık → 'Open Mod Data Location' (load/<TitleID>/ içine)."
         )
-    if any(f.endswith(m2.INDEX_SUFFIX) for f in result.files):
+    if any(f.endswith(psb_archive.INDEX_SUFFIX) for f in result.files):
         howto += (
             "\nM2 (Metal Gear Solid): oyunun arşiv dizini ('alldata.psb.m', değişen dosyaların kaydı çıkarılmış) ve "
             "değişen dosyaların kendisi verilir; 8 GB'lık 'alldata.bin' değiştirilmez."
@@ -484,8 +484,8 @@ def export_mod(
                 if is_pak_path(top):
                     patch = _export_pak(tree, top, group, translations=translations, root=root, result=result)
                     outputs = [patch] if patch is not None else []
-                elif any(is_m2_path(ref.path) for ref in group):
-                    outputs = _export_m2(tree, top, group, translations=translations, root=root, result=result)
+                elif any(is_psb_archive_path(ref.path) for ref in group):
+                    outputs = _export_psb_archive(tree, top, group, translations=translations, root=root, result=result)
                 elif (
                     any(is_nni_path(ref.path) or is_cpk_path(ref.path) or is_wad_path(ref.path) for ref in group)
                     or (title_id, top) in extra_members
@@ -830,7 +830,7 @@ def _verify_group(
             )
 
 
-def _export_m2(
+def _export_psb_archive(
     tree: ContentTree,
     top: str,
     group: list[TextFileRef],
@@ -843,10 +843,10 @@ def _export_m2(
 
     8 GB'lık veri dosyasına (`.bin`) dokunulmaz. Oyun, dizinde kaydı olmayan dosyayı dosya
     sisteminde (RomFS katmanında) arar; bu yüzden değişen üyelerin girdisi `.psb.m` dizininden
-    çıkarılır ve üyenin kendisi (mdf kodlu) aynı yolda verilir. Cihazda doğrulandı (docs/formats/m2.md).
+    çıkarılır ve üyenin kendisi (mdf kodlu) aynı yolda verilir. Cihazda doğrulandı (docs/formats/psb.md).
     """
     try:
-        archive = MemberReader(tree.view, tree.code).m2(top)
+        archive = MemberReader(tree.view, tree.code).psb_archive(top)
     except NxError as exc:
         raise ExportError(f"'{top}' okunamadı: {exc.message}", exc.hint) from None
     by_member: dict[str, list[TextFileRef]] = {}
@@ -863,14 +863,14 @@ def _export_m2(
             result.unchanged_files += 1
             continue
         _verify_group(data, refs, translations, skip=2, result=result, original=original)
-        encoded = m2.encode(data, member, archive.key)
-        if m2.decode(encoded, member, archive.key) != data:
+        encoded = psb_archive.encode(data, member, archive.key)
+        if psb_archive.decode(encoded, member, archive.key) != data:
             raise ExportError(f"'{member}' arşiv biçimine doğru kodlanamadı.")
         changed[member] = encoded
     if not changed:
         return []
     index = archive.index_without(set(changed))
-    check = m2.M2Archive(top, index, tree.view.open(m2.M2Archive.data_name(top)), archive.key)
+    check = psb_archive.PsbArchive(top, index, tree.view.open(psb_archive.PsbArchive.data_name(top)), archive.key)
     if set(check.entries) != set(archive.entries) - set(changed):
         raise ExportError(f"'{top}' dizini doğrulanamadı.")
     outputs = [(root / safe_relative_path(top), index)]

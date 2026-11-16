@@ -19,7 +19,7 @@ def test_slash_context_of_plugin_format_groups_by_file_name() -> None:
     assert not in_collection(row)
 
 
-def test_m2text_page_context_groups_by_file_name() -> None:
+def test_psbtext_page_context_groups_by_file_name() -> None:
     row = _row("data/msg_en.mdf", "sayfa 0 / text, sayfa 1 / text", "m2text")
     assert row_group(row) == "msg_en.mdf"
 

@@ -1,7 +1,7 @@
 # Unity `Localization` nesnesi (`[SerializeReference]` kayıt defteri, Switch)
 
-Kod: `core/formats/unity/dklocal.py` (kayıt defteri ayrıştırıcı/yazıcı), `core/formats/unity/unity.py` (eklenti bağlantısı).
-Test: `tests/test_dkcr.py`.
+Kod: `core/formats/unity/serializeref.py` (kayıt defteri ayrıştırıcı/yazıcı), `core/formats/unity/unity.py` (eklenti bağlantısı).
+Test: `tests/test_serializeref.py`.
 
 ## Nerede ne var
 

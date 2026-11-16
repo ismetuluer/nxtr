@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from nxceviri.core.archives import cpk, m2, nested, nni, wad
+from nxceviri.core.archives import cpk, nested, nni, psb_archive, wad
 from nxceviri.core.archives.pak import PakFile
 from nxceviri.core.container.view import LayeredRomFs
 from nxceviri.core.errors import ArchiveError
@@ -20,10 +20,10 @@ def is_pak_path(path: str) -> bool:
     return path.split(nested.SEPARATOR, 1)[0].lower().endswith(".pak")
 
 
-def is_m2_path(path: str) -> bool:
+def is_psb_archive_path(path: str) -> bool:
     """`alldata.psb.m>system/config/menu_item.psb.m` gibi, M2 arşivinin içindeki bir üyenin yolu."""
     parts = nested.split(path)
-    return len(parts) > 1 and parts[0].lower().endswith(m2.INDEX_SUFFIX)
+    return len(parts) > 1 and parts[0].lower().endswith(psb_archive.INDEX_SUFFIX)
 
 
 def is_nni_path(path: str) -> bool:
@@ -46,7 +46,7 @@ def is_wad_path(path: str) -> bool:
 
 def is_member_path(path: str) -> bool:
     """Büyük arşivlerin içindeki (pak, M2, NNI, CPK, WAD) üyeler: dış dosya tamamen okunmadan yalnızca üye okunur."""
-    return is_pak_path(path) or is_m2_path(path) or is_nni_path(path) or is_cpk_path(path) or is_wad_path(path)
+    return is_pak_path(path) or is_psb_archive_path(path) or is_nni_path(path) or is_cpk_path(path) or is_wad_path(path)
 
 
 class MemberReader:
@@ -60,7 +60,7 @@ class MemberReader:
         self.romfs = romfs
         self._code = code
         self._paks: dict[str, PakFile] = {}
-        self._m2: dict[str, m2.M2Archive] = {}
+        self._psb_archive: dict[str, psb_archive.PsbArchive] = {}
         self._nni: dict[str, nni.NniArchive] = {}
         self._cpk: dict[str, cpk.CpkFile] = {}
         self._wad: dict[str, wad.WadArchive] = {}
@@ -70,9 +70,9 @@ class MemberReader:
             self._paks[top] = PakFile(self.romfs.open(top), top)
         return self._paks[top]
 
-    def m2(self, top: str) -> m2.M2Archive:
-        if top not in self._m2:
-            data_name = m2.M2Archive.data_name(top)
+    def psb_archive(self, top: str) -> psb_archive.PsbArchive:
+        if top not in self._psb_archive:
+            data_name = psb_archive.PsbArchive.data_name(top)
             if data_name not in self.romfs.files:
                 raise ArchiveError(
                     f"{top} için veri dosyası ({data_name}) oyunda bulunamadı.",
@@ -80,14 +80,14 @@ class MemberReader:
                 )
             index = self.romfs.open(top).read_all()
             code = self._code() if self._code is not None else None
-            key = m2.find_key(code, top, index) if code is not None else None
+            key = psb_archive.find_key(code, top, index) if code is not None else None
             if key is None:
                 raise ArchiveError(
                     f"{top} arşivinin anahtarı oyunun kodunda bulunamadı.",
                     "Oyunun güncelleme dosyasını da ekleyin; dosyalar kendi konsolunuzdan alınmış olmalı.",
                 )
-            self._m2[top] = m2.M2Archive(top, index, self.romfs.open(data_name), key)
-        return self._m2[top]
+            self._psb_archive[top] = psb_archive.PsbArchive(top, index, self.romfs.open(data_name), key)
+        return self._psb_archive[top]
 
     def nni(self, top: str) -> nni.NniArchive:
         if top not in self._nni:
@@ -114,8 +114,8 @@ class MemberReader:
         parts = nested.split(path)
         if len(parts) > 1 and is_pak_path(path):
             return nested.open_inner(self.pak(parts[0]).read(parts[1]), parts[2:])
-        if len(parts) > 1 and is_m2_path(path):
-            return nested.open_inner(self.m2(parts[0]).read(parts[1]), parts[2:])
+        if len(parts) > 1 and is_psb_archive_path(path):
+            return nested.open_inner(self.psb_archive(parts[0]).read(parts[1]), parts[2:])
         if len(parts) > 1 and is_nni_path(path):
             return nested.open_inner(self.nni(parts[0]).read(parts[1]), parts[2:])
         if len(parts) > 1 and is_cpk_path(path):

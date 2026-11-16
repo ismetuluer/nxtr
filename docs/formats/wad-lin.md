@@ -1,7 +1,7 @@
 # AGAR/WAD arşivi, `.lin` betikleri ve `.pak` tabloları (Switch)
 
-Kod: `core/archives/wad.py` (AGAR arşivi), `core/formats/danganronpa/` (`.lin` ve `.pak` metin eklentisi).
-Test: `tests/test_danganronpa.py`.
+Kod: `core/archives/wad.py` (AGAR arşivi), `core/formats/wadlin/` (`.lin` ve `.pak` metin eklentisi).
+Test: `tests/test_wadlin.py`.
 
 ## Nerede ne var
 

@@ -15,7 +15,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QSettings
 
-from nxceviri.core.archives import cpk, m2, nested, nni, sarc, wad, yaz0, zstd
+from nxceviri.core.archives import cpk, nested, nni, psb_archive, sarc, wad, yaz0, zstd
 from nxceviri.core.container.storage import FileStorage, Storage
 from nxceviri.core.container.view import ContentTree
 from nxceviri.core.errors import ArchiveError, ContainerError, KeyFileError
@@ -35,7 +35,7 @@ EN_BUYUK_ARSIV = 64 * 1024 * 1024
 EN_BUYUK_DOSYA = 512 * 1024 * 1024
 ARSIV_DERINLIGI = 4
 #: Dizini ayrı okunan büyük arşivler; içlerine bu araçlar bakmaz (ham baytları okunur).
-UYE_ARSIVI_SONEKLERI = (".pak", cpk.SUFFIX, wad.SUFFIX, nni.INDEX_SUFFIX, m2.INDEX_SUFFIX)
+UYE_ARSIVI_SONEKLERI = (".pak", cpk.SUFFIX, wad.SUFFIX, nni.INDEX_SUFFIX, psb_archive.INDEX_SUFFIX)
 
 _ARSIV_IMZALARI = (sarc.MAGIC, yaz0.MAGIC, zstd.MAGIC)
 

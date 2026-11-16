@@ -133,7 +133,7 @@ class TextExtraction:
 #: Unity Localization'ın varsayılan adlandırması: "...-english(en)_assets_all.bundle".
 _LANG_IN_NAME = re.compile(r"\(([a-z]{2,3}(?:-[a-z]{2,4})?)\)", re.IGNORECASE)
 #: Nintendo'nun bölge+dil klasörleri: "USen", "EUfr", "JPja", "CNzh"…
-_NINTENDO_LANG_DIR = re.compile(r"^(US|EU|JP|KR|CN|TW|AU)(en|fr|de|es|it|nl|pt|ru|ja|ko|zh)$")
+_REGION_LANG_DIR = re.compile(r"^(US|EU|JP|KR|CN|TW|AU)(en|fr|de|es|it|nl|pt|ru|ja|ko|zh)$")
 #: Game Freak: "bin/message/English/common/…" (klasör adı dilin İngilizce adı).
 _NAMED_LANG_DIRS = {
     "english": "en",
@@ -151,10 +151,10 @@ _NAMED_LANG_DIRS = {
 _UNREAL_LANG_DIR = re.compile(r"(?:^|/)Localization/[^/>]+/([A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,4})?)/[^/>]+$")
 #: Oyuna özgü dil işaretleri: Ys Origin arşiv üyeleri "LOC/EN/…" ve arayüz dosyaları
 #: "loc/strings/english.xml"; Unicorn Overlord dil arşivleri "Unicorn_US.CPK>…".
-_YS_LOC_DIR = re.compile(r">LOC/([A-Z]{2})/", re.IGNORECASE)
-_YS_LOC_CODES = {"en": "en", "fr": "fr", "de": "de", "ge": "de", "it": "it", "es": "es", "sp": "es", "jp": "ja"}
-_YS_STRINGS_FILE = re.compile(r"(?:^|/)loc/strings/([a-z-]+)\.xml$", re.IGNORECASE)
-_YS_STRINGS_CODES = {
+_NNI_LOC_DIR = re.compile(r">LOC/([A-Z]{2})/", re.IGNORECASE)
+_NNI_LOC_CODES = {"en": "en", "fr": "fr", "de": "de", "ge": "de", "it": "it", "es": "es", "sp": "es", "jp": "ja"}
+_NNI_STRINGS_FILE = re.compile(r"(?:^|/)loc/strings/([a-z-]+)\.xml$", re.IGNORECASE)
+_NNI_STRINGS_CODES = {
     "english": "en",
     "french": "fr",
     "german": "de",
@@ -228,12 +228,12 @@ def path_language(path: str) -> str | None:
     "loc/strings/english.xml" → "en"; Unicorn Overlord "Unicorn_US.CPK" → "en"; Danganronpa
     "dr1_data.wad>Dr1/data/us/" → "en".
     """
-    special = _YS_LOC_DIR.search(path)
-    if special and special.group(1).lower() in _YS_LOC_CODES:
-        return _YS_LOC_CODES[special.group(1).lower()]
-    special = _YS_STRINGS_FILE.search(path)
-    if special and special.group(1).lower() in _YS_STRINGS_CODES:
-        return _YS_STRINGS_CODES[special.group(1).lower()]
+    special = _NNI_LOC_DIR.search(path)
+    if special and special.group(1).lower() in _NNI_LOC_CODES:
+        return _NNI_LOC_CODES[special.group(1).lower()]
+    special = _NNI_STRINGS_FILE.search(path)
+    if special and special.group(1).lower() in _NNI_STRINGS_CODES:
+        return _NNI_STRINGS_CODES[special.group(1).lower()]
     special = _SRT_LANG.search(path)
     if special:
         code = special.group(1).lower()
@@ -249,7 +249,7 @@ def path_language(path: str) -> str | None:
     if m:
         return m.group(1).lower()
     for part in inner.split("/")[:-1]:
-        n = _NINTENDO_LANG_DIR.match(part)
+        n = _REGION_LANG_DIR.match(part)
         if n:
             return f"{n.group(2)}-{n.group(1)}".lower()
         named = _NAMED_LANG_DIRS.get(part.lower())

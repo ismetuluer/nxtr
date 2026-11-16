@@ -99,4 +99,4 @@ Mod üretmek için dosyanın yeniden yazılması gerekir; bunun için çözülme
   denetlemediği.
 - Yamanın yaptığı gibi tabloyu sona eklemek mi, yoksa satırları yerinde yeniden düzenlemek mi daha güvenli.
 
-Bunlar çözülene kadar `MinaPlugin.inject` çeviri verilirse hata verir; bozuk bir dosya oyunu çökertir.
+Bunlar çözülene kadar `PakYcPlugin.inject` çeviri verilirse hata verir; bozuk bir dosya oyunu çökertir.

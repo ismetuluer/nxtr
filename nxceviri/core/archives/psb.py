@@ -12,7 +12,7 @@ başvurur; bu yüzden dizge tablosu yeniden yazılınca kök ağaç olduğu gibi
 sonraki bölümlerin ofsetleri kayar. Kayma, parça verisinin hizalamasını korumak için dizge
 verisinin sonuna NUL dolgu eklenerek hizalamanın katına yuvarlanır. Hiçbir dizge değişmezse
 çıktı orijinalle bayt bayt aynıdır.
-Ayrıntılar: docs/formats/m2.md
+Ayrıntılar: docs/formats/psb.md
 """
 
 from __future__ import annotations

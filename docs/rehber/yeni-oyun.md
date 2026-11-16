@@ -44,7 +44,7 @@ Kısa tarifler; ayrıntı ilgili not dosyasında (`docs/formats/README.md` dizin
 - **Unity** (`Data/StreamingAssets/aa/…` bundle'ları, `resources.assets`, `*.assets`): önce hazır eklenti dener
   (Unity Localization string tabloları, I2 Localization, düz `TextAsset`, `Locoliser`, `Localization` nesnesi).
   Metin tip ağacı olmayan dosyadaysa UnityPy alan adlarıyla okuyamaz; nesnenin **ham baytı** çözülür (`unity/i2.py`,
-  `dklocal.py`). Kural: yapıyı tahmin etme, tüm nesneyi bitirebildiğin doğrulamalarla kabul et; doğrulanamayan
+  `serializeref.py`). Kural: yapıyı tahmin etme, tüm nesneyi bitirebildiğin doğrulamalarla kabul et; doğrulanamayan
   nesneyi hiç okuma. "Unity oyunu, ama 0 satır" ise metin Unity dosyalarında olmayabilir (WAD/LIN biçimi: WAD içinde).
   Notlar: `unity.md`, `unity-serializereference.md`, `wad-lin.md`.
 - **Unreal:** metin `.locres` dosyalarındadır, çoğu zaman `.pak` içinde. Eklenti ikisini de okur
@@ -63,7 +63,7 @@ Kısa tarifler; ayrıntı ilgili not dosyasında (`docs/formats/README.md` dizin
      ve uzunluk etkisi olduğunu belirle; her biri `⟦n⟧` olacak. Aynı kodun ham baytı geri yazılırken aynen korunur.
   5. **Yazma:** metin uzunluğu değişince hangi alanlar güncellenmeli (uzunluk, ofsetler, hizalama, dosya boyutu,
      kapsayıcı dizini)? Örnekler: WAD/LIN biçiminde kod bölümü dizgilere sıra numarasıyla başvurur, bu yüzden
-     metin uzunluğu serbesttir (`wad-lin.md`); M2 PSB'de dizge tablosu yerinde yeniden yazılır (`m2.md`);
+     metin uzunluğu serbesttir (`wad-lin.md`); M2 PSB'de dizge tablosu yerinde yeniden yazılır (`psb.md`);
      CRI CPK ve FMSB (`cpk-fmsb.md`). Kapsayıcı bir arşivse (NNI, CPK, WAD), arşivi yeniden kuran kod
      `nxceviri/core/archives/` altında zaten var mı bak.
 

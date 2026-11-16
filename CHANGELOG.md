@@ -559,7 +559,7 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
 ## [0.45.0] — 2026-11-02 — Donkey Kong Country Returns HD metinleri
 
 ### Eklendi
-- **DKCR HD `Localization` desteği** (`formats/unity/dklocal.py`, Unity eklentisine bağlı): oyunun tüm metni `resources.assets`
+- **DKCR HD `Localization` desteği** (`formats/unity/serializeref.py`, Unity eklentisine bağlı): oyunun tüm metni `resources.assets`
   içindeki tek bir `[SerializeReference]` kayıt defterindedir (14 dil, dil başına 1.321 metin). Ayrıştırıcı hem v0 hem güncelleme
   düzenini okur ve her ikisinde ile Rusça topluluk yamasında değişiklik yokken bayt bayt aynı yazar. İngilizce yuvadan
   1.199 metin aktarılır (ses kimlikleri, boş ve harfsiz satırlar atlanır); `<scale=…>`/`<space=…>` etiketleri kontrol kodudur.
@@ -574,7 +574,7 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
 ### Eklendi
 - **Spike Chunsoft WAD arşivi** (`archives/wad.py`, `AGAR`): `dr1_data.wad` dizini okunur, üyeler büyük dosya tamamen
   okunmadan açılır, değişenlerle arşiv yeniden kurulur (değişiklik yoksa bayt bayt aynı; gerçek dosyayla doğrulandı).
-- **Danganronpa eklentisi** (`formats/danganronpa`): `.lin` betik metinleri (UTF-16LE, `<CLT n>` renk etiketleri kontrol
+- **Danganronpa eklentisi** (`formats/wadlin`): `.lin` betik metinleri (UTF-16LE, `<CLT n>` renk etiketleri kontrol
   kodu), `.pak` metin tabloları (eşya, harita, menü, ipucu…) ve `.lin` içeren betik paketleri. Dil klasöründen
   okunur (`us` → en, `jp` → ja, `ch` → zh-hant). Gerçek oyunda İngilizce kaynakta 6.048 dosya, 176.393 satır; hepsinde
   değişiklik yapılmadan geri yazım bayt bayt aynı.
@@ -666,11 +666,11 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
   oyun `extension/movies/yso_pro_<dil>.srt` dosyasından çizer. Altyazı blokları çeviri tablosuna girer (anahtar sıra
   numarası, bağlam zaman aralığı), zaman damgalarına dokunulmaz, LF/CRLF ve BOM korunur. Dil dosya adından okunur
   (`yso_pro_sp.srt` → es). Gerçek oyunda 8 dosya tanındı, İngilizce kaynakla 18 satır aktarılıyor.
-- **Ys Origin yazı tipi yaması** (`fontpatch/bmfont.py`, `ys_fonts.py`): oyunun beş Latin BMFont yazı tipine
+- **Ys Origin yazı tipi yaması** (`fontpatch/bmfont.py`, `nni_fonts.py`): oyunun beş Latin BMFont yazı tipine
   (`arial`, `ysfont`, `linuxwhite`, `linuxshadow`, `linuxwhitesmall`) eksik `ğ Ğ ş Ş ı İ` harfleri yazı tipinin kendi
   glifleriyle türetilip eklenir; dış çizgi ve gölge korunur. Dışa aktarma bu dosyaları moda koyar ve harfleri artık
   g/s/i'ye çevirmez. Atlas doluysa yüksekliği ikiye katlanır.
-- **Ys Origin grafik klasörü** (`fontpatch/ys_graphics.py`): menü düğmeleri, onay kutuları, harita/patron adları, hikâye
+- **Ys Origin grafik klasörü** (`fontpatch/nni_graphics.py`): menü düğmeleri, onay kutuları, harita/patron adları, hikâye
   ve rehber sayfaları gibi İngilizce yazı içeren 150 resim `<oyun klasörü>/grafik_temizleme/orijinal` içine PNG olarak
   çıkarılır; kullanıcı yazıyı Türkçe yapıp `temiz` klasörüne aynı adla kaydeder, dışa aktarma değişenleri DDS
   başlığını, biçimini ve mip zincirini koruyarak yerleştirir (`data-en` arşivi yeniden kurulur, serbest dosyalar moda
@@ -730,7 +730,7 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
 ### Eklendi
 - **Ys Origin:** Falcom NNI arşivleri (`ys_data/archives/data-<dil>.ni` + `.na`) okunup yazılıyor
   (`core/archives/nni.py`). Harita betiklerindeki (`LOC/<DİL>/…/*.XSO`) diyalog ve eşya/menü yazıları ile arayüz
-  dizgeleri (`loc/strings/english.xml`) çeviri tablosuna aktarılıyor (`formats/ysorigin`). Betik kimlikleri
+  dizgeleri (`loc/strings/english.xml`) çeviri tablosuna aktarılıyor (`formats/nnitext`). Betik kimlikleri
   (`V_180`, `OPEN`, `@Flag_Inv`) aynı betiğin Japonca kopyasıyla karşılaştırılarak ayıklanır. Gerçek oyunda
   İngilizce kaynakla 10.787 satır. Mod: `data-en.ni`, `data-en.na` (değişen betikler sona eklenir) ve `english.xml`.
 - **Unicorn Overlord:** CRI CPK arşivleri okunuyor ve değişen dosyalarla yeniden kuruluyor; CRILAYLA sıkıştırması
@@ -1478,7 +1478,7 @@ akışında.** Dışa aktarma, cihazda doğrulanan "dizinden çıkar + gevşek d
 `alldata.bin` değişmez). Aracın ürettiği modun cihaz testi bekleniyor.
 
 ### Eklendi
-- **M2 PSB metin eklentisi** (`core/formats/m2text`): dil tablolarındaki (`eng` yuvası: menü, onay, rehber,
+- **M2 PSB metin eklentisi** (`core/formats/psbtext`): dil tablolarındaki (`eng` yuvası: menü, onay, rehber,
   kayıt metinleri) ve Master Book sayfalarındaki (`087/config/*_EN`) metinleri çıkarır. Satırlar dizge
   başına tekilleştirilir (aynı yazı tek satır, bağlamda kullanıldığı anahtarlar yazılır); çeviri dizgeyi yerinde
   değiştirir, dosyanın geri kalanı bayt bayt aynı kalır. Kimlik olarak da kullanılan dizgeler çıkarılmaz.
@@ -1522,7 +1522,7 @@ akışında.** Dışa aktarma, cihazda doğrulanan "dizinden çıkar + gevşek d
 - `M2Archive.index_without`: verilen üyelerin girdisi çıkarılmış yeni `.psb.m` dizini.
 - MGS1 için iki deneme modu (`games/MGS Master Collection [NSZ]/deneme_modlari/`): 8 GB'lık `alldata.bin`'e
   dokunmadan, değişen menü dosyasını gevşek dosya olarak vermeyi dener. Ayrıntı ve sonuç yorumu:
-  `docs/formats/m2.md` "Mod yazımı".
+  `docs/formats/psb.md` "Mod yazımı".
 - 9 yeni test.
 
 ### Değişti
@@ -1548,7 +1548,7 @@ akışında.** Dışa aktarma, cihazda doğrulanan "dizinden çıkar + gevşek d
 Çekirdek katman; arayüzde henüz görünmez (tarama ve çeviri tablosu bağlantısı sonraki adım).
 
 ### Eklendi
-- **mdf açma/kodlama** (`core/archives/m2.py`): zlib + 64 baytlık XOR akışı (MD5 → MT19937). Değişmeyen
+- **mdf açma/kodlama** (`core/archives/psb_archive.py`): zlib + 64 baytlık XOR akışı (MD5 → MT19937). Değişmeyen
   dosya orijinal baytlarıyla kalır.
 - **Oyun anahtarı kullanıcının kendi dökümünden bulunur:** uygulama anahtar içermez; oyunun ExeFS `main`
   kodundaki dizgeler denenir, gerçek bir `.psb.m`'yi açan seçilir. Anahtar yalnızca bellekte tutulur.
@@ -1559,7 +1559,7 @@ akışında.** Dışa aktarma, cihazda doğrulanan "dizinden çıkar + gevşek d
   olarak açma, `.m` üyeleri çözerek okuma.
 - Gerçek MGS1 Switch dökümüyle doğrulandı: anahtar bulundu; 4.945 + 3 üye; 4.903 mdf üyesinin tamamı
   açıldı ve değişmeden geri yazımda aynı baytlar çıktı; 620 PSB okundu, 578'inde metin değiştirilip yeniden
-  okundu. Ayrıntı: `docs/formats/m2.md`.
+  okundu. Ayrıntı: `docs/formats/psb.md`.
 - 19 yeni test (elle üretilmiş PSB/mdf/NSO; gerçek oyun verisi yok).
 
 ## [0.18.0] — 2026-10-23 — Büyük harfle gösterilen metinler (i → İ)
