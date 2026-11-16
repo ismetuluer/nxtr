@@ -1052,7 +1052,7 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     Bulgu çubuğundaki sayı Düzelt'in değiştireceği satır sayısıdır: ikisi de `plan_for_issues` kuralından gelir;
     plan düzeltemeyecekse çubuk bunu söyler ve düğmeyi göstermez. Düzelt yalnızca bulgusu olan satırları denetler
     (tüm projeyi değil; 200 satırdan fazlasında arka plan işi); sonrasında değişen satırlar panoda yerinde
-    yenilenir (300'den fazlasında arka planda tam denetim). Yerinde yenilemede satırın terim bulguları korunur
+    yenilenir (2000'den fazlasında arka planda tam denetim; bitene dek bulgu çubuğu gizlenir). Yerinde yenilemede satırın terim bulguları korunur
     (biçim düzeltmesi terim bulgusunu değiştirmez; tazesi sonraki tam denetimde gelir).
 
 ## 5. Bilinen sınırlar

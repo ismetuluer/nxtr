@@ -254,7 +254,7 @@ Bilmeye değer davranışlar:
   uyarısı listede kalır ve modele ya da elle düzeltmeye bırakılır.
 - Sığmayan satır (tek sözcük sınırdan uzun ya da sayfa çok kalabalık) yerelde olduğu gibi bırakılır ve modele kısaltması istenir (sonuç sığmazsa eski çeviri korunur).
 - Satıra sınır uygulanıyorsa o satır için eski “Satır sonu” denetimi çalışmaz.
-- Onaylı satırlara dokunulmaz. Sınır karakter sayısıdır, piksel değildir.
+- Makine çevirisi onaylı satırlara dokunmaz; Kontrol Et → Düzelt onaylı satırdaki sığdırma sorununu da düzeltir ve satırı onaylı bırakır. Sınır karakter sayısıdır, piksel değildir.
 
 ## Çeviri paneli ve semboller
 

@@ -667,6 +667,12 @@ class QaPage(QWidget):
         """Sığdırma sekmesinde sonuç özeti: denetim sürüyor."""
         self._show_fit_result(_FIT_RESULT_CHECKING)
 
+    def mark_checking(self) -> None:
+        """Bulgular eskidi, tam denetim arka planda sürüyor: sayılar "Denetleniyor…" olur, düzeltme çubuğu gizlenir."""
+        self._plan_cache = None
+        self.summary.setText("Denetleniyor…")
+        self.fix_bar.hide()
+
     def show_check_failed(self, text: str) -> None:
         """Denetim çalışmadı: Sorunlar sekmesinde hata, Sığdırma sekmesinde "yenilenemedi" gösterilir."""
         self.show_fix_result("danger", text)

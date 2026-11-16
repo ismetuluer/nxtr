@@ -272,7 +272,7 @@ FONT_OVERRIDES_KEY = "font_overrides"
 #: Düzelt'in denetimi ve planı bu satır sayısına kadar ana iş parçacığında (anında), fazlası arka plan işinde yapılır.
 FIX_SYNC_ROWS = 200
 #: Düzeltmeden sonra değişen satırlar bu sayıya kadar panoda yerinde yenilenir; fazlası arka planda tam denetlenir.
-FIX_RECHECK_ROWS = 300
+FIX_RECHECK_ROWS = 2000
 
 _TASK_LABELS = {
     "Oyun dosyaları okunuyor": "Oyun dosyalarını okuma",
@@ -280,6 +280,7 @@ _TASK_LABELS = {
     "Teşhis raporu hazırlanıyor": "Teşhis raporu",
     "Fontlar taranıyor": "Font tarama",
     "Denetim yenileniyor": "Denetim",
+    "Düzeltmeler hazırlanıyor": "Düzeltme",
     "Mod oluşturuluyor": "Dışa aktarma",
     "Font dışa aktarılıyor": "Font dışa aktarma",
     "Görseller çıkarılıyor": "Görsel çıkarma",
@@ -2286,7 +2287,10 @@ class MainWindow(QMainWindow):
         değil); çok satır varsa denetim ve plan arka plan işinde çalışır, arayüz donmaz. Rapor “Son İşin
         Değişiklikleri” penceresidir.
         """
-        if self.busy or not kinds:
+        if not kinds:
+            return
+        if self.busy:
+            self.qa_page.show_fix_result("warning", "Bir iş sürerken düzeltilemez; iş bitince yeniden deneyin.")
             return
         settings = self._fix_settings()
         if row_ids:
@@ -2309,7 +2313,12 @@ class MainWindow(QMainWindow):
                 assert isinstance(result, FixPlan)
                 self._write_fixes(rows, result)
 
-        self._run(work, "Düzeltmeler hazırlanıyor", on_success=done, on_failure=self.qa_page.show_check_failed)
+        self._run(
+            work,
+            "Düzeltmeler hazırlanıyor",
+            on_success=done,
+            on_failure=lambda text: self.qa_page.show_fix_result("danger", text),
+        )
 
     def _write_fixes(self, rows: list[TranslationRow], plan: FixPlan) -> None:
         """Planı tek iş olarak yazar, değişen satırları yerinde yeniler ve sonucu bildirir."""
@@ -2335,7 +2344,8 @@ class MainWindow(QMainWindow):
             if self._qa_count is not None and self._qa_count[0] is self.project:
                 self._recheck_board_rows(updated, keep_terms=True)
         else:
-            self._recheck_if_done()  # çok satır: tam denetim arka planda
+            page.mark_checking()  # bulgu listesi ve çubuk eskidi: arka plandaki tam denetim bitene dek gösterilmez
+            self._recheck_if_done()
         page.show_fix_result(
             "success", " ".join([f"{format_int(len(plan.changes))} satır düzeltildi.", *notes]), "Raporu Gör"
         )

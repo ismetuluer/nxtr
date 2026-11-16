@@ -15,6 +15,7 @@ from nxceviri.core.project import ImportedFile, Project, TranslationRow
 from nxceviri.core.qa import checks
 from nxceviri.core.secrets import MemoryStore
 from nxceviri.core.translate.status import Status
+from nxceviri.gui import main_window
 from nxceviri.gui.main_window import STEP_QA, MainWindow
 from tests.perf import best_time
 
@@ -193,7 +194,36 @@ def test_selected_fix_checks_only_the_selected_rows(
     _select_row(w, "sp_app")
     w.qa_page.fix_button.click()
     assert _rows(w)["sp_app"].translation == "Selam "
-    assert set(seen) <= {_rows(w)["sp_app"].id}  # yalnızca seçili satır (ve eşdeşleri) denetlendi
+    assert set(seen) == {_rows(w)["sp_app"].id}  # yalnızca seçili satır denetlendi
+
+
+def test_large_fix_runs_in_background_and_hides_the_stale_bar(
+    make_window: Callable[[Project], MainWindow], qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(main_window, "FIX_SYNC_ROWS", 0)  # plan arka plan işinde
+    monkeypatch.setattr(main_window, "FIX_RECHECK_ROWS", 0)  # yazımdan sonra tam denetim arka planda
+    w = make_window(_project())
+    page = w.qa_page
+    page.kind_list.select_kinds(["spaces"])
+    page.fix_button.click()
+    assert w.busy  # plan hazırlanıyor: arayüz donmaz, iş sürüyor
+    qtbot.waitUntil(lambda: _rows(w)["sp_app"].translation == "Selam ", timeout=10000)
+    # Yazım bitti, tam denetim sürerken eski bulgu çubuğu görünmez (tıklayınca sessizce hiçbir şey olmazdı).
+    assert not page.fix_bar.isVisibleTo(page)
+    qtbot.waitUntil(lambda: not w.busy, timeout=20000)
+    assert page.kind_list.count_of("spaces") == 0
+    assert _rows(w)["sp_mac"].translation == "Merhaba "
+
+
+def test_fix_while_busy_says_so(make_window: Callable[[Project], MainWindow]) -> None:
+    w = make_window(_project())
+    w.task = object()  # type: ignore[assignment]  # sürmekte olan iş
+    try:
+        w.apply_fixes(["spaces"], [_rows(w)["sp_app"].id])
+    finally:
+        w.task = None
+    assert "iş sürerken" in w.qa_page.last_fix_text
+    assert _rows(w)["sp_app"].translation == "Selam"
 
 
 def test_single_fix_in_35000_approved_rows_is_instant_and_skips_full_check(

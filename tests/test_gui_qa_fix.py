@@ -36,7 +36,7 @@ def _project() -> Project:
         [(rows["a"].id, "Oyunu Başlat."), (rows["b"].id, "Merhaba"), (rows["c"].id, "Devam et ve ve bitir")],
         machine=True,
     )
-    p.set_translations([(rows["d"].id, "Selam")])  # onaylı; sondaki boşluk eksik ama dokunulmaz
+    p.set_translations([(rows["d"].id, "Selam")])  # onaylı; sondaki boşluk eksik, Düzelt onaylıyı da düzeltir
     return p
 
 
