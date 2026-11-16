@@ -17,6 +17,7 @@ from nxceviri.core.fontpatch import fsdmsg as font
 from nxceviri.core.fontpatch import fsdmsg_animation, fsdmsg_graphics, fsdmsg_userdata
 from nxceviri.core.fontpatch import fsdmsg_images as images
 from nxceviri.core.fontpatch import fsdmsg_menu as menu
+from nxceviri.core.fontpatch.labels import Label
 from nxceviri.core.formats.base import Context, FormatError, TextEntry
 from nxceviri.core.formats.derived import Derived
 from nxceviri.core.formats.fsdmsg import codec, exe, fsd
@@ -51,14 +52,16 @@ def _messages(data: bytes, table: codec.MessageTable) -> list[codec.Message]:
     return [codec.decode(data[off : off + length], escape) for off, length in table.strings]
 
 
-def translate_menu_textures(data: bytes) -> bytes:
-    """`st_init.dat` içindeki menü başlığı dokularını Türkçe hâlleriyle değiştirir (metin bölümüne dokunmaz)."""
+def translate_menu_textures(data: bytes, words: Mapping[int, tuple[Label, ...]]) -> bytes:
+    """`st_init.dat` içindeki menü başlığı dokularını Türkçe hâlleriyle değiştirir (metin bölümüne dokunmaz).
+
+    `words`: doku kimliği → sözcükler (kullanıcının `resim_yazilari.json` dosyasındaki `menuler` bölümü)."""
     out: dict[int, bytes] = {}
     for offset in fsd.read_directory(data, wide=False):
         if not offset:
             continue
         start, end = fsd.block_range(data, offset, wide=False)
-        texture = menu.translate_texture(data[start:end])
+        texture = menu.translate_texture(data[start:end], words)
         if texture is not None:
             out[offset] = texture
     return fsd.replace_blocks(data, out, wide=False) if out else data
@@ -143,7 +146,8 @@ class FsdMsgPlugin:
                 patches[path] = functools.partial(
                     fsdmsg_animation.translate_animation, last_english=english, last_turkish=turkish
                 )
-        patches.update(dict.fromkeys(MENU_FILES, translate_menu_textures))
+        if texts.menus:  # menü sözcükleri verilmediyse menü dokuları özgün kalır
+            patches.update(dict.fromkeys(MENU_FILES, functools.partial(translate_menu_textures, words=texts.menus)))
         return patches
 
     def exefs_patches(self, code: bytes) -> dict[str, bytes]:
@@ -155,7 +159,8 @@ class FsdMsgPlugin:
 
     def derived_files(self, read: Callable[[str], bytes], files: Collection[str], game_dir: Path | None) -> Derived:
         """Dosya üretmez; ek çeviri verisi eksikse bilgi dosyasına bunu söyleyen bir not ekler."""
-        note = fsdmsg_userdata.missing_note(fsdmsg_graphics.folder(), fsdmsg_graphics.ENV)
+        folder = fsdmsg_graphics.folder()
+        note = fsdmsg_userdata.missing_note(fsdmsg_userdata.load(folder), folder, fsdmsg_graphics.ENV)
         return Derived(notes=[note] if note else [])
 
     def collect_context(self, data: bytes, path: str = "") -> dict[object, object]:

@@ -131,12 +131,13 @@ Hâlâ İngilizce: menü başlıkları ve Option ekranı (resim/doku), gizlilik 
 ## Menü başlığı dokuları (`status_e/st_init.dat`, bölüm 2–4)
 Durum menüsünün başlıkları resimdir. Bölüm 1–4 T32 dokularıdır; Switch'te başlık 0x160 bayt, sayfalar DX10 DDS
 (BC7_UNORM, 1 bayt/piksel; bölüm 4'ün 2. sayfası sıkıştırılmamış BGRA). Sayfa 1 normal, sayfa 2 seçili (altın) hâldir.
-Doku kimliği (0x14): `AECBB6FE` Weapon/New/Total Exp/Action/Map/Item, `3729D0FF` File/Exit, `F6A70F3F` harita ekranı
-(Floor Select mode / Move MAP mode / Roll MAP). PC Türkçe yamasında bu dokular İngilizcedir (yalnızca sıkıştırılmamış
+Her dokunun T32 başlığında (0x14) bir doku kimliği vardır: biri ana sekmelerin, biri dosya/çıkış sekmelerinin, biri
+harita ekranı kiplerinin başlıklarını taşır. PC Türkçe yamasında bu dokular İngilizcedir (yalnızca sıkıştırılmamış
 biçime çevrilmiş). `fontpatch/fsdmsg_menu.py` sözcüğü siler, Türkçesini aynı boy ve taban çizgisinde özgün renk ve
 parıltıyla çizer, dokuyu PC biçiminde yazar (başlık 0xC0, 0x3C = bir sayfanın boyu, sayfa başına BGRA DDS). Oyun
-toplamsal karıştırma kullanır (alfa her yerde 255, siyah görünmez). Aynı resimler `status_u/st_init.dat` içinde de var (kimlikler `7C3C275B`, `E5DE415A`, `24509E9A`; o dosyanın metni
-Japoncadır ve çevrilmez). Yalnızca `status_e` değiştirildiğinde (Mod #11) başlıklar cihazda İngilizce kaldı; dışa aktarma
+toplamsal karıştırma kullanır (alfa her yerde 255, siyah görünmez). Aynı resimler `status_u/st_init.dat` içinde başka kimliklerle de var (o dosyanın metni
+Japoncadır ve çevrilmez). Hangi kimlikte hangi sözcüğün nerede olduğu uygulamayla gelmez: `resim_yazilari.json`
+dosyasının `menuler` bölümündedir (aşağıda "Ek çeviri verisi"). Yalnızca `status_e` değiştirildiğinde (Mod #11) başlıklar cihazda İngilizce kaldı; dışa aktarma
 artık iki dosyayı da değiştirir (eklentinin `game_file_patches` kancası). Mod #12 ile cihazda doğrulandı (2026-10-24): pause menüsü sekmeleri Türkçe.
 Hâlâ resim olarak İngilizce: eşya adları (Vital Star, Yellow Orb …), görev başlık ekranı, "Mission", uyarı ekranı,
 Option ekranı, Galeri başlığı.
@@ -206,12 +207,11 @@ Not: sahne dosyalarında (`fsd`) 23. bölüm dışında da İngilizce metin bulu
 kullanıp kullanmadığı doğrulanmadı.
 
 ## Kayıt mesajları, kombo dereceleri, harita adları, açılış uyarısı (Mod #18)
-- `etc_u/memicon.dat`: u32 dizinli; 3. bölüm 32 dizgilik mesaj tablosu (PS2 hafıza kartı metinleri, "Will you save
-  here?" …). Eklenti u32 dizinli dosyada mesaj tablosu olan ilk bölümü kullanır. Türkçeleri depoda tutulmaz.
-- Kombo dereceleri (`status/cockpit.t32`): büyük baş harf derecedir (S/A/B/C/D) ve korunur, yalnızca kuyruğu değişir:
-  Durgun, Cesur!, Amansız!; "Bravo!" ve "Stylish!" aynı kalır.
-- Harita adları (`status_u/st1_map.dat` ve st2–st4 aynı sayfayı paylaşır): Yeraltı, Bilinmeyen, Bahçe, Şato, Gemi.
-- "You are Dead" / "To Be Continued" (`etc/dead.tm2`, `etc/tobe.tm2`): Öldün / Devam Edecek.
+- `etc_u/memicon.dat`: u32 dizinli; 3. bölüm 32 dizgilik mesaj tablosu (kayıt ekranı metinleri). Eklenti u32 dizinli dosyada mesaj tablosu olan ilk bölümü kullanır. Türkçeleri depoda tutulmaz.
+- Kombo dereceleri (`status/cockpit.t32`): büyük baş harf derecedir (S/A/B/C/D) ve korunur, yalnızca kuyruğu değişir;
+  bazı dereceler aynı kalır.
+- Harita adları (`status_u/st1_map.dat` ve st2–st4 aynı sayfayı paylaşır): beş kısa ad.
+- Oyun sonu ve devam yazıları (`etc/dead.tm2`, `etc/tobe.tm2`).
 - Açılış uyarısı `video/title.mp4` ve `titlep.mp4`'ün ilk ~3,6 saniyesindedir (yazı siyah zemine eklenmiş, ateş girerken
   söner). Yazı maskesi en parlak karelerden çıkarılır, her karede maske normalize bulanıklıkla çevreden doldurulur, Türkçe
   uyarı özgünün o karedeki görünürlüğüyle çizilir; video yeniden kodlanır (ffmpeg, x264 crf 16), ses kopyalanır. Bu adım
@@ -233,7 +233,7 @@ yazı çevreden doldurulur ve Türkçe son karenin bu oranda karışımı konur.
 "Mission Clear" animasyonları (`mssn_ips_00–15, 42`) ve çözülemeyen sayfalar bu sürümde yapılmadı.
 Cihazda **henüz doğrulanmadı** (Mod #19).
 
-## Ek çeviri verisi (resim yazıları ve düşman açıklamaları)
+## Ek çeviri verisi (resim yazıları, menü başlıkları ve düşman açıklamaları)
 Resimlerdeki yazıların etiket tablosu ve düşman açıklamalarının Türkçeleri oyuna özgü çeviridir; depoda ve uygulama
 paketinde **bulunmaz**. Kullanıcı bunları grafik klasörüne (`NXCEVIRI_FSD_GRAFIK`, yukarıdaki `grafik_temizleme`) iki
 isteğe bağlı JSON dosyası olarak koyar; `fontpatch/fsdmsg_userdata.py` okur ve şemasını denetler.
@@ -268,6 +268,16 @@ isteğe bağlı JSON dosyası olarak koyar; `fontpatch/fsdmsg_userdata.py` okur 
   `stil` (`script` varsayılan, `serif`, `brush`, `gothic`, `plain`, `sans`, `bold`, `serif_italic`), `hiza`
   (`center`/`left`/`right`), `murekkep` ve `parilti` [r, g, b], `esik` (0–255), `kutu` [sol, üst, sağ, alt], `dolgu`
   (`spread`/`filter`/`keep`), `boy` (piksel), `kaydir` (piksel).
+- `menuler` (isteğe bağlı): durum menüsü başlık dokuları (`st_init.dat`, yukarıda "Menü başlığı dokuları"). Her grupta
+  `dokular` (T32 başlığındaki 8 haneli onaltılık doku kimlikleri; bir kimlik dosyada yalnızca bir kez geçebilir) ve aynı
+  şemadaki `etiketler` vardır; etiketler dokunun her sayfasına (normal ve seçili) çizilir. Bölüm yoksa menü dokuları
+  özgün kalır ve bilgi dosyası bunu ayrıca söyler. Örnek (uydurma):
+
+```json
+ "menuler": [
+  {"dokular": ["0A1B2C3D", "4E5F6A7B"], "etiketler": [{"pencere": [4, 6, 90, 44], "ingilizce": "Lamp", "turkce": "Fener"}]}
+ ]
+```
 
 `aciklamalar.json` (kod sırasıyla; örnek uydurmadır):
 

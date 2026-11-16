@@ -5,7 +5,9 @@ dosyasını grafik klasörüne (`NXCEVIRI_FSD_GRAFIK`) koyar:
 
 - `resim_yazilari.json`: `{"dosyalar": [RomFS yolları], "sayfalar": [{"ozetler": [sayfa özetleri], "etiketler":
   [{"pencere": [sol, üst, sağ, alt], "ingilizce": "…", "turkce": "…", isteğe bağlı "stil", "hiza", "murekkep",
-  "parilti", "esik", "kutu", "dolgu", "boy", "kaydir"}]}]}` (sayfa özeti: `fsdmsg_images.page_key`);
+  "parilti", "esik", "kutu", "dolgu", "boy", "kaydir"}]}]}` (sayfa özeti: `fsdmsg_images.page_key`); isteğe bağlı
+  `"menuler": [{"dokular": [8 haneli onaltılık doku kimlikleri], "etiketler": [aynı etiket şeması]}]` durum menüsü
+  başlık dokularını (`fsdmsg_menu`) çevirir;
 - `aciklamalar.json`: `{"aciklamalar": [{"ozet": özgün İngilizce metnin SHA-256'sı, "turkce": "…"}]}`, kod sırasıyla.
 
 Dosya yoksa o yazılar çevrilmeden kalır (dışa aktarma bilgi dosyasına not düşülür). Dosya bozuksa dışa aktarma, neyin
@@ -31,6 +33,7 @@ _HINT = (
     "kaldırırsanız bu yazılar çevrilmeden kalır."
 )
 _PAGE_KEY = re.compile(r"[0-9a-f]{16}")
+_TEXTURE_ID = re.compile(r"[0-9A-Fa-f]{8}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
 _ALIGNS = ("center", "left", "right")
 _FILLS = ("spread", "filter", "keep")
@@ -59,6 +62,7 @@ class UserDataError(NxError):
 class ImageTexts:
     files: tuple[str, ...]  # sayfaların geçtiği oyun dosyaları (RomFS'e göre)
     pages: dict[str, tuple[Label, ...]]  # sayfa özeti → etiketler
+    menus: dict[int, tuple[Label, ...]] | None = None  # menü doku kimliği → sözcükler (bölüm yoksa None)
 
 
 @dataclass(frozen=True)
@@ -175,22 +179,41 @@ def _label(reader: _Reader, value: Any, where: str) -> Label:
 
 def load_image_texts(path: Path) -> ImageTexts:
     reader = _Reader(path.name)
-    root = reader.object(_read(path), "", {"dosyalar": True, "sayfalar": True})
+    root = reader.object(_read(path), "", {"dosyalar": True, "sayfalar": True, "menuler": False})
     listed = reader.items(root["dosyalar"], "dosyalar")
     files = tuple(_romfs_path(reader, p, f"dosyalar[{i}]") for i, p in enumerate(listed, 1))
     pages: dict[str, tuple[Label, ...]] = {}
     for i, raw in enumerate(reader.items(root["sayfalar"], "sayfalar"), 1):
         where = f"sayfalar[{i}]"
         page = reader.object(raw, where, {"ozetler": True, "etiketler": True})
-        labels = tuple(
-            _label(reader, row, f"{where}.etiketler[{k}]")
-            for k, row in enumerate(reader.items(page["etiketler"], f"{where}.etiketler"), 1)
-        )
+        labels = _labels(reader, page["etiketler"], f"{where}.etiketler")
         for k, key in enumerate(reader.items(page["ozetler"], f"{where}.ozetler"), 1):
             if not isinstance(key, str) or not _PAGE_KEY.fullmatch(key):
                 raise reader.fail(f"{where}.ozetler[{k}]", "16 haneli küçük harfli onaltılık sayfa özeti olmalı")
             pages[key] = labels
-    return ImageTexts(files, pages)
+    menus = _menus(reader, root["menuler"]) if "menuler" in root else None
+    return ImageTexts(files, pages, menus)
+
+
+def _labels(reader: _Reader, raw: Any, where: str) -> tuple[Label, ...]:
+    return tuple(_label(reader, row, f"{where}[{k}]") for k, row in enumerate(reader.items(raw, where), 1))
+
+
+def _menus(reader: _Reader, raw: Any) -> dict[int, tuple[Label, ...]]:
+    """Menü dokuları: doku kimliği (T32 başlığında 0x14) → sözcükler; bir kimlik yalnızca bir kez geçebilir."""
+    out: dict[int, tuple[Label, ...]] = {}
+    for i, value in enumerate(reader.items(raw, "menuler"), 1):
+        where = f"menuler[{i}]"
+        group = reader.object(value, where, {"dokular": True, "etiketler": True})
+        labels = _labels(reader, group["etiketler"], f"{where}.etiketler")
+        for k, key in enumerate(reader.items(group["dokular"], f"{where}.dokular"), 1):
+            at = f"{where}.dokular[{k}]"
+            if not isinstance(key, str) or not _TEXTURE_ID.fullmatch(key):
+                raise reader.fail(at, "8 haneli onaltılık doku kimliği olmalı (ör. 0A1B2C3D)")
+            if int(key, 16) in out:
+                raise reader.fail(at, f"yineleniyor ({key.upper()} daha önce verildi)")
+            out[int(key, 16)] = labels
+    return out
 
 
 def load_descriptions(path: Path) -> tuple[tuple[str, str], ...]:
@@ -221,16 +244,26 @@ def load(folder: Path | None) -> UserData:
     )
 
 
-def missing_note(folder: Path | None, variable: str) -> str | None:
-    """Eksik veri dosyaları için bilgi dosyasına yazılacak satır (hepsi varsa None); dosyalar okunmaz."""
-    names = [n for n in (IMAGE_TEXTS, DESCRIPTIONS) if folder is None or not (folder / n).is_file()]
-    if not names:
+def missing_note(data: UserData, folder: Path | None, variable: str) -> str | None:
+    """Eksik veri için bilgi dosyasına yazılacak satır (hiçbir şey eksik değilse None)."""
+    names = list(data.missing)
+    no_menus = data.image_texts is not None and data.image_texts.menus is None
+    if not names and not no_menus:
         return None
-    what = {IMAGE_TEXTS: "resimlerdeki yazılar", DESCRIPTIONS: "düşman açıklamaları"}
-    lead = "Ek çeviri verisi bulunamadı; " + " ve ".join(what[n] for n in names) + " İngilizce kaldı. Bunları da "
-    if folder is None:
-        return (
-            lead + f"çevirmek için {variable} ortam değişkeni tanımlı değil (ya da gösterdiği klasör yok): değişkeni "
-            "grafik klasörünüze yönlendirin ve " + ", ".join(names) + " dosyalarını oraya koyun."
+    parts = []
+    if names:
+        what = {IMAGE_TEXTS: "resimlerdeki yazılar ve menü başlıkları", DESCRIPTIONS: "düşman açıklamaları"}
+        parts.append("Ek çeviri verisi bulunamadı; " + " ve ".join(what[n] for n in names) + " İngilizce kaldı.")
+        if folder is None:
+            parts.append(
+                f"Bunları da çevirmek için {variable} ortam değişkeni tanımlı değil (ya da gösterdiği klasör yok): "
+                "değişkeni grafik klasörünüze yönlendirin ve " + ", ".join(names) + " dosyalarını oraya koyun."
+            )
+        else:
+            parts.append("Bunları da çevirmek için " + ", ".join(names) + f" dosyasını {folder} klasörüne koyun.")
+    if no_menus:
+        parts.append(
+            f'{IMAGE_TEXTS} dosyasında "menuler" bölümü yok; durum menüsü başlık dokuları İngilizce kaldı '
+            "(bölümün biçimi: docs/formats/fsd-msg.md)."
         )
-    return lead + "çevirmek için " + ", ".join(names) + f" dosyasını {folder} klasörüne koyun."
+    return " ".join(parts)

@@ -58,6 +58,13 @@ def _image_texts(key: str = "0" * 16, **label: Any) -> dict[str, Any]:
     return {"dosyalar": [PAGE_PATH], "sayfalar": [{"ozetler": [key], "etiketler": [row]}]}
 
 
+MENU_ROW = {"pencere": [3, 4, 80, 50], "ingilizce": "Lamp", "turkce": "Fener", "hiza": "left"}
+
+
+def _with_menus(*ids: str) -> dict[str, Any]:
+    return {**_image_texts(), "menuler": [{"dokular": list(ids or ("1234ABCD", "0000beef")), "etiketler": [MENU_ROW]}]}
+
+
 def _descriptions() -> dict[str, Any]:
     turkish = ["Kötü\nruhlardır.", "Sol Çubuğu salla.", "Vur."]
     return {"aciklamalar": [{"ozet": exe.digest(en), "turkce": tr} for en, tr in zip(TEXTS, turkish, strict=True)]}
@@ -88,6 +95,15 @@ def test_valid_data_is_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     expected = [(row["ozet"], row["turkce"]) for row in _descriptions()["aciklamalar"]]
     assert data.descriptions == tuple(expected)
     assert data.missing == ()
+    assert data.image_texts.menus is None  # bölüm yok
+
+
+def test_menu_section_is_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    folder = _folder(tmp_path, monkeypatch, **{IMAGE_TEXTS: _with_menus()})
+    texts = fsdmsg_userdata.load(folder).image_texts
+    assert texts is not None
+    label = Label((3, 4, 80, 50), "Lamp", "Fener", align="left")
+    assert texts.menus == {0x1234ABCD: (label,), 0xBEEF: (label,)}
 
 
 def test_byte_order_mark_is_accepted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -131,6 +147,10 @@ def _broken_cases() -> list[tuple[str, Any, str]]:
         (DESCRIPTIONS, {"aciklamalar": [{"ozet": "a" * 64}]}, "aciklamalar[1].turkce"),
         (DESCRIPTIONS, {"aciklamalar": {"ozet": "a" * 64}}, "aciklamalar"),
         (DESCRIPTIONS, {"aciklamalar": []}, "aciklamalar"),
+        (IMAGE_TEXTS, _with_menus("XYZ"), "menuler[1].dokular[1]"),
+        (IMAGE_TEXTS, _with_menus("1234ABCD", "1234abcd"), "menuler[1].dokular[2]"),
+        (IMAGE_TEXTS, {**_image_texts(), "menuler": [{"dokular": ["1234ABCD"]}]}, "menuler[1].etiketler"),
+        (IMAGE_TEXTS, {**_image_texts(), "menuler": {}}, "menuler"),
         (DESCRIPTIONS, {"aciklamalar": [{"ozet": "a" * 64, "turkce": 5}]}, "turkce"),
     ]
 
@@ -159,7 +179,7 @@ def test_application_package_holds_no_extra_translation_data() -> None:
 
 def test_without_data_only_menu_textures_are_patched_and_no_program_patch() -> None:
     plugin = FsdMsgPlugin()
-    assert set(plugin.game_file_patches()) == set(MENU_FILES)
+    assert plugin.game_file_patches() == {}  # menü dokuları da değişmez
     code, _starts = _code()
     assert plugin.exefs_patches(code) == {}
     notes = plugin.derived_files(lambda _p: b"", [], None).notes
@@ -168,11 +188,13 @@ def test_without_data_only_menu_textures_are_patched_and_no_program_patch() -> N
     assert DESCRIPTIONS in notes[0]
     assert fsdmsg_graphics.ENV in notes[0]
     assert "tanımlı değil" in notes[0]  # değişken yok: önce onu tanımlamak gerekir
+    assert "menü" in notes[0]
 
 
 def test_with_data_pages_and_descriptions_are_patched(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     page = _label_page()
-    _folder(tmp_path, monkeypatch, **{IMAGE_TEXTS: _image_texts(page_key(page)), DESCRIPTIONS: _descriptions()})
+    texts = {**_with_menus(), **_image_texts(page_key(page))}
+    _folder(tmp_path, monkeypatch, **{IMAGE_TEXTS: texts, DESCRIPTIONS: _descriptions()})
     plugin = FsdMsgPlugin()
     patches = plugin.game_file_patches()
     assert set(patches) == {*MENU_FILES, PAGE_PATH}
@@ -263,7 +285,8 @@ def test_export_without_data_writes_text_and_tells_the_user(tmp_path: Path) -> N
 
 
 def test_export_with_data_patches_pages(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _folder(tmp_path, monkeypatch, **{IMAGE_TEXTS: _image_texts(page_key(_label_page()))})
+    texts = {**_with_menus(), **_image_texts(page_key(_label_page()))}
+    _folder(tmp_path, monkeypatch, **{IMAGE_TEXTS: texts})
     dest, result = _export(tmp_path)
     assert _romfs(PAGE_PATH) in result.files
     written = (dest / _romfs(PAGE_PATH)).read_bytes()
@@ -284,3 +307,12 @@ def test_export_with_broken_data_stops_without_partial_output(
     assert name in caught.value.message
     out = tmp_path / "çıktı"
     assert not out.exists() or not list(out.iterdir())  # yarım mod ya da geçici klasör kalmadı
+
+
+def test_missing_menu_section_is_named_separately(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _folder(tmp_path, monkeypatch, **{IMAGE_TEXTS: _image_texts(), DESCRIPTIONS: _descriptions()})
+    plugin = FsdMsgPlugin()
+    assert not set(plugin.game_file_patches()) & set(MENU_FILES)
+    (note,) = plugin.derived_files(lambda _p: b"", [], None).notes
+    assert '"menuler"' in note
+    assert DESCRIPTIONS not in note

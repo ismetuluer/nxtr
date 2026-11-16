@@ -1,17 +1,20 @@
 """`.fsd`/`.msg` biçimli oyunun menü başlığı resimlerini Türkçeleştirme: `status_e/st_init.dat` dokuları.
 
-Durum (pause) menüsünün başlıkları (Weapon, Item, Map, File, Exit …) metin değil, `st_init.dat` dosyasının
+Durum (pause) menüsünün başlıkları metin değil, `st_init.dat` dosyasının
 1–4. bölümlerindeki T32 dokularına çizilmiş resimlerdir (docs/formats/fsd-msg.md). Switch dokuları BC7 (DX10 DDS)
 sayfalarıdır; her sayfa okunur, İngilizce sözcüğün bulunduğu pencere silinir ve Türkçe karşılığı aynı yükseklikte,
 aynı taban çizgisinde, özgün renk ve parıltıyla çizilir. Dokular PC sürümünün (ve oyunun yazı dokusunun, cihazda
 doğrulandı) kullandığı sıkıştırılmamış biçimde geri yazılır: 0xC0 baytlık T32 başlığı + sayfa başına DDS.
 
-Oyun dokuları toplamsal karıştırmayla çizer: siyah görünmez, alfa her yerde 255'tir.
+Oyun dokuları toplamsal karıştırmayla çizer: siyah görünmez, alfa her yerde 255'tir. Hangi dokuda hangi sözcüğün
+nerede olduğu (doku kimliği → etiketler) uygulamayla gelmez; kullanıcının `resim_yazilari.json` dosyasının `menuler`
+bölümünden okunur (`fsdmsg_userdata`). Pencereler her sayfada (normal ve seçili) aynıdır.
 """
 
 from __future__ import annotations
 
 import struct
+from collections.abc import Mapping
 
 from PIL import Image
 
@@ -23,35 +26,6 @@ _DDS = 128
 _DX10 = 148
 #: BC7_UNORM (DXGI_FORMAT 98).
 _BC7 = 98
-
-
-_STATUS_WORDS = (
-    Label((6, 30, 124, 80), "Weapon", "Silah"),
-    Label((134, 30, 188, 62), "New", "Yeni"),
-    Label((6, 88, 118, 130), "Total Exp", "Toplam Puan"),
-    Label((6, 144, 112, 184), "Action", "Hareket"),
-    Label((128, 160, 220, 206), "Map", "Harita"),
-    Label((6, 200, 82, 236), "Item", "Eşya"),
-)
-_FILE_WORDS = (
-    Label((3, 4, 80, 50), "File", "Dosya", align="left", shift=6),  # solundaki "Harita" ile arası açılsın
-    Label((96, 6, 162, 46), "Exit", "Çıkış"),
-)
-_MAP_WORDS = (
-    Label((4, 2, 166, 33), "Floor Select mode", "Kat Seçimi", style="serif", align="left"),
-    Label((4, 34, 164, 61), "Move MAP mode", "Haritayı Kaydır", style="serif", align="left"),
-    Label((4, 65, 100, 93), "Roll MAP", "Döndür", style="serif", align="left"),
-)
-#: Doku kimliği (T32 başlığında 0x14) → sözcükler. Pencereler her sayfada (normal ve seçili) aynıdır.
-#: Aynı resimler `status_e` ve `status_u` dosyalarında farklı kimliklerle iki kez bulunur.
-WORDS: dict[int, tuple[Label, ...]] = {
-    0xAECBB6FE: _STATUS_WORDS,
-    0x3729D0FF: _FILE_WORDS,
-    0xF6A70F3F: _MAP_WORDS,
-    0x7C3C275B: _STATUS_WORDS,
-    0xE5DE415A: _FILE_WORDS,
-    0x24509E9A: _MAP_WORDS,
-}
 
 
 def texture_id(t32: bytes) -> int:
@@ -99,9 +73,9 @@ def write_t32(original: bytes, pages: list[Image.Image]) -> bytes:
     return bytes(head) + body
 
 
-def translate_texture(t32: bytes) -> bytes | None:
-    """Bilinen bir menü dokusuysa Türkçe başlıklı hâlini döndürür; değilse None."""
-    words = WORDS.get(texture_id(t32))
+def translate_texture(t32: bytes, table: Mapping[int, tuple[Label, ...]]) -> bytes | None:
+    """`table`daki (doku kimliği → sözcükler) bir menü dokusuysa Türkçe başlıklı hâlini döndürür; değilse None."""
+    words = table.get(texture_id(t32))
     if words is None:
         return None
     fonts = {style: find_font(style) for style in {word.style for word in words}}
