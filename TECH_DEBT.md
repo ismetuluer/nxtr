@@ -126,12 +126,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 
 92. **Türkçe harf onarımı sözlüğe bağlı (0.57.0).** Paketli sözlük bazı ASCII biçimleri (`surat`, `simdi`) geçerli sözcük saydığı için bunlar onarılmaz; eşyazımlılar (`cok` → çok/çök) elle kalır. Hatalı satırlarda kod onarımı ile harf onarımı ayrı geçişlerde çalışır, tek geçişte birleşmez. Düzeltme onay kutusu için arayüz testi yok. *Ne zaman:* kullanıcı onarılmayan yaygın bir sözcük bildirirse sözlüğe istisna listesi eklenir.
 
-93. **Sıraya bağlı test (0.59.0).** `tests/test_editor_pane.py::test_narrow_head_keeps_badge_and_approve_whole[280]`
-    tek başına geçer, belirli bir test sırasında başarısız olur; testler arası paylaşılan durum bulunmalı.
-
-94. **Tek ölçümlü süre testleri (0.59.0).** Bazı süre testleri tek ölçüme bakar; makine yük altındayken
-    yanlış alarm verir (ör. `tests/test_ascii_turkish.py::test_five_thousand_rows_check_quickly`). En iyi ölçüme bakmalı.
-
 95. **Sığdırmada anahtar adı her biçimde bağlamdan alınıyor (0.59.0).** `core/translate/fitconfig.py`
     `key_names` bağlamın son parçasını her biçimde anahtar adı sayar; koleksiyonu olmayan biçimlerde
     anahtar desenleri yanlış satıra uyabilir (`in_collection` ile sınırlanmalı).
@@ -429,3 +423,10 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 84. ~~Kontrol Et → Denetle ana iş parçacığında çalışıyor~~ — 0.52.1'de arka plana alındı. **(0.51.0)** 50.000 satırda birkaç saniye sürebilir. Arka plana
     almak denetim testlerinin çoğunu eşzamansız yapacağından ertelendi; diğer yeniden denetimler (Terim değil, Yoksay,
     Değiştir) arka planda. *Ne zaman:* D aşaması (bildirimler) ile.
+
+93. ~~Sıraya bağlı test (0.59.0).~~ — **0.59.0 sonrası kapandı:** bir sayfa testi uygulama temasını değiştirip geri
+    almıyordu (`tests/test_qa_layout.py`); sonraki testlerin yazı tipi ve yerleşimi değişiyordu. Fixture temayı
+    geri yükler.
+
+94. ~~Tek ölçümlü süre testleri (0.59.0).~~ — **0.59.0 sonrası kapandı:** süre testleri en iyi ölçüme bakar
+    (`tests/perf.py` `best_time`); eşikler değişmedi. Durum biriktiren birkaç test bilerek tek ölçümde kaldı.

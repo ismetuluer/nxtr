@@ -7,7 +7,6 @@ verebilir, gerçek bir gerileme ise bütün tekrarları yavaşlatır.
 
 from __future__ import annotations
 
-import time
 from collections.abc import Callable
 
 import pytest
@@ -16,6 +15,7 @@ from pytestqt.qtbot import QtBot
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.translate.status import Status
 from nxceviri.gui.translate_page import TranslatePage
+from tests.perf import best_time
 
 pytestmark = pytest.mark.gui
 
@@ -62,13 +62,8 @@ def _rows_2408() -> list[TranslationRow]:
     return rows
 
 
-def _best(action: Callable[[], None], repeat: int = 3) -> float:
-    costs = []
-    for _ in range(repeat):
-        start = time.perf_counter()
-        action()
-        costs.append(time.perf_counter() - start)
-    return min(costs)
+def _best(action: Callable[[], None]) -> float:
+    return best_time(lambda: action)
 
 
 @pytest.mark.parametrize(("make", "groups"), [(_rows_625, 625), (_rows_2408, 2408)])

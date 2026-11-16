@@ -19,6 +19,7 @@ from nxceviri.core.progress import CancelToken, TaskContext
 from tests import nxbuild
 from tests.conftest import GameFiles
 from tests.nxbuild import build_sarc, yaz0_literal
+from tests.perf import best_time
 
 UNITY_SERIALIZED_HEAD = b"\0" * 8 + (22).to_bytes(4, "big") + b"\0" * 20
 LOCRES = bytes.fromhex("0E147475674A03FC4A15909DC3377F1B") + b"\0" * 8
@@ -139,11 +140,10 @@ def test_engine_guess() -> None:
 
 def test_large_table_scan_is_fast(tmp_path: Path) -> None:
     """Binlerce dosyalık bir RomFS hızlı taranır (sanal görünüm kopyalama yapmaz)."""
-    import time
-
     files = {f"Message/bölüm_{i:05d}.msbt": b"MsgStdBn" + i.to_bytes(4, "little") for i in range(5000)}
     view = _view(files)
-    start = time.monotonic()
-    report = scan_view(view)
-    assert len(report.entries) == 5000
-    assert time.monotonic() - start < 10
+
+    def scan() -> None:
+        assert len(scan_view(view).entries) == 5000
+
+    assert best_time(lambda: scan, under=10.0) < 10.0

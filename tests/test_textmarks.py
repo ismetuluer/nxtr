@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import re
-import time
 from typing import Any
 
 from nxceviri.core.translate.codekinds import KIND_LINE_BREAK, KIND_OTHER, KIND_PAGE_BREAK, KIND_SYMBOL
 from nxceviri.gui.textmarks import KIND_GLYPHS, code_spans, marked_html, pua_spans, trailing_space_spans
 from nxceviri.gui.theme import TOKENS
+from tests.perf import best_time
 
 TOKENS_LIGHT = TOKENS["light"]
 KINDS = {1: KIND_LINE_BREAK, 2: KIND_PAGE_BREAK}
@@ -92,9 +92,7 @@ def test_code_spans() -> None:
 
 def test_very_long_line_is_fast() -> None:
     text = ("kelime " * 1500)[:10_000]
-    start = time.perf_counter()
-    html(text, symbols=True, chips=True)
-    assert time.perf_counter() - start < 0.5
+    assert best_time(lambda: lambda: html(text, symbols=True, chips=True), under=0.5) < 0.5
 
 
 def test_symbol_space_keeps_a_break_opportunity() -> None:

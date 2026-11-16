@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -18,6 +18,7 @@ from nxceviri.gui.find_replace import SCOPE_ALL, SCOPE_VISIBLE
 from nxceviri.gui.main_window import MANUAL_LIMIT_KEY, STEP_TRANSLATE, MainWindow
 from nxceviri.gui.translate_page import TranslatePage
 from nxceviri.gui.widgets import format_int
+from tests.perf import best_time
 from tests.test_editor import _project
 from tests.test_find_bar import Writer, make_page
 from tests.test_marked_delegate import make_row
@@ -256,19 +257,21 @@ def test_keystroke_work_on_large_table_is_fast(qtbot: QtBot) -> None:
     bar.replace_edit.setText("su")
     bar.flush()
     QApplication.processEvents()
-    costs: list[float] = []
-    for _ in range(5):
+
+    def prepare() -> Callable[[], None]:
         bar.find_edit.setText("")  # her tekrar aynı başlangıç durumundan (boş arama) başlar
         bar.flush()
         QApplication.processEvents()
-        started = time.perf_counter()
-        bar.find_edit.setText("çeviri")
-        bar.flush()
-        QApplication.processEvents()
-        costs.append(time.perf_counter() - started)
-    cost = min(costs)
-    print(f"50.000 satır, tuş vuruşu başına arayüz işi (en iyi/5): {cost * 1000:.0f} ms")
-    # En iyi ölçüm alınır: yük gürültüsü her tekrarı birden yavaşlatmaz, gerçek gerileme hepsini yavaşlatır.
+
+        def keystroke() -> None:
+            bar.find_edit.setText("çeviri")
+            bar.flush()
+            QApplication.processEvents()
+
+        return keystroke
+
+    cost = best_time(prepare, under=0.25, attempts=5)
+    print(f"50.000 satır, tuş vuruşu başına arayüz işi (en iyi): {cost * 1000:.0f} ms")
     assert cost < 0.25  # tek başına ~0,1 sn
 
 

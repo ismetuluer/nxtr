@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from dataclasses import replace
 
 from nxceviri.core.project import TranslationRow
@@ -14,6 +13,7 @@ from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.spell.loader import load_spell_checker
 from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.status import Status
+from tests.perf import best_time
 
 WORDS = [
     "teşekkür",
@@ -129,10 +129,12 @@ def test_plan_fixes_uses_spell_and_reports_ambiguous_as_review() -> None:
 
 def test_five_thousand_rows_check_quickly() -> None:
     rows = [_row("Thanks", f"cok guzel kitap {i % 7} xyzzy Iste") for i in range(5000)]
-    start = time.perf_counter()
-    for row in rows:
-        check_row(row, "", "", spell=SPELL)
-    assert time.perf_counter() - start < 3.0
+
+    def check_all() -> None:
+        for row in rows:
+            check_row(row, "", "", spell=SPELL)
+
+    assert best_time(lambda: check_all, under=3.0) < 3.0
 
 
 def test_real_dictionary_smoke() -> None:

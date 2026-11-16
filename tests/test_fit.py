@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import random
-import time
 
 import pytest
 
@@ -27,6 +26,7 @@ from nxceviri.core.translate.fit import (
     split_pages,
     visible_width,
 )
+from tests.perf import best_time
 
 PAGE = {1: KIND_PAGE_BREAK, 2: KIND_PAGE_BREAK, 3: KIND_PAGE_BREAK}
 
@@ -355,10 +355,12 @@ def test_turkish_chars() -> None:
 
 def test_5000_pages_fast() -> None:
     rows = [SAMPLE.replace("Kusura", f"Kusura{i % 7}") + "⟦1⟧" + "kelime " * (i % 15) + "son." for i in range(5000)]
-    start = time.perf_counter()
-    for row in rows:
-        fit_text(row, kind_of, RULES)
-    assert time.perf_counter() - start < 10.0
+
+    def fit_all() -> None:
+        for row in rows:
+            fit_text(row, kind_of, RULES)
+
+    assert best_time(lambda: fit_all, under=10.0) < 10.0
 
 
 # --- Kontrol kodu bütünlüğü ---------------------------------------------------------------------------------------

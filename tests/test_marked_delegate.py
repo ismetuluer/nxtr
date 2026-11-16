@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import re
-import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 import pytest
 from PySide6.QtCore import QModelIndex, QRect, Qt
@@ -18,6 +17,7 @@ from nxceviri.core.translate.status import Status
 from nxceviri.gui.marked_delegate import ROW_ROLE, MarkedDelegate
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.translate_page import COL_SOURCE, COL_TRANSLATION, TranslatePage, TranslationDelegate, _Editor
+from tests.perf import best_time
 
 pytestmark = pytest.mark.gui
 
@@ -183,14 +183,20 @@ def test_cache_follows_text_changes(qtbot: QtBot) -> None:
 
 def test_5000_rows_fit_rows_fast(qtbot: QtBot) -> None:
     rows = [make_row(i, f"Line {i}: Hello there, how are you doing today?", f"Satır {i}: Merhaba") for i in range(5000)]
-    page = TranslatePage()
-    qtbot.addWidget(page)
-    page.resize(1000, 700)
-    page.show()
-    start = time.perf_counter()
-    page.set_rows(rows)
-    page._fit_rows()
-    assert time.perf_counter() - start < 3.0
+
+    def prepare() -> Callable[[], None]:
+        page = TranslatePage()  # her denemede taze sayfa: önceki denemenin önbelleği ölçümü bozmasın
+        qtbot.addWidget(page)
+        page.resize(1000, 700)
+        page.show()
+
+        def load() -> None:
+            page.set_rows(rows)
+            page._fit_rows()
+
+        return load
+
+    assert best_time(prepare, under=3.0) < 3.0
 
 
 def test_very_long_line_and_html_characters(qtbot: QtBot) -> None:

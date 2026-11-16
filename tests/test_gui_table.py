@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import time
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -24,6 +24,7 @@ from nxceviri.gui.translate_page import (
     TranslatePage,
 )
 from nxceviri.gui.widgets import Card, tip_html
+from tests.perf import best_time
 
 pytestmark = pytest.mark.gui
 
@@ -122,15 +123,20 @@ def test_editing_while_sorted_does_not_move_rows(page: TranslatePage) -> None:
 
 
 def test_sort_keeps_filter_and_is_fast_on_large_tables(qtbot: QtBot) -> None:
-    p = TranslatePage()
-    qtbot.addWidget(p)
-    p.resize(1100, 700)
-    p.show()
     rows = [_row(i, f"Line {(i * 7919) % 20000:05d}", "") for i in range(1, 30001)]
-    p.set_rows(rows)
-    start = time.perf_counter()
-    p.model.sort_by(COL_SOURCE, Qt.SortOrder.DescendingOrder)
-    assert time.perf_counter() - start < 3.0
+    pages: list[TranslatePage] = []
+
+    def prepare() -> Callable[[], None]:
+        page = TranslatePage()  # her denemede taze sayfa ve sıralanmamış model
+        qtbot.addWidget(page)
+        page.resize(1100, 700)
+        page.show()
+        page.set_rows(rows)
+        pages.append(page)
+        return lambda: page.model.sort_by(COL_SOURCE, Qt.SortOrder.DescendingOrder)
+
+    assert best_time(prepare, under=3.0) < 3.0
+    p = pages[-1]
     assert p.proxy.index(0, COL_SOURCE).data() == "Line 19999"
     p.search.setText("Line 0000")
     assert p.proxy.rowCount() == 30000  # büyük tabloda yazarken süzülmez (gecikmeli)

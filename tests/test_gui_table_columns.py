@@ -3,7 +3,7 @@ yumuşak kaydırma ve Excel tarzı çoklu süzgeç."""
 
 from __future__ import annotations
 
-import time
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -30,6 +30,7 @@ from nxceviri.gui.translate_page import (
     TranslatePage,
 )
 from nxceviri.gui.value_filter import FilterPopup, ValueFilter
+from tests.perf import best_time
 
 pytestmark = pytest.mark.gui
 
@@ -487,18 +488,24 @@ def test_filter_funnel_click_opens_panel(qtbot: QtBot) -> None:
 
 def test_filter_performance_with_ten_thousand_keys(qtbot: QtBot) -> None:
     rows = [_row(i, f"Metin {i}", key=f"Dialogue/line_{i}") for i in range(1, 10001)]
-    p = _page(qtbot, rows)
-    start = time.perf_counter()
-    popup = p.open_filter(COL_KEY)
-    popup.all_box.click()  # hepsini kaldır
-    popup.search.setText("line_99")
-    assert popup.model.rowCount() == 111  # line_99, line_990..999, line_9900..9999
-    popup.all_box.click()  # görünen 111 değeri işaretle
-    popup.ok_button.click()
-    assert p.proxy.rowCount() == 111
-    p.key_filter.clear()
-    assert p.proxy.rowCount() == 10000
-    assert time.perf_counter() - start < 1.0
+
+    def prepare() -> Callable[[], None]:
+        p = _page(qtbot, rows)  # her denemede taze sayfa ve süzgeç penceresi
+
+        def filter_keys() -> None:
+            popup = p.open_filter(COL_KEY)
+            popup.all_box.click()  # hepsini kaldır
+            popup.search.setText("line_99")
+            assert popup.model.rowCount() == 111  # line_99, line_990..999, line_9900..9999
+            popup.all_box.click()  # görünen 111 değeri işaretle
+            popup.ok_button.click()
+            assert p.proxy.rowCount() == 111
+            p.key_filter.clear()
+            assert p.proxy.rowCount() == 10000
+
+        return filter_keys
+
+    assert best_time(prepare, under=1.0) < 1.0
 
 
 def test_filter_values_use_natural_order(qtbot: QtBot) -> None:

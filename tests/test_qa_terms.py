@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import time
-
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa.checks import run_checks
 from nxceviri.core.qa.terms import canonical_terms, term_issues
 from nxceviri.core.translate.providers.base import GlossaryTerm
 from nxceviri.core.translate.status import Status
+from tests.perf import best_time
 
 
 def _row(i: int, source: str, translation: str, status: str = Status.MACHINE) -> TranslationRow:
@@ -138,10 +137,11 @@ def test_term_issues_is_fast_on_50k_rows_and_2k_terms() -> None:
         _row(i, f"Let us go to Place{i % 10000} Hall right now, my friend.", f"Şimdi Yer{i % 10000} Salonu'na gidelim.")
         for i in range(50_000)
     ]
-    start = time.perf_counter()
-    found = term_issues(rows, canon)
-    assert time.perf_counter() - start < 2.0
-    assert found == []
+
+    def scan() -> None:
+        assert term_issues(rows, canon) == []
+
+    assert best_time(lambda: scan, under=2.0) < 2.0
 
 
 # --- Ö4: yanlış pozitifleri azaltan kurallar ---------------------------------------------------------

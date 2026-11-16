@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import time
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -23,6 +23,7 @@ from nxceviri.gui.settings_dialog import PAGE_LIVE, SettingsDialog
 from nxceviri.gui.theme import DEFAULT_FONT_SIZE, ThemeMode
 from nxceviri.gui.translate_page import COL_STATUS, COL_TRANSLATION, TranslatePage
 from nxceviri.gui.view_actions import ViewActions
+from tests.perf import best_time
 from tests.test_marked_delegate import make_page, make_row
 
 pytestmark = pytest.mark.gui
@@ -269,21 +270,29 @@ def test_settings_live_all_and_none_buttons(qtbot: QtBot, tmp_path: Path) -> Non
 
 def test_fifty_thousand_rows_first_paint_and_edit_under_half_second(qtbot: QtBot) -> None:
     rows = [make_row(i, f"Kaynak metin {i % 5000}", f"Çeviri metni {i % 4000}") for i in range(1, 50_001)]
-    page = TranslatePage()
-    qtbot.addWidget(page)
-    page.set_rows(rows)
-    page.set_live_context(LiveContext(spell=fake_spell()))
-    model = page.model
-    start = time.perf_counter()
-    for r in range(40):
-        for col in range(model.columnCount()):
-            model.index(r, col).data(Qt.ItemDataRole.DisplayRole)
-            model.index(r, col).data(Qt.ItemDataRole.ToolTipRole)
-        model.index(r, COL_TRANSLATION).data(Qt.ItemDataRole.ForegroundRole)
-    target = model.rows[0]
-    model.update_rows([make_row(target.id, target.source, "Başka bir çeviri")])
-    assert any(i.kind == "inconsistent" for i in model.issues(model.rows[model.position(target.id + 5000) or 0]))
-    elapsed = time.perf_counter() - start
+
+    def prepare() -> Callable[[], None]:
+        page = TranslatePage()  # her denemede taze sayfa: satır sonuçları önbelleğe alınmış olmasın
+        qtbot.addWidget(page)
+        page.set_rows(rows)
+        page.set_live_context(LiveContext(spell=fake_spell()))
+        model = page.model
+
+        def first_paint_and_edit() -> None:
+            for r in range(40):
+                for col in range(model.columnCount()):
+                    model.index(r, col).data(Qt.ItemDataRole.DisplayRole)
+                    model.index(r, col).data(Qt.ItemDataRole.ToolTipRole)
+                model.index(r, COL_TRANSLATION).data(Qt.ItemDataRole.ForegroundRole)
+            target = model.rows[0]
+            model.update_rows([make_row(target.id, target.source, "Başka bir çeviri")])
+            assert any(
+                i.kind == "inconsistent" for i in model.issues(model.rows[model.position(target.id + 5000) or 0])
+            )
+
+        return first_paint_and_edit
+
+    elapsed = best_time(prepare, under=0.5)
     assert elapsed < 0.5, f"{elapsed:.2f} sn"
 
 
