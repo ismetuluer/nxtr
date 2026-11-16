@@ -7,12 +7,13 @@ hata kırmızı). Renkler temadan gelir; simgeler Lucide'dendir.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QModelIndex, QPersistentModelIndex, QPoint, QSize, Qt
+from PySide6.QtCore import QModelIndex, QPersistentModelIndex, QPoint, QSize
 from PySide6.QtGui import QIcon, QPainter
 from PySide6.QtWidgets import QApplication, QStyle, QStyledItemDelegate, QStyleOptionViewItem
 
 from nxceviri.core.translate.status import Status
 from nxceviri.gui.icons import icon, pixmap
+from nxceviri.gui.table_roles import STATUS_ROLE as STATUS_ROLE  # noqa: PLC0414
 from nxceviri.gui.theme import current_tokens
 
 #: Durum → (simge adı, tema rengi).
@@ -26,7 +27,6 @@ STATUS_ICONS: dict[Status, tuple[str, str]] = {
 #: Hata veya uyarısı olan satırda durum simgesinin yanındaki üçgen.
 ISSUE_ICON = "triangle-alert"
 ISSUE_TOKENS = {"error": "danger", "warning": "warning"}
-STATUS_ROLE = Qt.ItemDataRole.UserRole + 20
 ICON_SIZE = 16
 _GAP = 4
 _PADDING = 16

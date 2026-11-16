@@ -130,10 +130,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     `key_names` bağlamın son parçasını her biçimde anahtar adı sayar; koleksiyonu olmayan biçimlerde
     anahtar desenleri yanlış satıra uyabilir (`in_collection` ile sınırlanmalı).
 
-96. **İki tablo rolü aynı numarayı paylaşıyor (0.59.0).** `FIND_SPANS_ROLE` ile `STATUS_ROLE` aynı
-    değerdedir (`UserRole+20`); bugün farklı modellerde kullanıldığı için zararsız, ortak bir rol
-    kataloğu gerekir.
-
 ## 2. Bilinen sınırlar (ihtiyaç doğunca)
 
 2. **Eski NCA0/NCA2 başlıkları desteklenmiyor.** 2017 öncesi geliştirme sürümlerine özgü;
@@ -430,3 +426,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 
 94. ~~Tek ölçümlü süre testleri (0.59.0).~~ — **0.59.0 sonrası kapandı:** süre testleri en iyi ölçüme bakar
     (`tests/perf.py` `best_time`); eşikler değişmedi. Durum biriktiren birkaç test bilerek tek ölçümde kaldı.
+
+96. ~~İki tablo rolü aynı numarayı paylaşıyor (0.59.0).~~ — **0.59.0 sonrası kapandı:** çeviri tablosunun rolleri
+    tek katalogda (`gui/table_roles.py`); değerlerin farklı olduğu testle korunur.

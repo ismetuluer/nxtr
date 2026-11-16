@@ -28,10 +28,10 @@ from PySide6.QtCore import (
     Qt,
 )
 
+from nxceviri.gui.table_roles import HEADER_ROLE as HEADER_ROLE  # noqa: PLC0414
+
 _Index = QModelIndex | QPersistentModelIndex
 
-#: Başlık satırında grubun adı; gerçek satırda `None`.
-HEADER_ROLE = Qt.ItemDataRole.UserRole + 40
 
 #: Kaynağın bütün satırlarının grup adları (kaynak sırasıyla).
 KeysFn = Callable[[], Sequence[str]]

@@ -35,6 +35,7 @@ from nxceviri.core.translate.regexguard import (
 from nxceviri.core.translate.replace import ReplacePlan, find_pattern, plan_replace, replacement_error
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.shortcuts import ShortcutRegistry
+from nxceviri.gui.table_roles import FIND_SPANS_ROLE as FIND_SPANS_ROLE  # noqa: PLC0414
 from nxceviri.gui.widgets import button, format_int, label
 
 SCOPE_ALL = 0
@@ -56,9 +57,6 @@ _DEBOUNCE_ROWS = 2000
 _DEBOUNCE_MS = 150
 #: Önizleme yalnızca görünen satırlar için hesaplanır; kaydırınca bu gecikmeyle tazelenir.
 _SCROLL_REFRESH_MS = 60
-
-#: Modelin hücre için verdiği bul-vurgusu: `FindCell`. Hücre çizimi eşleşen aralıkları bununla boyar.
-FIND_SPANS_ROLE = Qt.ItemDataRole.UserRole + 20
 
 
 @dataclass(frozen=True)

@@ -43,12 +43,10 @@ from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.translate.codekinds import KIND_OTHER, CodeKinds, KindOf
 from nxceviri.gui.find_replace import FIND_SPANS_ROLE, FindCell
 from nxceviri.gui.group_proxy import GroupProxy
+from nxceviri.gui.table_roles import ROW_ROLE as ROW_ROLE  # noqa: PLC0414
 from nxceviri.gui.textmarks import marked_html
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.view_actions import ALIGN_CENTER, ALIGN_LEFT, ALIGN_RIGHT
-
-#: Modelin bu rolde döndürdüğü `TranslationRow`.
-ROW_ROLE = Qt.ItemDataRole.UserRole + 10
 
 
 def _is_group_header(index: _Index) -> bool:
