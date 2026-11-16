@@ -322,7 +322,7 @@ def test_go_menu_mirrors_locked_steps(empty_window: MainWindow, qtbot: QtBot) ->
     assert w.menu_actions["go.translate"].isEnabled()
     w.menu_actions["go.qa"].trigger()
     assert w.pages.currentIndex() == STEP_QA
-    assert [w.menu_actions[c].shortcut().toString() for c in steps] == [f"Ctrl+{i}" for i in range(1, 6)]
+    assert [w.menu_actions[c].shortcut().toString() for c in steps] == [f"Alt+{i}" for i in range(1, 6)]
     w.menu_actions["go.add"].trigger()
     assert w.pages.currentIndex() == STEP_ADD
 

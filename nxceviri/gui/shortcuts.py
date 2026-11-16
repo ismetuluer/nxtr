@@ -68,6 +68,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("edit.reflow", "Satırları Yeniden Böl", CATEGORY_EDIT, "Ctrl+Shift+B"),
     Command("edit.copy_source", "Orijinali Çeviri Olarak Yaz", CATEGORY_EDIT, "Ctrl+Shift+O"),
     Command("edit.clear", "Çeviriyi Temizle", CATEGORY_EDIT),
+    *(Command(f"edit.code{n}", f"Kod {n} Ekle", CATEGORY_EDIT, f"Ctrl+{n}") for n in range(1, 10)),
     # Görünüm
     Command("view.nav", "Kenar Çubuğu", CATEGORY_VIEW, "Ctrl+Alt+S"),
     Command("view.pane", "Çeviri Paneli", CATEGORY_VIEW, "Ctrl+J"),
@@ -97,11 +98,11 @@ COMMANDS: tuple[Command, ...] = (
     Command("translate.changes", "Son İşin Değişiklikleri", CATEGORY_TRANSLATE),
     Command("translate.history", "Çeviri Geçmişi", CATEGORY_TRANSLATE),
     # Git (adımlar)
-    Command("go.add", "Oyunu Ekle", CATEGORY_GO, "Ctrl+1"),
-    Command("go.scan", "Metinleri Tara", CATEGORY_GO, "Ctrl+2"),
-    Command("go.translate", "Çevir", CATEGORY_GO, "Ctrl+3"),
-    Command("go.qa", "Kontrol Et", CATEGORY_GO, "Ctrl+4"),
-    Command("go.export", "Dışa Aktar", CATEGORY_GO, "Ctrl+5"),
+    Command("go.add", "Oyunu Ekle", CATEGORY_GO, "Alt+1"),
+    Command("go.scan", "Metinleri Tara", CATEGORY_GO, "Alt+2"),
+    Command("go.translate", "Çevir", CATEGORY_GO, "Alt+3"),
+    Command("go.qa", "Kontrol Et", CATEGORY_GO, "Alt+4"),
+    Command("go.export", "Dışa Aktar", CATEGORY_GO, "Alt+5"),
     # Araçlar
     Command("tools.spell_check", "Yazım Denetimi", CATEGORY_TOOLS, "F7"),
     Command("tools.spell_dictionary", "Yazım Sözlüğü", CATEGORY_TOOLS),

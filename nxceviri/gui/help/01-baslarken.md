@@ -13,7 +13,7 @@ Sol kenardaki adımlar sırayla ilerler:
 4. **Kontrol Et**: kontrol kodları, taşma, yazım ve Türkçe harfler denetlenir.
 5. **Dışa Aktar**: Atmosphère (Switch) ya da emülatör için mod klasörü üretilir.
 
-İstediğiniz adıma `Ctrl+1` … `Ctrl+5` ile geçebilirsiniz.
+İstediğiniz adıma `Alt+1` … `Alt+5` ile geçebilirsiniz.
 
 ## Anahtar dosyası
 

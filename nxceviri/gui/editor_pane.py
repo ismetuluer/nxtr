@@ -13,7 +13,7 @@ satırın aşan kısmı düzenleyicide vurgulanır.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import NamedTuple
 
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt, Signal
@@ -52,6 +52,7 @@ from nxceviri.core.translate.codekinds import KindOf
 from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, FitRules, split_lines, split_pages, visible_width
 from nxceviri.core.translate.status import STATUS_LABELS, Status
 from nxceviri.gui.icons import bind_icon
+from nxceviri.gui.shortcuts import ShortcutRegistry
 from nxceviri.gui.textmarks import chip_color, chip_glyph, code_spans, pua_color, pua_spans, trailing_space_spans
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.view_actions import ALIGN_CENTER, ALIGN_LEFT, ALIGN_RIGHT
@@ -183,6 +184,43 @@ def overflow_spans(text: str, kind_of: KindOf, limit: int, rules: FitRules | Non
     return spans
 
 
+#: Kod ekleme komutları: `edit.code1` … `edit.code9` (satırın 1…9 numaralı kodu).
+CODE_COMMANDS = tuple(f"edit.code{n}" for n in range(1, 10))
+
+
+def insert_code(edit: QPlainTextEdit, labels: Sequence[str], number: int) -> str | None:
+    """Satırın `number` numaralı kodunu imlece ekler (seçili metin varsa onun yerine geçer; düzenleyicinin kendi
+    geri almasıyla geri alınır). Satırda o kod yoksa metne dokunmaz, kullanıcıya gösterilecek kısa iletiyi döndürür."""
+    if not 0 < number <= len(labels):
+        count = len(labels)
+        return f"Bu satırda ⟦{number}⟧ kodu yok ({count} kod var)." if count else "Bu satırda kontrol kodu yok."
+    edit.insertPlainText(placeholders.token(number))
+    return None
+
+
+def bind_code_shortcuts(
+    edit: QPlainTextEdit,
+    registry: ShortcutRegistry,
+    labels_of: Callable[[], Sequence[str]],
+    notify: Callable[[str], None],
+) -> None:
+    """`edit` odaktayken Ctrl+1…9 (katalogdaki tuşlar) satırın koduna karşılık gelen yer tutucuyu ekler.
+
+    Kısayollar yalnızca bu düzenleyici odaktayken çalışır (`WidgetShortcut`); odak başka yerdeyse tuş hiçbir şey
+    yapmaz ve yutulmaz. Ctrl+Alt (Türkçe klavyede AltGr) ile üretilen karakterler kısayolla eşleşmez, yazılır."""
+    for number, command_id in enumerate(CODE_COMMANDS, start=1):
+        shortcut = QShortcut(edit)
+        shortcut.setContext(Qt.ShortcutContext.WidgetShortcut)
+        shortcut.activated.connect(lambda n=number: _code_shortcut(edit, labels_of(), n, notify))
+        registry.bind(command_id, shortcut)
+
+
+def _code_shortcut(edit: QPlainTextEdit, labels: Sequence[str], number: int, notify: Callable[[str], None]) -> None:
+    message = insert_code(edit, labels, number)
+    if message is not None:
+        notify(message)
+
+
 class _PuaHighlighter(QSyntaxHighlighter):
     """Özel kullanım alanı karakterlerini (oyunun kendi fontundaki düğme simgeleri) tema renginde,
     yedek fonta düşmeden çizer.
@@ -276,10 +314,14 @@ class EditorPane(QWidget):
     spell_word_requested = Signal(str)
     #: "Elle sınır" değişti (0: kapalı); sayfa bunu uygulama ayarı olarak saklar.
     manual_limit_changed = Signal(int)
+    #: Kullanıcıya kısa bir bilgi (ör. satırda olmayan kod numarası); sayfa durum çubuğuna iletir.
+    notice = Signal(str)
 
-    def __init__(self) -> None:
+    def __init__(self, shortcuts: ShortcutRegistry | None = None) -> None:
         super().__init__()
         self.setObjectName("editorPane")
+        #: Tuşların tek kaynağı; verilmezse panel varsayılan tuşlarla tek başına çalışır (sayfa kaydı verir).
+        self.shortcuts = shortcuts if shortcuts is not None else ShortcutRegistry(self)
         self._row: TranslationRow | None = None
         self._number: int | None = None
         self._kind_of: KindOf = lambda _n: "other"
@@ -379,6 +421,8 @@ class EditorPane(QWidget):
         self.limit_spin.valueChanged.connect(self._manual_limit_edited)
         self.translation_edit.installEventFilter(self)
         self.title_label.installEventFilter(self)
+        bind_code_shortcuts(self.translation_edit, self.shortcuts, self._code_labels, self.notice.emit)
+        self.shortcuts.changed.connect(self._shortcut_changed)
         for key, step in (("Alt+Up", -1), ("Alt+Down", 1)):
             shortcut = QShortcut(QKeySequence(key), self)
             shortcut.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
@@ -544,15 +588,13 @@ class EditorPane(QWidget):
             if widget is not None:
                 widget.deleteLater()
         self.chip_buttons = []
-        labels = self._row.code_labels if self._row is not None else ()
+        labels = self._code_labels()
         tokens = current_tokens()
         for number, code_label in enumerate(labels, start=1):
             kind = self._kind_of(number)
             chip = QToolButton()
             chip.setText(f"{chip_glyph(kind)}{number}")
-            chip.setToolTip(
-                f"⟦{number}⟧ {code_label}\nTıklayınca imlece eklenir; kodlar çeviride aynı sırayla kalmalı."
-            )
+            chip.setToolTip(self._chip_tip(number, code_label))
             chip.setCursor(Qt.CursorShape.PointingHandCursor)
             chip.setStyleSheet(f"QToolButton {{ color: {chip_color(kind, tokens)}; font-weight: 600; }}")
             chip.clicked.connect(lambda _checked=False, n=number: self._insert_code(n))
@@ -561,9 +603,24 @@ class EditorPane(QWidget):
         self._chips_layout.addStretch(1)
         self.chips_row.setVisible(bool(self.chip_buttons))
 
+    def _code_labels(self) -> tuple[str, ...]:
+        return self._row.code_labels if self._row is not None else ()
+
+    def _chip_tip(self, number: int, code_label: str) -> str:
+        key = self.shortcuts.text(CODE_COMMANDS[number - 1]) if number <= len(CODE_COMMANDS) else ""
+        how = f"Tıklayınca ya da {key} ile" if key else "Tıklayınca"
+        return f"⟦{number}⟧ {code_label}\n{how} imlece eklenir; kodlar çeviride aynı sırayla kalmalı."
+
+    def _shortcut_changed(self, command_id: str) -> None:
+        if command_id in CODE_COMMANDS:
+            for number, (chip, code_label) in enumerate(zip(self.chip_buttons, self._code_labels(), strict=False), 1):
+                chip.setToolTip(self._chip_tip(number, code_label))
+
     def _insert_code(self, number: int) -> None:
-        self.translation_edit.insertPlainText(placeholders.token(number))
+        message = insert_code(self.translation_edit, self._code_labels(), number)
         self.translation_edit.setFocus()
+        if message is not None:
+            self.notice.emit(message)
 
     def _commit(self) -> None:
         if self._row is None:

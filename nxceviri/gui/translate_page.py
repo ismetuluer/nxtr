@@ -65,7 +65,7 @@ from nxceviri.core.translate.status import STATUS_LABELS, TRANSLATED_STATUSES, S
 from nxceviri.core.translate.textsearch import fold_search
 from nxceviri.core.translate.uppercase import UppercaseRules
 from nxceviri.gui.changes_dialog import HtmlDelegate, diff_html
-from nxceviri.gui.editor_pane import EditorPane
+from nxceviri.gui.editor_pane import EditorPane, bind_code_shortcuts
 from nxceviri.gui.find_replace import (
     FIELD_SOURCE,
     FIND_SPANS_ROLE,
@@ -699,12 +699,19 @@ class _ElideLeftDelegate(QStyledItemDelegate):
 
 
 class TranslationDelegate(MarkedDelegate):
-    def __init__(self, parent: QWidget | None) -> None:
+    #: Kullanıcıya kısa bir bilgi (ör. satırda olmayan kod numarası); sayfa durum çubuğuna iletir.
+    hint = Signal(str)
+
+    def __init__(self, parent: QWidget | None, shortcuts: ShortcutRegistry | None = None) -> None:
         super().__init__(parent, "translation")
+        self._shortcuts = shortcuts if shortcuts is not None else ShortcutRegistry(self)
 
     def createEditor(self, parent: QWidget, option: QStyleOptionViewItem, index: _Index) -> QWidget:
         editor = _Editor(parent)
         editor.setTabChangesFocus(True)
+        row = index.data(ROW_ROLE)
+        labels = row.code_labels if isinstance(row, TranslationRow) else ()
+        bind_code_shortcuts(editor, self._shortcuts, lambda: labels, self.hint.emit)
         editor.committed.connect(lambda: self._finish(editor))
         return editor
 
@@ -919,7 +926,8 @@ class TranslatePage(QWidget):
         self.table.setHorizontalHeader(self.filter_header)
         self.table.setModel(self.filter)
         self.source_delegate = MarkedDelegate(self.table, "source")
-        self.translation_delegate = TranslationDelegate(self.table)
+        self.translation_delegate = TranslationDelegate(self.table, self.shortcuts)
+        self.translation_delegate.hint.connect(self.hint)
         self.table.setItemDelegateForColumn(COL_SOURCE, self.source_delegate)
         self.table.setItemDelegateForColumn(COL_TRANSLATION, self.translation_delegate)
         self.table.setItemDelegateForColumn(COL_PREVIOUS, HtmlDelegate(self.table))
@@ -1007,7 +1015,8 @@ class TranslatePage(QWidget):
         )
         self._fit_rows()
 
-        self.pane = EditorPane()
+        self.pane = EditorPane(self.shortcuts)
+        self.pane.notice.connect(self.hint)
         self.pane.manual_limit_changed.connect(self.manual_limit_changed)
         self.pane.commit_requested.connect(self._on_pane_commit)
         self.pane.navigate_requested.connect(self._navigate)

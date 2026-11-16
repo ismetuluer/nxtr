@@ -136,6 +136,7 @@ kapalıyken satırlar tek satır yüksekliğinde kalır ve satır sonları boşl
 | Ctrl+Z | Son işlemi geri al (elle düzenleme, onay, onay kaldırma, makine işi, bul/değiştir, dış redaksiyon/çeviri içe aktarma, geri alma) |
 | Ctrl+Y | Geri alınan son işlemi yinele (aynı işlem tek adım; yeni bir düzenleme yinele listesini boşaltır) |
 | F3 | Sonraki bakılacak (onaylanmamış) satır |
+| Ctrl+1 … Ctrl+9 | Hücre düzenleyicisinde ya da panelin çeviri kutusunda satırın 1…9 numaralı kontrol kodunu imlece ekler (sayfa geçişi Alt+1…5) |
 | Ctrl+C | Seçili satırları panoya kopyala |
 | Ctrl+F / Ctrl+H | Ara / bul ve değiştir |
 
