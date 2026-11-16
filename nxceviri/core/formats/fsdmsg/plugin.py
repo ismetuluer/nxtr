@@ -10,13 +10,15 @@ Ayrıntı: docs/formats/fsd-msg.md. Cihazda doğrulanana kadar yazma deneyseldir
 from __future__ import annotations
 
 import functools
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
+from pathlib import Path
 
 from nxceviri.core.fontpatch import fsdmsg as font
-from nxceviri.core.fontpatch import fsdmsg_animation, fsdmsg_graphics
+from nxceviri.core.fontpatch import fsdmsg_animation, fsdmsg_graphics, fsdmsg_userdata
 from nxceviri.core.fontpatch import fsdmsg_images as images
 from nxceviri.core.fontpatch import fsdmsg_menu as menu
 from nxceviri.core.formats.base import Context, FormatError, TextEntry
+from nxceviri.core.formats.derived import Derived
 from nxceviri.core.formats.fsdmsg import codec, exe, fsd
 from nxceviri.core.translate import placeholders
 
@@ -126,12 +128,17 @@ class FsdMsgPlugin:
         return {"data/dmc1/etc_e/msg_tex.t32": font.build_texture(codec.FONT_CELLS, regular)}
 
     def game_file_patches(self) -> dict[str, Callable[[bytes], bytes]]:
-        """Oyunun metin dışında değiştirilecek dosyaları (RomFS'e göre yol → dönüştürücü): resimlerdeki yazılar."""
-        patches: dict[str, Callable[[bytes], bytes]] = dict.fromkeys(images.FILES, images.translate_file)
+        """Oyunun metin dışında değiştirilecek dosyaları (RomFS'e göre yol → dönüştürücü): resimlerdeki yazılar.
+
+        Ek çeviri verisi burada denetlenir: bozuk dosya dışa aktarmayı yazmaya başlamadan durdurur."""
+        data = fsdmsg_userdata.load(fsdmsg_graphics.folder())
+        texts = data.image_texts or fsdmsg_userdata.ImageTexts((), {})
+        drawn = functools.partial(images.translate_file, pages=texts.pages)
+        patches: dict[str, Callable[[bytes], bytes]] = dict.fromkeys(texts.files, drawn)
         graphics = fsdmsg_graphics.from_environment()
         if graphics is not None:  # kullanıcının hazırladığı Türkçe sayfalar (etiketlerin yerine geçer)
-            ready = functools.partial(images.translate_file, replacements=graphics.pages)
-            patches.update(dict.fromkeys((*images.FILES, *graphics.files), ready))
+            ready = functools.partial(images.translate_file, pages=texts.pages, replacements=graphics.pages)
+            patches.update(dict.fromkeys((*texts.files, *graphics.files), ready))
             for path, (english, turkish) in graphics.animations.items():
                 patches[path] = functools.partial(
                     fsdmsg_animation.translate_animation, last_english=english, last_turkish=turkish
@@ -140,8 +147,16 @@ class FsdMsgPlugin:
         return patches
 
     def exefs_patches(self, code: bytes) -> dict[str, bytes]:
-        """Program koduna uygulanacak IPS yamaları (yapı kimliği → yama): Türkçe düşman açıklamaları."""
-        return {exe.BUILD_ID: exe.ips(exe.build_patch(code, exe.translations()))}
+        """Program koduna uygulanacak IPS yamaları (yapı kimliği → yama): Türkçe düşman açıklamaları (veri varsa)."""
+        descriptions = fsdmsg_userdata.load(fsdmsg_graphics.folder()).descriptions
+        if descriptions is None:
+            return {}
+        return {exe.BUILD_ID: exe.ips(exe.build_patch(code, list(descriptions)))}
+
+    def derived_files(self, read: Callable[[str], bytes], files: Collection[str], game_dir: Path | None) -> Derived:
+        """Dosya üretmez; ek çeviri verisi eksikse bilgi dosyasına bunu söyleyen bir not ekler."""
+        note = fsdmsg_userdata.missing_note(fsdmsg_graphics.folder(), fsdmsg_graphics.ENV)
+        return Derived(notes=[note] if note else [])
 
     def collect_context(self, data: bytes, path: str = "") -> dict[object, object]:
         return {}

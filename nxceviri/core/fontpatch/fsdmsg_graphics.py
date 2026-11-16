@@ -4,7 +4,8 @@ Klasör düzeni (`<oyun klasörü>/grafik_temizleme`):
 
 - `orijinal/<ad>.png`: oyundan çıkarılmış özgün sayfa (uygulamanın `iter_pages` çözümüyle üretilir);
 - `temiz/<ad>.png`: aynı adlı, yazısı Türkçe olan hazır sayfa (aynı boyut; alfa kanalı özgünle aynı kalır);
-- `dizin.json` (isteğe bağlı): özgün sayfanın geçtiği tüm oyun dosyaları (`build_index` üretir).
+- `dizin.json` (isteğe bağlı): özgün sayfanın geçtiği tüm oyun dosyaları (`build_index` üretir);
+- `resim_yazilari.json`, `aciklamalar.json` (isteğe bağlı): ek çeviri verisi (`fsdmsg_userdata`).
 
 Sayfalar içerik özetiyle eşleşir (`fsdmsg_images.page_key`): özgün sayfa her geçtiği dosyada hazırıyla değiştirilir.
 Oyun grafikleri telifli olduğu için depoya konmaz; klasör kullanıcıda kalır ve `NXCEVIRI_FSD_GRAFIK` ortam
@@ -59,13 +60,17 @@ def load(folder: Path) -> Graphics:
     return Graphics(pages, files, animations)
 
 
+def folder() -> Path | None:
+    """`NXCEVIRI_FSD_GRAFIK` ortam değişkeninin gösterdiği klasör (değişken yoksa ya da klasör yoksa None)."""
+    value = legacy.environ(ENV)
+    return Path(value) if value and Path(value).is_dir() else None
+
+
 @lru_cache(maxsize=1)
 def from_environment() -> Graphics | None:
     """`NXCEVIRI_FSD_GRAFIK` klasöründeki grafikler (ortam değişkeni yoksa ya da klasör yoksa None)."""
-    value = legacy.environ(ENV)
-    if not value or not Path(value).is_dir():
-        return None
-    return load(Path(value))
+    found = folder()
+    return None if found is None else load(found)
 
 
 def build_index(folder: Path, roots: list[Path]) -> int:

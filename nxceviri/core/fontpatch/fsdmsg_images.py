@@ -6,30 +6,29 @@ sayfaları başlıklarından bulunur, çözülür, içerik özetiyle (`page_key`
 aynı boyda ve yerinde** geri yazılır: BC7 sayfalarda yalnızca değişen 4×4 bloklar yeniden kodlanır, sıkıştırılmamış
 (BGRA) sayfalar doğrudan yazılır. Böylece dosyanın boyu ve geri kalan her baytı aynı kalır.
 
-Hangi sayfada hangi yazının nerede olduğu `fsdmsg_images_data.PAGES` tablosundadır (sayfa özeti → etiketler). Aynı resim
-dosyalarda birçok kez geçebilir; özet aynı olduğu için hepsi değiştirilir. Oyunun başka bir sürümünde resim farklıysa
-özet eşleşmez ve sayfaya dokunulmaz.
+Hangi sayfada hangi yazının nerede olduğu kullanıcının verdiği tablodadır (`fsdmsg_userdata`, sayfa özeti → etiketler;
+uygulamayla gelmez). Aynı resim dosyalarda birçok kez geçebilir; özet aynı olduğu için hepsi değiştirilir. Oyunun
+başka bir sürümünde resim farklıysa özet eşleşmez ve sayfaya dokunulmaz.
 """
 
 from __future__ import annotations
 
 import hashlib
 import struct
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 from PIL import Image
 
 from nxceviri.core.fontpatch import bc1, bc7
-from nxceviri.core.fontpatch.fsdmsg_images_data import FILES, PAGES
 from nxceviri.core.fontpatch.labels import Label, draw_label, find_font
 
 _DDS = 128
 _DX10 = 148
 _BC7 = 98
 
-__all__ = ["FILES", "PAGES", "Page", "iter_pages", "page_key", "translate_file"]
+__all__ = ["Page", "iter_pages", "page_key", "translate_file"]
 
 
 @dataclass(frozen=True)
@@ -94,13 +93,12 @@ def _encode(page: Page, original: bytes, image: Image.Image) -> bytes:
 
 def translate_file(
     data: bytes,
-    pages: dict[str, tuple[Label, ...]] | None = None,
+    pages: Mapping[str, tuple[Label, ...]],
     replacements: dict[str, Image.Image] | None = None,
 ) -> bytes:
     """Dosyadaki tanınan sayfaları Türkçeleştirir; dosyanın boyu ve yapısı değişmez.
 
     `replacements` (özgün sayfa özeti → hazır sayfa) varsa o sayfa olduğu gibi yazılır; yoksa etiketler çizilir."""
-    table = PAGES if pages is None else pages
     ready = replacements or {}
     out = bytearray(data)
     fonts: dict[str, Path] = {}
@@ -110,7 +108,7 @@ def translate_file(
         new = ready.get(key)
         if new is not None and new.size != page.image.size:
             new = None
-        labels = table.get(key)
+        labels = pages.get(key)
         if new is None and not labels:
             continue
         original = data[page.data_offset : page.data_offset + page.size]

@@ -7,17 +7,16 @@ dizinin değerleri yükleme anında `.rela.dyn` içindeki R_AARCH64_RELATIVE kay
 
 Türkçe metinler İngilizce metinlerin kapladığı bölgeye art arda yazılır ve her kaydın adresi (addend) yeni yerine
 çevrilir; böylece tek tek metinlerin İngilizcesine sığması gerekmez, yalnızca toplam bölgeye sığmaları gerekir.
-Değişiklik oyunun dosyasına yazılmaz: Atmosphère/emülatörlerin okuduğu bir IPS yamasıdır (`<build id>.ips`).
+Değişiklik oyunun dosyasına yazılmaz: Atmosphère/emülatörlerin okuduğu bir IPS yamasıdır (`<build id>.ips`). Türkçe
+açıklamalar uygulamayla gelmez; kullanıcının grafik klasöründeki `aciklamalar.json`dan okunur (`fsdmsg_userdata`).
 """
 
 from __future__ import annotations
 
 import hashlib
 import itertools
-import json
 import struct
 from dataclasses import dataclass
-from importlib import resources
 
 from nxceviri.core.formats.base import FormatError
 from nxceviri.core.formats.fsdmsg import codec
@@ -139,9 +138,3 @@ def ips(records: list[tuple[int, bytes]]) -> bytes:
             chunk = data[i : i + 0xFFFF]
             out += struct.pack(">IH", offset + i, len(chunk)) + chunk
     return bytes(out + b"EEOF")
-
-
-def translations() -> list[tuple[str, str]]:
-    """Uygulamayla gelen Türkçe düşman açıklamaları (özgün metnin özeti, Türkçe) kod sırasıyla."""
-    raw = (resources.files("nxceviri") / "assets" / "fsdmsg" / "dusman_aciklamalari.json").read_text(encoding="utf-8")
-    return [(row["sha256"], row["tr"]) for row in json.loads(raw)]

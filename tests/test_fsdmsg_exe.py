@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
 import struct
-from importlib import resources
 
 import pytest
 
@@ -79,20 +77,12 @@ def test_too_long_or_wrong_version_is_refused() -> None:
         exe.find_entries(code, exe.digest("Not in the code"))
 
 
-def test_ips_format_and_bundled_translations() -> None:
+def test_ips_format() -> None:
     blob = exe.ips([(0x100, b"ab"), (0x200, b"x" * 0x10000)])
     assert blob.startswith(b"IPS32")
     assert blob.endswith(b"EEOF")
     assert struct.unpack_from(">IH", blob, 5) == (0x100, 2)
     assert len(blob) == 5 + 6 + 2 + 6 + 0xFFFF + 6 + 1 + 4  # 64 KB'tan uzun kayıt bölünür
-    pairs = exe.translations()
-    assert len(pairs) == 147
-    assert all(len(digest) == 64 and tr for digest, tr in pairs)
-
-
-def test_bundled_translations_hold_no_original_text() -> None:
-    raw = (resources.files("nxceviri") / "assets" / "fsdmsg" / "dusman_aciklamalari.json").read_text(encoding="utf-8")
-    assert all(set(row) == {"sha256", "tr"} for row in json.loads(raw))
 
 
 def test_digest_normalizes_line_endings_and_trailing_spaces() -> None:

@@ -198,8 +198,9 @@ ulaşır; dizinin değerleri `.rela.dyn` R_AARCH64_RELATIVE kayıtlarının adde
 `formats/fsdmsg/exe.py` Türkçe metinleri İngilizce bölgeye art arda yazar ve kayıtların addend'lerini yeni adreslere
 çevirir (tek tek değil, toplamda sığması yeterli). Çıktı bir IPS32 yamasıdır: Atmosphère'de
 `atmosphere/exefs_patches/<mod>/<build id>.ips`, emülatörde `<TitleID>/<mod>/exefs/<build id>.ips`. Türkçe metinler
-`nxceviri/assets/fsdmsg/dusman_aciklamalari.json` dosyasındadır; özgün İngilizce metin depoda tutulmaz, yalnızca SHA-256 özeti (satır sonu ve satır sonu boşlukları atılarak) saklanır ve koddakiyle özetler eşleşmezse yama
-üretilmez (başka sürüm). PC Türkçe yaması bu metinleri çevirmemişti. Cihazda **henüz doğrulanmadı** (Mod #17).
+uygulamayla gelmez; kullanıcının ek çeviri verisindeki `aciklamalar.json` dosyasından okunur (aşağıda "Ek çeviri
+verisi"). Özgün İngilizce metin tutulmaz, yalnızca SHA-256 özeti (satır sonu ve satır sonu boşlukları atılarak)
+saklanır ve koddakiyle özetler eşleşmezse yama üretilmez (başka sürüm). Dosya yoksa program yaması üretilmez. PC Türkçe yaması bu metinleri çevirmemişti. Cihazda **henüz doğrulanmadı** (Mod #17).
 
 Not: sahne dosyalarında (`fsd`) 23. bölüm dışında da İngilizce metin bulunabiliyor (ör. r11b 26. bölüm); oyunun bunları
 kullanıp kullanmadığı doğrulanmadı.
@@ -231,3 +232,48 @@ bölgeler parçalara ayrılır, her parçanın belirme eğrisi özgün karelerin
 yazı çevreden doldurulur ve Türkçe son karenin bu oranda karışımı konur. Dalgalanma efekti yoktur. 38 animasyon, 21 sn/adet.
 "Mission Clear" animasyonları (`mssn_ips_00–15, 42`) ve çözülemeyen sayfalar bu sürümde yapılmadı.
 Cihazda **henüz doğrulanmadı** (Mod #19).
+
+## Ek çeviri verisi (resim yazıları ve düşman açıklamaları)
+Resimlerdeki yazıların etiket tablosu ve düşman açıklamalarının Türkçeleri oyuna özgü çeviridir; depoda ve uygulama
+paketinde **bulunmaz**. Kullanıcı bunları grafik klasörüne (`NXCEVIRI_FSD_GRAFIK`, yukarıdaki `grafik_temizleme`) iki
+isteğe bağlı JSON dosyası olarak koyar; `fontpatch/fsdmsg_userdata.py` okur ve şemasını denetler.
+
+- Dosya yoksa: metin çevirisi ve dışa aktarma aynen çalışır, o yazılar İngilizce kalır; bilgi dosyasına (`NXTR -
+  Bilgi.txt`) hangi dosyanın eksik olduğunu söyleyen bir satır yazılır.
+- Dosya bozuksa (geçersiz JSON, eksik alan, yanlış tür, tanınmayan alan adı): dışa aktarma hiçbir şey yazmadan durur;
+  hata dosyanın adını ve alanın yerini söyler (sıra numaraları 1'den başlar, ör. `sayfalar[2].etiketler[1].turkce`).
+- UTF-8 (BOM'lu da olur). Göreli RomFS yolları `/` ile yazılır; `..`, sürücü harfi ve `\` kabul edilmez.
+
+`resim_yazilari.json` (örnek uydurmadır):
+
+```json
+{
+ "dosyalar": ["data/ornek/status/menu.itm"],
+ "sayfalar": [
+  {
+   "ozetler": ["0123456789abcdef"],
+   "etiketler": [
+    {"pencere": [10, 4, 200, 40], "ingilizce": "Blue Stone", "turkce": "Mavi Taş", "stil": "brush"},
+    {"pencere": [10, 50, 200, 80], "ingilizce": "Old Map", "turkce": "Eski Harita", "stil": "plain", "hiza": "left"}
+   ]
+  }
+ ]
+}
+```
+
+- `dosyalar`: sayfaların geçtiği oyun dosyaları; dışa aktarma yalnızca bunlara bakar.
+- `ozetler`: sayfanın içerik özeti (`fsdmsg_images.page_key`, 16 küçük onaltılık hane); aynı etiketler birden çok
+  sayfaya uyuyorsa hepsi yazılır.
+- Etiket alanları (`labels.Label`): zorunlu `pencere` [sol, üst, sağ, alt], `ingilizce`, `turkce`; isteğe bağlı
+  `stil` (`script` varsayılan, `serif`, `brush`, `gothic`, `plain`, `sans`, `bold`, `serif_italic`), `hiza`
+  (`center`/`left`/`right`), `murekkep` ve `parilti` [r, g, b], `esik` (0–255), `kutu` [sol, üst, sağ, alt], `dolgu`
+  (`spread`/`filter`/`keep`), `boy` (piksel), `kaydir` (piksel).
+
+`aciklamalar.json` (kod sırasıyla; örnek uydurmadır):
+
+```json
+{"aciklamalar": [{"ozet": "<özgün İngilizce metnin SHA-256'sı, 64 küçük onaltılık hane>", "turkce": "Örnek bir açıklama."}]}
+```
+
+Özet `formats/fsdmsg/exe.digest(metin)` ile hesaplanır. Sıra koddakiyle aynı olmalıdır; uymazsa yama üretilmez ve
+dışa aktarma uyarı verir.

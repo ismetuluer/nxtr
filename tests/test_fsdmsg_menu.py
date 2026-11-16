@@ -90,11 +90,17 @@ def test_missing_english_word_is_an_error() -> None:
         menu.translate_texture(_t32(FILE_EXIT, [_bgra_page(empty)]))
 
 
-def test_status_file_menu_textures_are_replaced_and_text_kept() -> None:
+def test_status_file_menu_textures_are_replaced_and_text_kept(monkeypatch: pytest.MonkeyPatch) -> None:
     from nxceviri.core.export.layeredfs import TextFileRef, game_file_patches
+    from nxceviri.core.fontpatch import fsdmsg_graphics
+    from nxceviri.core.formats import legacy
     from nxceviri.core.formats.fsdmsg import FsdMsgPlugin, fsd
     from nxceviri.core.formats.fsdmsg.plugin import MENU_FILES, translate_menu_textures
     from tests.fsdmsgbuild import message, table
+
+    monkeypatch.delenv(fsdmsg_graphics.ENV, raising=False)  # geliştiricinin grafik klasörü karışmasın
+    monkeypatch.delenv(legacy.ENV_NAMES[fsdmsg_graphics.ENV], raising=False)
+    fsdmsg_graphics.from_environment.cache_clear()
 
     texture = _t32(FILE_EXIT, [_bgra_page(_file_exit_page())])
     blocks = [table([message("Equip?")]), texture, b"\x22" * 32]
@@ -118,7 +124,5 @@ def test_status_file_menu_textures_are_replaced_and_text_kept() -> None:
     assert translate_menu_textures(no_menu) is no_menu  # menü dokusu olmayan dosya aynen kalır
 
     refs = [TextFileRef("data/dmc1/fsd/r002.fsd", "T", "fsdmsg"), TextFileRef("a.msbt", "T", "msbt")]
-    patches = game_file_patches(refs)
-    from nxceviri.core.fontpatch.fsdmsg_images import FILES
-
-    assert set(patches) == {("T", path) for path in (*MENU_FILES, *FILES)}
+    patches = game_file_patches(refs)  # ek çeviri verisi yokken yalnızca menü dokuları
+    assert set(patches) == {("T", path) for path in MENU_FILES}

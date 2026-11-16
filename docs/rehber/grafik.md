@@ -56,6 +56,10 @@ Resmin içindeki yazı çeviri tablosuna girmez. İş akışı iki yarıdır:
   ara kareler `fsdmsg_animation.py` ile türetilir.
 - Yazılar video içinde de olabilir (açılış uyarısı `title.mp4`): bu uygulama dışında ffmpeg ile yapıldı (TECH_DEBT).
 - Bilinen sınır: BC7 kayıplı kodlandığı için sonuç hazır resme ~29-42 dB yakındır.
+- Etiket çizimi için gereken tablo (hangi sayfada hangi İngilizce yazı nerede, Türkçesi ne) ve düşman açıklamaları
+  uygulamayla gelmez. Kullanıcı `resim_yazilari.json` ve `aciklamalar.json` dosyalarını `NXCEVIRI_FSD_GRAFIK`
+  klasörüne koyar (biçim ve uydurma örnek: `docs/formats/fsd-msg.md` "Ek çeviri verisi"). Dosya yoksa o yazılar İngilizce
+  kalır ve bilgi dosyasında söylenir; bozuksa dışa aktarma hatanın yerini söyleyerek durur.
 
 ### Yazısı resimde kalanlar
 CPK/FMSB biçimli oyunun yazılı yardım resimleri (`Help/*.ftx`) çevrilmedi (TECH_DEBT 73). `Localization` nesneli Unity oyunu

@@ -8,8 +8,8 @@ import pytest
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 from nxceviri.core.fontpatch import bc7
-from nxceviri.core.fontpatch.fsdmsg_images import FILES, PAGES, iter_pages, page_key, translate_file
-from nxceviri.core.fontpatch.labels import Label, LabelError, draw_label, find_font
+from nxceviri.core.fontpatch.fsdmsg_images import iter_pages, page_key, translate_file
+from nxceviri.core.fontpatch.labels import STYLES, Label, LabelError, draw_label, find_font
 
 
 def _bc7_page(image: Image.Image) -> bytes:
@@ -33,11 +33,11 @@ def _bgra_page(image: Image.Image) -> bytes:
 
 
 def _label_page(alpha: bool = False) -> Image.Image:
-    """Siyah (veya saydam) zeminde parıltılı beyaz "Holy Water" yazan 128×64 sayfa (gerçek oyun verisi değil)."""
+    """Siyah (veya saydam) zeminde parıltılı beyaz "Blue Stone" yazan 128×64 sayfa (gerçek oyun verisi değil)."""
     background = (0, 0, 0, 0) if alpha else (0, 0, 0, 255)
     image = Image.new("RGBA", (128, 64), background)
     font = ImageFont.truetype(str(find_font("brush")), 22)
-    ImageDraw.Draw(image).text((8, 36), "Holy Water", font=font, fill=(240, 240, 240, 255), anchor="ls")
+    ImageDraw.Draw(image).text((8, 36), "Blue Stone", font=font, fill=(240, 240, 240, 255), anchor="ls")
     return image
 
 
@@ -70,8 +70,8 @@ def test_translate_file_changes_only_known_pages_in_place() -> None:
     data = b"HEAD" + _bgra_page(page) + _bc7_page(page) + _bgra_page(other) + b"TAIL"
     pages = list(iter_pages(data))
     table: dict[str, tuple[Label, ...]] = {
-        page_key(pages[0].image): (Label((0, 4, 128, 50), "Holy Water", "Kutsal Su", "brush"),),
-        page_key(pages[1].image): (Label((0, 4, 128, 50), "Holy Water", "Kutsal Su", "brush"),),
+        page_key(pages[0].image): (Label((0, 4, 128, 50), "Blue Stone", "Mavi Taş", "brush"),),
+        page_key(pages[1].image): (Label((0, 4, 128, 50), "Blue Stone", "Mavi Taş", "brush"),),
     }
     out = translate_file(data, table)
     assert len(out) == len(data)
@@ -87,7 +87,7 @@ def test_translate_file_changes_only_known_pages_in_place() -> None:
 
 def test_alpha_page_keeps_transparent_background() -> None:
     page = _label_page(alpha=True)
-    out = draw_label(page, Label((0, 4, 128, 50), "Holy Water", "Kutsal Su", "brush"))
+    out = draw_label(page, Label((0, 4, 128, 50), "Blue Stone", "Mavi Taş", "brush"))
     alpha = out.getchannel("A")
     assert alpha.getpixel((2, 60)) == 0  # pencere dışı saydam kalır
     assert max(alpha.crop((0, 4, 128, 50)).tobytes()) > 200  # yeni yazı opak
@@ -98,16 +98,10 @@ def test_missing_english_text_is_an_error() -> None:
         draw_label(Image.new("RGBA", (64, 32), (0, 0, 0, 255)), Label((0, 0, 64, 32), "A", "B", "brush"))
 
 
-def test_table_is_consistent() -> None:
-    assert all(path.startswith("data/dmc1/") for path in FILES)
-    for labels in PAGES.values():
-        for label in labels:
-            left, top, right, bottom = label.window
-            assert 0 <= left < right
-            assert 0 <= top < bottom
-            assert label.english
-            assert label.turkish
-            find_font(label.style)
+@pytest.mark.parametrize("style", sorted(STYLES))
+def test_every_style_finds_a_font(style: str) -> None:
+    """Etiket tablosu uygulamayla gelmez; kullanıcının verisinde geçebilecek her stilin yazı tipi bulunmalı."""
+    assert find_font(style).is_file()
 
 
 def _art_paragraph() -> Image.Image:
