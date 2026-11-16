@@ -213,7 +213,7 @@ def gf_game(tmp_path: Path) -> tuple[Inputs, Path]:
 def test_gf_game_import_and_export(gf_game: tuple[Inputs, Path]) -> None:
     inputs, tmp_path = gf_game
     report = scan_sources(inputs, TaskContext())
-    assert report.engine.engine == "gamefreak"
+    assert report.engine.engine == "gfmsg"
     assert available_languages(report) == ["en", "fr"]
     result = extract_texts(inputs, report, TaskContext(), "en")
     assert result.skipped_languages == {"fr": 2}  # mesaj + etiket tablosu

@@ -135,6 +135,7 @@ def test_missing_game_file_is_skipped_with_a_warning(tmp_path: Path) -> None:
 
 def test_folder_for_prefers_environment_then_game_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(nni_graphics.ENV, raising=False)
+    monkeypatch.delenv("NXCEVIRI_YS_GRAFIK", raising=False)
     assert nni_graphics.folder_for(None) is None
     assert nni_graphics.folder_for(tmp_path) is None
     (tmp_path / nni_graphics.FOLDER / "temiz").mkdir(parents=True)
@@ -164,11 +165,12 @@ def _tree(files: dict[str, bytes]) -> ContentTree:
 
 def test_extras_patch_fonts_and_place_translated_pictures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(nni_graphics.ENV, raising=False)
+    monkeypatch.delenv("NXCEVIRI_YS_GRAFIK", raising=False)
     tree = _tree(_game())
     folder = tmp_path / nni_graphics.FOLDER
     nni_graphics.export_originals(reader({nni_graphics.member_path("V_1"): build_dds(picture("xx"))}), [MEMBER], folder)
     picture("zz").save(folder / "temiz" / "V_1.png")
-    derived = extras.collect({(TID, "ysorigin"), (TID, "srt")}, {TID: tree}, tmp_path)[TID]
+    derived = extras.collect({(TID, "nnitext"), (TID, "srt")}, {TID: tree}, tmp_path)[TID]
     assert sorted(derived.members) == [nni_graphics.member_path("V_1")]
     assert f"{nni_fonts.FONT_DIR}ysfont.fnt" in derived.files
     assert len(derived.font_notes) == 5
@@ -186,12 +188,13 @@ def test_extras_patch_fonts_and_place_translated_pictures(tmp_path: Path, monkey
 
 def test_extras_without_graphics_folder_only_patch_fonts(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(nni_graphics.ENV, raising=False)
+    monkeypatch.delenv("NXCEVIRI_YS_GRAFIK", raising=False)
     tree = _tree(_game())
-    derived = extras.collect({(TID, "ysorigin")}, {TID: tree}, None)[TID]
+    derived = extras.collect({(TID, "nnitext")}, {TID: tree}, None)[TID]
     assert derived.members == {}
     assert len(derived.files) == 2 * len(nni_fonts.FONTS)
     assert extras.collect({(TID, "msbt")}, {TID: tree}, None) == {}
-    assert extras.collect({(TID, "ysorigin")}, {}, None) == {}
+    assert extras.collect({(TID, "nnitext")}, {}, None) == {}
 
 
 def test_unchanged_extra_member_writes_nothing() -> None:

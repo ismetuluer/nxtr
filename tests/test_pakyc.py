@@ -174,7 +174,7 @@ def test_detection_and_registry() -> None:
     assert got.likelihood == detection.TextLikelihood.HIGH
     assert detection.detect("romfs/maps/area.yc", head).likelihood == detection.TextLikelihood.MEDIUM
     assert detection.detect("romfs/x.bin", head).kind != detection.FileKind.PAKYC
-    plugin = plugin_for_kind("mina")
+    plugin = plugin_for_kind("pakyc")
     assert plugin is not None
     assert plugin.detect("x.yc", head)
     assert not plugin.detect("x.yc", b"UnityFS\0")
@@ -184,7 +184,7 @@ def _project() -> Project:
     data = _game()
     entries = tuple(PakYcPlugin().extract(data))
     project = Project.new()
-    project.import_texts([ImportedFile("romfs/global.pak.yc", "0100DCD01F306000", "mina", "base", entries)])
+    project.import_texts([ImportedFile("romfs/global.pak.yc", "0100DCD01F306000", "pakyc", "base", entries)])
     return project
 
 
@@ -284,7 +284,7 @@ def test_port_falls_back_to_identical_source_text(tmp_path: Path) -> None:
     game = build(table(UI_HEADER, [["moved", "Hello there", "Salut vraiment long", "x", "y", "z"]]))
     project = Project.new()
     entries = tuple(PakYcPlugin().extract(game))
-    project.import_texts([ImportedFile("romfs/global.pak.yc", "0100DCD01F306000", "mina", "base", entries)])
+    project.import_texts([ImportedFile("romfs/global.pak.yc", "0100DCD01F306000", "pakyc", "base", entries)])
     folder = tmp_path / "yama"
     folder.mkdir()
     (folder / "global.pak.yc").write_bytes(

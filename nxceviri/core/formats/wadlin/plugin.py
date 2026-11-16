@@ -204,7 +204,7 @@ class _Document:
 
 
 class WadLinPlugin:
-    name = "danganronpa"
+    name = "wadlin"
     label = "Danganronpa (.lin betikleri, .pak metin tabloları)"
     candidates_only = True
     path_suffixes: tuple[str, ...] = (".lin", ".pak")

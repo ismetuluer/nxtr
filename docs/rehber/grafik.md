@@ -26,8 +26,9 @@ Resmin içindeki yazı çeviri tablosuna girmez. İş akışı iki yarıdır:
 - Boyut değişmişse özgün boya ölçeklenir. PNG saydamlık kaydetmediyse özgünün alfa kanalı korunur.
 - Oyunun resim biçimi korunur: NNI arşivli oyunun DDS'inde özgün başlık, biçim (BC3/BC1) ve mip sayısı aynen kalır, her mip
   seviyesi yeniden kodlanır, dosya boyu doğrulanır.
-- Klasörü ortam değişkeni gösterir (arayüzde ayar yoktur, TECH_DEBT 75): `NXCEVIRI_YS_GRAFIK` (NNI arşivli oyun; yoksa
-  oyun dosyalarının yanındaki `grafik_temizleme`), `NXCEVIRI_DMC1_GRAFIK` (`.fsd`/`.msg` biçimli oyun).
+- Klasörü ortam değişkeni gösterir (arayüzde ayar yoktur, TECH_DEBT 75): `NXCEVIRI_NNI_GRAFIK` (NNI arşivli oyun; yoksa
+  oyun dosyalarının yanındaki `grafik_temizleme`), `NXCEVIRI_FSD_GRAFIK` (`.fsd`/`.msg` biçimli oyun). 0.59.0 ve
+  öncesinin adları (`NXCEVIRI_YS_GRAFIK`, `NXCEVIRI_DMC1_GRAFIK`) yeni ad tanımlı değilse okunmaya devam eder.
 
 ## Çözülmüş örnekler
 

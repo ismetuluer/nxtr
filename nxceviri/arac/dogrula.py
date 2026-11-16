@@ -17,7 +17,7 @@ from pathlib import Path
 
 from nxceviri.arac.ortak import EN_BUYUK_DOSYA, Dosya, IlerlemeYazici, ic_dosyalar, kaynak_ac, kisalt
 from nxceviri.core.errors import ContainerError
-from nxceviri.core.formats import registry
+from nxceviri.core.formats import legacy, registry
 from nxceviri.core.formats.base import SOURCE_LANGUAGE, SOURCE_PATH, FormatPlugin, TextEntry
 
 ISARET_SAYISI = 3
@@ -38,8 +38,9 @@ def tum_eklentiler() -> tuple[FormatPlugin, ...]:
 
 def eklenti_bul(ad: str) -> FormatPlugin:
     eklentiler = tum_eklentiler()
+    bugunku = legacy.format_id(ad)  # eski sürümün kimliği de kabul edilir
     for e in eklentiler:
-        if e.name == ad:
+        if e.name in {ad, bugunku}:
             return e
     raise ContainerError(
         f"'{ad}' adlı bir eklenti yok.",

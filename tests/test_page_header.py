@@ -218,7 +218,7 @@ def _entry(path: str, kind: str) -> ScanEntry:
 
 
 def _report(entries: list[ScanEntry], warnings: list[str] | None = None) -> ScanReport:
-    engine = EngineGuess("nintendo", "Nintendo LMS / NintendoWare", "high", ("msbt",))
+    engine = EngineGuess("lms", "LMS (MSBT)", "high", ("msbt",))
     return ScanReport("Oyun", "0100000000010000", 0, None, engine, entries, warnings or [])
 
 

@@ -45,7 +45,7 @@ def _unsupported_kind() -> str:
 
 def _report(paths: list[str], unsupported: tuple[str, ...] = ()) -> ScanReport:
     entries = [_entry(p) for p in paths] + [_entry(p, _unsupported_kind()) for p in unsupported]
-    engine = EngineGuess("nintendo", "Nintendo LMS / NintendoWare", "high", ("msbt",))
+    engine = EngineGuess("lms", "LMS (MSBT)", "high", ("msbt",))
     return ScanReport("Oyun", TID, 0, None, engine, entries, [])
 
 

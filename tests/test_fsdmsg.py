@@ -204,7 +204,7 @@ def test_detection_and_registry() -> None:
     assert detection.detect("data/dmc1/fsd/r002.fsd", b"").kind == detection.FileKind.FSDMSG
     assert detection.detect("data/dmc1/etc_e/common.msg", b"").kind == detection.FileKind.FSDMSG
     assert detection.detect("data/other/x.fsd", b"").kind != detection.FileKind.FSDMSG
-    plugin = plugin_for_kind("dmc1")
+    plugin = plugin_for_kind("fsdmsg")
     assert plugin is not None
     assert plugin.detect("data/dmc1/fsd/r002.fsd", b"")
     assert plugin.detect("data/dmc1/etc_e/common.msg", b"")
@@ -221,7 +221,7 @@ def test_export_normalizes_text_and_adds_the_font_for_this_format_only() -> None
         "a.fsd": {"1": "Işık, güzel \u2019yıl\u2019 \u2013 bitti\u2026"},
         "b.msbt": {"1": "Işık \u2019yıl\u2019"},
     }
-    files = [TextFileRef("a.fsd", "T", "dmc1"), TextFileRef("b.msbt", "T", "msbt")]
+    files = [TextFileRef("a.fsd", "T", "fsdmsg"), TextFileRef("b.msbt", "T", "msbt")]
     folded = fold_unsupported_letters(translations, files)
     assert folded == ""  # DMC için ğ ş ı İ dönüştürülmez: moda kendi yazı dokusu eklenir
     assert translations["a.fsd"]["1"] == "Işık, güzel 'yıl' - bitti..."  # fontta olmayan işaretler düzeltilir

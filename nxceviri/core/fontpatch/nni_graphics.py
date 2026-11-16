@@ -1,7 +1,7 @@
 """Ys Origin: İngilizce yazı içeren resimlerin (DDS) kullanıcının hazırladığı Türkçe karşılıklarını yerleştirme.
 
 Menü başlıkları, düğme yazıları, ara sahne ve rehber sayfaları metin değil resimdir. Klasör düzeni
-(`<oyun klasörü>/grafik_temizleme`, `NXCEVIRI_YS_GRAFIK` ortam değişkeniyle değiştirilebilir):
+(`<oyun klasörü>/grafik_temizleme`, `NXCEVIRI_NNI_GRAFIK` ortam değişkeniyle değiştirilebilir):
 
 - `orijinal/<ad>.png`: oyundan çıkarılmış özgün resim (`export_originals` üretir; değiştirmeyin);
 - `temiz/<ad>.png` (veya `.dds`): aynı adlı, yazısı Türkçe olan hazır resim. Boyutu değişmişse özgün boya ölçeklenir;
@@ -17,7 +17,6 @@ Ana arşivdeki resimler (`MENU/CHRSELECT.DDS` "Character Select") henüz destekl
 from __future__ import annotations
 
 import io
-import os
 import struct
 from collections.abc import Callable, Collection
 from dataclasses import dataclass
@@ -26,8 +25,9 @@ from pathlib import Path
 from PIL import Image
 
 from nxceviri.core.errors import NxError
+from nxceviri.core.formats import legacy
 
-ENV = "NXCEVIRI_YS_GRAFIK"
+ENV = "NXCEVIRI_NNI_GRAFIK"
 FOLDER = "grafik_temizleme"
 ARCHIVE = "ys_data/archives/data-en.ni"
 MEMBER_DIR = "EXTENSION/STORY/EN/"
@@ -154,7 +154,7 @@ def encode(original: bytes, image: Image.Image, name: str = "") -> bytes:
 
 def folder_for(game_dir: Path | None) -> Path | None:
     """Grafik klasörü: ortam değişkeni, yoksa oyun dosyalarının yanındaki `grafik_temizleme`; yoksa None."""
-    value = os.environ.get(ENV)
+    value = legacy.environ(ENV)
     folder = Path(value) if value else (game_dir / FOLDER if game_dir is not None else None)
     return folder if folder is not None and (folder / "temiz").is_dir() else None
 

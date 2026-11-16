@@ -78,8 +78,8 @@ def _project() -> Project:
     project = Project.new()
     project.import_texts(
         [
-            ImportedFile("data/dmc1/fsd/r002.fsd", "0100E8000D5B8000", "dmc1", "base", entries),
-            ImportedFile("data/dmc1/etc_e/common.msg", "0100E8000D5B8000", "dmc1", "base", msg_entries),
+            ImportedFile("data/dmc1/fsd/r002.fsd", "0100E8000D5B8000", "fsdmsg", "base", entries),
+            ImportedFile("data/dmc1/etc_e/common.msg", "0100E8000D5B8000", "fsdmsg", "base", msg_entries),
         ]
     )
     return project

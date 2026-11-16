@@ -200,7 +200,7 @@ def test_scan_lists_message_sheets() -> None:
         "Unicorn_US.CPK>MsgSheet/UcNameList.fms",
         "Unicorn_US.CPK>MsgSheet/UcSysMsg.fms",
     ]
-    assert report.engine.engine == "vanillaware"
+    assert report.engine.engine == "cpk"
     reader = MemberReader(_tree().view)
     assert PLUGIN.language(reader.read("Unicorn.CPK>MsgSheet/UcSysMsg.fms")) == "ja"
 

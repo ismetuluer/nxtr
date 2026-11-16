@@ -7,14 +7,13 @@ Klasör düzeni (`games/Devil May Cry/grafik_temizleme`):
 - `dizin.json` (isteğe bağlı): özgün sayfanın geçtiği tüm oyun dosyaları (`build_index` üretir).
 
 Sayfalar içerik özetiyle eşleşir (`fsdmsg_images.page_key`): özgün sayfa her geçtiği dosyada hazırıyla değiştirilir.
-Oyun grafikleri telifli olduğu için depoya konmaz; klasör kullanıcıda kalır ve `NXCEVIRI_DMC1_GRAFIK` ortam
+Oyun grafikleri telifli olduğu için depoya konmaz; klasör kullanıcıda kalır ve `NXCEVIRI_FSD_GRAFIK` ortam
 değişkeniyle gösterilir (arayüzde ayar penceresi TECH_DEBT'te).
 """
 
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -22,8 +21,9 @@ from pathlib import Path
 from PIL import Image
 
 from nxceviri.core.fontpatch.fsdmsg_images import iter_pages, page_key
+from nxceviri.core.formats import legacy
 
-ENV = "NXCEVIRI_DMC1_GRAFIK"
+ENV = "NXCEVIRI_FSD_GRAFIK"
 INDEX = "dizin.json"
 #: Animasyon karelerinin son kareleri bu adı taşır; sayfa olarak değil, animasyon olarak ele alınır.
 ANIMATION_MARK = "son_kare"
@@ -61,8 +61,8 @@ def load(folder: Path) -> Graphics:
 
 @lru_cache(maxsize=1)
 def from_environment() -> Graphics | None:
-    """`NXCEVIRI_DMC1_GRAFIK` klasöründeki grafikler (ortam değişkeni yoksa ya da klasör yoksa None)."""
-    value = os.environ.get(ENV)
+    """`NXCEVIRI_FSD_GRAFIK` klasöründeki grafikler (ortam değişkeni yoksa ya da klasör yoksa None)."""
+    value = legacy.environ(ENV)
     if not value or not Path(value).is_dir():
         return None
     return load(Path(value))

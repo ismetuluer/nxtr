@@ -15,13 +15,13 @@ altındadır.
 | Unity | I2 Localization (ham bayt, tip ağacı yok) | `unity` (`unity/i2.py`) | `unity.md` ("I2 Localization") |
 | Unity | Düz `TextAsset` (SRT + TSV) ve `Locoliser` önbelleği | `unity` (`unity/loctext.py`, `locoliser.py`) | `unity.md` ("Düz metin yerelleştirmesi") |
 | Unity | `Localization` nesnesi (`[SerializeReference]` kayıt defteri) | `unity` (`unity/serializeref.py`) | `unity-serializereference.md` |
-| Unity (metin Unity dışında) | AGAR/WAD arşivi, `.lin` betikleri, `.pak` tabloları | `danganronpa` (`wadlin/`) | `wad-lin.md` |
+| Unity (metin Unity dışında) | AGAR/WAD arşivi, `.lin` betikleri, `.pak` tabloları | `wadlin` (`wadlin/`) | `wad-lin.md` |
 | Unreal Engine | `.locres`, `.pak` | `unreal` (`unreal/locres.py`) | `unreal.md` |
 | Switch mesaj biçimi | `.dat` + `.tbl` mesaj dosyaları (GFMSG) | `gfmsg` (`gfmsg/`) | `gfmsg.md` |
-| Özel | YCD (`.yc`), `pak.yc` | `mina` (`pakyc/`) | `pak-yc.md` |
-| Özel | `.fsd` / `.msg` / `.atm` mesaj tabloları, oyun harf tablosu | `dmc1` (`fsdmsg/`) | `fsd-msg.md` |
-| M2 | `.psb.m` + `.bin` arşivi, mdf, PSB | `m2text` (`psbtext/`; arşiv: `core/archives/psb_archive.py`, `psb.py`) | `psb.md` |
-| Özel | NNI arşivi (`.ni`/`.na`), XSO betikleri, arayüz XML'i | `ysorigin` (`nnitext/`) | `nni.md` |
+| Özel | YCD (`.yc`), `pak.yc` | `pakyc` (`pakyc/`) | `pak-yc.md` |
+| Özel | `.fsd` / `.msg` / `.atm` mesaj tabloları, oyun harf tablosu | `fsdmsg` (`fsdmsg/`) | `fsd-msg.md` |
+| M2 | `.psb.m` + `.bin` arşivi, mdf, PSB | `psbtext` (`psbtext/`; arşiv: `core/archives/psb_archive.py`, `psb.py`) | `psb.md` |
+| Özel | NNI arşivi (`.ni`/`.na`), XSO betikleri, arayüz XML'i | `nnitext` (`nnitext/`) | `nni.md` |
 | Genel | SubRip altyazı (`.srt`) | `srt` (`srt/`) | `nni.md` ("Altyazı") |
 | CRI | CPK + CRILAYLA kapsayıcısı, FMSB MsgSheet | `fmsb` (`fmsb/`; arşiv: `core/archives/cpk.py`) | `cpk-fmsb.md` |
 

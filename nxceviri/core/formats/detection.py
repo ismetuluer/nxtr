@@ -17,13 +17,13 @@ from nxceviri.core.archives import cpk, nni, sarc, wad, yaz0, zstd
 class FileKind(StrEnum):
     MSBT = "msbt"
     GFMSG = "gfmsg"
-    PAKYC = "mina"
-    FSDMSG = "dmc1"
-    PSBTEXT = "m2text"
-    NNITEXT = "ysorigin"
+    PAKYC = "pakyc"
+    FSDMSG = "fsdmsg"
+    PSBTEXT = "psbtext"
+    NNITEXT = "nnitext"
     FMSB = "fmsb"
     SRT = "srt"
-    WADLIN = "danganronpa"
+    WADLIN = "wadlin"
     UNITY = "unity"
     UNREAL = "unreal"
     TEXT = "text"
@@ -58,11 +58,11 @@ class TextLikelihood(StrEnum):
 LIKELIHOOD_LABELS = {TextLikelihood.HIGH: "Yüksek", TextLikelihood.MEDIUM: "Olası", TextLikelihood.NONE: "—"}
 
 #: M2 arşivinin (`alldata.psb.m` gibi mdf kodlu PSB dizini) tespit ayrıntısı.
-PSB_ARCHIVE_DETAIL = "M2 arşivi (mdf)"
+PSB_ARCHIVE_DETAIL = "PSB arşivi (mdf)"
 #: Falcom NNI arşivinin (`data-en.ni` dizini + `.na` verisi) ve CRI CPK arşivinin tespit ayrıntıları.
-NNI_ARCHIVE_DETAIL = "Falcom NNI arşivi"
-CPK_ARCHIVE_DETAIL = "CRI CPK arşivi"
-WAD_ARCHIVE_DETAIL = "Spike Chunsoft WAD arşivi"
+NNI_ARCHIVE_DETAIL = "NNI arşivi"
+CPK_ARCHIVE_DETAIL = "CPK arşivi"
+WAD_ARCHIVE_DETAIL = "WAD arşivi"
 #: Ys Origin'in arayüz dizgeleri: `ys_data/data/loc/strings/english.xml`.
 _NNI_STRINGS = re.compile(r"(?:^|/)loc/strings/[^/]+\.xml$", re.IGNORECASE)
 _UTF8_BOM = bytes.fromhex("efbbbf")
@@ -160,25 +160,25 @@ def detect(path: str, head: bytes, tail: bytes = b"") -> Detection:
     high_if_hint = TextLikelihood.HIGH if hinted else TextLikelihood.NONE
 
     if head.startswith(b"MsgStdBn"):
-        return Detection(FileKind.MSBT, "MSBT (Nintendo LMS metni)", TextLikelihood.HIGH)
+        return Detection(FileKind.MSBT, "MSBT (LMS metni)", TextLikelihood.HIGH)
     if ext == ".dat" and is_gf_message(head):
-        return Detection(FileKind.GFMSG, "Game Freak mesaj dosyası", TextLikelihood.HIGH)
+        return Detection(FileKind.GFMSG, "GFMSG mesaj dosyası", TextLikelihood.HIGH)
     if ext == ".tbl" and head.startswith(b"AHTB"):
-        return Detection(FileKind.GFMSG, "Game Freak etiket tablosu (AHTB)", TextLikelihood.NONE)
+        return Detection(FileKind.GFMSG, "AHTB etiket tablosu", TextLikelihood.NONE)
     if ext == ".fsd" and "/dmc1/" in path.lower():
-        return Detection(FileKind.FSDMSG, "Devil May Cry sahne dosyası (.fsd)", TextLikelihood.HIGH)
+        return Detection(FileKind.FSDMSG, "FSD sahne dosyası (.fsd)", TextLikelihood.HIGH)
     if path.lower().endswith("/st_init.dat") and "/dmc1/" in path.lower():
-        return Detection(FileKind.FSDMSG, "Devil May Cry durum ve eşya metinleri (st_init.dat)", TextLikelihood.MEDIUM)
+        return Detection(FileKind.FSDMSG, "Durum ve eşya metinleri (st_init.dat)", TextLikelihood.MEDIUM)
     if path.lower().endswith("/etc_u/memicon.dat") and "/dmc1/" in path.lower():
-        return Detection(FileKind.FSDMSG, "Devil May Cry kayıt ekranı mesajları (memicon.dat)", TextLikelihood.MEDIUM)
+        return Detection(FileKind.FSDMSG, "Kayıt ekranı mesajları (memicon.dat)", TextLikelihood.MEDIUM)
     if ext == ".atm" and "/dmc1/" in path.lower():
-        return Detection(FileKind.FSDMSG, "Devil May Cry başarım/galeri metni (.atm)", TextLikelihood.MEDIUM)
+        return Detection(FileKind.FSDMSG, "Başarım/galeri metni (.atm)", TextLikelihood.MEDIUM)
     if ext == ".msg" and "/dmc1/" in path.lower():
-        return Detection(FileKind.FSDMSG, "Devil May Cry mesaj dosyası (.msg)", TextLikelihood.MEDIUM)
+        return Detection(FileKind.FSDMSG, "MSG mesaj dosyası (.msg)", TextLikelihood.MEDIUM)
     if head.startswith(b"YCD\0") and ext == ".yc":
         # Yacht Club paketi: dil tabloları genellikle adında "global" geçen paketlerdedir.
         likely = TextLikelihood.HIGH if "global" in path.lower() else TextLikelihood.MEDIUM
-        return Detection(FileKind.PAKYC, "Yacht Club YCD paketi (Mina the Hollower)", likely)
+        return Detection(FileKind.PAKYC, "YCD paketi (.yc)", likely)
     if head.startswith(b"mdf\0") and path.lower().endswith(".psb.m"):
         return Detection(FileKind.ARCHIVE, PSB_ARCHIVE_DETAIL, TextLikelihood.NONE)
     if nni.is_index(path, head):
@@ -188,7 +188,7 @@ def detect(path: str, head: bytes, tail: bytes = b"") -> Detection:
     if wad.is_wad(path, head):
         return Detection(FileKind.ARCHIVE, WAD_ARCHIVE_DETAIL, TextLikelihood.NONE)
     if _NNI_STRINGS.search(path) and head.startswith((b"<?xml", _UTF8_BOM + b"<?xml")) and b"<dict>" in head:
-        return Detection(FileKind.NNITEXT, "Ys Origin arayüz dizgeleri (XML)", TextLikelihood.HIGH)
+        return Detection(FileKind.NNITEXT, "Arayüz dizgeleri (XML)", TextLikelihood.HIGH)
     if ext == ".srt" and _SRT_HEAD.match(head):
         return Detection(FileKind.SRT, "SubRip altyazısı (.srt)", TextLikelihood.HIGH)
     if head.startswith(b"MsgPrjBn"):

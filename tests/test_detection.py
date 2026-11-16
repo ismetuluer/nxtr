@@ -94,7 +94,7 @@ def test_scan_nested_archives() -> None:
     assert any("bozuk.zs" in w for w in report.warnings)
     cand = [e.path for e in report.text_candidates]
     assert cand[0].endswith(".msbt")  # yüksek olasılıklılar önce
-    assert report.engine.engine == "nintendo"
+    assert report.engine.engine == "lms"
 
 
 def test_scan_cancel() -> None:

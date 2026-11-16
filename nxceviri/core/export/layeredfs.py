@@ -41,6 +41,7 @@ from nxceviri.core.errors import ContainerError, NxError, OperationCancelled
 from nxceviri.core.export import extras
 from nxceviri.core.export.addressables import CatalogError, patch_catalog_crc
 from nxceviri.core.fontpatch.unity import FALLBACK_REASON, patch_fonts
+from nxceviri.core.formats import legacy
 from nxceviri.core.formats.base import FormatPlugin
 from nxceviri.core.formats.registry import plugin_for_kind
 from nxceviri.core.pipeline import Inputs, opened_view
@@ -118,6 +119,10 @@ class TextFileRef:
     path: str  # tarama yolu (iç arşiv yolu olabilir)
     title_id: str
     format: str
+
+    def __post_init__(self) -> None:
+        # Eski sürümün biçim kimliği bugünküne çözülür: aynı biçimin dosyaları tek biçim olarak gruplanır.
+        object.__setattr__(self, "format", legacy.format_id(self.format))
 
 
 @dataclass(frozen=True)

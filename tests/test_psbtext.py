@@ -214,10 +214,10 @@ def test_scan_lists_only_translatable_english_members() -> None:
     report = scan_view(view)
     kinds = {e.path: e.kind for e in report.entries}
     assert kinds["alldata.psb.m"] == "archive"
-    assert kinds["alldata.psb.m>system/config/menu_item.psb.m"] == "m2text"
-    assert kinds["alldata.psb.m>087/config/output_TextData_EN.psb.m"] == "m2text"
+    assert kinds["alldata.psb.m>system/config/menu_item.psb.m"] == "psbtext"
+    assert kinds["alldata.psb.m>087/config/output_TextData_EN.psb.m"] == "psbtext"
     assert not any("_JP" in p or "font" in p or "roms" in p for p in kinds if ">" in p)
-    assert report.engine.engine == "m2"
+    assert report.engine.engine == "psb"
     assert report.warnings == []
 
 
@@ -235,7 +235,7 @@ def _refs(tree: ContentTree) -> tuple[list[TextFileRef], dict[str, dict[str, str
     book = "alldata.psb.m>087/config/output_TextData_EN.psb.m"
     keys = {e.source: e.key for e in plugin.extract(reader.read(menu))}
     book_keys = {e.source: e.key for e in plugin.extract(reader.read(book))}
-    refs = [TextFileRef(menu, TID, "m2text"), TextFileRef(book, TID, "m2text")]
+    refs = [TextFileRef(menu, TID, "psbtext"), TextFileRef(book, TID, "psbtext")]
     translations = {menu: {keys["Yes"]: "Evet", keys["OK"]: "Tamam"}, book: {book_keys["TOP"]: "ÜST"}}
     return refs, translations
 

@@ -24,8 +24,9 @@ from pathlib import Path
 
 from nxceviri import __version__
 from nxceviri.core.errors import ProjectError
+from nxceviri.core.formats import legacy
 from nxceviri.core.formats.base import TextEntry
-from nxceviri.core.formats.scanner import EngineGuess, ScanEntry, ScanReport
+from nxceviri.core.formats.scanner import ENGINE_LABELS, EngineGuess, ScanEntry, ScanReport
 from nxceviri.core.translate.providers.base import GlossaryTerm
 from nxceviri.core.translate.status import SOURCE_CHANGED_NOTE, Status, evaluate
 from nxceviri.core.translate.uppercase import EXCEPT_KEY, GROUPS_KEY, ROWS_KEY, UppercaseRules
@@ -352,8 +353,20 @@ def _row(r: tuple[object, ...]) -> TranslationRow:
         code_labels=tuple(str(c[1]) for c in codes),
         max_length=None if r[8] is None else int(str(r[8])),
         context=str(r[9]),
-        format=sys.intern(str(r[10])),  # binlerce satır aynı birkaç biçim adını paylaşır
+        format=sys.intern(legacy.format_id(str(r[10]))),  # binlerce satır aynı birkaç biçim adını paylaşır
     )
+
+
+def _engine(engine: str, label: str, confidence: str, evidence: list[str]) -> EngineGuess:
+    """Saklı motor tahmini; eski sürümün anahtarı, etiketi ve kanıt adları bugünkülere çözülür."""
+    engine = legacy.engine_id(engine)
+    return EngineGuess(engine, ENGINE_LABELS.get(engine, label), confidence, tuple(map(legacy.evidence, evidence)))
+
+
+def _scan_entry(row: tuple[str, str, int, str, str, str, str]) -> ScanEntry:
+    """Saklı tarama girdisi; eski sürümün biçim kimliği ve ayrıntı metni bugünkülere çözülür."""
+    title_id, path, size, kind, detail, likelihood, origin = row
+    return ScanEntry(title_id, path, size, legacy.format_id(kind), legacy.detail(detail), likelihood, origin)
 
 
 def _backup_before_migration(path: Path, version: int) -> None:
@@ -612,8 +625,8 @@ class Project:
             title_id=row[2],
             base_version=row[3],
             update_version=row[4],
-            engine=EngineGuess(row[5], row[6], row[7], tuple(json.loads(row[8]))),
-            entries=[ScanEntry(*f) for f in files],
+            engine=_engine(row[5], row[6], row[7], json.loads(row[8])),
+            entries=[_scan_entry(f) for f in files],
             warnings=list(json.loads(row[9])),
             duration_s=row[10],
         )
@@ -638,7 +651,7 @@ class Project:
                     removed += conn.execute("SELECT COUNT(*) FROM text_entries WHERE file_id = ?", (fid,)).fetchone()[0]
                     conn.execute("DELETE FROM text_files WHERE id = ?", (fid,))
             for f in files:
-                row = conn.execute("SELECT id FROM text_files WHERE path = ?", (f.path,)).fetchone()
+                row = conn.execute("SELECT id, format FROM text_files WHERE path = ?", (f.path,)).fetchone()
                 if row is None:
                     cur = conn.execute(
                         "INSERT INTO text_files (path, title_id, format, origin, imported_at) VALUES (?, ?, ?, ?, ?)",
@@ -646,10 +659,12 @@ class Project:
                     )
                     fid = cur.lastrowid
                 else:
-                    fid = row[0]
+                    fid, stored = row
+                    # Aynı biçimin eski kimliği dosyada kalır: proje eski sürümle de açılabilsin.
+                    fmt = stored if legacy.format_id(stored) == legacy.format_id(f.format) else f.format
                     conn.execute(
                         "UPDATE text_files SET title_id = ?, format = ?, origin = ?, imported_at = ? WHERE id = ?",
-                        (f.title_id, f.format, f.origin, now, fid),
+                        (f.title_id, fmt, f.origin, now, fid),
                     )
                 existing = {
                     r[0]: (r[1], r[2], r[3])
@@ -694,7 +709,7 @@ class Project:
     def text_files(self) -> list[tuple[str, str, str]]:
         """Aktarılmış metin dosyaları: (tarama yolu, TitleID, biçim)."""
         rows = self._conn.execute("SELECT path, title_id, format FROM text_files ORDER BY path").fetchall()
-        return [(str(p), str(t), str(f)) for p, t, f in rows]
+        return [(str(p), str(t), legacy.format_id(str(f))) for p, t, f in rows]
 
     def translated_counts_by_file(self) -> dict[str, int]:
         """Aktarılmış her metin dosyası için çevirisi boş olmayan girdi sayısı (tarama yolu → sayı). Salt okunur."""
@@ -978,7 +993,7 @@ class Project:
         current: set[str] = set()  # bugünkü koleksiyon grupları
         for path, key, context, fmt in slashed:
             name = str(context).split("/", 1)[0]
-            if fmt in COLLECTION_FORMATS:
+            if legacy.format_id(str(fmt)) in COLLECTION_FORMATS:
                 current.add(name)
             elif name in rules.groups and name != _file_group(str(path)):
                 used.add(name)

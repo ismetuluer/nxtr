@@ -130,7 +130,7 @@ def is_text_member(path: str, data: bytes) -> bool:
 
 
 class PsbTextPlugin:
-    name = "m2text"
+    name = "psbtext"
     label = "M2 PSB metni (Metal Gear Solid)"
     candidates_only = True
     path_suffixes: tuple[str, ...] = (".psb.m",)

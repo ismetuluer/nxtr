@@ -52,7 +52,7 @@ def _plain(text: str) -> str:
 
 
 class PakYcPlugin:
-    name = "mina"
+    name = "pakyc"
     label = "Mina the Hollower (YCD)"
     candidates_only = True
     path_suffixes: tuple[str, ...] = (".yc",)

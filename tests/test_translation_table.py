@@ -76,7 +76,7 @@ def test_no_text_in_supported_files_is_an_error(game: GameFiles, monkeypatch: py
     with pytest.raises(ContainerError) as exc:
         extract_texts(inputs, report, TaskContext())
     assert "çevrilebilir metin bulunamadı" in exc.value.message
-    assert "Nintendo LMS" in exc.value.hint  # tahmin edilen motor söylenir
+    assert "LMS (MSBT)" in exc.value.hint  # tahmin edilen motor söylenir
 
 
 def test_no_text_in_source_language_is_an_error(game: GameFiles, monkeypatch: pytest.MonkeyPatch) -> None:

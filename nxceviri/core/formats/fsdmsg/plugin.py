@@ -101,7 +101,7 @@ def _layout(data: bytes) -> tuple[str, codec.MessageTable] | None:
 
 
 class FsdMsgPlugin:
-    name = "dmc1"
+    name = "fsdmsg"
     label = "Devil May Cry (mesaj tabloları)"
     candidates_only = True
     path_suffixes: tuple[str, ...] = (".fsd", ".msg", ".atm", "st_init.dat", "memicon.dat")

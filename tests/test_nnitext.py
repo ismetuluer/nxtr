@@ -221,7 +221,7 @@ def test_scan_lists_localized_scripts_only() -> None:
         "ys_data/archives/data-ja.ni>LOC/JP/DATA/MAP/S_00/S_0003/EVT_0001.XSO",
         "ys_data/data/loc/strings/english.xml",
     ]
-    assert report.engine.engine == "falcom"
+    assert report.engine.engine == "nni"
     assert not report.warnings
 
 
@@ -236,7 +236,7 @@ def test_scan_warns_when_data_file_missing() -> None:
 def test_export_rebuilds_index_and_data() -> None:
     tree = _tree()
     path = "ys_data/archives/data-en.ni>LOC/EN/DATA/MAP/S_00/S_0003/EVT_0001.XSO"
-    ref = TextFileRef(path, TID, "ysorigin")
+    ref = TextFileRef(path, TID, "nnitext")
     translations = {path: {"1": "Evet. Kulenin etkisi kesildi,\nSolomon yükseliyor.", "6": "Vazgeç"}}
     result = ExportResult(Path("x"))
     outputs = _export_member_archive(
@@ -261,7 +261,7 @@ def test_export_unchanged_writes_nothing() -> None:
     out = _export_member_archive(
         tree,
         "ys_data/archives/data-en.ni",
-        [TextFileRef(path, TID, "ysorigin")],
+        [TextFileRef(path, TID, "nnitext")],
         translations=same,
         root=Path("r"),
         result=result,
@@ -272,7 +272,7 @@ def test_export_unchanged_writes_nothing() -> None:
 
 def test_turkish_letters_are_kept_because_the_fonts_get_the_missing_glyphs() -> None:
     translations = {"a.xml": {"K": "Işığı göster, şimdi İlerle"}}
-    folded = fold_unsupported_letters(translations, [TextFileRef("a.xml", TID, "ysorigin")])
+    folded = fold_unsupported_letters(translations, [TextFileRef("a.xml", TID, "nnitext")])
     assert translations["a.xml"]["K"] == "Işığı göster, şimdi İlerle"
     assert folded == ""
     assert PLUGIN.unsupported_letters == ""

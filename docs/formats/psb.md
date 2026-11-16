@@ -128,7 +128,7 @@ A'da oyun açılmaz/menü bozulursa yerel kod gevşek dosyaya bakmıyor demektir
 
 ## Metin eklentisi (0.23.0)
 
-Kod: `nxceviri/core/formats/psbtext/plugin.py` (`m2text`). Yol biçimi: `alldata.psb.m>system/config/menu_item.psb.m`.
+Kod: `nxceviri/core/formats/psbtext/plugin.py` (`psbtext`). Yol biçimi: `alldata.psb.m>system/config/menu_item.psb.m`.
 
 | Yapı | Dosyalar | Kaynak | Satır |
 |---|---|---|---|

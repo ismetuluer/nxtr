@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from nxceviri.core.errors import NxError
+from nxceviri.core.formats import legacy
 from nxceviri.core.formats.base import FormatPlugin
 from nxceviri.core.formats.detection import KIND_LABELS, FileKind
 from nxceviri.core.formats.fmsb import FmsbPlugin
@@ -84,7 +85,9 @@ def plugin_for_kind(kind: str, title_id: str | None = None) -> FormatPlugin | No
     """Tarama raporundaki tür (`ScanEntry.kind`) için eklenti; desteklenmiyorsa None.
 
     `title_id` verilirse, `oyunlar` sınırı bu oyunu içermeyen kullanıcı eklentileri atlanır ve yerleşik
-    biçim kullanılır. Oyun bilinen her yerde (çıkarma, dışa aktarma) verilmelidir."""
+    biçim kullanılır. Oyun bilinen her yerde (çıkarma, dışa aktarma) verilmelidir. Eski sürümlerin kimlikleri
+    (`legacy.FORMAT_IDS`) bugünkü eklentiye çözülür."""
+    kind = legacy.format_id(kind)
     for info in _user_report.infos:
         plugin = info.plugin
         if plugin is None or plugin.name != kind:
@@ -121,6 +124,7 @@ def user_plugin_for_file(title_id: str, path: str, head: bytes) -> FormatPlugin 
 
 def kind_label(kind: str) -> str:
     """Tarama türünün Türkçe adı: yerleşik tür, eklenti biçimi ya da (bilinmiyorsa) türün kendi adı."""
+    kind = legacy.format_id(kind)
     try:
         return KIND_LABELS[FileKind(kind)]
     except ValueError:

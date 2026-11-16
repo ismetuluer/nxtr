@@ -117,7 +117,7 @@ def test_status_file_menu_textures_are_replaced_and_text_kept() -> None:
     no_menu = data[: offsets[1]] + bytes(len(data) - offsets[1])
     assert translate_menu_textures(no_menu) is no_menu  # menü dokusu olmayan dosya aynen kalır
 
-    refs = [TextFileRef("data/dmc1/fsd/r002.fsd", "T", "dmc1"), TextFileRef("a.msbt", "T", "msbt")]
+    refs = [TextFileRef("data/dmc1/fsd/r002.fsd", "T", "fsdmsg"), TextFileRef("a.msbt", "T", "msbt")]
     patches = game_file_patches(refs)
     from nxceviri.core.fontpatch.fsdmsg_images import FILES
 

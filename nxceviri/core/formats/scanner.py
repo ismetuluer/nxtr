@@ -49,13 +49,13 @@ _MEMBER_TEXT: dict[str, tuple[Callable[[str], bool], FileKind, str]] = {
     NNI_ARCHIVE_DETAIL: (
         lambda m: m.upper().startswith("LOC/") and m.upper().endswith(".XSO"),
         FileKind.NNITEXT,
-        "Ys Origin betik metni (XSO)",
+        "XSO betik metni",
     ),
-    CPK_ARCHIVE_DETAIL: (lambda m: m.lower().endswith(".fms"), FileKind.FMSB, "Vanillaware MsgSheet (FMSB)"),
+    CPK_ARCHIVE_DETAIL: (lambda m: m.lower().endswith(".fms"), FileKind.FMSB, "FMSB MsgSheet"),
     WAD_ARCHIVE_DETAIL: (
         lambda m: _DR_SCRIPT.search(m) is not None,
         FileKind.WADLIN,
-        "Danganronpa betiği / metin tablosu",
+        "LIN betiği / PAK metin tablosu",
     ),
 }
 
@@ -77,7 +77,7 @@ class ScanEntry:
 
 @dataclass(frozen=True)
 class EngineGuess:
-    engine: str  # "unity", "unreal", "nintendo", "gamefreak", "godot", "gamemaker", "renpy", "unknown"
+    engine: str  # ENGINE_LABELS anahtarı: "unity", "unreal", "lms", "psb", "nni", "cpk", "wad", "unknown"…
     label: str
     confidence: str  # "high", "medium", "low", "none"
     evidence: tuple[str, ...]
@@ -86,12 +86,12 @@ class EngineGuess:
 ENGINE_LABELS = {
     "unity": "Unity",
     "unreal": "Unreal Engine",
-    "m2": "M2 (Konami Master Collection)",
-    "falcom": "Falcom (Ys Origin)",
-    "vanillaware": "Vanillaware / CRI (Unicorn Overlord)",
-    "spike": "Spike Chunsoft (Danganronpa)",
-    "nintendo": "Nintendo LMS / NintendoWare",
-    "gamefreak": "Game Freak (Pokémon)",
+    "psb": "PSB arşivi (mdf)",
+    "nni": "NNI arşivi",
+    "cpk": "CPK arşivi (FMSB)",
+    "wad": "WAD arşivi (LIN/PAK)",
+    "lms": "LMS (MSBT)",
+    "gfmsg": "GFMSG mesajları",
     "godot": "Godot",
     "gamemaker": "GameMaker",
     "renpy": "Ren'Py",
@@ -247,7 +247,7 @@ def _scan_psb_archive(
                     f"{path}{NESTED_SEPARATOR}{member}",
                     len(data),
                     FileKind.PSBTEXT.value,
-                    "M2 PSB metni",
+                    "PSB metni",
                     TextLikelihood.HIGH.value,
                     origin,
                 )
@@ -384,23 +384,23 @@ _RULES: tuple[_Rule, ...] = (
     ("unreal", "Unreal yerelleştirme dosyaları", _count(lambda e: e.detail.startswith("Unreal yerelleştirme"))),
     ("unreal", "Unreal varlıkları (.uasset)", _count(lambda e: e.detail.startswith("Unreal varlığı"))),
     ("unreal", "Unreal Content/Paks klasörü", _count(lambda e: "/Content/Paks/" in e.path)),
-    ("m2", "M2 arşivleri (mdf)", _count(lambda e: e.detail == PSB_ARCHIVE_DETAIL)),
-    ("m2", "M2 PSB metin dosyaları", _count(lambda e: e.kind == FileKind.PSBTEXT)),
-    ("falcom", "Falcom NNI arşivleri", _count(lambda e: e.detail == NNI_ARCHIVE_DETAIL)),
-    ("falcom", "Ys Origin betik/arayüz metinleri", _count(lambda e: e.kind == FileKind.NNITEXT)),
-    ("vanillaware", "CRI CPK arşivleri", _count(lambda e: e.detail == CPK_ARCHIVE_DETAIL)),
-    ("vanillaware", "Vanillaware MsgSheet dosyaları", _count(lambda e: e.kind == FileKind.FMSB)),
-    ("spike", "Spike Chunsoft WAD arşivleri", _count(lambda e: e.detail == WAD_ARCHIVE_DETAIL)),
-    ("spike", "Danganronpa betik ve metin tabloları", _count(lambda e: e.kind == FileKind.WADLIN)),
-    ("nintendo", "MSBT metin dosyaları", _count(lambda e: e.kind == FileKind.MSBT)),
-    ("gamefreak", "Game Freak mesaj dosyaları", _count(lambda e: e.detail == "Game Freak mesaj dosyası")),
-    ("gamefreak", "AHTB etiket tabloları", _count(lambda e: e.detail.startswith("Game Freak etiket"))),
-    ("gamefreak", "Game Freak paketleri (.gfpak)", _count(lambda e: e.path.lower().endswith(".gfpak"))),
-    ("nintendo", "LMS proje/akış dosyaları", _count(lambda e: e.detail.startswith(("MSBP", "MSBF")))),
-    ("nintendo", "SARC/Yaz0 arşivleri", _count(lambda e: e.detail.startswith(("SARC", "Yaz0")))),
+    ("psb", "PSB arşivleri (mdf)", _count(lambda e: e.detail == PSB_ARCHIVE_DETAIL)),
+    ("psb", "PSB metin dosyaları", _count(lambda e: e.kind == FileKind.PSBTEXT)),
+    ("nni", "NNI arşivleri", _count(lambda e: e.detail == NNI_ARCHIVE_DETAIL)),
+    ("nni", "NNI betik/arayüz metinleri", _count(lambda e: e.kind == FileKind.NNITEXT)),
+    ("cpk", "CPK arşivleri", _count(lambda e: e.detail == CPK_ARCHIVE_DETAIL)),
+    ("cpk", "FMSB MsgSheet dosyaları", _count(lambda e: e.kind == FileKind.FMSB)),
+    ("wad", "WAD arşivleri", _count(lambda e: e.detail == WAD_ARCHIVE_DETAIL)),
+    ("wad", "LIN/PAK betik ve metin tabloları", _count(lambda e: e.kind == FileKind.WADLIN)),
+    ("lms", "MSBT metin dosyaları", _count(lambda e: e.kind == FileKind.MSBT)),
+    ("gfmsg", "GFMSG mesaj dosyaları", _count(lambda e: e.detail == "GFMSG mesaj dosyası")),
+    ("gfmsg", "AHTB etiket tabloları", _count(lambda e: e.detail.startswith("AHTB etiket"))),
+    ("gfmsg", "GFPAK paketleri (.gfpak)", _count(lambda e: e.path.lower().endswith(".gfpak"))),
+    ("lms", "LMS proje/akış dosyaları", _count(lambda e: e.detail.startswith(("MSBP", "MSBF")))),
+    ("lms", "SARC/Yaz0 arşivleri", _count(lambda e: e.detail.startswith(("SARC", "Yaz0")))),
     (
-        "nintendo",
-        "NintendoWare kaynakları (BFRES/BNTX/BFFNT)",
+        "lms",
+        "BFRES/BNTX/BFFNT kaynakları",
         _count(lambda e: e.detail.startswith(("BFRES", "BNTX", "BFFNT"))),
     ),
     ("godot", "Godot paketi", _count(lambda e: e.detail.startswith("Godot"))),

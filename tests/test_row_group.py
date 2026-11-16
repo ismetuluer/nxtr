@@ -20,7 +20,7 @@ def test_slash_context_of_plugin_format_groups_by_file_name() -> None:
 
 
 def test_psbtext_page_context_groups_by_file_name() -> None:
-    row = _row("data/msg_en.mdf", "sayfa 0 / text, sayfa 1 / text", "m2text")
+    row = _row("data/msg_en.mdf", "sayfa 0 / text, sayfa 1 / text", "psbtext")
     assert row_group(row) == "msg_en.mdf"
 
 
@@ -54,7 +54,7 @@ def _project() -> Project:
                 "base",
                 (TextEntry("1", 0, "B", (), context="/(Katara)"), TextEntry("2", 1, "B2", (), context="/(Sokka)")),
             ),
-            ImportedFile("m.mdf", "0100", "m2text", "base", (TextEntry("1", 0, "C", (), context="sayfa 0 / text"),)),
+            ImportedFile("m.mdf", "0100", "psbtext", "base", (TextEntry("1", 0, "C", (), context="sayfa 0 / text"),)),
             ImportedFile("t.bundle", "0100", "unity", "base", (TextEntry("UI/1", 0, "D", (), context="UI/Start"),)),
         ]
     )
@@ -70,7 +70,7 @@ def test_project_rows_carry_format() -> None:
         "m.mdf": "m.mdf",
         "t.bundle": "UI",
     }
-    assert {r.format for r in project.translation_rows()} == {"kitt", "m2text", "unity"}
+    assert {r.format for r in project.translation_rows()} == {"kitt", "psbtext", "unity"}
 
 
 def test_legacy_uppercase_group_marks_still_apply_as_row_marks() -> None:

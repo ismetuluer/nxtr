@@ -248,7 +248,7 @@ def test_detection_and_paths() -> None:
 
 def test_scan_lists_scripts_and_tables() -> None:
     report = scan_view(GameView(TID, "Danganronpa", 0, None, [_tree()]))
-    found = sorted(e.path.split(">", 1)[1] for e in report.entries if e.kind == "danganronpa")
+    found = sorted(e.path.split(">", 1)[1] for e in report.entries if e.kind == "wadlin")
     assert found == sorted(m for m in MEMBERS if "/script/" in m)
     reader = MemberReader(_tree().view)
     assert reader.read(f"{WAD_PATH}>{ITEM_PAK}") == MEMBERS[ITEM_PAK]
@@ -261,7 +261,7 @@ def test_export_rebuilds_wad() -> None:
     outputs = _export_member_archive(
         tree,
         WAD_PATH,
-        [TextFileRef(script, TID, "danganronpa"), TextFileRef(items, TID, "danganronpa")],
+        [TextFileRef(script, TID, "wadlin"), TextFileRef(items, TID, "wadlin")],
         translations=translations,
         root=Path("romfs"),
         result=ExportResult(Path("x")),

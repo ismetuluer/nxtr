@@ -238,7 +238,7 @@ def _inject_xml(data: bytes, translations: Mapping[str, str]) -> bytes:
 
 
 class NniTextPlugin:
-    name = "ysorigin"
+    name = "nnitext"
     label = "Ys Origin betik ve arayüz metinleri"
     candidates_only = True
     path_suffixes: tuple[str, ...] = (".xso", ".xml")
