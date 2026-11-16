@@ -138,3 +138,9 @@ def test_notes_can_be_saved_to_and_used_from_library(qtbot: QtBot, monkeypatch: 
     dialog.notes.setPlainText("")
     dialog.notes_library.use("Örnek Oyun")
     assert dialog.notes.toPlainText().startswith("1990'lar")
+
+
+def test_rows_matching_context_tail_only_in_collections() -> None:
+    unity = TranslationRow(1, "a.bundle>t", "0042", "S", "", Status.UNTRANSLATED, "", (), None, "UI/hint_3", "unity")
+    free = TranslationRow(2, "a.mdf", "0043", "S", "", Status.UNTRANSLATED, "", (), None, "sayfa 3/hint_3", "psbtext")
+    assert [r.id for r in rows_matching([unity, free], "hint_*")] == [1]

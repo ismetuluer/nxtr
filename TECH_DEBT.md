@@ -126,10 +126,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 
 92. **Türkçe harf onarımı sözlüğe bağlı (0.57.0).** Paketli sözlük bazı ASCII biçimleri (`surat`, `simdi`) geçerli sözcük saydığı için bunlar onarılmaz; eşyazımlılar (`cok` → çok/çök) elle kalır. Hatalı satırlarda kod onarımı ile harf onarımı ayrı geçişlerde çalışır, tek geçişte birleşmez. Düzeltme onay kutusu için arayüz testi yok. *Ne zaman:* kullanıcı onarılmayan yaygın bir sözcük bildirirse sözlüğe istisna listesi eklenir.
 
-95. **Sığdırmada anahtar adı her biçimde bağlamdan alınıyor (0.59.0).** `core/translate/fitconfig.py`
-    `key_names` bağlamın son parçasını her biçimde anahtar adı sayar; koleksiyonu olmayan biçimlerde
-    anahtar desenleri yanlış satıra uyabilir (`in_collection` ile sınırlanmalı).
-
 ## 2. Bilinen sınırlar (ihtiyaç doğunca)
 
 2. **Eski NCA0/NCA2 başlıkları desteklenmiyor.** 2017 öncesi geliştirme sürümlerine özgü;
@@ -429,3 +425,5 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 
 96. ~~İki tablo rolü aynı numarayı paylaşıyor (0.59.0).~~ — **0.59.0 sonrası kapandı:** çeviri tablosunun rolleri
     tek katalogda (`gui/table_roles.py`); değerlerin farklı olduğu testle korunur.
+95. ~~Sığdırmada anahtar adı her biçimde bağlamdan alınıyor (0.59.0).~~ — **0.59.0 sonrası kapandı:** bağlamın son
+    parçası yalnızca koleksiyonlu biçimlerde (Unity, Unreal) anahtar adı sayılır (`key_names`, `in_collection`).

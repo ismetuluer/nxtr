@@ -5,7 +5,7 @@ from __future__ import annotations
 from nxceviri.core.project import Project, TranslationRow
 from nxceviri.core.translate.codekinds import KIND_LINE_BREAK, CodeKinds
 from nxceviri.core.translate.fit import FitRules
-from nxceviri.core.translate.fitconfig import FitConfig, load_config, save_config
+from nxceviri.core.translate.fitconfig import FitConfig, key_names, load_config, save_config
 from nxceviri.core.translate.limits import LimitStat, group_stats, key_stats, valid_pattern
 
 
@@ -130,3 +130,34 @@ def test_key_stats_matches_patterns() -> None:
     assert menu == LimitStat("key:menu_*", "menu_*", 2, len("uzun bir satır"), 2)
     assert stats["key:yok_*"].rows == 0
     assert stats["key:yok_*"].longest_source_line == 0
+
+
+def _plain_row(key: str, context: str, fmt: str) -> TranslationRow:
+    return TranslationRow(1, "a.msbt", key, "x", "", "untranslated", "", (), None, context, fmt)
+
+
+def test_context_tail_is_key_name_only_in_collection_formats() -> None:
+    config = FitConfig(per_key={"hint_*": FitRules(10, 1)})
+    unity = _plain_row("0042", "Dialogue/hint_3", "unity")
+    unreal = _plain_row("0042", "Menu/hint_3", "unreal")
+    free = _plain_row("0042", "sayfa 3/hint_3", "psbtext")
+    assert config.rules_for_row(unity) == FitRules(10, 1)
+    assert config.rules_for_row(unreal) == FitRules(10, 1)
+    assert config.rules_for_row(free) is None  # serbest açıklamanın son parçası anahtar değildir
+    assert key_names(free) == ("0042",)
+    assert key_names(unity) == ("0042", "hint_3")
+
+
+def test_row_key_is_name_in_every_format() -> None:
+    config = FitConfig(per_key={"hint_*": FitRules(10, 1)})
+    assert config.rules_for_row(_plain_row("hint_1", "sayfa 3 / x", "psbtext")) == FitRules(10, 1)
+    assert config.rules_for_row(_plain_row("hint_1", "", "")) == FitRules(10, 1)
+
+
+def test_key_stats_count_context_tail_only_in_collections() -> None:
+    rows = [
+        _plain_row("a", "Dialogue/hint_3", "unity"),
+        _plain_row("b", "sayfa 3/hint_3", "psbtext"),
+        _plain_row("hint_9", "", "msbt"),
+    ]
+    assert [s.rows for s in key_stats(rows, ["hint_*"])] == [2]

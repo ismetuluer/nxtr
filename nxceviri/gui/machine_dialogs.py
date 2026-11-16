@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import fnmatch
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +37,7 @@ from PySide6.QtWidgets import (
 from nxceviri.core.errors import NxError
 from nxceviri.core.project import TranslationRow, row_group
 from nxceviri.core.secrets import DEEPL_API_KEY, SecretStore
+from nxceviri.core.translate.fitconfig import key_matches, key_names
 from nxceviri.core.translate.glossary_io import export_glossary_xlsx, merge_terms, read_glossary_xlsx
 from nxceviri.core.translate.instructions import (
     KIND_NOTES,
@@ -100,16 +100,16 @@ _SCOPE_LABELS = {
 
 
 def rows_matching(rows: Sequence[TranslationRow], pattern: str) -> list[TranslationRow]:
-    """Grubu, anahtarı ya da bağlamın son parçası desene uyan satırlar (`menu_*`, `*Chapter1*`; büyük/küçük
-    harf duyarsız). Boş desen hiçbir satır seçmez."""
+    """Grubu ya da anahtar adı (`key_names`) desene uyan satırlar (`menu_*`, `*Chapter1*`; büyük/küçük harf
+    duyarsız). Boş desen hiçbir satır seçmez."""
     pattern = pattern.strip().casefold()
     if not pattern:
         return []
 
     def names(r: TranslationRow) -> tuple[str, ...]:
-        return (row_group(r), r.key, r.context.rsplit("/", 1)[-1])
+        return tuple(n for n in (row_group(r).casefold(), *key_names(r)) if n)
 
-    return [r for r in rows if any(fnmatch.fnmatchcase(n.casefold(), pattern) for n in names(r) if n)]
+    return [r for r in rows if key_matches(pattern, names(r))]
 
 
 _START_LABELS = {

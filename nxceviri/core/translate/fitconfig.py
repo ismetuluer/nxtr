@@ -38,8 +38,8 @@ class FitConfig:
     """Bir projenin sığdırma ayarları: varsayılan kural, dosya ve grup kuralları, kod türleri, seçenekler.
 
     Öncelik: anahtar deseni > grup (`row_group` adı) > dosya > proje. Anahtar deseni `fnmatch` biçimindedir
-    (`menu_*`, `*_title`), büyük/küçük harf ayırmaz; satırın anahtarına, Unity'de bağlamın son parçasına (okunur
-    anahtar adı) bakılır; birden çok desen eşleşirse en uzunu (en özgülü) kazanır.
+    (`menu_*`, `*_title`), büyük/küçük harf ayırmaz; satırın anahtarına, koleksiyonlu biçimlerde (Unity, Unreal)
+    bağlamın son parçasına (okunur anahtar adı) bakılır; birden çok desen eşleşirse en uzunu (en özgülü) kazanır.
 
     `enabled` kapalıyken kurallar saklanır ama hiçbir dosyaya uygulanmaz.
     """
@@ -85,9 +85,11 @@ class FitConfig:
 
 
 def key_names(row: TranslationRow) -> tuple[str, ...]:
-    """Anahtar desenlerinin denendiği adlar (küçük harfe çevrilmiş): satır anahtarı ve bağlamın son parçası."""
+    """Anahtar desenlerinin denendiği adlar (küçük harfe çevrilmiş): satır anahtarı; koleksiyonlu biçimlerde
+    (Unity, Unreal: bağlam `koleksiyon/…/anahtar`) ayrıca bağlamın son parçası. Diğer biçimlerde bağlam serbest
+    bir açıklamadır, son parçası anahtar sayılmaz."""
     names = [row.key.casefold()]
-    if "/" in row.context:
+    if in_collection(row):
         tail = row.context.rsplit("/", 1)[-1].casefold()
         if tail and tail not in names:
             names.append(tail)
