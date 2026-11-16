@@ -1,6 +1,14 @@
-# HANDOFF — oturum devri (2026-11-15, 0.58.3)
+# HANDOFF — oturum devri (2026-11-16, 0.59.0)
 
 ## Durum
+- **Sürüm 0.59.0** (2026-11-16; CHANGELOG 0.59.0): Çevir'de simgeli durum süzgeci (`gui/status_filter.py`), "Tümü"
+  bütün süzgeçleri kaldırır, arama Türkçe harf duyarsız (`core/translate/textsearch.py` `fold_search`), grup işlevi
+  yalnızca Unity/Unreal'da koleksiyon kullanır (`core/project/store.py` `COLLECTION_FORMATS`, `in_collection`),
+  gruplu görünüm (`gui/group_proxy.py`, `gui/group_header.py`; komut `view.grouped`, ayar `translate/grouped`).
+  Tam test seti 2535 geçti. Gerçek pencerede ve gerçek projede denenmedi. Bilinen, dokunulmamış sorunlar:
+  `test_editor_pane.py::test_narrow_head_keeps_badge_and_approve_whole[280]` belirli sırada başarısız; tek ölçümlü
+  süre testleri yük altında yanlış alarm verebilir; `fitconfig.py` `key_names` bağlamın son parçasını her biçimde
+  anahtar adı sayıyor; `FIND_SPANS_ROLE` ile `STATUS_ROLE` aynı rol numarasını paylaşıyor (bugün zararsız).
 - **Sürüm 0.58.3** (2026-11-15; CHANGELOG 0.58.3): kullanıcı eklentilerinde onay (`core/plugins/trust.py`,
   `core/plugins/loader.py` `plugin_fingerprint` ve `trusted`, `gui/plugin_approval.py`; onaylar
   `%LOCALAPPDATA%\NXCeviri\eklenti_onaylari.json`), kaydedilmemiş değişiklik sorusu Evet / Hayır / İptal

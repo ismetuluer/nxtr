@@ -995,6 +995,22 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     projeye döner); okumadan "Evet" diyen kullanıcı veri kaybetmez. Kutu `build_save_box` ile kurulur, testler
     `MainWindow.ask_save_changes` üzerinden sürer.
 
+### 4.52 0.59.0 kararları (gruplu görünüm, grup işlevi)
+
+202. **Grup işlevi:** bağlamın ilk parçası yalnızca `COLLECTION_FORMATS` (Unity, Unreal) satırlarında grup adıdır;
+    diğer biçimlerde bağlamdaki "/" koleksiyon anlamına gelmez, grup dosya adıdır (`in_collection`, `row_group`).
+    Gerçek projelerde ölçüldü: kural yalnızca iki biçimin grup listesini değiştirdi. Eski grup adlı büyük harf
+    işaretleri okunurken satır işaretine çevrilir (`_with_legacy_groups`; veritabanına yazım yok).
+203. **Gruplu görünüm vekili:** `GroupProxy` yalnızca gruplama açıkken tabloya takılır; her zaman takılıyken büyük
+    tabloda boyama yaklaşık %25 yavaşlıyordu. Kapalı kipte tablo doğrudan `TranslationFilter`'a bağlıdır.
+    Sayfanın geri kalanı satıra `_model_row` / `_view_index` yardımcılarıyla ulaşır, vekili bilmez.
+204. **Katlama ve düzenleme:** grup katlanmadan önce açık hücre düzenlemesi kaydedilir; kayıt başarısızsa grup
+    katlanmaz (yazılan metin kaybolmaz).
+205. **Başlıktaki uyarı simgesi** denetim çalıştırmaz; yalnızca bilinen sonuçları gösterir (`LiveChecks.cached`).
+    Simgenin yokluğu "sorun yok" anlamına gelmez.
+206. **Gruplama düğmesinin yeri:** süzgeç değil görünüm seçeneği olduğu için süzgeç şeridinde durmaz; esnek boşluğun
+    sağında, birincil düğmenin solundadır ve panel düğmesiyle aynı görünümdedir.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

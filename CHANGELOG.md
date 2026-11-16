@@ -2,6 +2,28 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.59.0] — 2026-11-16 — Çevir: gruplu görünüm, simgeli durum süzgeci
+
+### Eklendi
+- **Gruplu görünüm (Çevir):** araç çubuğundaki simgeyle ya da Görünüm → Gruplu Görünüm ile açılır. Satırlar dosya
+  ya da koleksiyon başlıkları altında toplanır; başlıkta satır sayısı, bilinen sorun varsa uyarı simgesi ve ilerleme
+  çubuğu görünür. Başlığa tıklayınca grup katlanır. Varsayılan kapalıdır, tercih hatırlanır; tek gruplu projede
+  düğme görünmez.
+- **Durum süzgeci simge düğmeleri (Çevir):** açılır kutu yerine tek tıklık simgeler (çevrilmedi, makine, redakte,
+  onaylandı, hatalı, uyarılı); her birinde satır sayısı, açıklama ipucunda.
+
+### Değişti
+- **"Tümü" düğmesi** arama ya da süzgeç varken "görünen / toplam" yazar; basınca arama ve bütün süzgeçler kalkar.
+  Ayrı "Süzgeç etkin · Temizle" yazısı kaldırıldı.
+- **Arama** Türkçe harflerde büyük/küçük ayırmaz (I, ı, İ, i birbirini bulur).
+- **Gruplar:** koleksiyon adı yalnızca Unity ve Unreal oyunlarında grup sayılır; diğer biçimlerde grup dosya adıdır.
+  Bazı projelerde (örneğin tek "grup" görünen ya da yüzlerce anlamsız gruba bölünenlerde) grup listesi değişir.
+  Bu projelerde eski grup adıyla kaydedilmiş gruba özel sığdırma sınırları artık uymaz; yeniden tanımlanmalıdır.
+  TXT/XLSX dışa aktarımındaki grup sütunu da dosya adını yazar.
+
+### Düzeltildi
+- Makine ya da Redakte süzgeci seçiliyken son satır düzenlenince süzgecin kendiliğinden "Tümü"ne dönmesi.
+
 ## [0.58.3] — 2026-11-15 — Eklenti onayı, yeni kaydetme sorusu, son projeler kartı
 
 ### Eklendi

@@ -100,7 +100,7 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 Görsel denetim listesi ve 0.57.2 sonrası geri bildirim kapandı. Sıradaki iş, yukarıdaki "Sonraki yapılacaklar"
 listesinden ürün sahibinin seçimiyle belirlenir.
 
-**Yapıldı (0.58.3 sonrası, yayımlanmadı)**
+**Yapıldı (0.59.0)**
 - Çevir: durum süzgeci simge düğmeleri şeridi (`gui/status_filter.py`); "Tümü" düğmesi süzgeç varken
   "görünen / toplam" yazar ve bütün süzgeçleri kaldırır; arama Türkçe I/ı/İ/i ayırmaz (`fold_search`).
 - Grup işlevi düzeltildi: koleksiyon kuralı yalnızca Unity ve Unreal satırlarında (`COLLECTION_FORMATS`); kitt ve
@@ -108,6 +108,7 @@ listesinden ürün sahibinin seçimiyle belirlenir.
 - Çevir: gruplu görünüm (`gui/group_proxy.py`, `gui/group_header.py`; komut `view.grouped`, ayar
   `translate/grouped`, varsayılan kapalı). Vekil yalnızca gruplama açıkken tabloya takılır (her zaman takılıyken
   boyama %25 yavaşlıyordu). Anahtara göre gruplama ölçümde oyundan oyuna tutmadığı için yapılmadı.
+  Gruplama düğmesi süzgeç şeridinde değil, sağda Otomatik Çeviri'nin solundadır (ürün sahibinin kararı).
   Gerçek pencerede ve gerçek projede denenmedi.
 
 **Yapıldı (0.58.3)**
