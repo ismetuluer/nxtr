@@ -81,8 +81,9 @@ def test_counts_and_bar_in_all_view(window: MainWindow) -> None:
     kl = page.kind_list
     assert (kl.count_of("spaces"), kl.count_of("end_punctuation"), kl.count_of("repeated_word")) == (2, 1, 1)
     # "Tüm bulgular": yalnızca güvenli türler (boşluk 2 + tekrarlı sözcük 1); sondaki noktalama riskli, sayılmaz.
-    assert page.fix_text.text() == "3 bulgu güvenle düzeltilebilir."
-    assert page.fix_button.text() == "3 bulguyu düzelt"
+    # Düzelt onaylı satırlarda da çalışır: b, c ve onaylı d satırı, yani 3 satır.
+    assert page.fix_text.text() == "3 satır güvenle düzeltilebilir."
+    assert page.fix_button.text() == "3 satırı düzelt"
 
 
 def test_fix_selected_kinds_report_and_second_round(window: MainWindow) -> None:
@@ -110,15 +111,14 @@ def test_fix_selected_kinds_report_and_second_round(window: MainWindow) -> None:
     assert (header.text(), cell.text()) == ("Düzeltme", "Sondaki noktalama")
     dialog.close()
 
-    # Başka bir türü seçip yeniden düzelt: onaylı satıra dokunulmaz, not düşülür.
+    # Başka bir türü seçip yeniden düzelt: onaylı satır da düzelir ve onaylı kalır.
     _only(window, "spaces")
     page.fix_button.click()
     rows = _rows(window)
     assert rows["b"].translation == "Merhaba "
-    assert rows["d"].translation == "Selam"
+    assert rows["d"].translation == "Selam "
     assert rows["d"].status == Status.APPROVED
-    assert "1 satır düzeltildi." in page.last_fix_text
-    assert "1 satıra dokunulmadı" in page.last_fix_text
+    assert page.last_fix_text == "2 satır düzeltildi."
 
 
 def test_fix_is_one_undoable_job(window: MainWindow) -> None:
@@ -135,7 +135,7 @@ def test_fix_is_one_undoable_job(window: MainWindow) -> None:
 def test_selected_rows_scope(window: MainWindow) -> None:
     page = window.qa_page
     _select_issue_row(window, "c")
-    assert page.fix_button.text() == "Seçili 1 bulguyu düzelt"
+    assert page.fix_button.text() == "Seçili 1 satırı düzelt"
     page.fix_button.click()
     rows = _rows(window)
     assert rows["c"].translation == "Devam et ve bitir"

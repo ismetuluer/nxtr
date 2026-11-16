@@ -71,7 +71,7 @@ from nxceviri.core.plugins.trust import PluginTrust
 from nxceviri.core.progress import TaskContext
 from nxceviri.core.project import PROJECT_SUFFIX, Change, Project, SourceRecord, TranslationRow, row_group
 from nxceviri.core.qa import transliterate
-from nxceviri.core.qa.autofix import plan_fixes, plan_reflow
+from nxceviri.core.qa.autofix import FixPlan, plan_reflow
 from nxceviri.core.qa.checks import (
     KIND_LABELS,
     SEVERITY_ERROR,
@@ -82,6 +82,7 @@ from nxceviri.core.qa.checks import (
     spell_extra_words,
 )
 from nxceviri.core.qa.checks import run_checks as run_qa_checks
+from nxceviri.core.qa.fixrun import FixSettings, plan_for_issues, plan_for_rows
 from nxceviri.core.qa.fonts import FontReport, looks_like_font
 from nxceviri.core.qa.fonts import scan_fonts as scan_font_files
 from nxceviri.core.qa.live import SETTING_KEY as LIVE_KINDS_KEY
@@ -268,6 +269,11 @@ def _preview(text: str) -> str:
 FONT_OVERRIDES_KEY = "font_overrides"
 
 #: Arka plan işinin bildirimdeki adı ("<ad> bitti / başarısız / durduruldu"); yoksa işin açıklaması kullanılır.
+#: Düzelt'in denetimi ve planı bu satır sayısına kadar ana iş parçacığında (anında), fazlası arka plan işinde yapılır.
+FIX_SYNC_ROWS = 200
+#: Düzeltmeden sonra değişen satırlar bu sayıya kadar panoda yerinde yenilenir; fazlası arka planda tam denetlenir.
+FIX_RECHECK_ROWS = 300
+
 _TASK_LABELS = {
     "Oyun dosyaları okunuyor": "Oyun dosyalarını okuma",
     "Dosyalar çıkarılıyor": "Dosya çıkarma",
@@ -597,6 +603,7 @@ class MainWindow(QMainWindow):
         self.qa_page.font_patch_changed.connect(self._set_font_patch)
         self.qa_page.open_row.connect(self._open_row)
         self.qa_page.fix_requested.connect(self.apply_fixes)
+        self.qa_page.fix_planner = self._plan_fix_bar
         self.qa_page.translation_edited.connect(self._edit_from_issues)
         self.qa_page.report_requested.connect(self.show_job_changes)
         self.qa_page.fix_notice.connect(self._fix_notice)
@@ -1958,15 +1965,20 @@ class MainWindow(QMainWindow):
         if not rows:
             return
         self.translate_page.model.update_rows(rows)
-        self._recheck_board_rows(rows[0])
+        self._recheck_board_rows(rows)
 
-    def _recheck_board_rows(self, row: TranslationRow) -> None:
-        """Düzenlenen satırı ve aynı kaynaklı satırları (tutarsızlık değişir) panoda yeniden denetler.
+    def _recheck_board_rows(self, changed: Sequence[TranslationRow], *, keep_terms: bool = False) -> None:
+        """Düzenlenen satırları ve aynı kaynaklı satırları (tutarsızlık değişir) panoda yeniden denetler.
 
-        Terimler tüm projeden çıkarılır (tek satırdan çıkmaz); sayaç ve adım çubuğu güncellenir.
+        Terimler tüm projeden çıkarılır (tek satırdan çıkmaz); sayaç ve adım çubuğu güncellenir. `keep_terms`:
+        terimleri yeniden çıkarmak (tüm projeyi taramak) yerine satırların panodaki terim bulguları korunur;
+        biçim düzeltmeleri terim bulgusunu değiştirmez, tazesi sonraki tam denetimde gelir.
         """
         all_rows = self.translate_page.model.rows
-        group = [r for r in all_rows if r.source == row.source] if row.source.strip() else [row]
+        sources = {r.source for r in changed if r.source.strip()}
+        ids = {r.id for r in changed}
+        group = [r for r in all_rows if r.id in ids or r.source in sources]
+        group_ids = {r.id for r in group}
         glossary = self.project.glossary()
         ignored_terms = self._terms_ignored()
         issues = run_qa_checks(
@@ -1978,8 +1990,10 @@ class MainWindow(QMainWindow):
             spell=self.spell,
             ignored_terms=ignored_terms,
             spell_ignored=self._spell_ignored(),
-            terms=project_terms(all_rows, glossary, ignored_terms),
+            terms={} if keep_terms else project_terms(all_rows, glossary, ignored_terms),
         )
+        if keep_terms:
+            issues += [i for i in self.qa_page.model.issues if i.kind == "term" and i.row_id in group_ids]
         by_row: dict[int, list[QaIssue]] = {}
         for issue in issues:
             by_row.setdefault(issue.row_id, []).append(issue)
@@ -2249,54 +2263,79 @@ class MainWindow(QMainWindow):
             text += f" {format_int(left)} satır zaten uygundu ya da bölünemedi."
         self.translate_page.show_notice("success" if updated else "warning", text)
 
-    def apply_fixes(self, kinds: list[str], row_ids: list[int]) -> None:
-        """Seçilen türlerdeki bulguları düzeltir (`row_ids` boşsa tüm bulgular); tek iş olarak geçmişe yazılır.
+    def _fix_settings(self) -> FixSettings:
+        """Düzeltmenin ve düzeltme bildiriminin ortak ayarları (şimdi, ana iş parçacığında okunur)."""
+        return FixSettings(
+            self._missing_letters(),
+            self._transliterate_letters(),
+            self.project.glossary(),
+            self._fit_config(),
+            self.spell,
+            self._terms_ignored(),
+            self._spell_ignored(),
+        )
 
-        Sonra denetim yeniden çalışır ve sayılar güncellenir; rapor “Son İşin Değişiklikleri” penceresidir.
+    def _plan_fix_bar(self, rows: list[TranslationRow], issues: list[QaIssue], kinds: list[str]) -> FixPlan:
+        """Sorunlar panosundaki "N satır düzeltilebilir" bildiriminin planı; Düzelt aynı kuralla çalışır."""
+        return plan_for_issues(rows, issues, kinds, self._fix_settings())
+
+    def apply_fixes(self, kinds: list[str], row_ids: list[int]) -> None:
+        """Seçilen türlerdeki bulguları düzeltir (`row_ids` boşsa panodaki tüm bulgular); tek iş olarak geçmişe yazılır.
+
+        Onaylı satırlar da düzelir ve onaylı kalır. Yalnızca bulgusu olan satırlar yeniden denetlenir (tüm proje
+        değil); çok satır varsa denetim ve plan arka plan işinde çalışır, arayüz donmaz. Rapor “Son İşin
+        Değişiklikleri” penceresidir.
         """
         if self.busy or not kinds:
             return
-        page = self.qa_page
-        rows = self.project.translation_rows()
-        glossary = self.project.glossary()
-        fit = self._fit_config()
-        spell_ignored = self._spell_ignored()
-        issues = run_qa_checks(
-            rows,
-            self._missing_letters(),
-            self._transliterate_letters(),
-            glossary,
-            fit,
-            spell=self.spell,
-            ignored_terms=self._terms_ignored(),
-            spell_ignored=spell_ignored,
-            terms={},  # terim tutarsızlığı otomatik düzeltilemez: bulgusu hesaplanmaz
-        )
+        settings = self._fix_settings()
         if row_ids:
-            wanted = set(row_ids)
-            issues = [i for i in issues if i.row_id in wanted]
-        spell_extra = spell_extra_words(glossary, spell_ignored) if self.spell is not None else frozenset()
-        plan = plan_fixes(rows, issues, kinds, glossary=glossary, fit=fit, spell=self.spell, spell_extra=spell_extra)
+            wanted: set[int] | None = set(row_ids)
+        elif self._qa_count is not None and self._qa_count[0] is self.project:
+            wanted = {i.row_id for i in self.qa_page.model.issues if i.kind in kinds}
+        else:
+            wanted = None  # hiç denetlenmemiş: tüm satırlar
+        rows = [r for r in self.translate_page.model.rows if wanted is None or r.id in wanted]
+        if len(rows) <= FIX_SYNC_ROWS:
+            self._write_fixes(rows, plan_for_rows(rows, kinds, settings))
+            return
+        project = self.project
+
+        def work(_ctx: TaskContext) -> object:
+            return plan_for_rows(rows, kinds, settings)
+
+        def done(result: object) -> None:
+            if self.project is project:
+                assert isinstance(result, FixPlan)
+                self._write_fixes(rows, result)
+
+        self._run(work, "Düzeltmeler hazırlanıyor", on_success=done, on_failure=self.qa_page.show_check_failed)
+
+    def _write_fixes(self, rows: list[TranslationRow], plan: FixPlan) -> None:
+        """Planı tek iş olarak yazar, değişen satırları yerinde yeniler ve sonucu bildirir."""
+        page = self.qa_page
         notes = []
-        if plan.approved:
-            notes.append(f"Onayladığınız {format_int(plan.approved)} satıra dokunulmadı.")
         if plan.unfixed:
-            notes.append(f"{format_int(plan.unfixed)} satırdaki sorun programla düzeltilemedi; elle bakın.")
+            notes.append(f"{format_int(plan.unfixed)} satır düzeltilemedi (anlam gerektiriyor); elle bakın.")
         if plan.empty:
             page.show_fix_result("warning", " ".join(["Düzeltilecek bir şey bulunamadı.", *notes]))
             return
         job_id = new_job_id("autofix")
         try:
-            self._write_row_changes(plan.changes, rows, job_id)
+            updated = self._write_row_changes(plan.changes, rows, job_id)
         except NxError as exc:
             page.show_fix_result("danger", exc.user_text())
             return
         self._mark_changed()
-        self._reload_rows()
+        self.translate_page.model.update_rows(updated)
         self._set_last_job(job_id)
         self._refresh_marks()
         self._fix_report = (job_id, {i: ", ".join(KIND_LABELS[k] for k in ks) for i, ks in plan.applied.items()})
-        self.run_checks()
+        if len(updated) <= FIX_RECHECK_ROWS:
+            if self._qa_count is not None and self._qa_count[0] is self.project:
+                self._recheck_board_rows(updated, keep_terms=True)
+        else:
+            self._recheck_if_done()  # çok satır: tam denetim arka planda
         page.show_fix_result(
             "success", " ".join([f"{format_int(len(plan.changes))} satır düzeltildi.", *notes]), "Raporu Gör"
         )

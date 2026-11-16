@@ -94,8 +94,9 @@ Kod: `nxceviri/core/translate/` — `providers/base.py` (sözleşme), `providers
   yeniden istenir. Modele anahtar adı kod olarak değil, sözcük ipucu olarak ("ursa desc") verilir.
 - **Kontrol Et → düzeltme çubuğu:** Denetle'den sonra bulgu listesinin üstünde kendiliğinden düzeltilebilen bulgu
   sayısı ve **N bulguyu düzelt** düğmesi görünür. Kapsam: listede satır seçiliyse seçili bulgular; yoksa solda seçili
-  türlerin bulguları; "Tüm bulgular"dayken yalnızca güvenli (yanılma riski olmayan) türler. Onaylı satırlara
-  dokunulmaz. “Raporu Gör” önceki/yeni hâli ve uygulanan düzeltmeyi gösterir; Ctrl+Z hepsini geri
+  türlerin bulguları; "Tüm bulgular"dayken yalnızca güvenli (yanılma riski olmayan) türler. Onaylı satırlar da
+  düzeltilir ve onaylı kalır (makine çevirisi onaylıya yine yazmaz). Çubuktaki sayı, düğmenin değiştireceği satır
+  sayısıdır (aynı plan); düzeltilemeyenler ayrıca söylenir. “Raporu Gör” önceki/yeni hâli ve uygulanan düzeltmeyi gösterir; Ctrl+Z hepsini geri
   alır. Düzeltmeler programla yapılır, model kullanılmaz.
 - **Yazım denetimi (Türkçe):** çevirideki sözcükler paketlenen Türkçe sözlükle (hunspell-tr, MPL-2.0; ~6,1 milyon
   sözcük biçimi, `nxceviri/assets/spell/tr.bloom`) karşılaştırılır. Sözlükte olmayan sözcük **Çevir sayfasında çeviri

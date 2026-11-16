@@ -1045,6 +1045,15 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     ekleme, paneli önce geçerli satıra eşler ve yalnızca panelin gösterdiği satıra yazar.
 214. **Sayfa geçişi Alt+1…5:** Ctrl+rakam kod eklemeye ayrıldı (ürün sahibinin kararı). Varsayılana eşit tuş
     ayarlarda saklanmadığı için göç gerekmedi; kullanıcının kendi atamaları korunur.
+215. **Düzelt onaylı satırlarda da çalışır, satır onaylı kalır (ürün sahibi kararı):** `qa/fixrun` planı
+    `include_approved=True` ile çıkarır; yazım `_write_row_changes`: onaylılar ayrı çağrıyla (insan durumu, `machine`
+    değil) yazılır, aynı `job_id` ile tek iş (Geri Al/Yinele tek adım). "Onaylı satıra dokunulmaz" kuralı yalnızca
+    makine çevirisi ve redaksiyon için sürer (`set_translations` onaylıyı `overwrite_approved` olmadan atlar).
+    Bulgu çubuğundaki sayı Düzelt'in değiştireceği satır sayısıdır: ikisi de `plan_for_issues` kuralından gelir;
+    plan düzeltemeyecekse çubuk bunu söyler ve düğmeyi göstermez. Düzelt yalnızca bulgusu olan satırları denetler
+    (tüm projeyi değil; 200 satırdan fazlasında arka plan işi); sonrasında değişen satırlar panoda yerinde
+    yenilenir (300'den fazlasında arka planda tam denetim). Yerinde yenilemede satırın terim bulguları korunur
+    (biçim düzeltmesi terim bulgusunu değiştirmez; tazesi sonraki tam denetimde gelir).
 
 ## 5. Bilinen sınırlar
 
