@@ -104,7 +104,10 @@ def plan_replace(
             new, count = pattern.subn(repl, r.translation)
             if not count or new == r.translation:
                 continue
-            if placeholders.problems(r.source, new) and not placeholders.problems(r.source, r.translation):
+            if (
+                placeholders.check(r.source, new, r.free_codes).errors
+                and not placeholders.check(r.source, r.translation, r.free_codes).errors
+            ):
                 plan.skipped += 1
                 continue
             plan.changes.append((r.id, new))

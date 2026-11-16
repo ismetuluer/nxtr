@@ -266,6 +266,10 @@ class NniTextPlugin:
     def language(self, data: bytes) -> str | None:
         return None  # dil, arşiv ve dosya adından anlaşılır (pipeline.path_language)
 
+    def movable_code(self, code: ControlCode) -> bool:
+        """Serbest: simge `<ext:17>`. `%s`/`%d` sırayla bağlanır (konumsal); renk ve boyut kodları yerinde kalır."""
+        return code.raw.startswith(b"<ext:")
+
     def extract(self, data: bytes, context: Context | None = None) -> list[TextEntry]:
         entries: list[TextEntry] = []
         if data.startswith(XSO_MAGIC):

@@ -5,6 +5,7 @@ Denetimler satır başınadır ve yalnızca bulguları döndürür; satırları 
 | Tür | Önem | Ne zaman |
 |---|---|---|
 | placeholder | hata | Kontrol kodları bozuk (satır "Hatalı"; dışa aktarılmaz) |
+| code_order | uyarı | Yalnızca serbest kodların (değişken, simge) yeri değişmiş; satır dışa aktarılır |
 | max_length | hata | Biçimin koyduğu uzunluk sınırı aşılmış |
 | glyph | uyarı | Çeviride fontta olmayan ve dönüştürülmeyecek harf var |
 | overflow | uyarı | Çeviri orijinalden belirgin biçimde uzun (kutuya sığmayabilir) |
@@ -77,6 +78,7 @@ KIND_LABELS = {
     "newlines": "Satır sonu",
     "markup": "Fazla etiket",
     "code_position": "Kod yeri",
+    "code_order": "Kod sırası",
     "spaces": "Boşluk",
     "glossary": "Terminoloji",
     "identifier": "Kod adı",
@@ -179,9 +181,12 @@ def check_row(
     if not row.translation:
         add("untranslated", SEVERITY_INFO, "Çevrilmedi; oyunda orijinal metin görünür.")
         return issues
-    problems = placeholders.problems(row.source, row.translation)
+    found = placeholders.check(row.source, row.translation, row.free_codes)
+    problems = list(found.errors)
     if problems or row.status == Status.ERROR:
         add("placeholder", SEVERITY_ERROR, _placeholder_message(row, problems))
+    elif found.warnings:
+        add("code_order", SEVERITY_WARNING, " ".join(found.warnings))
     extra = foreign_markup(row.source, row.translation)
     if extra:
         add(

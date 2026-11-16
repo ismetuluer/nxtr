@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 
 import pytest
@@ -425,9 +425,12 @@ def test_revision_export_and_import(
             history: bool = False,
             preview: bool = False,
             summary: Sequence[str] = (),
+            free_codes: Mapping[int, frozenset[int]] | None = None,
         ) -> None:
             asked.append("\n".join(summary))
-            super().__init__(parent, title, changes, history=history, preview=preview, summary=summary)
+            super().__init__(
+                parent, title, changes, history=history, preview=preview, summary=summary, free_codes=free_codes
+            )
 
         def exec(self) -> int:
             # Uygulamadan önce satır satır karşılaştırma gösterilir: "Yaz, Satır, Orijinal, Önceki, Yeni".
@@ -518,10 +521,13 @@ def test_translation_export_and_import_uses_translation_columns(
             history: bool = False,
             preview: bool = False,
             summary: Sequence[str] = (),
+            free_codes: Mapping[int, frozenset[int]] | None = None,
         ) -> None:
             assert title == "Dış çeviriden içe aktar"
             asked.append("\n".join(summary))
-            super().__init__(parent, title, changes, history=history, preview=preview, summary=summary)
+            super().__init__(
+                parent, title, changes, history=history, preview=preview, summary=summary, free_codes=free_codes
+            )
 
         def exec(self) -> int:
             # İkinci satırı beğenmedik: işareti kaldır; birinci satır yazılsın.

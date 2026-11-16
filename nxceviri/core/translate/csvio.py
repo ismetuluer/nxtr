@@ -943,7 +943,7 @@ def prepare_correction(row: TranslationRow, text: str) -> tuple[str, list[str]]:
         return "", ["Çeviri boş."]
     repaired = repair_codes(row.source, text, row.code_labels)
     final = match_edges(row.source, clean_output(row.source, repaired, row.code_labels))
-    return final, placeholders.problems(row.source, final)
+    return final, list(placeholders.check(row.source, final, row.free_codes).errors)
 
 
 def plan_import(rows: Sequence[TranslationRow], csv_rows: Sequence[CsvRow]) -> CsvPlan:

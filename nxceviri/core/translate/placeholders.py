@@ -5,14 +5,19 @@ numaralanmış bir yer tutucuya çevirir. Çevirmen (insan veya makine) yalnızc
 yer tutucuları görür. Geri yazmadan önce yer tutucuların **sayısı, türü ve sırası**
 orijinalle karşılaştırılır; uymayan satır "hatalı" sayılır ve dosyaya yazılmaz.
 Aynı numara her zaman aynı kodu gösterdiğinden "tür" denetimi numara denetimiyle yapılır.
+
+Tek istisna (ürün sahibinin kararı, 2026-11-16): yalnızca serbest kodların (biçim eklentisinin `movable_code` ile
+bildirdiği simge ve adlı değişkenler) yeri değiştiyse satır hatalı değildir, uyarıdır (`check`). Biçim
+eklentilerinin `inject` denetimi (`problems`) katı kalır; dışa aktarma bu satırları `tolerate_reorder` içinde yazar.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Collection, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
+from dataclasses import dataclass
 
 OPEN = "⟦"
 CLOSE = "⟧"
@@ -89,6 +94,36 @@ def order_only_problem(source: str, translation: str, is_free: Callable[[int], b
             return False
     fixed = [n for n in tokens_in(source) if not is_free(n)]
     return fixed == [n for n in tokens_in(translation) if not is_free(n)]
+
+
+#: Yalnızca serbest kodların yeri değiştiğinde verilen uyarı (satır hatalı sayılmaz, dışa aktarılır).
+FREE_REORDER_WARNING = (
+    "Değişken veya simge kodlarının yeri orijinalden farklı; oyunda doğru yerde göründüğünü denetleyin."
+)
+
+
+@dataclass(frozen=True)
+class CodeCheck:
+    """Çevirinin kontrol kodu denetimi: `errors` doluysa satır hatalıdır; yalnızca `warnings` doluysa yazılabilir."""
+
+    errors: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
+
+
+def check(source: str, translation: str, free: Collection[int] = frozenset()) -> CodeCheck:
+    """Kontrol kodu kararının tek yeri: sorun yok / yalnızca serbest kod sırası farkı (uyarı) / hata.
+
+    `free`: satırın serbest kodlarının numaraları (biçim eklentisinin `movable_code` bildirimi; tek başına durur,
+    adıyla ya da kendisi anlam taşır). Eksik, fazla, yinelenen kod ve serbest olmayan kodların (çiftler, satır/sayfa
+    sonu, konumsal `%s`) kendi aralarındaki sıra farkı her zaman hatadır. Biçim eklentilerinin `inject` denetimi
+    katı kalır (`problems`); dışa aktarma uyarılı satırları `tolerate_reorder` içinde yazar.
+    """
+    issues = problems(source, translation)
+    if not issues:
+        return CodeCheck()
+    if free and order_only_problem(source, translation, free.__contains__):
+        return CodeCheck(warnings=(FREE_REORDER_WARNING,))
+    return CodeCheck(errors=tuple(issues))
 
 
 def renumber(text: str) -> str:

@@ -3470,7 +3470,14 @@ class MainWindow(QMainWindow):
             for row in rows
             if row.id in changed
         ]
-        dialog = ChangesDialog(self, title, preview, preview=True, summary=lines)
+        dialog = ChangesDialog(
+            self,
+            title,
+            preview,
+            preview=True,
+            summary=lines,
+            free_codes={r.id: r.free_codes for r in rows if r.id in changed},
+        )
         if dialog.exec() != ChangesDialog.DialogCode.Accepted:
             return
         accepted = dialog.accepted_changes()

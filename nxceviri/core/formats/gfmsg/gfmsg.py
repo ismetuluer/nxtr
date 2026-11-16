@@ -232,6 +232,9 @@ def _encode(display: str, codes: tuple[ControlCode, ...], key: str) -> list[int]
                 out[start - 1] = (second << 8) | first
                 branch = None
             continue
+        if branch is not None:
+            # Seçenekler düz metin olarak okunur; içlerindeki kod geri okunduğunda metne karışırdı.
+            raise FormatError(f"'{key}': seçim seçeneğinin içine kontrol kodu konamaz.")
         seq = list(struct.unpack(f"<{len(raw) // 2}H", raw))
         out += seq
         if codes[piece - 1].label.endswith(_BRANCH_HEAD):
@@ -258,6 +261,12 @@ class GfMsgPlugin:
             return {("etiketler", path[: -len(".tbl")]): read_labels(data)}
         except FormatError:
             return {}
+
+    def movable_code(self, code: ControlCode) -> bool:
+        """Serbest: özel kullanım alanındaki tek simge karakteri (0xE000–0xF8FF). Değişken ve sayı kodlarının
+        argümanlarla nasıl bağlandığı belgelenmedi; dilbilgisi, seçim, renk ve metin kutusu kodlarıyla birlikte
+        katıdır."""
+        return len(code.raw) == 2 and 0xE000 <= int.from_bytes(code.raw, "little") <= 0xF8FF
 
     def language(self, data: bytes) -> str | None:
         return None  # dil klasörden anlaşılır: bin/message/English/…

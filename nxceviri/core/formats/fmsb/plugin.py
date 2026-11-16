@@ -158,6 +158,11 @@ class FmsbPlugin:
     def collect_context(self, data: bytes, path: str = "") -> dict[object, object]:
         return {}
 
+    def movable_code(self, code: ControlCode) -> bool:
+        """Serbest: simge `#(56)`, ad değişkeni `#FN(…)`/`#CN(…)` (adıyla bağlanır). `%s`/`%d` sırayla bağlanır
+        (konumsal); renk/boyut/eğik çiftleri, vurgu, bekleme ve yerleşim etiketleri yerinde kalır."""
+        return code.raw.startswith((b"#(", b"#FN(", b"#CN("))
+
     def language(self, data: bytes) -> str | None:
         """Ana arşivlerdeki (`<ad>.CPK`) sayfalar Japoncadır; dil CPK'larınınki yol adından anlaşılır.
 

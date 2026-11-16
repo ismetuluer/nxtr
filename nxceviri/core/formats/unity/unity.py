@@ -51,6 +51,8 @@ log = logging.getLogger(__name__)
 BUNDLE_MAGIC = b"UnityFS\0"
 
 _TAG_RE = re.compile(r"</?[A-Za-z#][^<>\n]{0,200}>")
+#: Serbest kodlar (`movable_code`): simge etiketi ve adlı/numaralı değişken.
+_MOVABLE_RE = re.compile(r"<sprite[\s=>]|\{[A-Za-z0-9_]", re.IGNORECASE)
 _SIMPLE_TAGS = {
     "b": "Kalın",
     "i": "İtalik",
@@ -579,6 +581,11 @@ class UnityPlugin:
             result[("shared", obj.path_id)] = value
             result[("collection", value[0])] = value
         return result
+
+    def movable_code(self, code: ControlCode) -> bool:
+        """Serbest: `<sprite …>` simgesi ve adıyla/numarasıyla bağlanan Smart String değişkeni (`{0}`, `{input_0}`,
+        `{0:plural:…}`). Adsız `{}`, satır sonu ve TextMeshPro biçim etiketleri (çoğu açma/kapama çifti) katıdır."""
+        return _MOVABLE_RE.match(code.raw.decode("utf-8", errors="replace")) is not None
 
     def language(self, data: bytes) -> str | None:
         env = _load(data)

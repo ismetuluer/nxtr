@@ -5,7 +5,8 @@ bağlıdır (`FIX_KINDS`); kullanıcı hangi türlerin düzeltileceğini seçer 
 
 - `markup`: çeviriye girmiş, özgünde olmayan HTML/XML etiketleri atılır;
 - `placeholder`: özgünde olmayan uydurma kodlar atılır; aynı kodların sırası karışmışsa (ör. iki "Satır sonu")
-  numaralar özgünün sırasına dizilir (Hatalı satır da böyle düzelir); yarım yazılmış yer tutucu (`[1]`) düzelir ve
+  numaralar özgünün sırasına dizilir (Hatalı satır da böyle düzelir; serbest kodlar, yani yeri değişebilen
+  simge/değişken, çevirmenin koyduğu yerde kalır); yarım yazılmış yer tutucu (`[1]`) düzelir ve
   tam satırı kaplayan eksik biçim zarfı tamamlanır (`codefix`: yalnızca güvenli durumlar);
 - `code_position`: sona yığılmış satır sonu kodları özgündeki yerlerine dağıtılır;
 - `newlines`: özgünde satır sonu yokken çeviriye girmiş satır sonları boşluğa çevrilir; özgünde varsa ve sayısı
@@ -129,14 +130,15 @@ def _pairs_nest(sequence: Sequence[int], labels: Sequence[str]) -> bool:
 _MOVABLE_KINDS = frozenset({KIND_LINE_BREAK, KIND_PAGE_BREAK, KIND_STYLE})
 
 
-def reorder_codes(source: str, text: str, labels: Sequence[str]) -> str | None:
+def reorder_codes(source: str, text: str, labels: Sequence[str], free: Collection[int] = frozenset()) -> str | None:
     """Kodların çoklu kümesi özgünle aynı ama sırası farklıysa, kodları özgünün sırasına göre yeniden numaralar.
 
     Yalnızca değer taşımayan kodlar (satır/sayfa sonu, biçim açma/kapama) ve yalnızca aynı türden, aynı etiketli
     (birbirinin yerine geçebilen) kodlar arasında yapılır: k'inci geçiş özgündeki k'inci kodla değiştirilir. Değişkenler
     (oyuncu adı, sayı, eşya adı …) ve tanınmayan kodlar yerinde ve aynı sırada kalmalıdır; kalmıyorsa hiçbir şey
-    yapılmaz. Çevirideki açılış/kapanış çiftleri de iç içe geçerli olmalı. Metin aynı kalır. Sorun yoksa, kümeler
-    farklıysa (eksik/fazla kod) ya da düzeltilemiyorsa None.
+    yapılmaz. Serbest kodlar (`free`: biçim eklentisinin bildirdiği, yeri değişebilen simge/değişken) çevirmenin
+    koyduğu yerde bırakılır, özgünün sırasına dizilmez. Çevirideki açılış/kapanış çiftleri de iç içe geçerli olmalı.
+    Metin aynı kalır. Sorun yoksa, kümeler farklıysa (eksik/fazla kod) ya da düzeltilemiyorsa None.
     """
     expected = placeholders.tokens_in(source)
     got = placeholders.tokens_in(text)
@@ -149,23 +151,26 @@ def reorder_codes(source: str, text: str, labels: Sequence[str]) -> str | None:
         return guess_kind(labels[n - 1]) if 0 < n <= len(labels) else ""
 
     def fixed(n: int) -> bool:
-        return kind_of(n) not in _MOVABLE_KINDS
+        return n not in free and kind_of(n) not in _MOVABLE_KINDS
+
+    def bound(seq: list[int]) -> list[int]:
+        return [n for n in seq if n not in free]
 
     if [n for n in expected if fixed(n)] != [n for n in got if fixed(n)]:
         return None
     wanted: dict[str, Iterator[int]] = {}
     for kind in _MOVABLE_KINDS:
-        wanted[kind] = iter([n for n in expected if kind_of(n) == kind])
+        wanted[kind] = iter([n for n in expected if n not in free and kind_of(n) == kind])
     result: list[int] = []
     for n in got:
-        if fixed(n):
+        if n in free or fixed(n):
             result.append(n)
             continue
         new = next(wanted[kind_of(n)])
         if labels[new - 1].casefold() != labels[n - 1].casefold():
             return None
         result.append(new)
-    if result != expected:
+    if bound(result) != bound(expected) or result == got:
         return None
     order = iter(result)
     return placeholders.TOKEN_RE.sub(lambda _m: placeholders.token(next(order)), text)
@@ -276,7 +281,7 @@ def local_fix(
         else:
             text = rebalance_lines(text, source_breaks + 1) or text
     if "placeholder" in want:
-        text = reorder_codes(source, text, row.code_labels) or text
+        text = reorder_codes(source, text, row.code_labels, row.free_codes) or text
         text = repair_codes(source, text, row.code_labels) or text
     if "glossary" in want:
         text = apply_glossary(source, text, glossary)
@@ -326,8 +331,9 @@ def plan_fixes(
     """Denetim bulgularından, yalnızca seçilen türler için düzeltme planı çıkarır (`kinds=None`: hepsi).
 
     Her satır yalnızca kendisinde bulunan ve seçilen türlerin düzeltmeleriyle işlenir. Onaylanmış satırlar yalnızca
-    istenirse ele alınır. Hatalı satırda yalnızca kod sırası düzeltilir (düzeltince sorun kalmıyorsa); yazılırken
-    durumu kod denetimiyle yeniden belirlenir. Düzeltmeyle ortadan kalkan türler `applied`a yazılır.
+    istenirse ele alınır. Hatalı satırda yalnızca kod sırası düzeltilir (düzeltince sorun kalmıyorsa); yalnızca serbest
+    kod sırası farkı yüzünden eskiden "Hatalı" kalmış satır metni değişmeden yeniden yazılır. Yazılırken durumu kod
+    denetimiyle yeniden belirlenir. Düzeltmeyle ortadan kalkan türler `applied`a yazılır.
     """
     want = frozenset(FIX_KINDS if kinds is None else kinds) & frozenset(FIX_KINDS)
     by_id = {r.id: r for r in rows}
@@ -348,10 +354,13 @@ def plan_fixes(
         if row.status == Status.ERROR:
             reordered = None
             if "placeholder" in row_kinds:
-                reordered = reorder_codes(row.source, row.translation, row.code_labels) or repair_codes(
+                reordered = reorder_codes(row.source, row.translation, row.code_labels, row.free_codes) or repair_codes(
                     row.source, row.translation, row.code_labels
                 )
-            if reordered is None or placeholders.problems(row.source, reordered):
+                if reordered is None and placeholders.check(row.source, row.translation, row.free_codes).warnings:
+                    # Bugünkü kurala göre yalnızca serbest kod sırası farkı (uyarı): yeniden yazılınca durumu düzelir.
+                    reordered = row.translation
+            if reordered is None or placeholders.check(row.source, reordered, row.free_codes).errors:
                 plan.unfixed += 1
                 continue
             plan.changes.append((row.id, reordered))

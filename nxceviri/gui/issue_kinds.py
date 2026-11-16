@@ -33,7 +33,7 @@ KIND_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ("placeholder", "code_position", "newlines", "markup", "missing_markup", "identifier", "protected", "glyph"),
     ),
     ("Ekrana sığmayabilir", ("max_length", "line_too_long", "page_too_tall", "overflow", "bad_break")),
-    ("Dil ve tutarlılık", ("glossary", "term", "inconsistent", "suspicious", "spelling", "untranslated")),
+    ("Dil ve tutarlılık", ("glossary", "term", "inconsistent", "suspicious", "code_order", "spelling", "untranslated")),
     (
         "Küçük düzeltmeler",
         (

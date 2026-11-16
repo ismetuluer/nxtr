@@ -11,7 +11,7 @@ from pathlib import Path
 
 from nxceviri.core.errors import NxError
 from nxceviri.core.formats import legacy
-from nxceviri.core.formats.base import FormatPlugin
+from nxceviri.core.formats.base import ControlCode, FormatPlugin
 from nxceviri.core.formats.detection import KIND_LABELS, FileKind
 from nxceviri.core.formats.fmsb import FmsbPlugin
 from nxceviri.core.formats.fsdmsg import FsdMsgPlugin
@@ -47,6 +47,10 @@ BUILTIN_PLUGINS: tuple[FormatPlugin, ...] = (
 _user_report = PluginReport()
 #: Tarama sırasında `detect` hatası verip günlüğe yazılmış eklentiler (her biri bir kez bildirilir).
 _failed_detect: set[str] = set()
+#: (biçim, oyun, ham kod, etiket) → eklentinin `movable_code` yanıtı; kullanıcı eklentileri yeniden yüklenince silinir.
+_movable: dict[tuple[str, str | None, bytes, str], bool] = {}
+#: (biçim, oyun) → eklenti `movable_code` bildiriyor mu; aynı anda silinir.
+_judges: dict[tuple[str, str | None], bool] = {}
 
 
 def load_user_plugins(dirs: Sequence[Path] | None = None, trusted: TrustCheck | None = None) -> PluginReport:
@@ -56,6 +60,8 @@ def load_user_plugins(dirs: Sequence[Path] | None = None, trusted: TrustCheck | 
     (komut satırı araçları, kullanıcı bilerek çalıştırır) hepsi yüklenir."""
     global _user_report  # noqa: PLW0603 - uygulama genelinde tek kayıt defteri
     _failed_detect.clear()
+    _movable.clear()
+    _judges.clear()
     _user_report = load_plugins(dirs, {p.name for p in BUILTIN_PLUGINS}, trusted)
     for info in _user_report.errors:
         log.warning("Eklenti yüklenemedi: %s: %s", info.ad, info.hata)
@@ -70,6 +76,7 @@ def reset_user_plugins() -> None:
     global _user_report  # noqa: PLW0603 - uygulama genelinde tek kayıt defteri
     _user_report = PluginReport()
     _failed_detect.clear()
+    _movable.clear()
 
 
 def user_plugin_report() -> PluginReport:
@@ -130,3 +137,43 @@ def kind_label(kind: str) -> str:
     except ValueError:
         plugin = plugin_for_kind(kind)
         return plugin.label if plugin is not None else kind
+
+
+def free_codes(kind: str, codes: Sequence[ControlCode], title_id: str | None = None) -> frozenset[int]:
+    """Satırın serbest kodlarının numaraları (`⟦n⟧`, 1'den): çeviride yeri değişebilen, tek başına duran kodlar.
+
+    Biçim eklentisi isteğe bağlı `movable_code(code) -> bool` bildirimiyle söyler; bildirmeyen eklentide (ve tanınmayan
+    biçimde) hiçbir kod serbest değildir. Projede kodların ham baytı ve etiketi saklandığından eski projelerde de
+    eklentiye sorulur; şema değişmez. `title_id`: dosyayı yazan eklentinin seçimi için (`plugin_for_kind`)."""
+    kind = legacy.format_id(kind)
+    found: set[int] = set()
+    for n, code in enumerate(codes, 1):
+        key = (kind, title_id, code.raw, code.label)
+        movable = _movable.get(key)
+        if movable is None:
+            movable = _movable[key] = _ask_movable(kind, title_id, code)
+        if movable:
+            found.add(n)
+    return frozenset(found)
+
+
+def judges_codes(kind: str, title_id: str | None = None) -> bool:
+    """Biçimin eklentisi `movable_code` bildiriyor mu (bildirmiyorsa satır başına kod sorgusu gereksiz)."""
+    key = (kind, title_id)
+    known = _judges.get(key)
+    if known is None:
+        known = _judges[key] = (
+            getattr(plugin_for_kind(legacy.format_id(kind), title_id), "movable_code", None) is not None
+        )
+    return known
+
+
+def _ask_movable(kind: str, title_id: str | None, code: ControlCode) -> bool:
+    judge = getattr(plugin_for_kind(kind, title_id), "movable_code", None)
+    if judge is None:
+        return False
+    try:
+        return judge(code) is True
+    except Exception as exc:  # kullanıcı eklentisinin hatası projenin açılmasını engellememeli; kod katı sayılır
+        log.warning("Eklentinin kod bildirimi hata verdi (%s, %s): %s", kind, code.label, exc)
+        return False

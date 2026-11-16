@@ -5,7 +5,9 @@
   `load/` klasörüne kopyalanır.
 
 Yalnızca değişen dosyalar yazılır. Çeviriler "Onaylandı", "Makine" veya "Redakte" durumundaki satırlardan
-alınır; "Hatalı" satırlar yazılmaz (oyunda orijinal metin kalır). Her dosya önce bellekte üretilir,
+alınır; "Hatalı" satırlar yazılmaz (oyunda orijinal metin kalır). Yalnızca serbest kodlarının (simge, adlı
+değişken) yeri değişmiş satırlar hatalı değildir: sıra denetimi gevşetilerek yazılır; biçim eklentisi reddederse o
+satır orijinal kalır ve bilgi dosyasında bildirilir. Her dosya önce bellekte üretilir,
 yeniden açılıp her metnin beklenen değerde olduğu doğrulanır, sonra geçici klasöre yazılır; iş bitince
 geçici klasör tek hamlede hedefe taşınır. Hata veya iptalde hedefte hiçbir şey kalmaz. Oyunun orijinal
 dosyaları yalnızca okunur.
@@ -50,7 +52,6 @@ from nxceviri.core.project import TranslationRow, row_group
 from nxceviri.core.qa import transliterate
 from nxceviri.core.qa.fonts import is_language_specific, is_patchable_font_bundle
 from nxceviri.core.translate import placeholders
-from nxceviri.core.translate.codekinds import KIND_SYMBOL, KIND_VARIABLE, guess_kind
 from nxceviri.core.translate.status import Status
 from nxceviri.core.translate.uppercase import UppercaseRules, dotted_capitals
 
@@ -170,20 +171,19 @@ class ExportResult:
     font_notes: list[str] = field(default_factory=list)  # harf eklenemeyen/atlanan fontların nedenleri
     extra_notes: list[str] = field(default_factory=list)  # eklentilerin ek dosyaları (ör. grafik çevirisi) satırları
     catalog_crc_fixes: list[int] = field(default_factory=list)  # CRC'si sıfırlanan paketlerin boyutları
-    #: Dosya yolu → hatalı olduğu hâlde yazılmayı deneyecek anahtarlar (yalnızca include_errors açıkken dolu)
+    #: Dosya yolu → reddedilirse orijinal bırakılacak anahtarlar: serbest kod sırası farklı satırlar ve
+    #: (include_errors açıkken) hatalı satırlar
     soft_keys: dict[str, frozenset[str]] = field(default_factory=dict, repr=False)
     #: Dosya yolu → biçim eklentisinin reddettiği, orijinal bırakılan hatalı anahtarlar
     dropped_keys: dict[str, frozenset[str]] = field(default_factory=dict, repr=False)
-    #: Dosya yolu → yalnızca kod sırası orijinalden farklı olduğu için hatalı sayılan, yazılmayı deneyecek anahtarlar
+    #: Dosya yolu → yalnızca serbest kodlarının sırası farklı olan, sıra denetimi gevşetilerek yazılacak anahtarlar
     reordered_keys: dict[str, frozenset[str]] = field(default_factory=dict, repr=False)
     #: Dosya yolu → dışa aktarma sırasında gerçekten denenen hatalı anahtarlar (işlenmeyen dosyalar burada olmaz)
     attempted_keys: dict[str, frozenset[str]] = field(default_factory=dict, repr=False)
+    #: Serbest kod sırası farklı olduğu için eklentinin reddettiği, modda orijinal kalan (hatalı olmayan) satırlar
+    reorder_dropped_ids: list[int] = field(default_factory=list)
     #: İptal denetimi (`TaskContext.check`); uzun ikili bölme döngüsü bunu çağırır.
     cancel_check: Callable[[], None] = field(default=lambda: None, repr=False)
-
-
-#: Sırası değişince oyunu bozmayan kod türleri (eşi olmayan, tek başına duran kodlar).
-_FREE_KINDS = frozenset({KIND_VARIABLE, KIND_SYMBOL})
 
 
 def safe_mod_name(name: str) -> str:
@@ -217,7 +217,10 @@ def collect_translations(
 
     Kontrol kodu sorunu olan hatalı satırlar (eksik, fazla, kodun sayısı farklı) biçim eklentisi zaten reddedeceği
     için hiç denenmez; tabloya girmez, orijinal kalır. Tek farkı kod sırası olan satır, yalnızca serbest kodların
-    (değişken, simge) yeri değiştiyse denenir; anahtarı ayrıca `reordered` sözlüğüne yazılır.
+    (biçim eklentisinin bildirdiği simge, adlı değişken; `TranslationRow.free_codes`) yeri değiştiyse denenir;
+    konumsal kodlar (`%s`) asla. Bu satırların anahtarı `reordered` sözlüğüne yazılır. Durumu iyi olan (varsayılan
+    ayarda yazılan) serbest sıra farklı satırlar da `soft` ve `reordered` sözlüklerine girer: reddedilirlerse
+    orijinal kalırlar.
     """
     uppercase = uppercase or UppercaseRules()
     by_file: dict[str, dict[str, str]] = {}
@@ -227,12 +230,17 @@ def collect_translations(
             text = dotted_capitals(r.translation) if uppercase.applies(r.file, r.key, row_group(r)) else r.translation
             by_file.setdefault(r.file, {})[r.key] = transliterate.apply(text, letters)
             written += 1
+            if _free_reorder(r):
+                if soft is not None:
+                    soft.setdefault(r.file, set()).add(r.key)
+                if reordered is not None:
+                    reordered.setdefault(r.file, set()).add(r.key)
         elif r.status == Status.ERROR:
             errors += 1
             if include_errors and r.translation:
                 reorder = False
                 if placeholders.problems(r.source, r.translation):
-                    if not placeholders.order_only_problem(r.source, r.translation, _free_code_of(r)):
+                    if not _free_reorder(r):
                         continue
                     reorder = True
                 text = (
@@ -248,13 +256,9 @@ def collect_translations(
     return by_file, written, errors, untranslated
 
 
-def _free_code_of(row: TranslationRow) -> Callable[[int], bool]:
-    """Satırın `⟦n⟧` kodunun serbest (yeri değişebilir) olup olmadığı: değişken ve simge tek başına durur."""
-
-    def free(n: int) -> bool:
-        return 0 < n <= len(row.code_labels) and guess_kind(row.code_labels[n - 1]) in _FREE_KINDS
-
-    return free
+def _free_reorder(row: TranslationRow) -> bool:
+    """Çevirinin tek kod sorunu, serbest kodların (`row.free_codes`) yer değiştirmesi mi?"""
+    return placeholders.order_only_problem(row.source, row.translation, row.free_codes.__contains__)
 
 
 def fold_unsupported_letters(translations: dict[str, dict[str, str]], files: list[TextFileRef]) -> str:
@@ -357,6 +361,11 @@ def _info_text(info: ExportInfo, options: ExportOptions, result: ExportResult) -
             f"Hatalı olduğu için orijinal bırakılan satır: {result.rows_error_kept}\n"
             if options.include_errors
             else f"Hatalı olduğu için yazılmayan satır: {result.rows_error}\n"
+        )
+        + (
+            f"Kod sırası oyun dosyasına yazılamadığı için orijinal bırakılan satır: {len(result.reorder_dropped_ids)}\n"
+            if result.reorder_dropped_ids
+            else ""
         )
         + f"Çevrilmemiş (orijinal kalan) satır: {result.rows_untranslated}\n"
         f"Harf dönüştürme: {conversion}\n"
@@ -586,21 +595,7 @@ def export_mod(
                 "Hiçbir dosya değişmedi; çeviriler orijinal metinlerle aynı.",
                 "Çeviri tablosunda gerçekten çevrilmiş satır olduğundan emin olun.",
             )
-        if options.include_errors:
-            dropped = sum(len(keys) for keys in result.dropped_keys.values())
-            attempted = sum(len(keys) for keys in result.attempted_keys.values())
-            result.rows_error_written = attempted - dropped
-            result.rows_error_kept = result.rows_error - result.rows_error_written
-            written_keys = {
-                (path, key)
-                for path, keys in result.attempted_keys.items()
-                for key in keys - result.dropped_keys.get(path, frozenset())
-            }
-            result.error_kept_ids = [
-                r.id for r in rows if r.status == Status.ERROR and (r.file, r.key) not in written_keys
-            ]
-        else:
-            result.error_kept_ids = [r.id for r in rows if r.status == Status.ERROR]
+        settle_rows(result, rows, include_errors=options.include_errors)
         (tmp / INFO_FILE).write_text(_info_text(info, options, result), encoding="utf-8")
         ctx.check()
         if replace_old:
@@ -622,6 +617,31 @@ def export_mod(
         raise
     ctx.report(len(groups), len(groups), "Mod oluşturuldu")
     return result
+
+
+def settle_rows(result: ExportResult, rows: list[TranslationRow], *, include_errors: bool) -> None:
+    """Yazımdan sonra satır sayılarını kesinleştirir: eklentinin reddettiği satırlar orijinal kalmıştır.
+
+    Reddedilen hatalı satırlar hatalı sayılarına; reddedilen, serbest kod sırası farklı (hatalı olmayan) satırlar
+    `reorder_dropped_ids`e ve uyarıya yazılır, "yazılan" sayısından düşülür."""
+    errors = {(r.file, r.key) for r in rows if r.status == Status.ERROR}
+    dropped = {(path, key) for path, keys in result.dropped_keys.items() for key in keys}
+    good_dropped = dropped - errors
+    if good_dropped:
+        result.reorder_dropped_ids = [r.id for r in rows if (r.file, r.key) in good_dropped]
+        result.rows_written -= len(result.reorder_dropped_ids)
+        result.warnings.append(
+            f"{len(result.reorder_dropped_ids)} satırda kod sırası oyun dosyasına yazılamadı; bu satırlar orijinal "
+            "kaldı. Kodları orijinaldeki sıraya dizip yeniden dışa aktarın."
+        )
+    if include_errors:
+        attempted = {(path, key) for path, keys in result.attempted_keys.items() for key in keys} & errors
+        written_keys = attempted - dropped
+        result.rows_error_written = len(written_keys)
+        result.rows_error_kept = result.rows_error - result.rows_error_written
+        result.error_kept_ids = [r.id for r in rows if r.status == Status.ERROR and (r.file, r.key) not in written_keys]
+    else:
+        result.error_kept_ids = [r.id for r in rows if r.status == Status.ERROR]
 
 
 def _patch_catalogs(

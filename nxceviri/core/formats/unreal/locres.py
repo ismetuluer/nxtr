@@ -32,6 +32,9 @@ MAGIC = bytes.fromhex("0E147475674A03FC4A15909DC3377F1B")
 
 #: UMG zengin metin etiketleri: `<Bold>`, `</>`, `<img id="X"/>`, `<RichText.Style>`.
 _TAG_RE = re.compile(r"</?[A-Za-z0-9_.\-]*(?:\s[^<>\n]{0,200})?/?>")
+#: Serbest kodlar (`movable_code`): adlı/numaralı argüman ve simge.
+_MOVABLE_BRACE = re.compile(r"\{[A-Za-z0-9_]")
+_IMG = re.compile(r"<img[\s/]", re.IGNORECASE)
 
 
 def _tag_label(tag: str) -> str:
@@ -215,6 +218,12 @@ class LocresPlugin:
 
     def collect_context(self, data: bytes, path: str = "") -> dict[object, object]:
         return {}  # ad alanı ve anahtar dosyanın içinde
+
+    def movable_code(self, code: ControlCode) -> bool:
+        """Serbest: adlı/numaralı biçim argümanı (`{PlayerName}`, `{0}`) ve kendini kapatan `<img …/>` simgesi.
+        Argümanın ardındaki `|plural(…)` düz metindir; çevirmen onu argümanla birlikte taşımalıdır."""
+        text = code.raw.decode("utf-8", errors="replace")
+        return _MOVABLE_BRACE.match(text) is not None or (_IMG.match(text) is not None and text.endswith("/>"))
 
     def language(self, data: bytes) -> str | None:
         return None  # dil, dosyanın yolundan (…/Localization/Game/<dil>/Game.locres) anlaşılır

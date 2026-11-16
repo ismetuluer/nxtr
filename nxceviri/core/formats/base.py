@@ -15,6 +15,11 @@ Her metin formatı `FormatPlugin`'i uygular:
   toplar; aktarma sırasında tüm adaylardan toplanıp `extract`'e verilir.
 - `language(data)`: dosyanın dili biliniyorsa dil kodu ("en", "ja"…). Aynı metnin birden çok
   dildeki kopyası varsa yalnızca kaynak dildeki dosya aktarılır.
+- `movable_code(code) -> bool`: bu kontrol kodu "serbest" mi, yani çeviride yeri değişebilir mi? Yalnızca tek
+  başına duran ve kendisi anlam taşıyan kodlar (simge, adıyla ya da numarasıyla bağlanan değişken: `{0}`,
+  `{name}`) için True. Konumsal kodlar (`%s`, `%d`: oyun argümanları sırayla bağlar), açma/kapama çiftleri,
+  satır/sayfa sonları ve anlamı bilinmeyen kodlar için False. Bildirmeyen eklentide hiçbir kod serbest değildir.
+  Serbest kodların yeri değişmiş çeviri hatalı sayılmaz (uyarı; `placeholders.check`).
 """
 
 from __future__ import annotations

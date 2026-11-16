@@ -178,14 +178,17 @@ class ChangesDialog(QDialog):
         edit_fn: Callable[[int, str], str | None] | None = None,
         context_fn: Callable[[int], str] | None = None,
         settings: QSettings | None = None,
+        free_codes: Mapping[int, frozenset[int]] | None = None,
     ) -> None:
         """`edit_fn(satır kimliği, metin)`: verilirse "Yeni" hücresi yerinde düzenlenir ve bu işlevle yazılır; hata
         metni dönerse hücre eski hâline döner. `context_fn(satır kimliği)`: "Bağlamı göster" açıkken ipucunda
-        gösterilecek önceki/sonraki satırlar (HTML)."""
+        gösterilecek önceki/sonraki satırlar (HTML). `free_codes(satır kimliği)`: satırın serbest kodları; yalnızca
+        bunların yeri değişmiş düzeltme yazılabilir (kod denetimi `placeholders.check`)."""
         super().__init__(parent)
         self.setWindowTitle(title)
         self.resize(1100, 640)
         self._changes = changes
+        self._free_codes = free_codes or {}
         self._history = history
         self._preview = preview
         self._title = title
@@ -512,7 +515,7 @@ class ChangesDialog(QDialog):
             if text == change.old_text:
                 continue  # yazılmayacak (eski çeviriyle aynı) satırın kodları denetlenmez
             fixed = placeholders.repair(change.source, text)
-            issues = placeholders.problems(change.source, fixed)
+            issues = placeholders.check(change.source, fixed, self._free_codes.get(change.entry_id, frozenset())).errors
             if issues:
                 problems.append(f"• {change.label}: {' '.join(issues)}")
         return problems

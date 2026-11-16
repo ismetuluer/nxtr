@@ -302,7 +302,9 @@ class _Runner:
     def problems(self, unit: _Unit, text: str | None) -> list[str]:
         if text is None:
             return [_MISSING]
-        issues = placeholders.problems(unit.source, text)
+        # Aynı kaynaklı satırların hepsinde serbest olan kodlar: sonuç her satıra aynı kararla yazılır.
+        free = frozenset.intersection(*(r.free_codes for r in unit.rows))
+        issues = list(placeholders.check(unit.source, text, free).errors)
         labels = unit.first.code_labels
         if (
             not issues

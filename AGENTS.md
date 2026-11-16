@@ -77,7 +77,8 @@ Her metin formatı aynı arayüzü uygular:
 - `inject(data, translations) -> bytes`: orijinal yapıyı **bayt düzeyinde korur**, yalnızca metni değiştirir; çeviri
   verilmeyen girdiler olduğu gibi kalır.
 - İsteğe bağlı: `collect_context`, `language`, `normalize_text`, `unsupported_letters`, `support_files`,
-  `game_file_patches`, `exefs_patches`, `derived_files` (ayrıntı `docs/rehber/eklenti-yazma.md`).
+  `game_file_patches`, `exefs_patches`, `derived_files`, `movable_code` (hangi kod serbest; aşağıya ve
+  `core/formats/base.py`'ye bak) (ayrıntı `docs/rehber/eklenti-yazma.md`).
 - **Zorunlu test:** değişiklik yapmadan `extract` → `inject` sonucu orijinalle **bayt bayt aynı** olmalı (round-trip).
   Bu test geçmeyen eklenti tamamlanmış sayılmaz. Gerçek dosyada denemek için `python -m nxceviri.arac dogrula`.
 
@@ -86,8 +87,14 @@ Renk, satır sonu, değişken (oyuncu adı, sayı), duraklama gibi kodlar bozulu
 - Çeviriden önce her kod `⟦1⟧`, `⟦2⟧` gibi yer tutucuya dönüşür (`core/translate/placeholders.py`); çeviriden sonra
   yer tutucuların **sayısı, türü ve sırası** doğrulanır. Uymayan satır "hatalı" işaretlenir ve dışa aktarılmaz;
   sessizce düzeltilmez.
-- Tek bilinçli istisna: ürün sahibinin isteğe bağlı "Hatalı satırları da aktar" seçeneği (varsayılan kapalı;
+- Birinci bilinçli istisna: ürün sahibinin isteğe bağlı "Hatalı satırları da aktar" seçeneği (varsayılan kapalı;
   `ARCHITECTURE.md` karar 127). Kapalıyken davranış yukarıdaki gibidir; bu seçeneği kendiliğinden açma.
+- İkinci bilinçli istisna (ürün sahibinin kararı, 2026-11-16): yalnızca **serbest** kodların (tek başına duran simge,
+  adıyla/numarasıyla bağlanan değişken: `{0}`, `{name}`) yeri değiştiyse satır hatalı değildir; uyarıdır ve dışa
+  aktarılır (eklenti reddederse o satır orijinal kalır, bilgi dosyasında bildirilir). Hangi kodun serbest olduğunu
+  biçim eklentisi `movable_code` ile bildirir; bildirmeyen eklentide hiçbir kod serbest değildir. Konumsal kodlar
+  (`%s`, `%d`: oyun sırayla bağlar), açma/kapama çiftleri ve satır/sayfa sonları katıdır. Eksik/fazla/yinelenen kod
+  her zaman hatadır. Karar tek yerde verilir: `placeholders.check`; eklentilerin `inject` denetimi katı kalır.
 
 ### Türkçe karakter ve font
 Dışa aktarmadan önce oyunun fontunda `ç ğ ı İ ö ş ü Ç Ğ Ö Ş Ü` gliflerinin varlığı denetlenir. Glif yoksa kullanıcıya

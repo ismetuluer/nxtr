@@ -282,7 +282,7 @@ def port_translations(
         if not text.strip():
             report.empty += 1
             continue
-        issues = placeholders.problems(row.source, text)
+        issues = placeholders.check(row.source, text, row.free_codes).errors
         if issues:
             report.code_problems.append((row.key, row.source, " ".join(issues)))
             continue

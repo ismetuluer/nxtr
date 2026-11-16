@@ -24,8 +24,8 @@ from pathlib import Path
 
 from nxceviri import __version__
 from nxceviri.core.errors import ProjectError
-from nxceviri.core.formats import legacy
-from nxceviri.core.formats.base import TextEntry
+from nxceviri.core.formats import legacy, registry
+from nxceviri.core.formats.base import ControlCode, TextEntry
 from nxceviri.core.formats.scanner import ENGINE_LABELS, EngineGuess, ScanEntry, ScanReport
 from nxceviri.core.translate.providers.base import GlossaryTerm
 from nxceviri.core.translate.status import SOURCE_CHANGED_NOTE, Status, evaluate
@@ -328,6 +328,8 @@ class TranslationRow:
     max_length: int | None
     context: str = ""
     format: str = ""  # dosyanın biçim eklentisi (ör. "unity"); grubun nereden geldiğini belirler
+    #: Serbest kodların numaraları (çeviride yeri değişebilir; biçim eklentisinin bildirimi, `registry.free_codes`)
+    free_codes: frozenset[int] = frozenset()
 
 
 def _codes_json(entry: TextEntry) -> str:
@@ -335,13 +337,21 @@ def _codes_json(entry: TextEntry) -> str:
 
 
 _ROW_SQL = (
-    "SELECT e.id, f.path, e.key, e.source, e.translation, e.status, e.note, e.codes, e.max_length, e.context, f.format "
-    "FROM text_entries e JOIN text_files f ON f.id = e.file_id"
+    "SELECT e.id, f.path, e.key, e.source, e.translation, e.status, e.note, e.codes, e.max_length, e.context, "
+    "f.format, f.title_id FROM text_entries e JOIN text_files f ON f.id = e.file_id"
 )
+
+
+def _free_codes(fmt: str, title_id: str, codes: list[list[str]]) -> frozenset[int]:
+    """Saklı kodların (ham bayt onaltılık, etiket) serbest olanları; biçim eklentisine sorulur (şema değişmez)."""
+    if not codes or not registry.judges_codes(fmt, title_id):
+        return frozenset()
+    return registry.free_codes(fmt, [ControlCode(bytes.fromhex(str(c[0])), str(c[1])) for c in codes], title_id)
 
 
 def _row(r: tuple[object, ...]) -> TranslationRow:
     codes = json.loads(str(r[7]))
+    fmt = sys.intern(legacy.format_id(str(r[10])))  # binlerce satır aynı birkaç biçim adını paylaşır
     return TranslationRow(
         id=int(str(r[0])),
         file=str(r[1]),
@@ -353,7 +363,8 @@ def _row(r: tuple[object, ...]) -> TranslationRow:
         code_labels=tuple(str(c[1]) for c in codes),
         max_length=None if r[8] is None else int(str(r[8])),
         context=str(r[9]),
-        format=sys.intern(legacy.format_id(str(r[10]))),  # binlerce satır aynı birkaç biçim adını paylaşır
+        format=fmt,
+        free_codes=_free_codes(fmt, str(r[11]), codes),
     )
 
 
@@ -759,13 +770,16 @@ class Project:
         with _Transaction(self._conn):
             for entry_id, text in changes:
                 row = self._conn.execute(
-                    "SELECT source, status, translation, note FROM text_entries WHERE id = ?", (entry_id,)
+                    "SELECT e.source, e.status, e.translation, e.note, e.codes, f.format, f.title_id "
+                    "FROM text_entries e JOIN text_files f ON f.id = e.file_id WHERE e.id = ?",
+                    (entry_id,),
                 ).fetchone()
                 if row is None:
                     raise ProjectError("Çeviri satırı bulunamadı; proje başka bir yerde değiştirilmiş olabilir.")
                 if ok_status != Status.APPROVED and row[1] == Status.APPROVED and not overwrite_approved:
                     continue  # makine çevirisi/redaksiyon insanın onayladığı satıra kendiliğinden yazmaz
-                new_status, note = evaluate(row[0], text, ok_status)
+                free = _free_codes(str(row[5]), str(row[6]), json.loads(str(row[4])))
+                new_status, note = evaluate(row[0], text, ok_status, free)
                 if row[2] != text:
                     self._record(entry_id, (row[2], row[1], row[3]), text, job=job, now=now)
                 if (row[2], row[1], row[3]) != (text, new_status, note):
