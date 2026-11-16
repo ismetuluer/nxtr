@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QFontMetrics
@@ -25,15 +27,20 @@ _RIGHT = int(Qt.AlignmentFlag.AlignRight)
 
 
 @pytest.fixture
-def page(qtbot: QtBot) -> QaPage:
+def page(qtbot: QtBot) -> Iterator[QaPage]:
     app = QApplication.instance()
     assert isinstance(app, QApplication)
+    palette, style_sheet, font = app.palette(), app.styleSheet(), app.font()
     apply_theme(app, ThemeMode.LIGHT)
     widget = QaPage()
     qtbot.addWidget(widget)
     widget.resize(1100, 700)
     widget.show()
-    return widget
+    yield widget
+    # Tema uygulama çapındadır; geri alınmazsa sonraki testlerin yazı tipi/stili değişir (sıraya bağlı hata).
+    app.setPalette(palette)
+    app.setStyleSheet(style_sheet)
+    app.setFont(font)
 
 
 def _row(row_id: int, key: str, source: str) -> TranslationRow:
