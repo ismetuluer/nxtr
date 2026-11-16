@@ -40,7 +40,7 @@ uzantıları yapıyor). Antivirüs riskini azaltmak için tek dosya (`--onefile`
 | `keyring` | ≥25,<26 (25.7.0 test edildi) | MIT | DeepL API anahtarını Windows Kimlik Bilgisi Yöneticisi'nde saklamak (CLAUDE.md §4.2). Windows'ta `WinVaultKeyring` arka ucu doğrulandı. |
 | `httpx` | ≥0.27,<1 (0.28.1 test edildi) | BSD-3 | Ollama (M4'te DeepL) HTTP istekleri; ayrıntılı zaman aşımı ve bağlantı hatası türleri; `MockTransport` ile testlerde ağsız sahte sunucu. Standart `urllib` ile aynı güvenilirlikte hata ayrımı ve test kolaylığı elde etmek daha çok kod gerektirirdi. |
 | `UnityPy` | ≥1.25,<2 (1.25.4 test edildi) | MIT | Unity AssetBundle (UnityFS, LZ4/LZMA) ve SerializedFile okuma/yazma; tip ağacıyla MonoBehaviour okuma/yazma. Etkin bakımda, cp38–cp314 wheel'leri var. Kendimiz yazmak (bundle sıkıştırma blokları, SerializedFile v22+ meta verisi, typetree okuyucu/yazıcı) çok daha büyük ve riskli olurdu. **Bedeli:** zorunlu bağımlılıkları (Pillow, texture2ddecoder, etcpak, astc-encoder-py, fmod_toolkit/pyfmodex, brotli, lz4, fsspec, attrs, tpk_ar) paket boyutunu büyütür; M9'da PyInstaller ile kullanılmayan modüllerin dışlanması denenecek. |
-| `Pillow` | ≥10 (13.0.0 test edildi) | HPND | Devil May Cry yazı dokusunun (`fontpatch/fsdmsg.py`) çizimi ve BC7 dokuların okunması. UnityPy'nin de bağımlılığı olduğundan ek yük getirmez. |
+| `Pillow` | ≥10 (13.0.0 test edildi) | HPND | FSD/MSG yazı dokusunun (`fontpatch/fsdmsg.py`) çizimi ve BC7 dokuların okunması. UnityPy'nin de bağımlılığı olduğundan ek yük getirmez. |
 
 ### Geliştirme
 
@@ -80,23 +80,23 @@ nxceviri/
       nso.py               # ExeFS `main` kodunu açma (yalnızca dizge aramak için okunur)
     archives/              # SARC (oku/kur), Yaz0, ZSTD (aç/sıkıştır), nested.py (iç içe yollar)
       pak.py               # Unreal .pak okuma (v1–11) ve yama pak'ı yazma
-      psb.py               # M2 PSB (v2–4) okuma, dizge tablosunu yerinde yeniden yazma
+      psb.py               # PSB (v2–4) okuma, dizge tablosunu yerinde yeniden yazma
       psb_archive.py       # mdf aç/kodla, oyun anahtarını kullanıcının kodundan bulma, .psb.m + .bin
-      nni.py               # Falcom NNI (.ni dizini + .na veri, Ys Origin): oku, değişen üyeleri sona ekleyerek yaz
+      nni.py               # NNI (.ni dizini + .na veri): oku, değişen üyeleri sona ekleyerek yaz
       cpk.py               # CRI CPK (@UTF tabloları, CRILAYLA açma): oku, değişen dosyalarla yeniden kur
-      access.py            # iç içe yoldan okuma; pak/M2/NNI/CPK'da yalnızca dizin + girdi
+      access.py            # iç içe yoldan okuma; pak/PSB/NNI/CPK'da yalnızca dizin + girdi
     formats/
       detection.py         # imza/uzantı ile tür tahmini + metin olasılığı
       scanner.py           # iç içe arşiv taraması, motor tahmini, ScanReport
       base.py              # format eklentisi sözleşmesi: detect / extract / inject
       registry.py          # kayıtlı eklentiler
       msbt/                # MSBT eklentisi (M2)
-      unity/               # Unity Localization string tabloları (M6, UnityPy); i2.py: I2 Localization (ham bayt); serializeref.py: DKCR HD SerializeReference kayıt defteri
+      unity/               # Unity Localization string tabloları (M6, UnityPy); i2.py: I2 Localization (ham bayt); serializeref.py: Unity SerializeReference kayıt defteri
       unreal/              # .locres (M7)
-      gfmsg/               # Game Freak mesajları (.dat + .tbl, Pokémon)
-      nnitext/             # Ys Origin: XSO betik dizgeleri (Japonca kopyayla metin/kimlik ayrımı) + arayüz XML'i
-      fmsb/                # Vanillaware FMSB MsgSheet (Unicorn Overlord)
-      wadlin/              # Danganronpa: .lin betik metinleri + .pak metin tabloları (WAD içinde)
+      gfmsg/               # GFMSG mesajları (.dat + .tbl)
+      nnitext/             # NNI arşivi: XSO betik dizgeleri (Japonca kopyayla metin/kimlik ayrımı) + arayüz XML'i
+      fmsb/                # FMSB MsgSheet (CPK)
+      wadlin/              # WAD/LIN biçimi: .lin betik metinleri + .pak metin tabloları (WAD içinde)
     project/store.py       # .nxproj şeması, göçler, atomik "farklı kaydet"
     pipeline.py            # arayüzün çağırdığı iş akışı adımları
     translate/
@@ -167,7 +167,7 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
 1. **Kendi NCA/NCZ/BKTR okuyucumuz.** Harici araç çağırmadan, diske ek GB'lar yazmadan,
    ince ilerleme/iptal ve Türkçe hata mesajlarıyla çalışmak için. Doğruluk iki yoldan
    kanıtlandı: (a) testlerde sıfırdan şifrelenmiş sahte içerikler, (b) gerçek bir oyunda
-   (Silver Pines, base v0 + update v65536) birleşik RomFS'in rastgele 200 bloğunun oyunun
+   (bir Unity oyunu, base v0 + update v65536) birleşik RomFS'in rastgele 200 bloğunun oyunun
    kendi IVFC SHA-256 hash ağacıyla eşleşmesi ve NSZ→NSP çıktısının NCA adlarındaki
    SHA-256 ile eşleşmesi.
 2. **Güncelleme birleştirme.** Gerçek güncellemeler BKTR yamasıdır; base ile birleşince
@@ -210,7 +210,7 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
 
 ### 4.2 M6 kararları
 
-13. **Hedef: Unity Localization paketinin `StringTable`'ları.** Silver Pines'ta tüm oyun metni
+13. **Hedef: Unity Localization paketinin `StringTable`'ları.** Bir Unity oyununda tüm oyun metni
     (3.466 satır, 24 tablo) bu yapıda. Tablo tip ağacı bundle'ın içinde olduğu için oyunun
     IL2CPP kodunu çözmeye gerek kalmadan güvenle okunup yazılır.
 14. **Girdi kimliği `TabloAdı/m_Id`** (ör. `Dialogue_en/4123…`): m_Id kalıcıdır. Okunur anahtar
@@ -277,12 +277,12 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
 ### 4.7 0.9.0 kararları (gerçek oyun uyumluluğu)
 
 36. **Sıkıştırma katmanı veri bölgesinin üzerinde açılır,** bölümün değil; yamalı oyunda yamadan
-    sonra, yamanın tablosuyla. Gerçek oyunda (Avatar Legends base + update) doğrulandı.
+    sonra, yamanın tablosuyla. Gerçek oyunda (base + update) doğrulandı.
 37. **Seyrek base tek başına okunmaz;** eksik aralıklar sıfır döner ve RomFS anlamsız olur. Uygulama
-    güncellemenin eklenmesini ister. Castlevania: Belmont's Curse ile doğrulandı.
-38. **Dil kodu yoldan da çıkarılır** (Unity "(en)", Nintendo "USen" klasörü, Unreal
+    güncellemenin eklenmesini ister. Gerçek bir oyunla doğrulandı.
+38. **Dil kodu yoldan da çıkarılır** (Unity "(en)", LMS "USen" klasörü, Unreal
     "Localization/<hedef>/<dil>/"). Bölgesiz kod o dilin her bölgesiyle eşleşir ("en" ↔ "en-us");
-    iki kodun da bölgesi varsa tam eşleşme gerekir ("en-us" ≠ "en-eu"), çünkü Nintendo oyunları
+    iki kodun da bölgesi varsa tam eşleşme gerekir ("en-us" ≠ "en-eu"), çünkü LMS oyunları
     bölge başına ayrı dosya tutar.
 39. **Önbelleğe açmadan önce disk alanı denetlenir;** geliştirme sırasında 38 GB'lık tanılama
     önbelleği diski doldurdu ve hata Türkçe değildi.
@@ -298,7 +298,7 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
     `SOURCE_LANGUAGE`'dan öğrenir; bağlam verilmezse (dışa aktarma doğrulaması) tüm sütunlar okunur.
     Anahtar dil kodunu içerdiği için geri yazma sütunu bilir.
 
-### 4.9 0.11.0 kararları (Game Freak)
+### 4.9 0.11.0 kararları (GFMSG biçimi)
 
 43. **Anahtar satır numarasıdır,** `.tbl`'deki ad değil: geri yazma yalnızca `.dat`'ı görür; adlar
     bağlam olarak `collect_context(data, path)` ile yan dosyadan toplanır (sözleşmeye `path` eklendi).
@@ -314,7 +314,7 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
     çoğunun kaynak TTF'i oyunda yoktur.
 47. **Yalnızca ayırma gereken parçalar için SDF yeniden hesaplanır** (tam Öklid uzaklık dönüşümü, saf
     Python); birleştirme SDF'lerin en büyüğüyle yapılır. numpy eklenmedi: glif başına küçük alanlarda
-    hız yeterli (Silver Pines'ta 9 font, 50 harf: ~4 sn).
+    hız yeterli (Bir Unity oyununda 9 font, 50 harf: ~4 sn).
 48. **Atlas dolarsa yukarı doğru büyütülür;** çoklu atlas (ikinci doku) TMP'nin çalışma anı
     malzeme yönetimine bağlı olduğu için seçilmedi.
 49. **Font yaması isteğe bağlıdır** (Kontrol Et ekranında seçenek); açıkken harf dönüştürme yalnızca
@@ -343,9 +343,9 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
     doğru anlatır. Kullanıcı satırları onayladıkça korunur.
 57. **Kod uyuşmazlığı çeviri korumasını gevşetmez:** uyuşmayan satır yazılmaz (CLAUDE.md §4.3).
 
-### 4.13 0.15.0 kararları (Mina the Hollower)
+### 4.13 0.15.0 kararları (YCD paketi)
 
-58. **Mina'ya yazma yerinde ve işaretçisizdir.** Dizin/boyut/özet alanları çözülmediği için dosya yeniden
+58. **YCD paketine yazma yerinde ve işaretçisizdir.** Dizin/boyut/özet alanları çözülmediği için dosya yeniden
     düzenlenmez; yalnızca çevrilen satırın dil sütunu betimleyicileri ve satırın kendi dizgi baytları güncellenir
     (dosya boyutu aynı). Çeviri verilmezse dosya bayt bayt aynıdır (round-trip, CLAUDE.md §4.1). Cihazda
     doğrulanana kadar deneyseldir; adım adım denenir (`docs/formats/pak-yc.md`).
@@ -353,12 +353,12 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
     varsayımı yanlış sütuna metin koyar. Her satır 16 baytlık betimleyici dizisi olarak ayrıştırılır (`pakyc/ycd.py`).
 60. **Hazır çeviri kaynak metne bakar.** `ReadyTranslations.sources` verilmişse satır yalnızca yamanın
     dayandığı özgün metin projedekiyle eşitse eşleşir. Kimlikleri sürümler arasında kayabilen biçimlerde
-    (Mina diyalog kimlikleri) yanlış satıra çeviri yazılmasını önler; Unity için kullanılmaz (kimlikler kalıcı).
+    (YCD diyalog kimlikleri) yanlış satıra çeviri yazılmasını önler; Unity için kullanılmaz (kimlikler kalıcı).
 
-### 4.14 0.19.0 kararları (M2 arşivleri, MGS Master Collection)
+### 4.14 0.19.0 kararları (PSB arşivleri)
 
 61. **mdf anahtarı uygulamada yoktur, kullanıcının dökümünden bulunur.** CLAUDE.md §2 gereği uygulama
-    şifreleme anahtarı içermez. M2 oyunlarının arşiv anahtarı oyunun kendi kodunda geçen bir dizgedir;
+    şifreleme anahtarı içermez. PSB arşivi oyunlarının arşiv anahtarı oyunun kendi kodunda geçen bir dizgedir;
     `psb_archive.find_key`, kullanıcının ExeFS `main` kodundaki dizgeleri dener ve gerçek bir `.psb.m` dosyasını açanı
     seçer. Anahtar yalnızca bellekte tutulur; loglanmaz, hata mesajına ve proje dosyasına yazılmaz.
 62. **Yeni bağımlılık yok.** MT19937 (init_by_array) ve MD5 standart kütüphaneyle/kendi kodumuzla;
@@ -370,7 +370,7 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
     düzeyinde korunur); sonraki bölümler hizalamayı koruyarak kayar, sağlama toplamı yeniden hesaplanır.
     Gerçek dökümdeki 620 PSB'nin tamamında doğrulandı (`docs/formats/psb.md`).
 
-### 4.15 0.21.0 kararları (M2 mod yazımı araştırması)
+### 4.15 0.21.0 kararları (PSB arşivi mod yazımı araştırması)
 
 65. **8 GB'lık `.bin` yeniden yazılmaz; hedef "dizinden çıkar + gevşek dosya".** Oyunun betiği
     (`game_content.nut`) önce bağlı arşive, bulamazsa dosya sistemine bakıyor. Mod, yalnızca küçük
@@ -381,19 +381,19 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
     listesi (0x20) ayrı tutulur. Gerçek `alldata`/`dlc_usa` dizinleri değişmeden yeniden kodlanınca
     orijinal baytlar birebir çıkıyor.
 
-### 4.16 0.23.0 kararları (MGS metin çevirisi)
+### 4.16 0.23.0 kararları (PSB metin çevirisi)
 
 67. **Satırlar dizge başına tekilleştirilir.** PSB dizge tablosu aynı yazıyı bir kez tutar ve birden çok yerden
     başvurur; eklenti (`formats/psbtext`) bu yüzden ağaçtaki her konum yerine her *dizge* için bir satır çıkarır
     (anahtar: ilk geçtiği yol, bağlam: kullanıldığı anahtarlar). Çeviri dizgeyi yerinde değiştirir; kök ağacı yeniden
     serileştirmek gerekmez. Bir dizge metin dışı bir yerden de (kimlik) başvuruluyorsa çıkarılmaz.
-68. **M2 üyeleri `ContentTree.code` ile açılır.** Arşiv anahtarı oyunun kodundan bulunduğundan görünüm, kodu tembel
+68. **PSB üyeleri `ContentTree.code` ile açılır.** Arşiv anahtarı oyunun kodundan bulunduğundan görünüm, kodu tembel
     okuyan bir işlev taşır (önce güncelleme, sonra ana oyun). `MemberReader`, tarama, çıkarma ve dışa aktarma aynı
     yolu kullanır; yol biçimi `alldata.psb.m>system/config/menu_item.psb.m`.
 69. **Dışa aktarma cihazda doğrulanan yöntemi kullanır** (docs/formats/psb.md): değişen üyelerin girdisi
     `alldata.psb.m`'den çıkarılır, üyeler (mdf kodlu) aynı yolda gevşek dosya olarak yazılır; `.bin` yazılmaz.
     Yazmadan önce her üye yeniden okunup doğrulanır ve yeni dizin özgün `.bin` ile açılarak sınanır.
-70. **Harf dönüştürme gerekmedi.** MGS1'in 21 menü fontunun hepsinde Türkçe harfler var (`m2text`, ayrı bir
+70. **Harf dönüştürme gerekmedi.** Bu oyunun 21 menü fontunun hepsinde Türkçe harfler var (`psbtext`, ayrı bir
     `unsupported_letters` tanımlanmadı); kullanıcı yine de dışa aktarmada dönüştürmeyi seçebilir.
 
 ### 4.17 0.28.0 kararları (bağlamlı çeviri, redaksiyon, güncelleme)
@@ -501,7 +501,7 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
     olarak tanınır. Dışa aktarmada dosya adı `…_ceviri.*` olur, içe aktarmada satırlar **Makine** durumu ve
     `translation-…` iş kimliğiyle yazılır (redaksiyondaki `Redakte`/`csv-…` karşılığı). Eski üç sütunlu ve
     redaksiyon dosyaları geriye uyumlu kalır.
-91. **Değiştirilen Addressables paketlerinin katalog CRC'si sıfırlanır** (0.31.13, gerçek arıza: Kong):
+91. **Değiştirilen Addressables paketlerinin katalog CRC'si sıfırlanır** (0.31.13, gerçek arıza: bir Unity oyunu):
     Addressables `m_Crc != 0` ise yerel paketi `AssetBundle.LoadFromFileAsync(path, crc)` ile açar; CRC
     tutmazsa paket yüklenmez. Metin bundle'ı yeniden yazıldığı için CRC eşleşmez. Dışa aktarma,
     `catalog.json` → `m_ExtraDataString` (base64 → `SerializationUtilities` kayıtları) içinde **özgün
@@ -509,7 +509,7 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
     uzunluğu korunur (`"m_Crc":N` → `0` + boşluk) çünkü `m_EntryDataString` konumları kayıtlara bayt
     ofsetiyle bağlıdır; katalogdaki diğer baytlara dokunulmaz. CRC 0 denetimi kapatır, cihazda/emülatörde
     paket normal yüklenir. Düzeltilmiş katalog moda eklenir; `catalog.hash` varsa ayrıca güncellenmez
-    (Kong'da yok). Katalog yoksa veya ayrıştırılamazsa uyarı verilir, dışa aktarma durmaz.
+    (bu oyunda yok). Katalog yoksa veya ayrıştırılamazsa uyarı verilir, dışa aktarma durmaz.
 92. **Bul ve değiştirme ayrı bir iş değil, mevcut pencerenin genişletilmesidir** (0.31.14, ürün sahibi
     isteği: “toplu değiştirme” ve “tek tek değiştirmek istiyorum”): Ctrl+H / Düzen → Bul ve Değiştir… zaten
     vardı; ikinci bir akış eklemek yerine `FindReplaceDialog` kapsam seçimi (tüm satırlar / tabloda görünenler
@@ -609,11 +609,11 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-10-31-ceviri-sayfasi-design.
 - **Bilinen ortam sınırı:** `pytest-qt`/`QTest` Windows'ta ASCII dışı tuşlarda süreci çökertir; panel testleri ASCII yazar.
 - **Yeni bağımlılık eklenmedi.**
 
-### 4.23 0.36.0 kararları (Ys Origin, Unicorn Overlord)
+### 4.23 0.36.0 kararları (NNI arşivi, CPK/FMSB biçimi)
 
-93. **Büyük arşivlerin üyeleri "dizin + üye" okunur** (M2 ve pak ile aynı yol): `data-en.ni>LOC/EN/…/X.XSO`,
-    `Unicorn_US.CPK>MsgSheet/X.fms`. Tarama yalnızca dizini okur ve üyeleri adından seçer (XSO yalnızca `LOC/`
-    altında; CPK'da `.fms`), böylece 2,9 GB'lık `Unicorn.CPK` taranırken içeriği okunmaz.
+93. **Büyük arşivlerin üyeleri "dizin + üye" okunur** (PSB arşivi ve pak ile aynı yol): `data-en.ni>LOC/EN/…/X.XSO`,
+    `<oyun>_US.CPK>MsgSheet/X.fms`. Tarama yalnızca dizini okur ve üyeleri adından seçer (XSO yalnızca `LOC/`
+    altında; CPK'da `.fms`), böylece 2,9 GB'lık `<oyun>.CPK` taranırken içeriği okunmaz.
 94. **NNI yazımı orijinal `.na`'ya ekleme yapar**, yeniden paketlemez: kayıtların yeri değişmez, yalnızca değişen
     üyelerin ofset/boyutu yeni yeri gösterir. Oyunun arşiv yerine gevşek dosya okuyup okumadığı bilinmediği için
     (`docs/formats/nni.md`) mod `.ni` + `.na` çiftini taşır.
@@ -624,7 +624,7 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-10-31-ceviri-sayfasi-design.
     metinleri (`Yes`, `Cancel`) kimliklerden (`Battle`, `Back`) ayıramıyordu. Japonca kopya yoksa sezgisel kurala
     düşülür. Dışa aktarma doğrulamasında bağlam olmadığından tüm metin dizgeleri okunur (anahtar = sıra numarası).
 97. **Fontta olmayan harfler eklenti bildirimiyle dönüştürülür** (`unsupported_letters = "ğĞşŞıİ"`, her iki oyun):
-    Ys'te BMFont glif tablosundan doğrulandı; Unicorn Overlord'da kanıt dolaylı (Rusça yamanın Latin-1 hilesi).
+    NNI oyununda BMFont glif tablosundan doğrulandı; CPK/FMSB oyununda kanıt dolaylı (Rusça yamanın Latin-1 hilesi).
 
 ### 4.24 0.37.0 kararları (diğer sayfalar)
 
@@ -642,10 +642,10 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
   ait eylemleri gösterir; rapor görünümü durumu `status_changed` sinyaliyle sayfaya bildirir.
 - **Yeni bağımlılık ve yeni simge eklenmedi.**
 
-### 4.25 0.39.0 kararları (Ys Origin: altyazı, yazı tipi, grafik)
+### 4.25 0.39.0 kararları (NNI arşivi: altyazı, yazı tipi, grafik)
 
 98. **Eklentiler metinden bağımsız dosya üretebilir** (`derived_files(read, files, game_dir) -> Derived`): dışa
-    aktarma bunları oyun başına bir kez çağırır (aynı işlevi paylaşan Ys metni ve altyazı eklentileri tek çağrı olur).
+    aktarma bunları oyun başına bir kez çağırır (aynı işlevi paylaşan NNI metni ve altyazı eklentileri tek çağrı olur).
     Serbest dosyalar moda eklenir, arşiv üyeleri `_export_member_archive(extra=…)` ile metin değişiklikleriyle aynı
     yeniden kurulumda birleşir; böylece `data-en.ni/.na` çifti tek kez üretilir.
 99. **Eksik harfler yazı tipinin kendi glifleriyle türetilir** (BMFont): `ı` = `i`nin gövdesi, `İ` = `I` + `i`nin
@@ -653,9 +653,9 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     ile birleştirilir; böylece dolgu rengi, dış çizgi ve gölge (glif kutusu gölge payı içerdiğinden `yoffset` farkları
     değil, opak çekirdek satırları ölçüt) aynı kalır. TTF'den çizim denendi, dış çizgi/gölge efektini yeniden üretmek
     gerektiği için bırakıldı. Yeni bağımlılık yok (yalnızca Pillow).
-100. **Ys metin eklentileri harf dönüştürmez** (`unsupported_letters = ""`): yazı tipi yaması dışa aktarmada her zaman
+100. **NNI metin eklentileri harf dönüştürmez** (`unsupported_letters = ""`): yazı tipi yaması dışa aktarmada her zaman
     çalışır. Yama bir yazı tipine uygulanamazsa uyarı verilir (sessizce dönüştürmeye geçilmez).
-101. **Grafik çevirisi dosya klasörüyle yapılır** (DMC1 ile aynı düzen): `orijinal/` (uygulama üretir) ve `temiz/`
+101. **Grafik çevirisi dosya klasörüyle yapılır** (FSD/MSG ile aynı düzen): `orijinal/` (uygulama üretir) ve `temiz/`
     (kullanıcı); yalnızca özgünden farklı olanlar yerleştirilir. DDS yazımı özgün başlığı, biçimi (BC3/BC1) ve mip
     sayısını korur ve boyutu doğrular. Ana arşivdeki resimler 946 MB'lık `data.na` kopyasını gerektirdiğinden
     kapsam dışı (TECH_DEBT 74).
@@ -720,19 +720,19 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     (`%LOCALAPPDATA%\NXCeviri\yazim-sozlugu.txt`, atomik yazım). Oyun terimleri için proje sözlüğü
     (`Sözlük…`) ayrıdır.
 
-### 4.30 0.44.0 kararları (Danganronpa)
+### 4.30 0.44.0 kararları (WAD/LIN biçimi)
 
 116. **WAD yazımı arşivin tamamını bellekte kurar** (50 MB): üyeler aynı sırayla yeniden dizilir, başlık ve klasör
     tablosu aynen kalır, yalnızca dosya tablosundaki boyut/ofset alanları yerinde güncellenir. Değişiklik yoksa çıktı
-    bayt bayt aynıdır. 1 GB üstü arşiv yeniden yazılmaz (açık hata). Mod tek dosyadır (`dr1_data.wad`).
+    bayt bayt aynıdır. 1 GB üstü arşiv yeniden yazılmaz (açık hata). Mod tek dosyadır (WAD arşivi).
 117. **LIN/PAK metni dizge sırasıyla anahtarlanır**; betik paketlerinde `<öğe>.<dizge>`. Betik bölümü (komutlar) hiç
     yeniden yazılmaz: komutlar dizgelere sıra numarasıyla başvurur, bu yüzden metin uzunluğu serbesttir.
 118. **"0 metin" artık hatadır** (`pipeline.extract_texts`): hiçbir dosyadan satır çıkmadıysa kullanıcıya açıklayıcı hata
      gösterilir; "0 dosyadan metinler aktarıldı" başarısı yanıltıcıydı.
 
-### 4.31 0.45.0 kararları (Donkey Kong Country Returns HD)
+### 4.31 0.45.0 kararları (Unity SerializeReference biçimi)
 
-119. **DKCR HD `Localization`'ı Unity eklentisinin içinde, ham bayttan okunur** (`serializeref.py`; `i2`/`locoliser` ile aynı yol):
+119. **Unity SerializeReference `Localization`'ı Unity eklentisinin içinde, ham bayttan okunur** (`serializeref.py`; `i2`/`locoliser` ile aynı yol):
      tip ağacı yok, nesne `[SerializeReference]` kayıt defteri. Yapı kesin doğrulanır (kayıt defteri nesnenin son baytında
      bitmeli, kimlikler tutarlı olmalı); doğrulanamayan nesne hiç okunmaz. Değişiklik yokken bayt bayt aynı yazılır.
 120. **İki düzen tek ayrıştırıcıda** (v0 adlı, güncelleme adsız): ikisi sırayla denenir, tüm kayıt defterini bitiren kazanır.
@@ -777,7 +777,7 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     paketi standart kütüphaneyi tümüyle içerir ki eklentinin içe aktarmaları exe'de de çalışsın.
 132. **Kendiliğinden güncelleme klasörü bütünüyle değiştirir;** kullanıcı verisi (`%LOCALAPPDATA%\NXCeviri`: eklentiler,
     kurtarma, loglar; projeler; ayarlar) klasör dışında olduğu için etkilenmez. Git kopyasında yalnızca denetim yapılır.
-133. **Depoda oyun metni yok:** DMC1 açıklamaları özetle eşleşir (`exe.digest`: satır sonu ve sondaki boşluk normalize).
+133. **Depoda oyun metni yok:** FSD/MSG metni özetle eşleşir (`exe.digest`: satır sonu ve sondaki boşluk normalize).
 
 ### 4.35 0.49.0 kararları (Çevir ekranı)
 
@@ -868,7 +868,7 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     göre sözlük yanlış öneri gösterirdi.
 164. **Görseller eklenti özelliği** (`derived.GraphicsSupport(folder_name, export)`, eklentide `graphics = ...`):
     klasör oyun dosyalarının yanında `<folder_name>/orijinal|temiz`; hazır resimler mevcut `derived_files` yoluyla
-    moda girer. İlk destek Ys Origin; DMC1 ve RHG doku dönüştürücüleri henüz bu arayüze bağlanmadı (TECH_DEBT 89).
+    moda girer. İlk destek NNI arşivi; FSD/MSG ve MSBT doku dönüştürücüleri henüz bu arayüze bağlanmadı (TECH_DEBT 89).
 
 ### 4.42 0.55.0 kararları (maskot, Yardım, katkı)
 

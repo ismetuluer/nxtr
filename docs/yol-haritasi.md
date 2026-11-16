@@ -104,7 +104,7 @@ listesinden ürün sahibinin seçimiyle belirlenir.
 - Çevir: durum süzgeci simge düğmeleri şeridi (`gui/status_filter.py`); "Tümü" düğmesi süzgeç varken
   "görünen / toplam" yazar ve bütün süzgeçleri kaldırır; arama Türkçe I/ı/İ/i ayırmaz (`fold_search`).
 - Grup işlevi düzeltildi: koleksiyon kuralı yalnızca Unity ve Unreal satırlarında (`COLLECTION_FORMATS`); kitt ve
-  m2text projelerinde grup artık dosya adı. Eski adla kayıtlı gruba özel sığdırma kuralları bu projelerde uymaz.
+  psbtext projelerinde grup artık dosya adı. Eski adla kayıtlı gruba özel sığdırma kuralları bu projelerde uymaz.
 - Çevir: gruplu görünüm (`gui/group_proxy.py`, `gui/group_header.py`; komut `view.grouped`, ayar
   `translate/grouped`, varsayılan kapalı). Vekil yalnızca gruplama açıkken tabloya takılır (her zaman takılıyken
   boyama %25 yavaşlıyordu). Anahtara göre gruplama ölçümde oyundan oyuna tutmadığı için yapılmadı.

@@ -302,7 +302,7 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
 - **Fontu Dışa Aktar / Düzenlenmiş Fontu İçe Al / Özgün Fonta Dön:** oyunda serbest duran TTF/OTF fontları kaydedip
   FontForge gibi bir araçta düzenleyebilir, düzenlenmiş hâlini geri alabilirsiniz; dışa aktarılan modda özgün fontun
   yerine konur. Tabloda "İçe alındı: dosya" görünür; dosya taşınırsa dışa aktarırken bildirim çıkar.
-- **Dışa Aktar → Görseller** (Ys Origin): yazı içeren resimleri **Orijinalleri Çıkar** ile PNG olarak oyun dosyalarının
+- **Dışa Aktar → Görseller** (NNI arşivi): yazı içeren resimleri **Orijinalleri Çıkar** ile PNG olarak oyun dosyalarının
   yanındaki klasöre çıkarır; Türkçesini `temiz/` klasörüne aynı adla koyduğunuzda mod oluşturulurken kendiliğinden
   yerleşir. Kartta "Türkçe resim: 12 / 148" ilerlemesi ve **Klasörü Aç**.
 
@@ -327,7 +327,7 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
 - **Seçili satırları terminolojiye ekle** (sağ tık ve Çeviri menüsü, `Ctrl+Shift+G`): orijinal ve çeviri kontrol
   kodu, satır sonu, sayı ve sembollerden ayıklanır; onay listesinde işaretlenenler eklenir; terminolojide başka
   karşılıkla olan terim turuncu ve işaretsiz gelir (işaretlenirse güncellenir).
-- **Terminoloji kitaplığı:** terminolojiyi adlandırılmış liste olarak kaydedin ("DMC serisi"), başka projede
+- **Terminoloji kitaplığı:** terminolojiyi adlandırılmış liste olarak kaydedin ("bir oyun serisi"), başka projede
   *Kitaplıktan Ekle* ile katın (birden çok liste birleştirilebilir; projede olan terimin karşılığı korunur).
 - **Örtük terimler Ollama'ya:** oyunda kendi başına satır olan kısa adların (mekân, eşya, bölüm) en sık çevirisi,
   terminolojide olmasalar da Otomatik Çeviri'de modele terim olarak verilir; cümle içinde de aynı çevrilir.
@@ -402,8 +402,8 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
   Sözlüğe Ekle, **Hepsini şununla değiştir** (yalnızca listelenen satırlarda, tek iş, Geri Al). Yoksayılanların altı
   editörde ve tabloda da çizilmez.
 - **Terim tutarsızlığı** denetimi: kendi başına satır olan kısa özel adlar (en az iki satırda geçen) ve sözlük terimleri
-  kanonik çeviri sayılır; cümle içinde farklı çevrildiyse bulgu verir ("‘Silver Pines’ burada farklı çevrilmiş; 14
-  satırda ‘Gümüş Çamlar’"). Türkçe ekler, ünsüz yumuşaması (Kılıç → Kılıcı), büyük/küçük harf ve satır sonları yok
+  kanonik çeviri sayılır; cümle içinde farklı çevrildiyse bulgu verir ("‘<terim>’ burada farklı çevrilmiş; 14
+  satırda ‘<karşılık>’"). Türkçe ekler, ünsüz yumuşaması (Kılıç → Kılıcı), büyük/küçük harf ve satır sonları yok
   sayılır. "Terim değil" ile işaretlenen ifade bir daha denetlenmez.
 - **Grup ve anahtar sınırları tablosu** (Sığdırma): grup ve **anahtar deseni** (`menu_*`, `*_title`) başına satır
   sayısı, en uzun orijinal satır, öğrenilen ve elle sınır; "Hepsini Öğren". Öncelik: anahtar deseni > grup > dosya > proje.
@@ -502,7 +502,7 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
 - **Güncelleme:** GitHub'a önce anahtarsız sorulur (anahtar yalnızca gizli depoda gerekir). Hazır pakette yeni sürüm
   indirilir, SHA-256 ile doğrulanır ve uygulama kapanınca kendiliğinden kurulur; başarısızsa eski sürüm geri konur.
   "Açılışta güncellemeleri denetle" güncelleme penceresinde. Git ile kurulan kopya `git pull` ile güncellenir.
-- DMC1 düşman açıklamaları özgün İngilizce metin yerine metnin SHA-256 özetiyle eşleştirilir (depoda telifli metin
+- FSD/MSG düşman açıklamaları özgün İngilizce metin yerine metnin SHA-256 özetiyle eşleştirilir (depoda telifli metin
   kalmadı; gerçek oyunda üretilen yama öncekiyle bayt bayt aynı).
 
 ## [0.47.0] — 2026-11-02 — NXTR: yeni ad ve logo, seçmeli düzeltme, grup sınırları
@@ -522,7 +522,7 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
 
 ### Eklendi
 - **Yeni denetimler:** Eksik etiket (ham `<i>`, `[color=…]`, `{ad}`), Korunan ifade (cümle içindeki alt çizgili kod adları,
-  ör. DKCR HD), Çift boşluk, Tekrarlı sözcük (“ve ve”; “güle güle” gibi ikilemelere dokunmaz), Fazla nokta. Kaynakta aynı
+  ör. Unity SerializeReference biçimi), Çift boşluk, Tekrarlı sözcük (“ve ve”; “güle güle” gibi ikilemelere dokunmaz), Fazla nokta. Kaynakta aynı
   desen varsa uyarı yok.
 - **Kod sırası düzeltmesi:** biçim kodları (renk aç/kapa, satır/sayfa sonu) kaynaktaki sıraya dizilir; değer taşıyan kodlara
   (oyuncu adı, sayı) dokunulmaz.
@@ -531,7 +531,7 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
 - **Satırları yeniden böl** (Çevir → sağ tık → Daha fazla): çevirideki satır sonlarını silip satırı kurala, kural yoksa
   orijinalin satır sayısına göre yeniden böler; kodlar korunur, geri alınabilir.
 - **Hatalı satırları da aktar** (Dışa Aktar, varsayılan kapalı, proje başına): oyunun kabul ettiği hatalı satırlar
-  çevirisiyle yazılır; Unicorn Overlord'da (FMSB) yalnızca değişken kodlarının yeri değişmiş satırlar da yazılır. Kontrol
+  çevirisiyle yazılır; CPK/FMSB biçiminde yalnızca değişken kodlarının yeri değişmiş satırlar da yazılır. Kontrol
   kodu bozuk satırlar orijinal bırakılır ve sonuçta sayılır.
 
 ### Kaldırıldı
@@ -556,10 +556,10 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
 - **Yazım** bulguları artık bilgi düzeyinde: varsayılan listeyi ve kenar çubuğu sayacını şişirmez, “Yazım” süzgeciyle
   görülür. Ses efektleri (hihihi, ehehehe, ahhh) yazım hatası sayılmaz.
 
-## [0.45.0] — 2026-11-02 — Donkey Kong Country Returns HD metinleri
+## [0.45.0] — 2026-11-02 — Unity SerializeReference biçimi metinleri
 
 ### Eklendi
-- **DKCR HD `Localization` desteği** (`formats/unity/serializeref.py`, Unity eklentisine bağlı): oyunun tüm metni `resources.assets`
+- **Unity SerializeReference `Localization` desteği** (`formats/unity/serializeref.py`, Unity eklentisine bağlı): oyunun tüm metni `resources.assets`
   içindeki tek bir `[SerializeReference]` kayıt defterindedir (14 dil, dil başına 1.321 metin). Ayrıştırıcı hem v0 hem güncelleme
   düzenini okur ve her ikisinde ile Rusça topluluk yamasında değişiklik yokken bayt bayt aynı yazar. İngilizce yuvadan
   1.199 metin aktarılır (ses kimlikleri, boş ve harfsiz satırlar atlanır); `<scale=…>`/`<space=…>` etiketleri kontrol kodudur.
@@ -569,19 +569,19 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
 ### Bilinen sınırlar
 - Mod cihazda denenmedi; `ğ ş ı İ` gliflerinin oyun yazı tipinde olup olmadığı denetlenemiyor (TECH_DEBT 81–82). Metin aktarma
   ≈3 dk sürer (TECH_DEBT 83).
-## [0.44.0] — 2026-11-02 — Danganronpa: Trigger Happy Havoc metinleri
+## [0.44.0] — 2026-11-02 — WAD/LIN biçimi metinleri
 
 ### Eklendi
-- **Spike Chunsoft WAD arşivi** (`archives/wad.py`, `AGAR`): `dr1_data.wad` dizini okunur, üyeler büyük dosya tamamen
+- **WAD arşivi** (`archives/wad.py`, `AGAR`): `<oyun>_data.wad` dizini okunur, üyeler büyük dosya tamamen
   okunmadan açılır, değişenlerle arşiv yeniden kurulur (değişiklik yoksa bayt bayt aynı; gerçek dosyayla doğrulandı).
-- **Danganronpa eklentisi** (`formats/wadlin`): `.lin` betik metinleri (UTF-16LE, `<CLT n>` renk etiketleri kontrol
+- **WAD/LIN eklentisi** (`formats/wadlin`): `.lin` betik metinleri (UTF-16LE, `<CLT n>` renk etiketleri kontrol
   kodu), `.pak` metin tabloları (eşya, harita, menü, ipucu…) ve `.lin` içeren betik paketleri. Dil klasöründen
   okunur (`us` → en, `jp` → ja, `ch` → zh-hant). Gerçek oyunda İngilizce kaynakta 6.048 dosya, 176.393 satır; hepsinde
   değişiklik yapılmadan geri yazım bayt bayt aynı.
 - Dışa aktarma WAD arşivini yeniden kurar ve doğrular. Belge: `docs/formats/wad-lin.md`.
 
 ### Düzeltildi
-- **Hiç metin çıkmayan oyunda "0 satır aktarıldı" başarısı gösteriliyordu** (Danganronpa ve Donkey Kong Country Returns HD
+- **Hiç metin çıkmayan oyunda "0 satır aktarıldı" başarısı gösteriliyordu** (WAD/LIN ve Unity SerializeReference biçimleri
   bu yüzden "metin çıkmadı" diye boş geçiyordu). Artık açık bir hata verilir: kaç dosyanın açıldığı, tahmin edilen motor ve
   kaynak dilde metin yoksa oyundaki diller söylenir.
 
@@ -659,31 +659,31 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
 - Alt panelin yüksekliği ilk açılışta sabitleniyordu; satır seçince kod çipleri veya uyarı satırı belirdiğinde
   panel büyümüyor, "Çeviri" etiketi ve çipler kutuların üstüne biniyordu. Panel artık içeriğine göre büyür.
 
-## [0.39.0] — 2026-11-01 — Ys Origin: altyazı, yazı tipi yaması, grafik klasörü
+## [0.39.0] — 2026-11-01 — NNI arşivi: altyazı, yazı tipi yaması, grafik klasörü
 
 ### Eklendi
-- **SubRip (`.srt`) altyazı eklentisi** (`formats/srt`): Ys Origin'in giriş videosu (`yso_pro.mp4`) yazısızdır; altyazıyı
-  oyun `extension/movies/yso_pro_<dil>.srt` dosyasından çizer. Altyazı blokları çeviri tablosuna girer (anahtar sıra
+- **SubRip (`.srt`) altyazı eklentisi** (`formats/srt`): NNI oyununun giriş videosu (`<video>.mp4`) yazısızdır; altyazıyı
+  oyun `extension/movies/<video>_<dil>.srt` dosyasından çizer. Altyazı blokları çeviri tablosuna girer (anahtar sıra
   numarası, bağlam zaman aralığı), zaman damgalarına dokunulmaz, LF/CRLF ve BOM korunur. Dil dosya adından okunur
-  (`yso_pro_sp.srt` → es). Gerçek oyunda 8 dosya tanındı, İngilizce kaynakla 18 satır aktarılıyor.
-- **Ys Origin yazı tipi yaması** (`fontpatch/bmfont.py`, `nni_fonts.py`): oyunun beş Latin BMFont yazı tipine
-  (`arial`, `ysfont`, `linuxwhite`, `linuxshadow`, `linuxwhitesmall`) eksik `ğ Ğ ş Ş ı İ` harfleri yazı tipinin kendi
+  (`<video>_sp.srt` → es). Gerçek oyunda 8 dosya tanındı, İngilizce kaynakla 18 satır aktarılıyor.
+- **NNI yazı tipi yaması** (`fontpatch/bmfont.py`, `nni_fonts.py`): oyunun beş Latin BMFont yazı tipine
+  eksik `ğ Ğ ş Ş ı İ` harfleri yazı tipinin kendi
   glifleriyle türetilip eklenir; dış çizgi ve gölge korunur. Dışa aktarma bu dosyaları moda koyar ve harfleri artık
   g/s/i'ye çevirmez. Atlas doluysa yüksekliği ikiye katlanır.
-- **Ys Origin grafik klasörü** (`fontpatch/nni_graphics.py`): menü düğmeleri, onay kutuları, harita/patron adları, hikâye
+- **NNI grafik klasörü** (`fontpatch/nni_graphics.py`): menü düğmeleri, onay kutuları, harita/patron adları, hikâye
   ve rehber sayfaları gibi İngilizce yazı içeren 150 resim `<oyun klasörü>/grafik_temizleme/orijinal` içine PNG olarak
   çıkarılır; kullanıcı yazıyı Türkçe yapıp `temiz` klasörüne aynı adla kaydeder, dışa aktarma değişenleri DDS
   başlığını, biçimini ve mip zincirini koruyarak yerleştirir (`data-en` arşivi yeniden kurulur, serbest dosyalar moda
-  eklenir). Klasör `NXCEVIRI_YS_GRAFIK` ortam değişkeniyle değiştirilebilir.
+  eklenir). Klasör `NXCEVIRI_NNI_GRAFIK` ortam değişkeniyle değiştirilebilir.
 - Dışa aktarmada eklentiler için yeni kanca: `derived_files(read, files, game_dir)` (`formats/derived.py`,
   `export/extras.py`): metinden bağımsız dosya ve arşiv üyeleri üretir; `ExportResult.extra_notes` bilgi dosyasına yazılır.
 
 ### Düzeltildi
-- **Ys Origin arayüz XML'inde satır sonu `\n` olarak yazılıyordu** ve oyunda "¥n" görünüyordu. XML'deki satır sonu
+- **NNI arayüz XML'inde satır sonu `\n` olarak yazılıyordu** ve oyunda "¥n" görünüyordu. XML'deki satır sonu
   gerçek satır sonudur (gerçek dosyada hiç `\n` yok); artık gerçek satır sonu yazılır. XSO dizgeleri etkilenmedi.
 
 ### Bilinen sınırlar
-- Mod cihazda denenmedi (TECH_DEBT 71). Ana arşivdeki resimler (`MENU/CHRSELECT.DDS` "Character Select") henüz
+- Mod cihazda denenmedi (TECH_DEBT 71). Ana arşivdeki resimler henüz
   çevrilemez (TECH_DEBT 74). Grafik klasörünü üretmek ve seçmek için arayüz yok (TECH_DEBT 75).
 
 ## [0.38.0] — 2026-11-01 — Uygulama simgesi
@@ -725,24 +725,24 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
 ### Eklendi
 - Ortak parçalar: `PageHeader`, `ActionBar`, `StatusChip` (`nxceviri/gui/widgets.py`).
 
-## [0.36.0] — 2026-11-01 — Ys Origin ve Unicorn Overlord
+## [0.36.0] — 2026-11-01 — NNI arşivi ve CPK/FMSB biçimi
 
 ### Eklendi
-- **Ys Origin:** Falcom NNI arşivleri (`ys_data/archives/data-<dil>.ni` + `.na`) okunup yazılıyor
+- **NNI arşivi:** NNI arşivleri (`<oyun>_data/archives/data-<dil>.ni` + `.na`) okunup yazılıyor
   (`core/archives/nni.py`). Harita betiklerindeki (`LOC/<DİL>/…/*.XSO`) diyalog ve eşya/menü yazıları ile arayüz
   dizgeleri (`loc/strings/english.xml`) çeviri tablosuna aktarılıyor (`formats/nnitext`). Betik kimlikleri
   (`V_180`, `OPEN`, `@Flag_Inv`) aynı betiğin Japonca kopyasıyla karşılaştırılarak ayıklanır. Gerçek oyunda
   İngilizce kaynakla 10.787 satır. Mod: `data-en.ni`, `data-en.na` (değişen betikler sona eklenir) ve `english.xml`.
-- **Unicorn Overlord:** CRI CPK arşivleri okunuyor ve değişen dosyalarla yeniden kuruluyor; CRILAYLA sıkıştırması
-  açılıyor (`core/archives/cpk.py`). Vanillaware MsgSheet (`MsgSheet/*.fms`) eklentisi (`formats/fmsb`): renk,
+- **CPK/FMSB biçimi:** CRI CPK arşivleri okunuyor ve değişen dosyalarla yeniden kuruluyor; CRILAYLA sıkıştırması
+  açılıyor (`core/archives/cpk.py`). MsgSheet (`MsgSheet/*.fms`) eklentisi (`formats/fmsb`): renk,
   eğik yazı, ad değişkeni, vurgu gibi kodlar `⟦n⟧` olur. Gerçek oyunda İngilizce kaynakla 49.242 satır. Mod yalnızca
-  `Unicorn_US.CPK`; ana arşivdeki Japonca sayfalar otomatik atlanır.
+  `<oyun>_US.CPK`; ana arşivdeki Japonca sayfalar otomatik atlanır.
 - İki oyunun fontunda olmayan `ğ Ğ ş Ş ı İ` dışa aktarmada g, s, i, I'ya dönüştürülür (`ç ö ü` korunur).
-- Motor tahmini: "Falcom (Ys Origin)" ve "Vanillaware / CRI (Unicorn Overlord)".
+- Motor tahmini: "NNI" ve "CPK / CRI".
 
 ### Bilinen sınırlar
-- İki oyunda da mod henüz cihazda denenmedi (TECH_DEBT 71). Unicorn Overlord'da metin aktarma ~27 sn sürer
-  (saf Python CRILAYLA, TECH_DEBT 72). Ys açılış videosu altyazısı (`.srt`) ve Unicorn Overlord yardım resimleri
+- İki oyunda da mod henüz cihazda denenmedi (TECH_DEBT 71). CPK/FMSB biçiminde metin aktarma ~27 sn sürer
+  (saf Python CRILAYLA, TECH_DEBT 72). NNI açılış videosu altyazısı (`.srt`) ve CPK/FMSB yardım resimleri
   aktarılmıyor (TECH_DEBT 73).
 
 ## [0.35.0] — 2026-11-01 — Çeviri sayfası: düzenleme paneli ve semboller
@@ -792,16 +792,16 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
 - Çeviri tablosundan yapılan her düzenlemeden sonra kenar çubuğu rozeti ve durum çubuğu anında güncellenir.
 - Tema: alan çerçevesi `QSpinBox`'a da uygulandı; devre dışı alanlar soluk gösterilir.
 
-## [0.33.0] — 2026-10-31 — Rhythm Heaven Groove: derece resimleri Türkçe
+## [0.33.0] — 2026-10-31 — MSBT oyunu: derece resimleri Türkçe
 
 ### Eklendi
-- **Resimdeki yazıların çevirisi (Rhythm Heaven Groove):** Sonuç ekranındaki derece yazıları ("Good", "Superb",
-  "Try Again" …) metin değil, `graph/result/rank_USen.tex` / `rank_EUen.tex` dokusuna çizilmiş resimdir. Dışa aktarma
-  bu yazıları, projedeki `common.msbt` → `rank_00_*` / `rank_01_*` satırlarının çevirisinden, oyunun kendi fontuyla ve
+- **Resimdeki yazıların çevirisi (MSBT oyunu):** Sonuç ekranındaki derece yazıları
+  metin değil, bir dokuya çizilmiş resimdir. Dışa aktarma
+  bu yazıları, projedeki derece satırlarının çevirisinden, oyunun kendi fontuyla ve
   özgün renklerle yeniden çizer; redakte edilen derece adı resme de yansır. Çevrilmemiş derecenin resmine dokunulmaz.
 - `core/fontpatch/switchtex.py`: Switch GPU dokularının block-linear düzenini çözen/geri yazan kodlayıcı (Tegra X1 GOB
   düzeni; dolgu ve dosya sonu baytları korunur) ve oyunun zstd çerçeve ayarlarıyla (2 MB pencere, sağlama toplamı)
-  yeniden paketleme. Biçim notları: `docs/formats/rhg-tex.md`.
+  yeniden paketleme. Biçim notları: ayrı belge (depoda artık yok).
 - Atlas SHA-1 özetiyle tanınır; oyunun başka sürümünde resim farklıysa dosyaya dokunulmaz ve uyarı verilir.
 
 ## [0.32.0] — 2026-10-31 — Metin sığdırma
@@ -827,18 +827,18 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
   kapanır; satır sayısını sınırlar belirler. Sınır yoksa eski davranış aynen sürer.
 - Tema: sayı kutuları (QSpinBox) koyu/açık temada diğer alanlarla uyumlu çizilir.
 
-## [0.31.18] — 2026-10-31 — Devil May Cry: terminoloji ve Hareket listesi
+## [0.31.18] — 2026-10-31 — FSD/MSG biçimi: terminoloji ve Hareket listesi
 
 ### Eklendi
-- `docs/terminoloji-dmc1.md`: grafik ve metin çevirilerinin ortak terim listesi (onaylandı).
-- Devil May Cry Hareket ekranının sol listesi (`status_u/act_init.dat`, `status/act_init.dat`) Türkçeleştirildi;
-  hareket adları açıklama sayfalarının başlıklarıyla aynıdır (Girdap, Tekme 13, Cehennem …).
+- Ek terim dosyası: grafik ve metin çevirilerinin ortak terim listesi (onaylandı).
+- FSD/MSG oyununun Hareket ekranının sol listesi (`status_u/act_init.dat`, `status/act_init.dat`) Türkçeleştirildi;
+  hareket adları açıklama sayfalarının başlıklarıyla aynıdır (adlar oyundan alınmıştır).
 
 - Kullanıcı grafikleri (`temiz`) dosya özellikleri değişse de yüklenir: boyutu farklıysa özgün boya ölçeklenir,
   saydamlık kaydedilmemişse özgünün alfa kanalı korunur (önceden boyutu farklı sayfa sessizce atlanıyordu).
-- `docs/grafik-cevirileri-dmc1.md`: görev, gizli görev ve dükkân sayfalarının metinleri ve Türkçeleri.
-  Proje metinleri ve terminolojiyle karşılaştırılarak gözden geçirildi: tırnaksız özel adlar, Nightmare çevrilmez,
-  Court → Avlu, Ruh Taşı / İksir / Kadeh / Kılavuz Işık terimleri, "yaşam gücü" tutarlılığı.
+- Ek çeviri dosyası: görev, gizli görev ve dükkân sayfalarının metinleri ve Türkçeleri.
+  Proje metinleri ve terminolojiyle karşılaştırılarak gözden geçirildi: tırnaksız özel adlar, çevrilmeyen özel adlar,
+  eşya ve mekân terimleri, "yaşam gücü" tutarlılığı.
 
 ### Düzeltildi
 - "görev başla" → "göreve başla"; grafiklerde Devil Trigger → Şeytan Tetiği, UnderWorld → Yeraltı Dünyası.
@@ -852,20 +852,20 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
   `*.bfotf.zs`) da bulur ve eksik Türkçe harfleri raporlar. Font yaması açıksa dışa aktarma bu fontlara
   `ı İ ş Ş ğ Ğ` harflerini kendi çizimlerinden türeterek ekler (`core/fontpatch/switchfont.py` artık
   dışa aktarmaya bağlı). Yalnızca ASCII taşıyan Çince/Korece fontlar Latin metin fontu sayılmaz, yamalanmaz.
-  Rhythm Heaven Groove'da menüdeki `ş` kutu olarak çiziliyordu ve `İ` başka bir fonttan geliyordu; oyunun 12 Latin
+  Bir MSBT oyununda menüdeki `ş` kutu olarak çiziliyordu ve `İ` başka bir fonttan geliyordu; oyunun 12 Latin
   fontu yamalandı.
 
 ### Değişti
 - **5. Dışa Aktar** ekranı, fontlarda eksik Türkçe harf olduğu ve font yaması kapalı olduğu hâlde harfler
   dönüştürülmüyorsa uyarır. Daha önce yama kutusu varsayılan olarak kapalıydı ve dışa aktarma sessizce
-  yamasız mod üretiyordu (Rhythm Heaven Groove'da kullanıcı fontlu modu yeniden üretince harfler yine kutu çıktı).
+  yamasız mod üretiyordu (bir MSBT oyununda kullanıcı fontlu modu yeniden üretince harfler yine kutu çıktı).
 
 ## [0.31.16] — 2026-10-30 — Mod, aynı dilin diğer bölge klasörlerine de yazılır
 
 ### Düzeltildi
-- Nintendo düzenindeki oyunlarda (`mesg/US/USen/…`) mod yalnızca kaynak dilin klasörünü değiştiriyordu. Switch
+- LMS düzenindeki oyunlarda (`mesg/US/USen/…`) mod yalnızca kaynak dilin klasörünü değiştiriyordu. Switch
   oyunu dil klasörünü konsolun dilinden seçtiği için "English (UK)" seçili konsolda oyun `EU/EUen` klasörünü okuyor
-  ve mod hiç görünmüyordu (Rhythm Heaven Groove). Dışa aktarma artık çeviriyi aynı dilin diğer bölge kopyalarına
+  ve mod hiç görünmüyordu (bir MSBT oyunu). Dışa aktarma artık çeviriyi aynı dilin diğer bölge kopyalarına
   (`EU/EUen`, `US/USfr` → `EU/EUfr` …) da yazar. İkiz dosyanın kendi orijinali temel alınır; çevrilmeyen satırlar
   o bölgenin metninde kalır. Etiketleri kaynak dosyayla uyuşmayan ikiz dosya yazılmaz ve uyarı verilir.
 
@@ -916,7 +916,7 @@ ise TXT/XLSX dış redaksiyonunu geliştirmişti. Bu sürüm ikisini tek yerde t
   kalıyorsa görünüm o satırın olduğu yerde kalır.
 
 ### Düzeltildi
-- **Kong’da bazı fontlara Türkçe harfler eklenmiyordu.** TMP fontları `m_AtlasTextures` dizisini 4/8
+- **Bir Unity oyununda bazı fontlara Türkçe harfler eklenmiyordu.** TMP fontları `m_AtlasTextures` dizisini 4/8
   yuvalı yazar; kullanılmayan yuvaların `m_PathID` değeri `0`’dır. Yama bu boş yuvaları “birden çok
   atlas” sayıp fontu atlıyordu (`BAIJAMJUREE-LIGHT`, `BAIJAMJUREE-MEDIUM`, `KumbhSans-Medium`). Artık
   yalnızca gerçek doku başvuruları sayılır; boş yuvalar yok sayılır (`core/fontpatch/unity.py`).
@@ -924,7 +924,7 @@ ise TXT/XLSX dış redaksiyonunu geliştirmişti. Bu sürüm ikisini tek yerde t
   bulunamazsa diğer büyüklükteki donor (`ç`, `ü`) kullanılır; çengel/breve büyük harfte büyütülmez,
   yalnızca taban harfin boyuna göre konumlandırılır (`core/fontpatch/tmp.py`).
 
-## [0.31.13] — 2026-10-27 — Addressables katalog CRC düzeltmesi (Kong modu oyunda açılmıyordu)
+## [0.31.13] — 2026-10-27 — Addressables katalog CRC düzeltmesi (Unity oyunu modu oyunda açılmıyordu)
 
 ### Düzeltildi
 - Değiştirilen bir Unity Addressables paketi oyunda **hiç yüklenmiyordu**: katalogdaki
@@ -1126,9 +1126,9 @@ Kullanıcının 1920×990 ekran görüntüsünde görülen düzen hataları. Tes
   büyük boş alanlar açılıyordu. Artık tek ızgarada, aynı hizada; panel büyüyünce yalnızca kutular uzar.
 - Bölme, panelin içeriği sığacak kadar yer ayırır (tabloya en az 120 px kalır); kullanıcı bölme çubuğunu
   sürüklerse onun ayarı korunur.
-- **Uzun anahtarlar** (ör. `despelote_loc_monsterFile/01_Kids\Conversations\…`) "Metni kaydır" açıkken satırı dört
+- **Uzun anahtarlar** (ör. `<ad>/<bölüm>\Conversations\…`) "Metni kaydır" açıkken satırı dört
   satır yüksekliğe çıkarıyordu. Anahtar ve Dosya sütunları artık hep tek satır, baştan kısaltılır; tamamı ipucunda.
-- Paneldeki satır bilgisi anahtarın yalnızca sonunu gösterir ("…/Nina1_01/conversation/2"); tamamı ipucunda.
+- Paneldeki satır bilgisi anahtarın yalnızca sonunu gösterir ("…/<kimlik>_01/conversation/2"); tamamı ipucunda.
 - Üstteki ilerleme çubuğu "Çevrilen" yazısının yanına taşındı (sağda düğme gibi duruyordu); yüzde yazılır.
 - "Görünüm" düğmesinde açılır ok yazının üstüne biniyordu.
 - Uzunluk açıklaması kısaldı: "71 karakter · orijinal 51 · belirgin uzun, kutuya sığmayabilir".
@@ -1291,7 +1291,7 @@ klavyeyle ilerleme" akışı örnek alındı.
 
 ## [0.28.1] — 2026-10-25 — Kontrol kodları: modele anlamı söylenir, sık bozulmalar onarılır, reddedilen öneri gösterilir
 
-Despelote'de altyazı satırı ("We could make⟦1⟧the goal out of sticks, or...⟦2⟧out of...") yeniden çevrilirken
+Bir Unity oyununda altyazı satırı (iki satır sonu kodlu) yeniden çevrilirken
 model satır sonu kodlarını koruyamadı; yazılım öneriyi doğru biçimde reddetti, ama ne olduğunu göstermedi.
 
 ### Eklendi
@@ -1359,21 +1359,21 @@ yetmiyordu: çeviri belleği aynı çeviriyi geri getiriyordu.
 - **Denenmedi:** gerçek bir Ollama modeliyle çeviri kalitesi (gemma4 ile denemeniz gerekiyor) ve Windows'ta
   güncelleme sonrası yeniden başlatma.
 
-## [0.27.0] — 2026-10-24 — Despelote: ı İ ş Ş ğ Ğ harfleri oyunun kendi fontuyla; Türkçe yalnızca kaynak dil yuvasına
+## [0.27.0] — 2026-10-24 — Unity oyunu: ı İ ş Ş ğ Ğ harfleri oyunun kendi fontuyla; Türkçe yalnızca kaynak dil yuvasına
 
 0.26.0 modu cihazda Türkçe gösterdi. İki sorun çıktı: bazı yazılarda `ı ş ğ` harfleri başka bir yazı tipiyle
 görünüyordu ve oyundaki tüm dil seçenekleri Türkçe olmuştu.
 
 ### Düzeltildi
-- **Harfler farklı yazı tipiyle görünüyordu:** Despelote'nin fontları (Despelote-Regular, DespeloteFill3,
-  DespeloteOutline3 …) `ı İ ş Ş ğ Ğ` harflerini içermiyor; oyun eksik harfi yedek fonta (LiberationSans) düşürüyordu.
+- **Harfler farklı yazı tipiyle görünüyordu:** Oyunun fontları (Regular, Fill,
+  Outline …) `ı İ ş Ş ğ Ğ` harflerini içermiyor; oyun eksik harfi yedek fonta (LiberationSans) düşürüyordu.
   Fontlar dinamik TextMeshPro olduğu için çalışma anında gömülü TTF/OTF dosyasından harf üretir: bu dosyalara harfler
   eklendi (aşağıda). Font taraması ise yalnızca adında "font" geçen paketlere baktığı için "okunabilen font bulunamadı"
-  diyordu; artık boyutu makul tüm Unity dosyalarını açar (Despelote: ~20 sn).
+  diyordu; artık boyutu makul tüm Unity dosyalarını açar (bu oyunda ~20 sn).
 - **Tüm diller Türkçe olmuştu:** 0.25.0'daki "çeviriyi 6 dil yuvasının hepsine yaz" davranışı yanlış bir varsayıma
   dayanıyordu (asıl neden `Locoliser` önbelleğiydi). Kaldırıldı: Türkçe yalnızca kaynak dil yuvasına (İngilizce)
   yazılır, diğer diller özgün kalır.
-- Birden çok serileştirilmiş dosyası olan Addressables paketlerinde (ör. Despelote ana sahne paketi) path_id'ler
+- Birden çok serileştirilmiş dosyası olan Addressables paketlerinde (ör. ana sahne paketi) path_id'ler
   dosyalar arasında çakışıyordu; font yaması ve taraması nesneleri yanlış dosyadan okuyabiliyordu
   (`LiberationSans SDF` atlası "okunamadı" hatası buradandı). Artık (dosya, path_id) ile eşleniyor.
 
@@ -1388,7 +1388,7 @@ görünüyordu ve oyundaki tüm dil seçenekleri Türkçe olmuştu.
 - 23 yeni test (elle üretilmiş glyf ve CFF fontlarla); Locoliser/altyazı testleri yeni davranışa güncellendi.
 
 ### Doğrulandı
-- Gerçek Despelote'de üretilen modda: 3 Font nesnesi (ana sahne paketi) + 2 (`resources.assets`) + Mario-Kart-DS
+- Gerçek oyunda üretilen modda: 3 Font nesnesi (ana sahne paketi) + 2 (`resources.assets`) + 1 ek font
   yamalandı, ana sahne paketindeki diğer 42.894 nesne bayt bayt aynı; Locoliser'da yalnızca İngilizce sütunu değişti
   (6.004 diyalog, 154 menü satırı), es/fr/de/br/chs özgün. Pillow ile çizilen örneklerde harfler fontun üslubuna uyuyor.
   555 test, ruff ve mypy temiz. Cihazda denenmedi.
@@ -1397,7 +1397,7 @@ görünüyordu ve oyundaki tüm dil seçenekleri Türkçe olmuştu.
 - CID anahtarlı CFF fontları (Çince olmayanlar) yamalanmaz (TECH_DEBT 66).
 - Yalnızca anahatlı (Outline) fontta `ğ Ğ` işareti dolu çizilir; okunaklı ama özgün üsluptan biraz farklı.
 
-## [0.26.0] — 2026-10-24 — Despelote: Türkçe, oyunun gerçekten okuduğu `Locoliser` önbelleğine yazılır
+## [0.26.0] — 2026-10-24 — Unity oyunu: Türkçe, oyunun gerçekten okuduğu `Locoliser` önbelleğine yazılır
 
 0.25.0 modu cihazda yine her dilde özgün metni gösterdi. Nedeni bulundu: oyun metinleri TSV TextAsset'lerinden değil,
 `resources.assets` içindeki **`Locoliser` MonoBehaviour'undan** okuyor. Bu nesne, TSV'lerin editörde ayrıştırılıp oyuna
@@ -1421,16 +1421,16 @@ diyalog ve menü metinlerinin TSV'ler dışındaki tek kopyası bu nesne.
 - Kullanıcının projesinden üretilen modda `Locoliser`: 6.042 altyazının 6.004'ü, 164 menü satırının 154'ü Türkçe
   (değişmeyenler çevirisi özgünüyle aynı satırlar). 532 test, ruff ve mypy temiz. Cihazda denenmedi.
 
-## [0.25.0] — 2026-10-24 — Despelote: Türkçe tüm dil yuvalarına yazılır; çeviri tablosunda panoya kopyalama
+## [0.25.0] — 2026-10-24 — Unity oyunu: Türkçe tüm dil yuvalarına yazılır; çeviri tablosunda panoya kopyalama
 
-Cihazda Despelote'de çeviriler görünmüyordu. Çıktı dosyası doğruydu (İngilizce sütunundaki ve altyazılardaki
+Cihazda bu oyunda çeviriler görünmüyordu. Çıktı dosyası doğruydu (İngilizce sütunundaki ve altyazılardaki
 15.826 satır Türkçe), ama oyunun Türkçe dil yuvası yok: konsolun sistem dili Türkçe olunca oyun desteklemediği
 bu dil yerine başka bir dile (büyük olasılıkla İspanyolca) düşüyor ve Türkçe yazılan İngilizce sütununa hiç bakmıyor.
 
 ### Değişti
 - **TSV tablolarında çeviri satırın tüm dil sütunlarına yazılır** (es, en, fr, de, br, chs): oyun hangi dili seçerse
   seçsin Türkçe görünür. Aynı ada ve birebir aynı zaman satırlarına sahip altyazının diğer dildeki kopyası
-  (ör. `Nina1[en]` → `Nina1[es]`) da aynı çeviriyi alır; eşleşme belirsizse (aynı dilde birden çok aday) dokunulmaz.
+  (ör. `<ad>[en]` → `<ad>[es]`) da aynı çeviriyi alır; eşleşme belirsizse (aynı dilde birden çok aday) dokunulmaz.
   Gerçek oyunda 1.411 İngilizce altyazının 1.369'u eşleşiyor. Açıkça çeviri verilen hücre aynalamayı ezer.
 - Çeviri tablosunda **panoya kopyalama**: satırlara sağ tık → Panoya kopyala → "Orijinal ve çeviri" / "Yalnızca
   orijinal" / "Yalnızca çeviri"; tablo odaktayken **Ctrl+C** orijinal ve çeviriyi birlikte kopyalar (tablodaki sırayla).
@@ -1440,17 +1440,17 @@ bu dil yerine başka bir dile (büyük olasılıkla İspanyolca) düşüyor ve T
   İspanyolca altyazıların 8.810 bloğu Türkçe. 522 test, ruff ve mypy temiz.
 - Cihazda denenmedi (TECH_DEBT 65).
 
-## [0.24.0] — 2026-10-24 — Unity: TextAsset altyazı (SRT) ve TSV dil tabloları (Despelote)
+## [0.24.0] — 2026-10-24 — Unity: TextAsset altyazı (SRT) ve TSV dil tabloları (bir Unity oyunu)
 
-**Despelote'de "metinler ayıklanmıyor" sorunu giderildi.** Oyun metinlerini Unity Localization ya da I2 ile
+**Bir Unity oyununda "metinler ayıklanmıyor" sorunu giderildi.** Oyun metinlerini Unity Localization ya da I2 ile
 değil, `Data/resources.assets` içindeki düz metin varlıklarında (TextAsset) tutuyor; eklenti bunları tanımıyordu,
 tarama "Unity" diyor ama hiçbir satır çıkmıyordu. Gerçek oyunda artık 15.978 İngilizce satır çıkıyor.
 
 ### Eklendi
-- **SRT altyazı desteği:** `Nina1[en]`, `[es]shop convo_x` gibi adlı TextAsset'ler; dil, adındaki `[xx]` etiketinden
+- **SRT altyazı desteği:** `<ad>[en]`, `[es]<ad>` gibi adlı TextAsset'ler; dil, adındaki `[xx]` etiketinden
   anlaşılır. Her altyazı bloğu ayrı satırdır; zaman damgaları, numaralar, BOM ve satır sonları değişmeden kalır
   (1-3 haneli milisaniye ve blok içindeki boş satır dahil).
-- **Dil sütunlu TSV desteği:** `despelote_loc_monsterFile` (6.042 diyalog satırı) ve `despelote_loc_UI` (menü).
+- **Dil sütunlu TSV desteği:** `<oyun>_loc_<dosya>` (6.042 diyalog satırı) ve `<oyun>_loc_UI` (menü).
   Başlıkta `es`, `en`, `fr`… ya da `[es]`, `[en]` sütunları aranır; seçilen kaynak dilin (yoksa İngilizce)
   sütunu aktarılır, Türkçe aynı sütuna yazılır. Hücre içindeki düz `\n` yazısı ve `{}` değişkenleri
   ⟦n⟧ yer tutucusu olur.
@@ -1463,7 +1463,7 @@ tarama "Unity" diyor ama hiçbir satır çıkmıyordu. Gerçek oyunda artık 15.
   çökertiyordu (`surrogates not allowed`). Bu satırlar artık `�` ile gösterilir; çevrilmedikçe dosyadaki
   orijinal baytlara dokunulmaz. Gerçek oyunda projeye 15.978 satır eklendiği doğrulandı.
 
-### Doğrulandı (gerçek Despelote `resources.assets`, 47,5 MB)
+### Doğrulandı (gerçek oyunun `resources.assets`, 47,5 MB)
 - Çıkarma 1,2 sn; değişiklik yokken geri yazım bayt bayt aynı; seçili satırlar Türkçe harflerle (ğüşıöçİ)
   yazılıp yeniden okununca birebir geliyor; diğer diller ve diğer TextAsset'ler değişmiyor.
 
@@ -1471,19 +1471,19 @@ tarama "Unity" diyor ama hiçbir satır çıkmıyordu. Gerçek oyunda artık 15.
 - Mod cihazda denenmedi; oyunun altyazıyı SRT'den mi TSV'den mi okuduğu bilinmiyor, ikisi de yazılır (TECH_DEBT 65).
 - `credits[es]`, resim/sahne içindeki yazılar ve ses (FMOD) çevrilmez.
 
-## [0.23.0] — 2026-10-24 — Metal Gear Solid Master Collection: metin çevirisi (M2)
+## [0.23.0] — 2026-10-24 — PSB arşivi: metin çevirisi
 
-**MGS1 (Switch) menü, onay penceresi ve Master Book metinleri artık tarama → çeviri tablosu → dışa aktarma
+**PSB arşivli oyunun (Switch) menü, onay penceresi ve rehber metinleri artık tarama → çeviri tablosu → dışa aktarma
 akışında.** Dışa aktarma, cihazda doğrulanan "dizinden çıkar + gevşek dosya" yöntemini kullanır (8 GB'lık
 `alldata.bin` değişmez). Aracın ürettiği modun cihaz testi bekleniyor.
 
 ### Eklendi
-- **M2 PSB metin eklentisi** (`core/formats/psbtext`): dil tablolarındaki (`eng` yuvası: menü, onay, rehber,
-  kayıt metinleri) ve Master Book sayfalarındaki (`087/config/*_EN`) metinleri çıkarır. Satırlar dizge
+- **PSB metin eklentisi** (`core/formats/psbtext`): dil tablolarındaki (`eng` yuvası: menü, onay, rehber,
+  kayıt metinleri) ve rehber sayfalarındaki (`087/config/*_EN`) metinleri çıkarır. Satırlar dizge
   başına tekilleştirilir (aynı yazı tek satır, bağlamda kullanıldığı anahtarlar yazılır); çeviri dizgeyi yerinde
   değiştirir, dosyanın geri kalanı bayt bayt aynı kalır. Kimlik olarak da kullanılan dizgeler çıkarılmaz.
   Kontrol kodları (`<br>`, `<size=…>`, `#{color,…}`, `%s`, `{…}`) ⟦n⟧ yer tutucusu olur.
-- **Tarama:** M2 arşivi (mdf kodlu `.psb.m` dizini) tanınır; anahtar oyunun kendi kodundan bulunur,
+- **Tarama:** PSB arşivi (mdf kodlu `.psb.m` dizini) tanınır; anahtar oyunun kendi kodundan bulunur,
   yalnızca çevrilebilir metin içeren üyeler listelenir (gerçek dökümde 22 dosya, 3.353 satır, tarama ~6 sn).
 - **Dışa aktarma:** değişen üyeler dizinden çıkarılmış `alldata.psb.m` ile birlikte, kendileri gevşek dosya olarak
   yazılır; her dosya yazmadan önce yeniden okunup doğrulanır.
@@ -1496,22 +1496,22 @@ akışında.** Dışa aktarma, cihazda doğrulanan "dizinden çıkar + gevşek d
 - Gerçek dökümle uçtan uca: çıkarma → çeviri → `export_mod` → yeni dizin özgün `.bin` ile açılıyor, 4.943 girdi aynı konumda.
 
 ### Bilinen sınırlar
-- Ana menü etiketleri ("Game Selection", "Master Book"…) metin değil, büyük olasılıkla resim; çevrilmez (TECH_DEBT).
-- Master Book'ta sayfa düzeni etiketlerle sabitlenmiş (`<voffset>`, `<width>`): uzun Türkçe metin taşabilir.
+- Ana menü etiketleri metin değil, büyük olasılıkla resim; çevrilmez (TECH_DEBT).
+- Rehber sayfalarında sayfa düzeni etiketlerle sabitlenmiş (`<voffset>`, `<width>`): uzun Türkçe metin taşabilir.
 
-## [0.22.0] — 2026-10-23 — Devil May Cry: yazma
+## [0.22.0] — 2026-10-23 — FSD/MSG biçimi: yazma
 
 **Cihazda doğrulandı:** açılış sahnesi ve sistem mesajları Türkçe göründü (46 satırlık deneme modu).
 
 ### Eklendi
-- **Devil May Cry'ye çeviri yazma** (`.fsd` ve `etc_e/*.msg`): İngilizce tablo dizindeki 23. bölümde sabit olduğundan
+- **FSD/MSG biçimine çeviri yazma** (`.fsd` ve `etc_e/*.msg`): İngilizce tablo dizindeki 23. bölümde sabit olduğundan
   bulunuyor; tablo büyüyebilir, sonraki fsd bölümleri kaydırılıp dizin güncelleniyor. Değişiklik yapmadan yazmak
   75 gerçek dosyada birebir aynı sonucu veriyor. Ayrıntı: `docs/formats/fsd-msg.md`.
 - **Oyun fontunda olmayan harflerin otomatik dönüştürülmesi:** dışa aktarırken eklenti `unsupported_letters` bildirirse
-  o dosyalarda yalnızca bu harfler dönüşür (DMC1: ğ ş ı İ Ç; ç ö ü Ö Ü korunur) ve rapora uyarı düşer.
+  o dosyalarda yalnızca bu harfler dönüşür (FSD/MSG: ğ ş ı İ Ç; ç ö ü Ö Ü korunur) ve rapora uyarı düşer.
 - 13 yeni test.
 
-## [0.21.0] — 2026-10-23 — M2 arşivleri: dizin düzenleme (mod yazımı araştırması)
+## [0.21.0] — 2026-10-23 — PSB arşivleri: dizin düzenleme (mod yazımı araştırması)
 
 **Cihazda henüz denenmedi; arayüzde yok.**
 
@@ -1519,8 +1519,8 @@ akışında.** Dışa aktarma, cihazda doğrulanan "dizinden çıkar + gevşek d
 - `psb.replace_root`: kök değer ağacını yeniden kodlar; ad ve dizge tabloları aynen kalır, sonraki bölümler
   hizalamayı koruyarak kayar. Gerçek `alldata`/`dlc_usa` dizinlerinde değişmeden yeniden kodlama orijinal
   baytları birebir veriyor.
-- `M2Archive.index_without`: verilen üyelerin girdisi çıkarılmış yeni `.psb.m` dizini.
-- MGS1 için iki deneme modu (`games/MGS Master Collection [NSZ]/deneme_modlari/`): 8 GB'lık `alldata.bin`'e
+- `PsbArchive.index_without`: verilen üyelerin girdisi çıkarılmış yeni `.psb.m` dizini.
+- Bu oyun için iki deneme modu (`<oyun klasörü>/deneme_modlari/`): 8 GB'lık `alldata.bin`'e
   dokunmadan, değişen menü dosyasını gevşek dosya olarak vermeyi dener. Ayrıntı ve sonuç yorumu:
   `docs/formats/psb.md` "Mod yazımı".
 - 9 yeni test.
@@ -1530,12 +1530,12 @@ akışında.** Dışa aktarma, cihazda doğrulanan "dizinden çıkar + gevşek d
   girdileri liste olarak kalır.
 - Test PSB üreticisi kök ağacı uygulamanın kodlayıcısıyla üretir (tek kural seti).
 
-## [0.20.0] — 2026-10-23 — Devil May Cry: güvenli okuma
+## [0.20.0] — 2026-10-23 — FSD/MSG biçimi: güvenli okuma
 
-**Yalnızca okuma.** Oyun dosyalarına yazılmaz; DMC için "Dışa Aktar" açık bir hata verir (TECH_DEBT 61).
+**Yalnızca okuma.** Oyun dosyalarına yazılmaz; FSD/MSG için "Dışa Aktar" açık bir hata verir (TECH_DEBT 61).
 
 ### Eklendi
-- **Devil May Cry (Switch) okuma eklentisi:** `fsd` sahne dosyalarındaki İngilizce diyalog tabloları ve
+- **FSD/MSG (Switch) okuma eklentisi:** `fsd` sahne dosyalarındaki İngilizce diyalog tabloları ve
   `etc_e/*.msg` sistem mesajları çeviri tablosuna aktarılır (gerçek oyunda 410 satır). Oyunun kendi
   tek baytlık harf tablosu çözüldü; kontrol kodları (boşluk/satır sonu hariç) ⟦n⟧ yer tutucusu olur,
   tanınmayan her bayt kayıpsız korunur. Kodlama gidiş-dönüş testi gerçek verinin tüm dizgilerinde
@@ -1543,7 +1543,7 @@ akışında.** Dışa aktarma, cihazda doğrulanan "dizinden çıkar + gevşek d
 - Dil kümesinden İngilizce tablo, içeriğe bakılarak seçilir; rastgele ikili veriler gürültü oranıyla elenir.
 - 11 yeni test.
 
-## [0.19.0] — 2026-10-23 — M2 arşivleri (Metal Gear Solid Master Collection): okuma
+## [0.19.0] — 2026-10-23 — PSB arşivleri: okuma
 
 Çekirdek katman; arayüzde henüz görünmez (tarama ve çeviri tablosu bağlantısı sonraki adım).
 
@@ -1555,9 +1555,9 @@ akışında.** Dışa aktarma, cihazda doğrulanan "dizinden çıkar + gevşek d
 - **NSO açma** (`core/container/nso.py`): ExeFS kodunu yalnızca dizge aramak için okur.
 - **PSB okuyucu (sürüm 2–4)** ve dizge tablosunu yerinde yeniden yazma (`core/archives/psb.py`): kök ağaç
   bayt bayt korunur, sonraki bölümler hizalamayı koruyarak kayar, sağlama toplamı yeniden hesaplanır.
-- **M2 arşivi** (`.psb.m` dizini + `.bin` verisi): üyeleri listeleme, büyük üyeleri (disk kalıpları) dilim
+- **PSB arşivi** (`.psb.m` dizini + `.bin` verisi): üyeleri listeleme, büyük üyeleri (disk kalıpları) dilim
   olarak açma, `.m` üyeleri çözerek okuma.
-- Gerçek MGS1 Switch dökümüyle doğrulandı: anahtar bulundu; 4.945 + 3 üye; 4.903 mdf üyesinin tamamı
+- Gerçek Switch dökümüyle doğrulandı: anahtar bulundu; 4.945 + 3 üye; 4.903 mdf üyesinin tamamı
   açıldı ve değişmeden geri yazımda aynı baytlar çıktı; 620 PSB okundu, 578'inde metin değiştirilip yeniden
   okundu. Ayrıntı: `docs/formats/psb.md`.
 - 19 yeni test (elle üretilmiş PSB/mdf/NSO; gerçek oyun verisi yok).
@@ -1578,12 +1578,12 @@ Türkçe `i`'yi `I` yapıyordu (`İ` olmalı). Bu stilde çizilen satırlar art�
   (tablonun geri kalanı işaretli kalır); işareti yeniden koymak istisnayı siler. İstisnalar projeye kaydedilir.
 - 10 yeni test.
 
-## [0.17.0] — 2026-10-23 — Mina the Hollower: yazma (deneysel)
+## [0.17.0] — 2026-10-23 — YCD paketi: yazma (deneysel)
 
 **Cihazda henüz denenmedi.** Dosya yeniden düzenlenmez: boyut, dizin ve işaretçiler aynı kalır.
 
 ### Eklendi
-- **Mina çevirisini mod olarak yazma:** çevrilen satırların 11 dil sütunu Türkçe metni gösterir; metin,
+- **YCD çevirisini mod olarak yazma:** çevrilen satırların 11 dil sütunu Türkçe metni gösterir; metin,
   satırın kendi dizgilerinin boşalttığı yere (sığmazsa diğer satırların artığına) yazılır. Gerçek
   dosyalarla: 3.521 satırlık yama çevirisi yazıldı, hepsi sığdı, yeniden okumada doğrulandı; çevirisiz
   satırlar özgün kaldı. Ayrıntı: `docs/formats/pak-yc.md`.
@@ -1607,7 +1607,7 @@ Türkçe `i`'yi `I` yapıyordu (`İ` olmalı). Bu stilde çizilen satırlar art�
 ## [0.15.1] — 2026-10-22 — Font yaması uyarısı düzeltildi
 
 ### Düzeltildi
-- **Yanlış font uyarısı:** Castlevania: Belmont's Curse'te "BaseFont (ı İ ş Ş ğ Ğ) eklenemedi" uyarısı
+- **Yanlış font uyarısı:** Bir oyunda "BaseFont (ı İ ş Ş ğ Ğ) eklenemedi" uyarısı
   çıkıyordu. Bu font yalnızca "¤" karakterini içeren bir yer tutucudur; harflerin türetileceği temel
   harfler (i, s, g …) yoktur ve hiçbir metin onunla çizilmez. Böyle fontlar artık uyarı üretmez,
   bilgi dosyasına "metin fontu değil; atlandı" notu düşülür.
@@ -1616,17 +1616,17 @@ Türkçe `i`'yi `I` yapıyordu (`İ` olmalı). Bu stilde çizilen satırlar art�
   "Font yaması (eklenemeyen / atlanan fontlar)" bölümünde listelenir.
 - 2 yeni test.
 
-## [0.15.0] — 2026-10-22 — Mina the Hollower: güvenli okuma
+## [0.15.0] — 2026-10-22 — YCD paketi: güvenli okuma
 
-**Yalnızca okuma.** Oyun dosyalarına hiçbir şey yazılmaz; mod üretme (yazma) henüz yok ve Mina için
+**Yalnızca okuma.** Oyun dosyalarına hiçbir şey yazılmaz; mod üretme (yazma) henüz yok ve YCD için
 "Dışa Aktar" bu yüzden açık bir hata verir (TECH_DEBT 58). Switch dosyası bozulursa oyun çöker; yazma
 aşaması ayrıca, adım adım ve cihazda denenerek yapılacak.
 
 ### Eklendi
-- **Mina the Hollower (Yacht Club YCD `.yc`) okuma eklentisi:** `global.pak.yc` ve
+- **YCD paketi (`.yc`) okuma eklentisi:** `global.pak.yc` ve
   `global_startup.pak.yc` içindeki arayüz, konuşmacı adı ve diyalog tabloları çeviri tablosuna
   aktarılır (Switch sürümü 327680'de 3.974 İngilizce satır). Tablo yapısı `docs/formats/pak-yc.md`.
-- **Hazır Çeviriyi İçe Aktar** artık Mina yamasını da tanır (klasörde `.yc` varsa): PC yamasının
+- **Hazır Çeviriyi İçe Aktar** artık YCD yamasını da tanır (klasörde `.yc` varsa): PC yamasının
   Türkçe tablolarını okur ve **yalnızca yamanın dayandığı İngilizce metin oyunun şimdiki metniyle
   aynıysa** yazar. Kimlikler sürümler arasında kaydığı için bu denetim yanlış satıra çeviri
   yazılmasını önler. Gerçek veride 3.521 satır yazıldı; 366 satırın metni güncellemede değişmiş
@@ -1636,7 +1636,7 @@ aşaması ayrıca, adım adım ve cihazda denenerek yapılacak.
 
 ## [0.14.0] — 2026-10-22 — Hazır çeviriyi içe aktarma
 
-**Cihazda doğrulandı:** Silver Pines'ın aktarılmış çevirisiyle üretilen mod, ürün sahibinin Switch cihazında başarıyla çalıştı (M5'in bitme ölçütü). Font yaması (M8) da cihazda doğrulandı: Türkçe harfler sorunsuz görünüyor.
+**Cihazda doğrulandı:** Bir Unity oyununun aktarılmış çevirisiyle üretilen mod, ürün sahibinin Switch cihazında başarıyla çalıştı (M5'in bitme ölçütü). Font yaması (M8) da cihazda doğrulandı: Türkçe harfler sorunsuz görünüyor.
 
 ### Eklendi
 - **Araçlar → Hazır Çeviriyi İçe Aktar…:** oyunun topluluk Türkçe yamasındaki (Unity metin tabloları
@@ -1645,14 +1645,13 @@ aşaması ayrıca, adım adım ve cihazda denenerek yapılacak.
 - Güvenlik: onayladığınız satırlara dokunulmaz; çeviriler "Makine" durumuyla yazılır; yamadaki kontrol
   kodları özgün kodlarla uyuşmayan satırlar yazılmaz ve mevcut çeviri korunur (oyunun özgün kodları
   dışa aktarırken yine geri konur). Font ve metin dışı paketler atlanır.
-- **Silver Pines:** yamadaki 3.468 metnin 3.466'sı projeyle eşleşti; 3.459 satırın 3.455'i yazıldı
-  (4 satır kontrol kodu uyuşmadığı için atlandı). DeepL çevirisine göre bağlam gerektiren etiketler
-  (Well → Kuyu, Safe → Kasa, Resolution → Çözünürlük…) düzeldi.
+- **Unity oyunu:** yamadaki 3.468 metnin 3.466'sı projeyle eşleşti; 3.459 satırın 3.455'i yazıldı
+  (4 satır kontrol kodu uyuşmadığı için atlandı). DeepL çevirisine göre bağlam gerektiren etiketler düzeldi.
 - 4 yeni test.
 
 ## [0.13.0] — 2026-10-21 — Arayüz iyileştirmeleri ve çeviri denetimi
 
-Silver Pines'ın DeepL ile çevrilmiş projesi gerçek veriyle incelendi (3.466 satır).
+Bir Unity oyununun DeepL ile çevrilmiş projesi gerçek veriyle incelendi (3.466 satır).
 
 ### Eklendi
 - **Yazı boyutu:** Görünüm → Yazı boyutu (9–18 punto), Ctrl+= / Ctrl+- / Ctrl+0; tercih hatırlanır.
@@ -1685,7 +1684,7 @@ Silver Pines'ın DeepL ile çevrilmiş projesi gerçek veriyle incelendi (3.466 
   ekle" seçeneği. Seçenek açıkken harf dönüştürme yalnızca yamanın ekleyemediği harflere uygulanıyor.
 - **Dışa aktarma:** değişen font bundle'ları moda yazılıyor; eklenen ve eklenemeyen harfler bilgi
   dosyasında, özet uyarı sonuç ekranında.
-- **Silver Pines:** Noticia Text (3 stil), Impact, PapaMan ve tuş fontlarına altı harfin hepsi eklendi;
+- **Unity oyunu:** bir metin fontunun 3 stili, ek başlık fontları ve tuş fontlarına altı harfin hepsi eklendi;
   yazılan dosya yeniden okunup metin çizilerek kontrol edildi.
 - 12 yeni test (uzaklık dönüşümü, glif tarifleri, atlas büyütme, büyük harf fontu, ortak atlas,
   bundle yazımı, sahte oyunla tarama → dışa aktarma).
@@ -1696,18 +1695,18 @@ Silver Pines'ın DeepL ile çevrilmiş projesi gerçek veriyle incelendi (3.466 
 ### Doğrulanmadı
 - Yamalı fontların oyunda (cihaz/emülatör) görünmesi (TECH_DEBT 48).
 
-## [0.11.0] — 2026-10-21 — Game Freak mesajları (Pokémon)
+## [0.11.0] — 2026-10-21 — GFMSG mesajları
 
 ### Eklendi
-- **Game Freak mesaj eklentisi** (`.dat` + `.tbl`): şifreli UTF-16 satırlar çözülüp yeniden
+- **GFMSG mesaj eklentisi** (`.dat` + `.tbl`): şifreli UTF-16 satırlar çözülüp yeniden
   şifreleniyor; değişkenler, renk/sayfa kodları ve özel simgeler `⟦n⟧` olarak korunuyor; satır
   adları yan `.tbl` dosyasından bağlam olarak gösteriliyor.
 - **Cinsiyet ve tekil/çoğul seçimleri** (`my ⟦1⟧boy⟦2⟧girl⟦3⟧`) çevrilebiliyor; seçenek
   uzunlukları yazarken yeniden hesaplanıyor (Türkçede seçenekler boş bırakılabilir).
-- **Pokémon: Let's Go** (32.026 satır) ve **Legends: Arceus** (32.558 satır): tüm mesaj dosyaları
+- **İki GFMSG oyunu** (32.026 ve 32.558 satır): tüm mesaj dosyaları
   değişiklik yapılmadan bayt bayt aynı geri yazılıyor; gerçek dışa aktarma denendi.
 - Dil klasörleri: `English`, `French`, `JPN`, `JPN_KANJI` (ayrı dil), `Simp_Chinese`…
-- Motor tahmini: "Game Freak (Pokémon)".
+- Motor tahmini: "GFMSG".
 - Format eklentisi sözleşmesi: `collect_context(data, path)`; aktarma bağlamında `SOURCE_PATH`.
 - 12 yeni test (bağımsız yazıcıyla üretilmiş dosyalar, seçimler, vekil çiftler, 5000 satır, sahte
   Pokémon oyunuyla tarama → aktarma → dışa aktarma).
@@ -1722,7 +1721,7 @@ Silver Pines'ın DeepL ile çevrilmiş projesi gerçek veriyle incelendi (3.466 
   nesnede tutan `LanguageSource` kaynakları okunur ve geri yazılır. Oyun derlemelerinde tip bilgisi
   silindiği için nesne ham bayttan çözülür; yapı sıkı denetlenir, değişiklik yoksa dosya bayt bayt
   aynı kalır, yalnızca değişen terimler yeniden yazılır.
-- **Blasphemous:** 1.925 İngilizce satır (arayüz, eşyalar, diyaloglar) aktarılıyor; Türkçe İngilizce
+- **Bir I2 oyunu:** 1.925 İngilizce satır (arayüz, eşyalar, diyaloglar) aktarılıyor; Türkçe İngilizce
   sütununa yazılıyor. Gerçek `resources.assets` ile dışa aktarma denendi: 10.942 nesneden yalnızca
   metin nesnesi değişti.
 - Kaynak dil seçimi format eklentilerine iletiliyor (`SOURCE_LANGUAGE`); seçim yoksa İngilizce.
@@ -1735,28 +1734,28 @@ Silver Pines'ın DeepL ile çevrilmiş projesi gerçek veriyle incelendi (3.466 
 
 ### Doğrulanmadı
 - Değiştirilmiş `resources.assets` ile oyunun gerçek cihazda/emülatörde açılması.
-- Blasphemous fontlarında Türkçe harfler (TECH_DEBT 44).
+- Bu oyunun fontlarında Türkçe harfler (TECH_DEBT 44).
 
 ## [0.9.0] — 2026-10-21 — Gerçek oyun uyumluluğu
 
-`games/` klasöründeki 14 oyunla tanılama yapıldı; tarama aşamasında duran oyunlar düzeltildi.
+Oyun klasöründeki 14 oyunla tanılama yapıldı; tarama aşamasında duran oyunlar düzeltildi.
 Sonuçlar: `docs/uyumluluk.md`.
 
 ### Düzeltildi
-- **Binlerce bölümlü NCZ dosyaları** reddediliyordu ("bölüm sayısı mantıksız"): Blasphemous, MIO,
-  MGS Master Collection, Avatar Legends güncellemesi. Sabit 64 sınırı kaldırıldı.
-- **Dil kodu eşleşmesi:** dosya adında "en-us", tabloda "en" yazan oyunlarda (Kong) hiçbir metin
+- **Binlerce bölümlü NCZ dosyaları** reddediliyordu ("bölüm sayısı mantıksız"): dört oyunda
+  (biri güncelleme paketi). Sabit 64 sınırı kaldırıldı.
+- **Dil kodu eşleşmesi:** dosya adında "en-us", tabloda "en" yazan oyunlarda (bir Unity oyunu) hiçbir metin
   aktarılmıyordu. Bölgesiz kod artık o dilin bölgeleriyle eşleşir.
 - Disk dolduğunda Türkçe olmayan bir hata çıkıyordu; artık önbelleğe açmadan önce boş alan
   denetleniyor ve "Önbelleği Temizle" öneriliyor.
 
 ### Eklendi
-- **Sıkıştırılmış NCA (LZ4) desteği:** yeni SDK'lı oyunlar (Avatar Legends); base ve güncellemeli.
-- **Seyrek (sparse) NCA desteği:** verisinin bir kısmını güncellemeye bırakan ana oyunlar
-  (Castlevania: Belmont's Curse). Seyrek base tek başına eklenirse güncellemeyi ister.
-- **Dil klasörlerinin tanınması:** Nintendo "USen/EUfr…" ve Unreal "Localization/<hedef>/<dil>/"
+- **Sıkıştırılmış NCA (LZ4) desteği:** yeni SDK'lı oyunlar; base ve güncellemeli.
+- **Seyrek (sparse) NCA desteği:** verisinin bir kısmını güncellemeye bırakan ana oyunlar.
+  Seyrek base tek başına eklenirse güncellemeyi ister.
+- **Dil klasörlerinin tanınması:** LMS "USen/EUfr…" ve Unreal "Localization/<hedef>/<dil>/"
   klasörleri; dil listesinde "İngilizce (ABD)", "İngilizce (Avrupa)" gibi adlar. Önceden bu
-  oyunlarda tüm dillerin metinleri birlikte aktarılıyordu (Rhythm Heaven: 13 dil).
+  oyunlarda tüm dillerin metinleri birlikte aktarılıyordu (bir oyunda 13 dil).
 - "RomFS yok" uyarısı açıklandı (verinin program içinde olduğu, metinlerin çıkarılamayacağı).
 - `lz4` doğrudan bağımlılık olarak listelendi.
 - 29 yeni test (sıkıştırılmış ve seyrek NCA, binlerce bölümlü NCZ, dil kodları, disk dolu).
@@ -1798,9 +1797,9 @@ Sonuçlar: `docs/uyumluluk.md`.
 - **Arayüz:** "4. Kontrol Et" ve "5. Dışa Aktar" adımları.
 - 22 yeni test (font raporu, dönüştürme, denetimler, MSBT/iç içe arşiv ve Unity dışa aktarma, arayüz akışı).
 
-### Doğrulandı (gerçek oyun: Silver Pines)
+### Doğrulandı (gerçek oyun: bir Unity oyunu)
 - Font taraması: 27 font, 13 Latin statik; `ğ ı İ ş Ğ Ş` eksik, dinamik yedek fontta (LiberationSans) var.
-- Mod üretildi (`atmosphere/contents/0100D5B026844000/romfs/.../localization-string-tables-english(en)_assets_all.bundle`),
+- Mod üretildi (`atmosphere/contents/<TitleID>/romfs/.../localization-string-tables-english(en)_assets_all.bundle`),
   yeniden okunarak doğrulandı. Katalogda bu bundle'ın CRC alanı 0 görünüyor.
 
 ### Doğrulanmadı
@@ -1875,7 +1874,7 @@ Yol haritası ürün sahibinin kararıyla değişti: M2 → **M6** → M3 (bkz. 
 - Format eklentisi sözleşmesine `collect_context`, `language` ve `candidates_only` eklendi.
 - Testler için sahte Unity bundle üreticisi (`tests/unitybuild.py`); 33 yeni test.
 
-### Doğrulandı (gerçek oyun: Silver Pines, base v0 + update v65536)
+### Doğrulandı (gerçek oyun: bir Unity oyunu, base v0 + update v65536)
 - 3.466 metin, 24 tablo, 1 bundle aktarıldı; 9 diğer dil atlandı; tüm satırların anahtar adı var.
 - Değişikliksiz geri yazım orijinal bundle'la bayt bayt aynı; Türkçe çeviri yazılıp geri okundu.
 
@@ -1935,7 +1934,7 @@ Yol haritası ürün sahibinin kararıyla değişti: M2 → **M6** → M3 (bkz. 
   çıkan dosya adlarını reddeder.
 - **Format tarama:** SARC/Yaz0/ZSTD iç içe arşivlerin içine bakan tarayıcı; MSBT, Unity,
   Unreal, düz metin/JSON/CSV ve diğer türlerin tespiti; metin olasılığı (Yüksek/Olası);
-  kanıtlarıyla motor tahmini (Unity, Unreal, Nintendo LMS, Godot, GameMaker, Ren'Py).
+  kanıtlarıyla motor tahmini (Unity, Unreal, LMS, Godot, GameMaker, Ren'Py).
 - **Proje dosyası (.nxproj):** SQLite şeması v1 (oyun, kaynak dosyalar, tarama sonucu),
   göç altyapısı (`user_version`, göç öncesi `.bak` yedeği, başarısız göçte geri alma),
   atomik "Farklı kaydet", bozuk/yabancı/yeni sürüm dosya kontrolü.
