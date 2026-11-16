@@ -95,7 +95,7 @@ Ortak yapı: ne zaman okunur → adımlar (komut + sonucu okuma) → karar nokta
 ## 6. Depoyu açma ve katkı düzeni
 
 - Açılış denetimi: depoda ve git geçmişinde oyundan alınmış metin/resim/dosya (şüpheliler: `docs/dmc1-*.json`,
-  `docs/mina-ek-ceviriler.json`, biçim notlarındaki uzun alıntılar), gizli bilgi ve kişisel yollar. Geçmişte oyun
+  ek çeviri JSON dosyaları, biçim notlarındaki uzun alıntılar), gizli bilgi ve kişisel yollar. Geçmişte oyun
   içeriği varsa temiz geçmişle yeni depo ya da geçmiş temizliği — ürün sahibi karar verir.
 - Lisans: MIT + paketlenen parçaların lisansları (Lucide ISC, hunspell-tr MPL-2.0, yardımcı ikililer).
 - `katki.md`, çekme isteği şablonu; CI'ye eklenti denetimi (`eklenti.toml` geçerli, örnek testler var ve geçiyor, büyük

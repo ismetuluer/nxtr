@@ -146,7 +146,7 @@ Option ekranı, Galeri başlığı.
 `new_common_nx.atm` (8). Tablo yapısı ve harf tablosu `.msg` ile aynıdır; tek fark kontrol kodlarının kaçış baytının **0x80**
 olmasıdır (boşluk `80 05`, satır sonu `80 0C`, bitiş `80 0E p p`). Eklenti kaçış baytını dizgilerdeki boşluk/bitiş kodlarını
 sayarak seçer; dizgi uzunlukları 4'ün katıdır ve yeniden yazımda bu korunur. Değiştirmeden yazınca dört dosya da bayt bayt aynı.
-Türkçe çeviriler `docs/dmc1-ek-ceviriler.json` dosyasındadır (anahtar `dosya|sıra`). Bu ekranlar 0x72 çiftini tanımaz (0x72'yi
+Türkçe çeviriler depoda tutulmaz; kullanıcı kendi ek çeviri dosyasını hazırlar (anahtar `dosya|sıra`). Bu ekranlar 0x72 çiftini tanımaz (0x72'yi
 "ñ" çizer, Mod #9); Türkçe harfler yalnızca hücre koduyla tek bayt yazılır. Mod #10 ile cihazda doğrulandı.
 
 ## Oyun resimlerindeki yazılar (eşya, silah, menü, ayarlar, görev sonu)
@@ -206,7 +206,7 @@ kullanıp kullanmadığı doğrulanmadı.
 
 ## Kayıt mesajları, kombo dereceleri, harita adları, açılış uyarısı (Mod #18)
 - `etc_u/memicon.dat`: u32 dizinli; 3. bölüm 32 dizgilik mesaj tablosu (PS2 hafıza kartı metinleri, "Will you save
-  here?" …). Eklenti u32 dizinli dosyada mesaj tablosu olan ilk bölümü kullanır. Türkçeleri `docs/dmc1-ek-ceviriler.json`.
+  here?" …). Eklenti u32 dizinli dosyada mesaj tablosu olan ilk bölümü kullanır. Türkçeleri depoda tutulmaz.
 - Kombo dereceleri (`status/cockpit.t32`): büyük baş harf derecedir (S/A/B/C/D) ve korunur, yalnızca kuyruğu değişir:
   Durgun, Cesur!, Amansız!; "Bravo!" ve "Stylish!" aynı kalır.
 - Harita adları (`status_u/st1_map.dat` ve st2–st4 aynı sayfayı paylaşır): Yeraltı, Bilinmeyen, Bahçe, Şato, Gemi.
