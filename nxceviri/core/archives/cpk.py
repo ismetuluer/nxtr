@@ -15,7 +15,7 @@ Yazma: değişen dosyalar sıkıştırılmadan (`FileSize == ExtractSize`) konur
 kopyalanır; dosyalar aynı sırayla ve aynı hizalamayla yeniden dizilir. TOC satırlarındaki boyut/ofset
 alanları ve başlıktaki içerik/ETOC alanları yerinde güncellenir; tablolar aynı biçimde (gerekirse
 yeniden karıştırılarak) yazılır. Yalnızca dosya adlı (TOC'lu) arşivler desteklenir.
-Ayrıntılar: docs/formats/unicorn-overlord.md
+Ayrıntılar: docs/formats/cpk-fmsb.md
 """
 
 from __future__ import annotations

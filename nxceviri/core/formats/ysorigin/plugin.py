@@ -16,7 +16,7 @@
 XSO'da `\\n` (ters bölü + n) satır sonudur ve tabloda gerçek satır sonu olarak gösterilir. XML'de satır sonu
 zaten gerçek satır sonudur; ters bölü + n oyunda "¥n" olarak görünür, bu yüzden XML'de dönüştürülmez.
 Kodlar: `<color:0xffff3232>`, `<color:>`, `<scale:1.3>`, `<ext:17>` (simge), `%s`, `%d`.
-Ayrıntılar: docs/formats/ys-origin.md
+Ayrıntılar: docs/formats/nni.md
 """
 
 from __future__ import annotations

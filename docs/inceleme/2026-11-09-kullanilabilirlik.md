@@ -57,13 +57,13 @@ Notların hepsini korudum; ekran görüntülerinden ve koddan eklediklerim **[ek
 | "Kaynak dil / en" düzeni bozuk, Model boş, kapsam "0 satır" ama Başlat açık görünüyor **[ek]** | Sade düzen: Sağlayıcı · Model · İş (segmentli: Çevir / Yeniden çevir / Redaksiyon) · Kapsam (çoklu: tümü, seçili, grup, **anahtar**) · Başlat. Uygun satır yoksa Başlat pasif ve nedeni tek satır |
 | Oyun notları ve talimat iki ayrı kutu | İkisi de **gerçekten modele gidiyor** (sistem isteminde). Kavramları netleştir: **Oyun hakkında** (projede kalıcı: tür, dönem, ton) ve **Bu iş için talimat** (tek seferlik). İkisi de "Talimat kitaplığı"ndan seçilebilir |
 | Hazır talimatlara ekleme yapılamıyor | **Talimat kitaplığı** (AppData'da): kendi talimatlarını kaydet, başka projede/oyunda kullan |
-| Anahtara göre ton (Despelote "Bölüm 1 çocuklar") | Kapsamda anahtar/grup desenine göre seçim + talimat |
+| Anahtara göre ton ("Bölüm 1 çocuklar" gibi bir grup) | Kapsamda anahtar/grup desenine göre seçim + talimat |
 
 ### 2.4 Terminoloji (eski adı Sözlük)
 | Sorun | Öneri |
 |---|---|
 | "Sözlük" iki anlamda (oyun terimleri / yazım sözlüğü) | **Terminoloji** (oyun terimleri) ve **Yazım sözlüğü** ayrı adlar |
-| Terminoloji projeye hapsolmuş | AppData'da **terminoloji kitaplığı**: "DMC serisi" listesi DMC2'de doğrudan açılır, birden çok liste birleştirilebilir |
+| Terminoloji projeye hapsolmuş | AppData'da **terminoloji kitaplığı**: "Oyun serisi" listesi serinin ikinci oyununda doğrudan açılır, birden çok liste birleştirilebilir |
 | Boş satır ekleniyor, uzun sütun adları, "Daha Fazla" gereksiz | Boş satır kaydedilmez; sütunlar: Terim · Karşılık · Not; İçe/Dışa Aktar ve Terim Öner ayrı küçük düğmeler |
 | Ollama yokken dev bir açıklama paragrafı | Kısa hata: "Ollama'ya bağlanılamadı." + **Ayarları Aç** / **Kapat** |
 
@@ -110,9 +110,9 @@ Ayarlar → Anlık denetimler'de seçilir.
 - **Font:** Font ve harfler sekmesine her fontun *neden* yamanabildiği/yamanamadığı (TMP statik / dinamik, BFFNT,
   bitmap doku…) ve hangi aracın gerektiği. Yamanamayan fontu dışarıda düzenlemek için "Fontu Dışa Aktar" / "Düzenlenmiş
   Fontu İçe Al" (biçim destekliyorsa).
-- **Grafik:** bugün "orijinal/temiz" klasörünü ben üretiyorum (Ys Origin'de bir betik). Uygulamaya **Görseller** adımı:
+- **Grafik:** bugün "orijinal/temiz" klasörünü ben üretiyorum (bir NNI arşivli oyunda bir betik). Uygulamaya **Görseller** adımı:
   resim metni olan dokuları PNG olarak dışa aktar → kullanıcı düzenler → klasörü göster → dışa aktarmada otomatik yamaya
-  girer. Desteklenen doku biçimleriyle sınırlı (DMC1, Ys Origin, RHG); diğerleri için ajan rehberi.
+  girer. Desteklenen doku biçimleriyle sınırlı (`.fsd`/`.msg`, NNI ve MSBT biçimli oyunlar); diğerleri için ajan rehberi.
 
 ### 2.10 Görsel kimlik ve canlılık
 - Kart tasarımı sürer; animasyonlar amaçlı ve kısa (panel açılışı, bildirim kartı, ilerleme), Windows "animasyonları
@@ -146,8 +146,8 @@ terminolojisini oluşturur; uzun cümlede farklı çevrilmesi kaçar.
 - **Maliyet:** dizin bir kez kurulur, satır başına yalnızca sözlük araması yapılır. Bu yüzden — sizin tahmininizin aksine —
   anlık denetim olarak da çalışabilir; proje geneli listesi Sorunlar panosunda "Terim tutarsızlığı" olarak durur.
 - **Kapsam daraltma:** yalnızca 1–4 sözcüklü, en az iki satırda geçen ve büyük harfle başlayan (özel ad) ifadeler; kullanıcı
-  bir ifadeyi "terim değil" diye işaretleyebilir. Bulguda: "‘Silver Pines’ burada ‘Gümüş Çam’ olmuş; 14 satırda ‘Gümüş
-  Çamlar’" + **Kanonik çeviriyle değiştir**.
+  bir ifadeyi "terim değil" diye işaretleyebilir. Bulguda: "‘Kuzey Kule’ burada ‘Kuzey Burç’ olmuş; 14 satırda ‘Kuzey
+  Kuleler’" + **Kanonik çeviriyle değiştir**.
 - Ollama tarafı: çeviriden önce kanonik terimler (terminoloji + kısa satırlar) partiye eklenirse tutarsızlık baştan azalır.
 
 ### 2.14 Satırları terminolojiye ekle

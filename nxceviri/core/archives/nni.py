@@ -10,7 +10,7 @@ Dizin (`.ni`):
 Adı `.Z` ile biten üyeler zlib ile sıkıştırılmıştır: CRC32 u32 | açık boyut u32 | zlib akışı.
 
 Yazma: orijinal `.na` olduğu gibi kopyalanır, değişen üyeler sonuna eklenir ve dizindeki ofset/boyut
-alanları yeni yerleri gösterir. Adlar ve özetler değişmez. Ayrıntılar: docs/formats/ys-origin.md
+alanları yeni yerleri gösterir. Adlar ve özetler değişmez. Ayrıntılar: docs/formats/nni.md
 """
 
 from __future__ import annotations

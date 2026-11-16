@@ -59,7 +59,7 @@ Gerçek örnekler: en küçük `core/formats/msbt/msbt.py` (`MsbtPlugin`), kayı
 ### `extract`
 - Her metin için `TextEntry(key, index, source, codes, max_length=None, context="")` döndür.
 - **`key` dosya içinde benzersiz ve kalıcı olmalı** (oyun güncellenince de aynı satırı göstermeli). Sıra numarası yeterli
-  olabilir (Game Freak: satır numarası; Ys Origin: betik+dizge), ama adı olan biçimlerde adı kullan; yinelenen adlara
+  olabilir (GFMSG: satır numarası; NNI/XSO: betik+dizge), ama adı olan biçimlerde adı kullan; yinelenen adlara
   `#i` ekle (MSBT böyle yapar). Anahtar çeviri belleğinde, projede ve `inject`'te kimliktir; sonradan değiştirme.
 - **Kontrol kodları** metinden çıkarılıp `ControlCode(raw, label)` olur; metinde yerine
   `placeholders.token(n)` (`⟦1⟧`, `⟦2⟧`…, 1'den, metin içindeki sırayla) konur. `raw` dosyadaki ham bayt dizisidir ve

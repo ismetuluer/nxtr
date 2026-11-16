@@ -17,7 +17,7 @@ Dizgeler: UTF-16LE, `FF FE` BOM'u ile başlar ve `00 00` ile biter. Satır sonu 
 `<CLT 4>…<CLT>` biçim (renk) etiketleri kontrol kodudur (`⟦n⟧` olur).
 
 Yazma: yalnızca dizgeler yeniden dizilir; ofsetler ve boyut alanları güncellenir. Ayrıntılar:
-docs/formats/danganronpa.md
+docs/formats/wad-lin.md
 """
 
 from __future__ import annotations

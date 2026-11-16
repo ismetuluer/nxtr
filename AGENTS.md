@@ -3,7 +3,7 @@
 Bu dosya, bu depoda çalışan her yapay zekâ ajanının (Claude Code, Codex, Gemini CLI, Cursor…) ilk okuduğu dosyadır.
 Baştan sona oku; sonra aşağıdaki yönlendirme tablosundan işine uyan rehberi aç.
 
-**NXTR** (eski adı NX Çeviri Stüdyosu; Python paketi `nxceviri`), kullanıcının kendi sahip olduğu Nintendo Switch
+**NXTR** (eski adı NX Çeviri Stüdyosu; Python paketi `nxceviri`), kullanıcının kendi sahip olduğu Switch
 oyunlarındaki (NSP / NSZ) metinleri ayıklayan, Türkçeye çeviren ve oyuna geri yüklenebilir bir **LayeredFS mod
 klasörü** üreten, tek pencereli bir Windows masaüstü uygulamasıdır. Kullanıcı başka program çalıştırmaz: oyunu seçer,
 metinleri görür, çevirir, kontrol eder, mod klasörünü dışa aktarır. Ana akış: **1. Oyunu Ekle → 2. Metinleri Tara →

@@ -19,7 +19,7 @@ eski mod yedeğe alınır, sorun çıkarsa geri konur. NXTR'nin üretmediği dol
 
 ## Görseller
 
-Bazı oyunlarda (şimdilik Ys Origin) yazılar resimlerin içindedir. **Görseller** kartı:
+Bazı oyunlarda (şimdilik NNI arşivi kullananlarda) yazılar resimlerin içindedir. **Görseller** kartı:
 
 1. **Orijinalleri Çıkar** yazı içeren resimleri oyun dosyalarınızın yanındaki klasöre PNG olarak koyar (`orijinal/`).
 2. Resmi bir resim programında Türkçeleştirip **aynı adla** `temiz/` klasörüne kaydedin.

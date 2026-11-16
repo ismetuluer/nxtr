@@ -7,7 +7,7 @@ Otomatik Çeviri bunları modele verir; Kontrol Et tutarsız kullanımı bulur.
 - **Seçili satırları terminolojiye ekle** (`Ctrl+Shift+G`): tabloda kısa ad satırlarını seçin. Kontrol kodu, sayı ve
   noktalama ayıklanır; onay listesinde işaretlediğiniz eklenir. Başka karşılıkla zaten varsa turuncu ve işaretsiz gelir.
 - **Terim Öner** Ollama ile oyundan aday terimler çıkarır.
-- **İçe Aktar / Dışa Aktar** XLSX ile çalışır. **Kitaplık** terminolojiyi adlandırılmış liste olarak saklar ("DMC
+- **İçe Aktar / Dışa Aktar** XLSX ile çalışır. **Kitaplık** terminolojiyi adlandırılmış liste olarak saklar ("Oyun
   serisi") ve başka projeye eklemenizi sağlar.
 - Oyunda kendi başına satır olan kısa adlar (menüdeki mekân adı gibi) terminolojide olmasalar da en sık çevirileriyle
   modele verilir; böylece cümle içinde de aynı çevrilir.

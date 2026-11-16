@@ -4,7 +4,7 @@
   başka dillerdir. Yazarken yalnızca bu bölüm yeniden kurulur, sonraki bölümler kaydırılır, dizin güncellenir.
 - `etc_e/*.msg`: dosyanın kendisi bir mesaj tablosudur (dizgiler 16 bayta doldurulur).
 
-Ayrıntı: docs/formats/dmc1.md. Cihazda doğrulanana kadar yazma deneyseldir.
+Ayrıntı: docs/formats/fsd-msg.md. Cihazda doğrulanana kadar yazma deneyseldir.
 """
 
 from __future__ import annotations

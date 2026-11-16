@@ -1,4 +1,4 @@
-# Danganronpa (Spike Chunsoft) — Trigger Happy Havoc Anniversary Edition (Switch)
+# AGAR/WAD arşivi, `.lin` betikleri ve `.pak` tabloları (Switch)
 
 Kod: `core/archives/wad.py` (AGAR arşivi), `core/formats/danganronpa/` (`.lin` ve `.pak` metin eklentisi).
 Test: `tests/test_danganronpa.py`.
@@ -10,9 +10,9 @@ Oyun Unity 2020.1 ile çalışır ama **metinler Unity dosyalarında değildir**
 
 | RomFS dosyası | İçerik |
 |---|---|
-| `Data/StreamingAssets/Initialpack/dr1_data.wad` (50 MB) | **Metinler burada.** 7.886 üye; `Dr1/data/{us,jp,ch}/script/` altında dil başına 2.016 dosya |
-| `switch-dr1-{us,jp,all}.tp` | Ses (`voice`), görsel (`cg`), animasyon (`flash`) ve doku UnityFS paketleri; metin yok |
-| `common-dr1-all.tp` | Galeri resimleri ve `.pb` (protobuf) ana veri tabloları (karakter adları) |
+| `Data/StreamingAssets/Initialpack/<ad>_data.wad` (50 MB) | **Metinler burada.** 7.886 üye; `<Oyun>/data/{us,jp,ch}/script/` altında dil başına 2.016 dosya |
+| `switch-<ad>-{us,jp,all}.tp` | Ses (`voice`), görsel (`cg`), animasyon (`flash`) ve doku UnityFS paketleri; metin yok |
+| `common-<ad>-all.tp` | Galeri resimleri ve `.pb` (protobuf) ana veri tabloları (karakter adları) |
 
 Dil klasörleri: `us` = İngilizce, `jp` = Japonca, `ch` = **geleneksel** Çince (`zh-hant`; 樂 鹽 麵 gibi).
 
@@ -24,7 +24,7 @@ Klasör tablosu: sayı u32; her klasör için ad, çocuk sayısı u32, her çocu
 klasör tablosunun hemen ardından başlar; üyeler boşluksuz ve dosya tablosu sırasıyla dizilidir (gerçek dosyada boşluk 0).
 
 **Yazma:** başlık ve klasör tablosu aynı kalır, üyeler aynı sırayla yeniden dizilir, tablodaki boyut/ofset alanları yerinde
-güncellenir. Değişiklik yoksa çıktı orijinalle bayt bayt aynıdır (gerçek `dr1_data.wad` ile doğrulandı). Tüm arşiv
+güncellenir. Değişiklik yoksa çıktı orijinalle bayt bayt aynıdır (gerçek `<ad>_data.wad` ile doğrulandı). Tüm arşiv
 bellekte kurulur; 1 GB'tan büyük arşivlerde açık hata verilir.
 
 ## `.lin` betikleri
@@ -54,8 +54,8 @@ yazılar resim/Flash olarak gelir (bkz. TECH_DEBT).
 
 ## Dışa aktarma
 
-Değişen `.lin`/`.pak` üyeleri `dr1_data.wad` içinde yeniden dizilir; mod tek dosya üretir:
-`…/romfs/Data/StreamingAssets/Initialpack/dr1_data.wad` (≈50 MB). Yazım sonrası arşiv yeniden açılıp her üye doğrulanır.
+Değişen `.lin`/`.pak` üyeleri `<ad>_data.wad` içinde yeniden dizilir; mod tek dosya üretir:
+`…/romfs/Data/StreamingAssets/Initialpack/<ad>_data.wad` (≈50 MB). Yazım sonrası arşiv yeniden açılıp her üye doğrulanır.
 
 ## Bilinen sınırlar
 
@@ -63,5 +63,5 @@ Değişen `.lin`/`.pak` üyeleri `dr1_data.wad` içinde yeniden dizilir; mod tek
   özetlerin WAD'ı da kapsayıp kapsamadığı bilinmiyor.
 - **Türkçe harfler:** oyunun yazı tipinde `ğ ş ı İ` gliflerinin olup olmadığı denetlenmedi; yoksa dışa aktarmadaki harf
   dönüştürme (ğ→g…) kullanılır. Font yaması bu oyun için yapılmadı.
-- Danganronpa 2, V3 ve Another Episode aynı biçimi kullanıyor olabilir ama denenmedi; yalnızca Trigger Happy Havoc doğrulandı.
+- Aynı oyun serisinin diğer oyunları aynı biçimi kullanıyor olabilir ama denenmedi; yalnızca tek oyun doğrulandı.
 - Resim olarak gelen yazılar (başlık ekranı, menü düğmeleri) çevrilemez.

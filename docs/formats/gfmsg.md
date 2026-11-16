@@ -1,9 +1,9 @@
-# Game Freak mesaj biçimi (.dat + .tbl)
+# GFMSG mesaj biçimi (.dat + .tbl)
 
 Kod: `nxceviri/core/formats/gfmsg/gfmsg.py`. Test verisi: `tests/test_gfmsg.py` (bağımsız yazıcı).
 
-Gerçek oyunlarla doğrulandı: **Pokémon: Let's Go, Pikachu!** (618 İngilizce/Japonca mesaj dosyası)
-ve **Pokémon Legends: Arceus** (317 İngilizce dosya). Hepsi okunup değişiklik yapılmadan geri
+Gerçek oyunlarla doğrulandı: iki gerçek oyunla (biri 618 İngilizce/Japonca mesaj dosyası,
+diğeri 317 İngilizce dosya). Hepsi okunup değişiklik yapılmadan geri
 yazıldığında bayt bayt aynı.
 
 ## Yerleşim
@@ -37,7 +37,7 @@ XOR'lanır, sonra anahtar 3 bit sola döndürülür.
 
 | Tür | Anlam |
 |---|---|
-| 0x01xx | Değişken: ad, Pokémon, hareket, eşya… (`0x0102` takma ad, `0x0107` hareket…) |
+| 0x01xx | Değişken: ad, yaratık, hareket, eşya… (`0x0102` takma ad, `0x0107` hareket…) |
 | 0x02xx | Sayı |
 | 0x1000–0x1003, 0x13xx | Dilbilgisi (artikel, çoğul biçimi) |
 | **0x1100** | Cinsiyete göre seçim: `my [1100(FF,0403)]boygirl` |

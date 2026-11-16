@@ -35,21 +35,21 @@ python -m nxceviri.arac ara "<cümle>" "<oyun dosyaları ya da çıkarılmış k
   TECH_DEBT 37). Oyun metni resimdeyse `grafik.md`.
 - Çok sayıda sonuç, hepsi aynı dosyada → o dosya metin tablosudur; adım 3'e.
 - Sonuç dil klasörlerinde (`en`, `fr`, `ja`…) → yapı dil başına dosyadır; yalnızca kaynak dil aktarılır, `ja` kopyası
-  bazen metni kimlikten ayırmaya yarar (Ys Origin'de böyle).
-- Aynı cümle birden çok yerde (SRT + TSV + önbellek) → oyunun hangisini okuduğunu bilmeden hepsini yaz (Despelote).
+  bazen metni kimlikten ayırmaya yarar (NNI arşivli oyunda böyle).
+- Aynı cümle birden çok yerde (SRT + TSV + önbellek) → oyunun hangisini okuduğunu bilmeden hepsini yaz (düz metin + `Locoliser` oyunu).
 
 ### 3. Motora göre yol
 Kısa tarifler; ayrıntı ilgili not dosyasında (`docs/formats/README.md` dizin).
 
 - **Unity** (`Data/StreamingAssets/aa/…` bundle'ları, `resources.assets`, `*.assets`): önce hazır eklenti dener
-  (Unity Localization string tabloları, I2 Localization, düz `TextAsset`, `Locoliser`, DKCR `Localization`).
+  (Unity Localization string tabloları, I2 Localization, düz `TextAsset`, `Locoliser`, `Localization` nesnesi).
   Metin tip ağacı olmayan dosyadaysa UnityPy alan adlarıyla okuyamaz; nesnenin **ham baytı** çözülür (`unity/i2.py`,
   `dklocal.py`). Kural: yapıyı tahmin etme, tüm nesneyi bitirebildiğin doğrulamalarla kabul et; doğrulanamayan
-  nesneyi hiç okuma. "Unity oyunu, ama 0 satır" ise metin Unity dosyalarında olmayabilir (Danganronpa: WAD içinde).
-  Notlar: `unity.md`, `dkcr.md`, `danganronpa.md`.
+  nesneyi hiç okuma. "Unity oyunu, ama 0 satır" ise metin Unity dosyalarında olmayabilir (WAD/LIN biçimi: WAD içinde).
+  Notlar: `unity.md`, `unity-serializereference.md`, `wad-lin.md`.
 - **Unreal:** metin `.locres` dosyalarındadır, çoğu zaman `.pak` içinde. Eklenti ikisini de okur
   (`unreal.md`). Gerçek oyunla denenmedi; Oodle sıkıştırmalı pak'lar açılmaz.
-- **Nintendo LMS (MSBT) / SARC / Yaz0 / ZSTD:** hazır; kapsayıcı SARC/Yaz0/ZSTD içinde iç içe açılır
+- **LMS (MSBT) / SARC / Yaz0 / ZSTD:** hazır; kapsayıcı SARC/Yaz0/ZSTD içinde iç içe açılır
   (`msbt.md`, `archives.md`).
 - **Bilinmeyen ikili biçim:** şu sırayla ilerle ve her adımı bir not dosyasına yaz (`NOT.md`):
   1. **İmza:** dosya başındaki 4-8 bayt (`MsgStdBn`, `AGAR`, `YCD\0`, `mdf\0`, `NNI\0`). Yüksek ihtimalle biçim
@@ -57,14 +57,14 @@ Kısa tarifler; ayrıntı ilgili not dosyasında (`docs/formats/README.md` dizin
   2. **Tablo / ofset yapısı:** metin sayısı, ardından ofset dizisi, ardından havuz mu? `ara` çıktısındaki ofsetlerden
      metinler arasındaki mesafeyi ve çevrelerindeki u16/u32 sayıları incele (uzunluk, ofset). Ofset dizisini
      metinlerin gerçek yerleriyle eşleştirebiliyorsan yapıyı çözdün.
-  3. **Kodlama:** UTF-8 / UTF-16 / Shift-JIS yetmezse özel bir harf tablosu olabilir (Devil May Cry'da oyunun kendi
-     hücre kodları var; `dmc1.md` "Karakter kodlaması").
+  3. **Kodlama:** UTF-8 / UTF-16 / Shift-JIS yetmezse özel bir harf tablosu olabilir (`.fsd`/`.msg` biçiminde oyunun kendi
+     hücre kodları var; `fsd-msg.md` "Karakter kodlaması").
   4. **Kontrol kodları:** metin içinde çıplak bayt dizileri (`0x0E…`, `\n`, `<color:…>`, `%s`, `{0}`). Hangi kodun yer
      ve uzunluk etkisi olduğunu belirle; her biri `⟦n⟧` olacak. Aynı kodun ham baytı geri yazılırken aynen korunur.
   5. **Yazma:** metin uzunluğu değişince hangi alanlar güncellenmeli (uzunluk, ofsetler, hizalama, dosya boyutu,
-     kapsayıcı dizini)? Örnekler: Danganronpa LIN'de kod bölümü dizgilere sıra numarasıyla başvurur, bu yüzden
-     metin uzunluğu serbesttir (`danganronpa.md`); M2 PSB'de dizge tablosu yerinde yeniden yazılır (`m2.md`);
-     Vanillaware FMSB (`unicorn-overlord.md`). Kapsayıcı bir arşivse (NNI, CPK, WAD), arşivi yeniden kuran kod
+     kapsayıcı dizini)? Örnekler: WAD/LIN biçiminde kod bölümü dizgilere sıra numarasıyla başvurur, bu yüzden
+     metin uzunluğu serbesttir (`wad-lin.md`); M2 PSB'de dizge tablosu yerinde yeniden yazılır (`m2.md`);
+     CRI CPK ve FMSB (`cpk-fmsb.md`). Kapsayıcı bir arşivse (NNI, CPK, WAD), arşivi yeniden kuran kod
      `nxceviri/core/archives/` altında zaten var mı bak.
 
 ### 4. Eklenti iskeleti ve önce test
@@ -128,7 +128,7 @@ Uygulamayı aç (`NX Ceviri Studyosu.bat` ya da `python -m nxceviri`):
 - **Yeni kod gerekli mi?** Gerekmiyorsa gerekmez; öncelik uygulamanın kendisi.
 - **Metin resimde mi?** `ara` sonuç vermiyorsa ve ekranda yazı varsa `grafik.md`.
 - **Yazılabilir mi?** `extract` kolay, `inject` zordur. Yazamadığın biçimde "yalnızca okuma" olarak dur ve kullanıcıya
-  söyle (Mina the Hollower ilk sürümde böyle bitti). Yarım yazma çözümü gönderme.
+  söyle (pak.yc biçimi ilk sürümde böyle bitti). Yarım yazma çözümü gönderme.
 - **Türkçe harf:** `arac font` sonucu (a/b/c) belirlenmeden bitmez. Yama (b) varsa `unsupported_letters = ""` ve `font.md`;
   yamalanamıyorsa (c) `unsupported_letters` doldurulur. Kararı ve gerekçesini kısaca söyle.
 

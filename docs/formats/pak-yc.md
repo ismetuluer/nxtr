@@ -1,4 +1,4 @@
-# Mina the Hollower — Yacht Club YCD (`.yc`)
+# YCD (`.yc`) ve `pak.yc` arşivi
 
 Durum: okuma (0.15.0) ve **yerinde yazma (0.17.0)**. Yazma 2026-10-23'te gerçek Switch'te doğrulandı:
 oyun açıldı, menü ve diyaloglar Türkçe göründü (harfler sadeleştirilmiş: ç→c, ğ→g…). Gerçek Türkçe
@@ -51,7 +51,7 @@ Aynı kimlik ikinci kez geçerse anahtara `#2` eklenir. Boş İngilizce hücreli
 
 ### Metin işaretleri
 
-Metinde `<f cn=mina>Mina</f>` (ad/terim), `<w>…</w>`, `<s>…</s>`, `<b action=attack></b>`,
+Metinde `<f cn=ad>Ad</f>` (ad/terim), `<w>…</w>`, `<s>…</s>`, `<b action=attack></b>`,
 `<au shield=true></au>` gibi etiketler ve `{…}` değişkenleri bulunur. Hepsi ⟦n⟧ yer tutucusuna
 çevrilir; sayı ve sıra denetimi diğer biçimlerdeki gibidir.
 

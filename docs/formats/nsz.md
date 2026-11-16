@@ -27,7 +27,7 @@ NSZ, içindeki büyük NCA'ları `.ncz` olarak sıkıştırılmış bir NSP'dir 
   Son bloğun açılmış boyutu `açılmış_boyut % blok_boyutu` (sıfır değilse).
 - NCA dosya adı = NCA'nın SHA-256'sının ilk 16 baytı. NSZ→NSP dönüşümünde bununla doğrulanır.
 
-## Gerçek örnek (Silver Pines)
+## Gerçek örnek
 
 Her iki dosya da blok kipinde, blok üssü 20 (1 MB). NCZ bölümleri: base'de `0x4000–0x1C000`
 tür 1 (şifresiz logo bölümü), RomFS ve ExeFS tür 3. Dönüşümde tüm NCA'ların SHA-256'sı tuttu.
@@ -35,7 +35,7 @@ tür 1 (şifresiz logo bölümü), RomFS ve ExeFS tür 3. Dönüşümde tüm NCA
 ## Bölüm sayısı
 
 NCZSECTN tablosundaki bölüm sayısının sabit bir üst sınırı yoktur; gerçek NCZ'lerde binlerce bölüm
-görüldü (Avatar Legends güncellemesi: 7171, Blasphemous, MIO, MGS). Yalnızca tablonun dosyaya
+görüldü (bazı güncellemelerde 7171 ve başka oyunlarda). Yalnızca tablonun dosyaya
 sığdığı denetlenir.
 
 ## Akış kipi ve disk alanı

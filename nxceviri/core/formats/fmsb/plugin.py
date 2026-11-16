@@ -12,7 +12,7 @@ Metin kodları (`⟦n⟧` olur): `#c(12)…#/c` renk, `#s(0.8)…#/s` boyut, `#i
 vurgu, `%s`/`%d` değişken, `<br>`, `<1>` gibi yerleşim etiketleri. Satır sonu metnin parçasıdır.
 
 Yazma: dizgeler yeniden dizilir, tablo (sıfırlar) ve `FEOC` sonu korunur, boyut alanı güncellenir.
-Ayrıntılar: docs/formats/unicorn-overlord.md
+Ayrıntılar: docs/formats/cpk-fmsb.md
 """
 
 from __future__ import annotations

@@ -11,7 +11,7 @@ Zaman damgalarına ve sıra numaralarına dokunulmaz; yalnızca metin satırlar�
 
 Kodlar (`⟦n⟧` olur): `<i>`, `<b>`, `<u>`, `<font …>` etiketleri ve `{\an8}` gibi konum kodları.
 Dosyadaki satır sonu biçimi (LF/CRLF), BOM ve değişmeyen bloklar bayt bayt korunur.
-Ayrıntılar: docs/formats/ys-origin.md
+Ayrıntılar: docs/formats/nni.md
 """
 
 from __future__ import annotations

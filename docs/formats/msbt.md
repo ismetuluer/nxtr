@@ -1,4 +1,4 @@
-# MSBT (Nintendo LMS "MsgStdBn")
+# MSBT (LMS "MsgStdBn")
 
 Kod: `nxceviri/core/formats/msbt/msbt.py`. Test verisi: `tests/nxbuild.py::build_msbt`.
 

@@ -27,7 +27,7 @@ anahtar, oyun dosyası, orijinal dosyalara dokunma yok.
 3. **Emülatörde mod etkin mi?** Bazılarında oyun özellikleri → mod listesinde işaretlenir.
 4. **Dil:** oyunun/sistem dili uygulamanın aktardığı kaynak dil olmalı (adım 2 yukarıda). Hâlâ yoksa:
 5. **Metin farklı yerden okunuyor:** oyun, değiştirdiğimiz dosyayı değil bir önbelleği ya da başka kopyayı okuyor
-   olabilir. Örnekler: Despelote metni `Locoliser` nesnesinden okur (TSV/SRT değiştirmek yetmedi); DKCR HD'de aynı dil
+   olabilir. Örnekler: bir düz metin oyunu metni `Locoliser` nesnesinden okur (TSV/SRT değiştirmek yetmedi); `Localization` nesneli bir Unity oyununda aynı dil
    iki yuvadadır (0 ve 7) ve eklenti ikisine de yazar. `ara "<ekrandaki cümle>"` ile cümlenin hâlâ nerede olduğuna bak:
    değiştirdiğimiz dosyada **Türkçesi** ve başka bir yerde **İngilizcesi** varsa oyun diğer yeri okuyor.
 
@@ -44,8 +44,8 @@ anahtar, oyun dosyası, orijinal dosyalara dokunma yok.
    çeviri görünmez (ya da oyun hata verir). Uygulama `catalog.json`'daki CRC'yi sıfırlar (`docs/formats/unity.md`
    "Addressables katalog CRC'si"). `catalog.bin` (ikili) kullanan oyunlarda bu doğrulanamadı: kesin sonuç cihaz testidir.
 5. **Font yaması:** yamalanmış font bundle'ından sonra çöküyorsa yamasız dene (`font.md`).
-6. **Özel yamalar:** DMC1'de ana doku ve yazı dokusu hatalıysa oyun açılışta çöker ("Hata oluştu, kapatılıyor");
-   `dmc1.md`'ye bak. Her oyunun notu böyle tuzakları listeler.
+6. **Özel yamalar:** `.fsd`/`.msg` biçimli oyunda ana doku ve yazı dokusu hatalıysa oyun açılışta çöker ("Hata oluştu, kapatılıyor");
+   `fsd-msg.md`'ye bak. Her oyunun notu böyle tuzakları listeler.
 7. Çökme günlüğü (emülatör logu) varsa özetle; ham logu paylaşmaya özenme (yol ve kullanıcı adı içerebilir).
 
 ### C. Metin kutudan taşıyor / satır kaydı bozuk
@@ -66,12 +66,12 @@ dönüştürmeyi seç; açıksa ve hâlâ kutucuk varsa tabloda o fontun "Yamayl
    satırlar dışa aktarılmaz (orijinal kalır): nedeni durum sütununda (kontrol kodu sayı/tür/sıra).
 2. **Metin resimde mi?** Satır tabloda hiç yoksa ve yazı bir düğme/başlıksa resimdir: `grafik.md`.
 3. **Başka dosyada mı?** Tabloda yok ama metin başka bir dosyada ya da kod içinde: `python -m nxceviri.arac ara
-   "<cümle>" <oyun dosyaları>` (DMC1'de düşman açıklamaları program kodunda, `.atm` dosyalarında, kayıt mesajları
+   "<cümle>" <oyun dosyaları>` (`.fsd`/`.msg` biçimli oyunda düşman açıklamaları program kodunda, `.atm` dosyalarında, kayıt mesajları
    `memicon.dat`'ta idi).
-4. **Başka bir dil yuvası mı?** Oyun kaynak dilden başka bir yuvayı okuyor olabilir (ör. DKCR'da ikinci İngilizce yuva).
+4. **Başka bir dil yuvası mı?** Oyun kaynak dilden başka bir yuvayı okuyor olabilir (ör. `Localization` nesneli oyunda ikinci İngilizce yuva).
 5. **Güncelleme paketi:** metin update'te değiştiyse ve yalnızca base eklendiyse eski/eksik metin görünür.
    `docs/formats/` notları ve tarama raporundaki sürüm uyarıları. Base + update birlikte eklenmeli.
-6. **Kasıtlı bırakılanlar:** özel adlar bazı oyunlarda İngilizce bırakılır (DMC1: silah ve düşman adları).
+6. **Kasıtlı bırakılanlar:** özel adlar bazı oyunlarda İngilizce bırakılır (`.fsd`/`.msg` biçimli oyunda: silah ve düşman adları).
 
 ### F. Bazı satırlar bozuk görünüyor (`⟦3⟧`, `{0}`, fazla `<b>`)
 1. `⟦n⟧` ekranda görünüyorsa dışa aktarma kodu geri çevirmemiş demektir; bu olmamalı. Satırın durumuna bak ve

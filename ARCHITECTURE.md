@@ -348,7 +348,7 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
 58. **Mina'ya yazma yerinde ve işaretçisizdir.** Dizin/boyut/özet alanları çözülmediği için dosya yeniden
     düzenlenmez; yalnızca çevrilen satırın dil sütunu betimleyicileri ve satırın kendi dizgi baytları güncellenir
     (dosya boyutu aynı). Çeviri verilmezse dosya bayt bayt aynıdır (round-trip, CLAUDE.md §4.1). Cihazda
-    doğrulanana kadar deneyseldir; adım adım denenir (`docs/formats/mina-ycd.md`).
+    doğrulanana kadar deneyseldir; adım adım denenir (`docs/formats/pak-yc.md`).
 59. **Dizgiler betimleyicilerden okunur.** Dosyadaki dizgi havuzu tekilleştirilmiştir; "sıradaki dizgi"
     varsayımı yanlış sütuna metin koyar. Her satır 16 baytlık betimleyici dizisi olarak ayrıştırılır (`mina/ycd.py`).
 60. **Hazır çeviri kaynak metne bakar.** `ReadyTranslations.sources` verilmişse satır yalnızca yamanın
@@ -616,7 +616,7 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-10-31-ceviri-sayfasi-design.
     altında; CPK'da `.fms`), böylece 2,9 GB'lık `Unicorn.CPK` taranırken içeriği okunmaz.
 94. **NNI yazımı orijinal `.na`'ya ekleme yapar**, yeniden paketlemez: kayıtların yeri değişmez, yalnızca değişen
     üyelerin ofset/boyutu yeni yeri gösterir. Oyunun arşiv yerine gevşek dosya okuyup okumadığı bilinmediği için
-    (`docs/formats/ys-origin.md`) mod `.ni` + `.na` çiftini taşır.
+    (`docs/formats/nni.md`) mod `.ni` + `.na` çiftini taşır.
 95. **CPK yazımı değişen dosyaları sıkıştırmadan koyar** (CRILAYLA kodlayıcı yazılmadı): Rusça topluluk yamasında
     da tüm dosyalar sıkıştırılmamış ve oyun kabul ediyor. Tablolar yeniden serileştirilmez; yalnızca sayısal hücreler
     yerinde değişir, böylece değişiklik yoksa çıktı bayt bayt aynıdır. 512 MB üstü arşiv yeniden yazılmaz.

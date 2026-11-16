@@ -36,7 +36,7 @@ bilgisi geçerlidir; RomFS verisi son IVFC katmanındadır.
 
 ## Doğrulama
 
-Silver Pines (8031 Indirect, 1 AesCtrEx girdisi): yamalanmış bölümden rastgele 200 veri
+Gerçek bir oyun (8031 Indirect, 1 AesCtrEx girdisi): yamalanmış bölümden rastgele 200 veri
 bloğunun SHA-256'sı, oyunun IVFC hash katmanındaki değerlerle birebir eşleşti. Testlerde
 `tests/nxbuild.py::build_patch_nca` iki farklı generation ve bir şifresiz bölge içeren
 yamalar üretir.

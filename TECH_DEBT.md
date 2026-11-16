@@ -276,7 +276,7 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 58. **pak.yc biçimindeki yazma, çevrilen satırlarda tüm dilleri Türkçe yapar.** Yerinde yazma (0.17.0)
     cihazda doğrulandı (2026-10-23); ama satırın 11 dil sütunu aynı metni gösterir, oyun dili ne
     seçilirse seçilsin Türkçe çıkar. Dil sütunlarını ayrı tutmak için dosyaya yer açmak gerekir
-    (dizin/boyut/özet alanları çözülmedi, `docs/formats/mina-ycd.md`). *Ne zaman:* birden çok dil
+    (dizin/boyut/özet alanları çözülmedi, `docs/formats/pak-yc.md`). *Ne zaman:* birden çok dil
     korunmak istenirse.
 
 59. **pak.yc biçiminin `tower_global.pak.yc` ve diğer `.yc` paketleri taranmadı.** Yalnızca
@@ -288,7 +288,7 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     diyaloglar ve `etc_e/*.msg` okunuyor. Okunmayanlar: `atm_e/*.atm` (başarım/galeri; ASCII + `0x80`
     kodlu ayrı kodlama), `status_e/st_init.dat` (ikili), `pack` ve doku içindeki yazılar. Yazma için
     `fsd` bölüm dizininin kaydırılması ve Türkçe harflerin (ğ ş ı İ) doku fontuna eklenmesi gerekir
-    (`docs/formats/dmc1.md`). Çıkarma bu oyunda ~4 dakika sürer (1 GB tarama). Başka iki oyunun
+    (`docs/formats/fsd-msg.md`). Çıkarma bu oyunda ~4 dakika sürer (1 GB tarama). Başka iki oyunun
     `.nbz` arşivleri çözülmedi.
 
 62. **M2 PSB biçimi: ana menü etiketleri (ve belki başka ekranlar) metin değil resim olabilir (0.23.0).**

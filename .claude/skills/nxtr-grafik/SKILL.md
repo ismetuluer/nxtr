@@ -6,8 +6,8 @@ description: NXTR'de oyundaki menü, düğme, başlık veya hikâye kartı gibi 
 # NXTR: grafik (resimlerdeki yazılar)
 
 1. `AGENTS.md`'yi baştan sona oku (oyun resimleri telifli: depoya konmaz, paylaşılmaz).
-2. `docs/rehber/grafik.md` rehberini baştan sona oku; örnekler için `docs/formats/ys-origin.md` ("Grafikler") ve
-   `docs/formats/dmc1.md`.
+2. `docs/rehber/grafik.md` rehberini baştan sona oku; örnekler için `docs/formats/nni.md` ("Grafikler") ve
+   `docs/formats/fsd-msg.md`.
 3. Yazının gerçekten resimde olduğunu `python -m nxceviri.arac ara "<yazı>" …` ile kanıtla, resim biçimini ve sayısını
    kullanıcıya söyle.
 4. `grafik_temizleme/orijinal` (uygulama çıkarır) ve `temiz` (kullanıcı Türkçeleştirir, aynı ad) düzenini kur. Kullanıcıyı

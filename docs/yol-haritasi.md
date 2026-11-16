@@ -26,14 +26,14 @@ ne yaptığını ve sıradaki adımı raporla.
 | M3 | Ollama sağlayıcısı, yer tutucu koruma, çeviri belleği, sözlük | Toplu çeviri yapılıyor, kontrol kodları bozulmuyor, işlem kaldığı yerden devam ediyor |
 | M4 | DeepL sağlayıcısı, sağlayıcı seçimi ve ayarlar ekranı | Aynı projede iki sağlayıcı arasında geçiş yapılabiliyor |
 | M5 | QA ekranı, font glif kontrolü, harf dönüştürme, LayeredFS dışa aktarma | Üretilen mod, gerçek cihazda veya emülatörde Türkçe metinle açılıyor |
-| M6 | Unity format eklentisi (Unity Localization string tabloları) | Silver Pines'ın metinleri çeviri tablosuna aktarılıyor, değişikliksiz geri yazım orijinalle aynı |
+| M6 | Unity format eklentisi (Unity Localization string tabloları) | Hedef oyunun metinleri çeviri tablosuna aktarılıyor, değişikliksiz geri yazım orijinalle aynı |
 | M7 | Unreal (.locres) format eklentisi | — |
 | M8 | Font yamalama | — |
 | M9 | Taşınabilir paketleme ve son cila | Temiz bir Windows makinesinde kurulumsuz çalışıyor |
 
 Aşamalar sırayla ilerler. Bir aşama bitmeden sonrakine başlanmaz.
 
-**Sıra değişikliği (ürün sahibi kararı, 2026-10-21):** Kullanıcının hedef oyunu (Silver Pines) Unity kullandığı için
+**Sıra değişikliği (ürün sahibi kararı, 2026-10-21):** Kullanıcının hedef oyunu Unity kullandığı için
 M6, M2'den hemen sonra yapılır. Güncel sıra: M1 → M2 → **M6** → M3 → M4 → M5 → M7 → M8 → M9.
 
 > Güncel durum (sürüm, bitenler, bekleyenler) için `CHANGELOG.md`, `HANDOFF.md` ve `ARCHITECTURE.md` başındaki

@@ -17,7 +17,7 @@ uygulamaz; yama uygulamada açılır.
 Oyun metni bir **fontla** çizer. Fontta bir harfin çizimi (glif) yoksa Türkçe çeviri doğru dosyaya yazılsa bile
 oyunda görünmez. Üç çözüm vardır; bu sırayla düşün:
 
-1. **Fontta zaten var** (Mina the Hollower, çoğu Latin font `ç ö ü` için): yapacak bir şey yok.
+1. **Fontta zaten var** (bazı oyunlarda; çoğu Latin font `ç ö ü` için): yapacak bir şey yok.
 2. **Font yaması:** uygulama eksik harfleri **fontun kendi glifleriyle** türetip fonta ekler (ı = i'nin noktasız
    gövdesi, İ = I + nokta, ş = s + ç'nin çengeli, ğ = g + üstte yay). Yazı tipi değişmez, dış çizgi ve gölge korunur.
 3. **Harf dönüştürme:** eksik harf yakın karşılığa çevrilir (ğ→g, ş→s, ı→i, İ→I). Yalnızca üretilen moda uygulanır,
@@ -46,9 +46,9 @@ oyunda görünmez. Üç çözüm vardır; bu sırayla düşün:
 | Unity **TMP dinamik** / eski `Font` | Gömülü TTF/OTF `Font` nesneleri | TTF/OTF'e glif eklenir (sona eklenir, numaralar kaymaz) | Dinamik font harfi çalışma anında gömülü TTF'den üretir; orada yoksa yedek fonta düşüp farklı görünür |
 | **TTF / OTF** (RomFS'te serbest) | `*.ttf`, `*.otf` | Aynı glif ekleme | CID anahtarlı CFF ve CJK (≥200 CJK karakteri) fontlar atlanır |
 | **Switch sistem fontu** `.bfttf`/`.bfotf` (`.zs`) | Oyun içi gömülü | Önce zstd + XOR katmanı çözülür, yamalanır, yeniden paketlenir | `fontpatch/switchfont.py` |
-| **BMFont** (`*.fnt` ikili v3 + `*.png`) | Ys Origin | Eksik glifler atlasa çizilir, `.fnt`'e eklenir; atlas dolarsa yüksekliği ikiye katlanır | `docs/formats/ys-origin.md` |
-| **Oyunun kendi harf dokusu** | Devil May Cry `msg_tex.t32` | Eklenti `support_files` ile Türkçe harfli yeni doku üretir | Harf kodları da özel (`0x72` + hücre); `dmc1.md` |
-| Font tip ağacı olmayan dosyada | Ör. Donkey Kong Country Returns HD | Okunamaz; `ğ ş ı İ` denetlenemez | Cihazda deneyip gerekirse harf dönüştürme |
+| **BMFont** (`*.fnt` ikili v3 + `*.png`) | NNI arşivli oyun | Eksik glifler atlasa çizilir, `.fnt`'e eklenir; atlas dolarsa yüksekliği ikiye katlanır | `docs/formats/nni.md` |
+| **Oyunun kendi harf dokusu** | `.fsd`/`.msg` biçimli oyun, `msg_tex.t32` | Eklenti `support_files` ile Türkçe harfli yeni doku üretir | Harf kodları da özel (`0x72` + hücre); `fsd-msg.md` |
+| Font tip ağacı olmayan dosyada | Ör. `Localization` nesneli Unity oyunu | Okunamaz; `ğ ş ı İ` denetlenemez | Cihazda deneyip gerekirse harf dönüştürme |
 
 Atlanan durumlar raporlanır: dinamik fontlar (atlas yok), gerçekten çok atlaslı fontlar, atlası başka dosyada ya da
 başka fontla ortak olanlar, kaynak harfi olmayan fontlar (yalnızca rakam içeren saat fontu), tip ağacı silinmiş
@@ -71,7 +71,7 @@ dosyalar. Raporda "atlandı" gördüğünde o fontun gerçekten oyunda kullanıl
 - Atlas büyütülünce `m_AtlasHeight`, `m_CreationSettings.atlasHeight` ve atlası kullanan malzemelerin
   `_TextureHeight` değeri güncellenir; elle yazıyorsan unutma.
 - Breve (ğ'nin üstü) fontun kendi çizimi değildir (TECH_DEBT 50/76); el yazısı fontlarda biraz farklı görünür.
-- Despelote gibi bazı Unity oyunlarında fontlar yalnızca "font" adlı paketlerde değil, ana sahne paketinde ve
+- Bazı Unity oyunlarında fontlar yalnızca "font" adlı paketlerde değil, ana sahne paketinde ve
   `resources.assets` içindedir; tarama bunları bulur ve projeye `font_files` olarak kaydeder.
 - Unity Addressables kataloğu değiştirilmiş bir bundle'ı CRC nedeniyle reddedebilir (`docs/formats/unity.md`
   "Addressables katalog CRC'si"); font bundle'ı yamalandıktan sonra oyun açılmıyorsa buna bak.

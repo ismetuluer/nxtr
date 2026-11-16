@@ -564,7 +564,7 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
   düzenini okur ve her ikisinde ile Rusça topluluk yamasında değişiklik yokken bayt bayt aynı yazar. İngilizce yuvadan
   1.199 metin aktarılır (ses kimlikleri, boş ve harfsiz satırlar atlanır); `<scale=…>`/`<space=…>` etiketleri kontrol kodudur.
   Türkçe aynı yuvaya yazılır, özdeş satırlar ikinci İngilizce yuvaya yansıtılır. Gerçek oyunda aktarma ve dışa aktarma
-  (tek dosya: `Data/resources.assets`) doğrulandı. Belge: `docs/formats/dkcr.md`.
+  (tek dosya: `Data/resources.assets`) doğrulandı. Belge: `docs/formats/unity-serializereference.md`.
 
 ### Bilinen sınırlar
 - Mod cihazda denenmedi; `ğ ş ı İ` gliflerinin oyun yazı tipinde olup olmadığı denetlenemiyor (TECH_DEBT 81–82). Metin aktarma
@@ -578,7 +578,7 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
   kodu), `.pak` metin tabloları (eşya, harita, menü, ipucu…) ve `.lin` içeren betik paketleri. Dil klasöründen
   okunur (`us` → en, `jp` → ja, `ch` → zh-hant). Gerçek oyunda İngilizce kaynakta 6.048 dosya, 176.393 satır; hepsinde
   değişiklik yapılmadan geri yazım bayt bayt aynı.
-- Dışa aktarma WAD arşivini yeniden kurar ve doğrular. Belge: `docs/formats/danganronpa.md`.
+- Dışa aktarma WAD arşivini yeniden kurar ve doğrular. Belge: `docs/formats/wad-lin.md`.
 
 ### Düzeltildi
 - **Hiç metin çıkmayan oyunda "0 satır aktarıldı" başarısı gösteriliyordu** (Danganronpa ve Donkey Kong Country Returns HD
@@ -586,7 +586,7 @@ anında sığdırma denetimi ve yeni metinler ekranda denenmedi. `font` aracı g
   kaynak dilde metin yoksa oyundaki diller söylenir.
 
 ### Bilinen sınırlar
-- Mod cihazda denenmedi; `ğ ş ı İ` gliflerinin oyun yazı tipinde olup olmadığı denetlenmedi (`docs/formats/danganronpa.md`).
+- Mod cihazda denenmedi; `ğ ş ı İ` gliflerinin oyun yazı tipinde olup olmadığı denetlenmedi (`docs/formats/wad-lin.md`).
 
 ## [0.43.0] — 2026-11-02 — Türkçe yazım denetimi
 
@@ -1506,7 +1506,7 @@ akışında.** Dışa aktarma, cihazda doğrulanan "dizinden çıkar + gevşek d
 ### Eklendi
 - **Devil May Cry'ye çeviri yazma** (`.fsd` ve `etc_e/*.msg`): İngilizce tablo dizindeki 23. bölümde sabit olduğundan
   bulunuyor; tablo büyüyebilir, sonraki fsd bölümleri kaydırılıp dizin güncelleniyor. Değişiklik yapmadan yazmak
-  75 gerçek dosyada birebir aynı sonucu veriyor. Ayrıntı: `docs/formats/dmc1.md`.
+  75 gerçek dosyada birebir aynı sonucu veriyor. Ayrıntı: `docs/formats/fsd-msg.md`.
 - **Oyun fontunda olmayan harflerin otomatik dönüştürülmesi:** dışa aktarırken eklenti `unsupported_letters` bildirirse
   o dosyalarda yalnızca bu harfler dönüşür (DMC1: ğ ş ı İ Ç; ç ö ü Ö Ü korunur) ve rapora uyarı düşer.
 - 13 yeni test.
@@ -1539,7 +1539,7 @@ akışında.** Dışa aktarma, cihazda doğrulanan "dizinden çıkar + gevşek d
   `etc_e/*.msg` sistem mesajları çeviri tablosuna aktarılır (gerçek oyunda 410 satır). Oyunun kendi
   tek baytlık harf tablosu çözüldü; kontrol kodları (boşluk/satır sonu hariç) ⟦n⟧ yer tutucusu olur,
   tanınmayan her bayt kayıpsız korunur. Kodlama gidiş-dönüş testi gerçek verinin tüm dizgilerinde
-  bozulmadan geçti. Ayrıntı: `docs/formats/dmc1.md`.
+  bozulmadan geçti. Ayrıntı: `docs/formats/fsd-msg.md`.
 - Dil kümesinden İngilizce tablo, içeriğe bakılarak seçilir; rastgele ikili veriler gürültü oranıyla elenir.
 - 11 yeni test.
 
@@ -1586,7 +1586,7 @@ Türkçe `i`'yi `I` yapıyordu (`İ` olmalı). Bu stilde çizilen satırlar art�
 - **Mina çevirisini mod olarak yazma:** çevrilen satırların 11 dil sütunu Türkçe metni gösterir; metin,
   satırın kendi dizgilerinin boşalttığı yere (sığmazsa diğer satırların artığına) yazılır. Gerçek
   dosyalarla: 3.521 satırlık yama çevirisi yazıldı, hepsi sığdı, yeniden okumada doğrulandı; çevirisiz
-  satırlar özgün kaldı. Ayrıntı: `docs/formats/mina-ycd.md`.
+  satırlar özgün kaldı. Ayrıntı: `docs/formats/pak-yc.md`.
 - Dışa aktarırken "Tüm Türkçe harfleri dönüştür" seçin: oyunun fontunda ğ ş ı İ glifleri henüz doğrulanmadı.
 - 4 yeni test.
 
@@ -1625,7 +1625,7 @@ aşaması ayrıca, adım adım ve cihazda denenerek yapılacak.
 ### Eklendi
 - **Mina the Hollower (Yacht Club YCD `.yc`) okuma eklentisi:** `global.pak.yc` ve
   `global_startup.pak.yc` içindeki arayüz, konuşmacı adı ve diyalog tabloları çeviri tablosuna
-  aktarılır (Switch sürümü 327680'de 3.974 İngilizce satır). Tablo yapısı `docs/formats/mina-ycd.md`.
+  aktarılır (Switch sürümü 327680'de 3.974 İngilizce satır). Tablo yapısı `docs/formats/pak-yc.md`.
 - **Hazır Çeviriyi İçe Aktar** artık Mina yamasını da tanır (klasörde `.yc` varsa): PC yamasının
   Türkçe tablolarını okur ve **yalnızca yamanın dayandığı İngilizce metin oyunun şimdiki metniyle
   aynıysa** yazar. Kimlikler sürümler arasında kaydığı için bu denetim yanlış satıra çeviri

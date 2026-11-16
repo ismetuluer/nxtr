@@ -3,7 +3,7 @@
 Kod: `nxceviri/core/fontpatch/` — `sdf.py` (mesafe alanı), `tmp.py` (glif üretimi, atlas yerleşimi),
 `unity.py` (bundle yazımı). Test verisi: `tests/unitybuild.py` (`synth_atlas`, `tmp_font_bundle`).
 
-Gerçek oyunla denendi: **Silver Pines** `fonts_assets_all.bundle` (9 TMP fontu, 1024×1024 Alpha8
+Gerçek oyunla denendi: bir Unity oyununun `fonts_assets_all.bundle` paketiyle (9 TMP fontu, 1024×1024 Alpha8
 atlaslar, Switch düzeninde). Ana metin fontu Noticia Text'in üç stiline ve PapaMan, Impact fontlarına
 `ı İ ş Ş ğ Ğ` eklendi; yazılan bundle yeniden okunup metin çizilerek göz kontrolü yapıldı.
 
@@ -13,12 +13,12 @@ atlaslar, Switch düzeninde). Ana metin fontu Noticia Text'in üç stiline ve Pa
 |---|---|
 | `m_AtlasPopulationMode` | 0 statik, 1 dinamik (dinamik fontlar eksik harfi kaynak fonttan üretir; yamalanmaz) |
 | `m_AtlasTextures[]` | atlas `Texture2D`'leri; dizi 4/8 yuvalıdır, `m_PathID = 0` olan boş yuvalar yok sayılır (yalnızca tek gerçek atlaslı fontlar yamalanır) |
-| `m_AtlasWidth/Height`, `m_AtlasPadding` | atlas boyu, glif çevresindeki dolgu (Silver Pines: 9) |
+| `m_AtlasWidth/Height`, `m_AtlasPadding` | atlas boyu, glif çevresindeki dolgu (örnek oyunda 9) |
 | `m_GlyphTable[]` | `m_Index`, `m_Metrics` (genişlik, yükseklik, yatay taşma X/Y, ilerleme — piksel), `m_GlyphRect` (atlasta x, y, w, h; **sol alttan**), `m_Scale`, `m_AtlasIndex` |
 | `m_CharacterTable[]` | `m_Unicode` → `m_GlyphIndex` |
 | `m_UsedGlyphRects[]`, `m_FreeGlyphRects[]` | MaxRects yerleşim listeleri; kullanılan dikdörtgen glifin solunda/altında `dolgu+1`, toplamda `2·dolgu+1` piksel pay bırakır |
 
-Atlas SDF'tir (render modu 4165 = SDFAA): kenar ≈127,5; Silver Pines'ta eğim piksel başına ≈12,75–13
+Atlas SDF'tir (render modu 4165 = SDFAA): kenar ≈127,5; örnek oyunda eğim piksel başına ≈12,75–13
 (yayılım `dolgu + 1` piksel). UnityPy dokuyu Switch düzeninden (`m_PlatformBlob`) çözer ve
 `set_image` ile aynı düzende geri yazar; veri bundle'a gömülür (`m_StreamData` boşaltılır).
 
@@ -41,7 +41,7 @@ pikselleri değişmez.
 Önce MaxRects "en kısa kenar" yerleşimiyle boş dikdörtgenlere yerleştirilir. Yer yetmezse atlas
 **yukarı doğru iki katına** çıkarılır: koordinatlar sol alttan ölçüldüğü için var olan glifler yerinde
 kalır; `m_AtlasHeight`, `m_CreationSettings.atlasHeight` ve atlası kullanan malzemelerin
-`_TextureHeight` değeri güncellenir. Silver Pines'ta atlasların çoğu doluydu ve büyütüldü (1024×2048).
+`_TextureHeight` değeri güncellenir. örnek oyunda atlasların çoğu doluydu ve büyütüldü (1024×2048).
 
 ## Atlanan durumlar (raporlanır)
 
@@ -49,7 +49,7 @@ kalır; `m_AtlasHeight`, `m_CreationSettings.atlasHeight` ve atlası kullanan ma
 - Dile özgü bundle'lar (`fonts-japanese…`) ve dile özgü adlı fontlar.
 - Kaynak harfi olmayan fontlar (ör. yalnızca rakam içeren saat fontu) veya yapısı beklenmedik olanlar
   (ör. harflerin kutu içinde olduğu "etiket" fontu).
-- Tip ağacı silinmiş dosyalardaki fontlar (Blasphemous `resources.assets`) — okunamaz.
+- Tip ağacı silinmiş dosyalardaki fontlar (bir I2 oyununun `resources.assets` dosyası) — okunamaz.
 
 ## Vektör fontlar (TTF/OTF): `core/fontpatch/ttf.py`
 

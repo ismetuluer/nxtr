@@ -11,7 +11,7 @@ Kod: `nxceviri/core/qa/` (fonts, transliterate, checks), `nxceviri/core/export/l
 - Dile özgü fontlar (dosya/ad: japanese, chinese, russian…) hesaba katılmaz.
 - "Eksik harf" = Latin statik fontların yarısından fazlasında olmayan harf.
 
-**Silver Pines:** 13 Latin statik font; `ç ö ü Ç Ö Ü` 11/13 fontta var, `ğ ı İ ş Ğ Ş` yalnızca
+**Örnek Unity oyunu:** 13 Latin statik font; `ç ö ü Ç Ö Ü` 11/13 fontta var, `ğ ı İ ş Ğ Ş` yalnızca
 2–3 fontta. Dinamik yedek "LiberationSans SDF - Fallback" fontunun kaynağı (LiberationSans TTF)
 tüm Türkçe harfleri içeriyor. Oyun TMP yedek font zincirini kullanıyorsa eksik harfler bu fontla
 (farklı görünümde) çizilebilir; kullanmıyorsa kutucuk/boşluk çıkar. Gerçek cihazda denenmeli.

@@ -27,8 +27,8 @@ Sorunlar Çevir ekranından ayrılmadan görülür ve düzeltilir; Kontrol Et is
    geçtiği; Yoksay (proje), Sözlüğe ekle, "Hepsini şununla değiştir" (tek iş, Geri Al), satırları göster.
 4. **Terim tutarsızlığı** (`core/qa/terms.py`, tür `term`): kısa (1–4 sözcük, büyük harfle başlayan, ≥2 satırda geçen)
    kaynak ifadeleri ve sözlük terimleri kanonik çeviri sayılır; kaynağında ifade geçen satırların çevirisinde kanonik
-   çeviri (Türkçe ek, büyük/küçük harf, satır sonu/kod/fazla boşluk yok sayılarak) aranır. Bulgu: "‘Silver Pines’ burada
-   ‘Gümüş Çam’ olmuş; 14 satırda ‘Gümüş Çamlar’". "Terim değil" işaretlenebilir (proje ayarı).
+   çeviri (Türkçe ek, büyük/küçük harf, satır sonu/kod/fazla boşluk yok sayılarak) aranır. Bulgu: "‘Kuzey Kule’ burada
+   ‘Kuzey Burç’ olmuş; 14 satırda ‘Kuzey Kuleler’". "Terim değil" işaretlenebilir (proje ayarı).
 5. **Sınırlar tablosu** (Sığdırma sekmesi): grup **ve anahtar deseni** başına satır sayısı, en uzun orijinal satır,
    öğrenilen sınır, elle sınır; "Hepsini öğren". Öncelik: anahtar deseni > grup > dosya > proje.
 6. Sığdırma sekmesinde "Kod türleri" bölümü "Gelişmiş" altına iner.

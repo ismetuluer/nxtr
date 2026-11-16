@@ -288,7 +288,7 @@ class ChangesDialog(QDialog):
         h = self.table.horizontalHeader()
         h.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         h.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
-        # "Satır"/"İş" sütunu sabit genişlikte ve tek satır: uzun bir anahtar (ör. Despelote'nin yol biçimli
+        # "Satır"/"İş" sütunu sabit genişlikte ve tek satır: uzun bir anahtar (ör. yol biçimli
         # anahtarları) metin sütunlarını birkaç piksele sıkıştırmasın. Anahtarın sonu görünür, tamamı ipucunda.
         h.setSectionResizeMode(name_col, QHeaderView.ResizeMode.Interactive)
         self.table.setItemDelegateForColumn(name_col, _SingleLineDelegate(self.table))

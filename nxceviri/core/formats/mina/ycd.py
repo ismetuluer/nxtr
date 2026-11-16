@@ -1,6 +1,6 @@
 """Yacht Club "YCD" paketleri (Mina the Hollower `.yc`) — yalnızca okuma.
 
-Yapı (ayrıntılar: docs/formats/mina-ycd.md):
+Yapı (ayrıntılar: docs/formats/pak-yc.md):
 
 - Dosya `YCD\\0` ile başlar. Metin tabloları dosyanın içinde, kendi kendini tarif eden
   nesneler olarak durur: önce sütun adlarını taşıyan bir **başlık satırı** (`ID`, `English`,

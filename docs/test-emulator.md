@@ -8,7 +8,7 @@ yapısını seçin; klasörün içinde `<TitleID>/<Mod Adı>/romfs/...` oluşur.
 - Kendi konsolunuzdan çıkardığınız `prod.keys` ve **firmware** (emülatör ikisini de ister).
 - Oyunun kendisi (NSP/NSZ/XCI). Emülatörler çoğunlukla NSZ'yi doğrudan açmaz; NSP'ye dönüştürmeniz
   gerekebilir (uygulama bunu yalnızca okumak için bellekte yapar, dosya üretmez).
-- Yeterli bir ekran kartı. 3D bir oyun (Silver Pines gibi) zayıf bir dizüstü bilgisayarda yavaş çalışabilir.
+- Yeterli bir ekran kartı. 3D bir oyun zayıf bir dizüstü bilgisayarda yavaş çalışabilir.
 
 ## Mod klasörünü nereye koymalı
 

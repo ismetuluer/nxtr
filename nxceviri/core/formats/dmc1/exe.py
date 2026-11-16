@@ -1,7 +1,7 @@
 """Devil May Cry (Switch) program kodundaki metinler: düşman dosyası açıklamaları.
 
 Düşman açıklamaları RomFS'te değil, oyunun program kodunda (ExeFS `main`, `ro` bölümü) oyunun kendi harf
-kodlamasıyla durur (docs/formats/dmc1.md). Japonca, İngilizce, Fransızca, Almanca, İtalyanca ve İspanyolca
+kodlamasıyla durur (docs/formats/fsd-msg.md). Japonca, İngilizce, Fransızca, Almanca, İtalyanca ve İspanyolca
 açıklamalar art arda dizilmiştir; her biri `7E 0E 00 00` ile biter. Oyun bunlara bir işaretçi dizisiyle ulaşır ve
 dizinin değerleri yükleme anında `.rela.dyn` içindeki R_AARCH64_RELATIVE kayıtlarıyla yazılır.
 

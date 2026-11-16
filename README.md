@@ -2,10 +2,10 @@
 
 # NXTR
 
-Kendi sahip olduğunuz Nintendo Switch oyunlarının (NSP/NSZ) metinlerini bulup Türkçeye
+Kendi sahip olduğunuz Switch oyunlarının (NSP/NSZ) metinlerini bulup Türkçeye
 çevirmek ve LayeredFS mod klasörü üretmek için tek pencereli Windows uygulaması.
 
-Durum: **0.59.0** — Oyunu Ekle → Metinleri Tara → Çevir (elle; Ollama veya DeepL) → Kontrol Et (font, harf dönüştürme, satır denetimi) → Dışa Aktar (Atmosphère / emülatör mod klasörü). Biçimler: MSBT, Unity Localization, Unity I2 Localization, Unreal .locres (.pak içinden) ve Game Freak mesajları (Pokémon), Danganronpa (WAD/LIN) ve Donkey Kong Country Returns HD (Unity SerializeReference) ve Mina the Hollower (yalnızca okuma). Kurallar `AGENTS.md`, mimari
+Durum: **0.59.0** — Oyunu Ekle → Metinleri Tara → Çevir (elle; Ollama veya DeepL) → Kontrol Et (font, harf dönüştürme, satır denetimi) → Dışa Aktar (Atmosphère / emülatör mod klasörü). Biçimler: MSBT, Unity Localization, Unity I2 Localization, Unreal .locres (.pak içinden), GFMSG mesajları, WAD/LIN, Unity SerializeReference ve YCD (`.yc`) arşivleri. Ayrıntı: `docs/uyumluluk.md`. Kurallar `AGENTS.md`, mimari
 `ARCHITECTURE.md`, bilinen sınırlar `TECH_DEBT.md`, geçmiş `CHANGELOG.md` içindedir.
 
 ## Yapay zekâ ajanıyla kullanım

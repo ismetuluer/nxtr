@@ -72,12 +72,12 @@ Rapor ve doğrulama yalnızca kullanıcının bilgisayarında kalır; rapor baş
 Ortak yapı: ne zaman okunur → adımlar (komut + sonucu okuma) → karar noktaları → "bitti" ölçütü → kullanıcıya rapor.
 
 - `yeni-oyun.md`: teşhis (tanınıyorsa doğrudan uygulamaya) → `ara` ile metni bul → motora göre yol (Unity/Unreal/MSBT
-  tarifleri; bilinmeyen ikili: imza → tablo/ofset → kodlama → kontrol kodları; Danganronpa LIN, M2 PSB, FMSB örnekleri)
+  tarifleri; bilinmeyen ikili: imza → tablo/ofset → kodlama → kontrol kodları; WAD/LIN, M2 PSB, FMSB örnekleri)
   → `eklenti-olustur` + önce test → `dogrula` geçmeden bitmez → uygulamada Tara → çevir → Dışa Aktar, cihaz/emülatör
   denemesi kullanıcıdan → `NOT.md`, `docs/uyumluluk.md` önerisi, istenirse `katki.md`.
 - `sorun-giderme.md`: belirti → neden karar ağacı (açılmıyor, taşıyor, kutucuk harf, İngilizce kalan satır, mod
   görünmüyor).
-- `font.md`, `grafik.md`: uygulamanın araçları, sonra çözülmüş örnekler (DMC1, DKCR, Ys Origin) ve yeni biçimde yöntem.
+- `font.md`, `grafik.md`: uygulamanın araçları, sonra çözülmüş örnekler (`.fsd`/`.msg`, `Localization` nesnesi, NNI) ve yeni biçimde yöntem.
 - Kalite: "test edildi" demeden önce komut çıktısı gösterilir; cihazda denenmeyen iş öyle raporlanır.
 
 ## 5. Skill'ler, istem kartları, güncelleme

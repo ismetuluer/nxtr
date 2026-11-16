@@ -127,7 +127,7 @@ class ExportPage(QWidget):
         summary.body.addWidget(self.summary)
         fl.addWidget(summary)
 
-        # Görseller: yalnızca resim çevirisini destekleyen oyunlarda görünür (Ys Origin).
+        # Görseller: yalnızca resim çevirisini destekleyen oyunlarda görünür (NNI arşivli oyunlar).
         self.graphics_card = Card("Görseller")
         self.graphics_status = label("", "muted", wrap=True)
         self.graphics_card.body.addWidget(self.graphics_status)

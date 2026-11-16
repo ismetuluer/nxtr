@@ -22,7 +22,7 @@ vardır; güncellemede (v65536) yoktur.
 `parse` iki düzeni de dener, kayıt defterini tam bitiren geçerli olur.
 
 Bir dilin yuvası ya tekli öğeye ya da çoklu öğeye (birkaç metin: değişkenler) başvurur. Ayrıntılar:
-docs/formats/dkcr.md
+docs/formats/unity-serializereference.md
 """
 
 from __future__ import annotations

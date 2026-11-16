@@ -1,4 +1,4 @@
-# Unicorn Overlord (Vanillaware / ATLUS)
+# CRI CPK + CRILAYLA ve FMSB MsgSheet (Switch)
 
 Kod: `core/archives/cpk.py` (CRI CPK + CRILAYLA), `core/formats/fmsb/` (metin eklentisi). Test: `tests/test_unicorn.py`.
 
@@ -6,11 +6,11 @@ Kod: `core/archives/cpk.py` (CRI CPK + CRILAYLA), `core/formats/fmsb/` (metin ek
 
 | RomFS dosyası | İçerik |
 |---|---|
-| `Unicorn.CPK` (2,9 GB) | Ana arşiv: 4.752 dosya; `MsgSheet/*.fms` burada **Japonca** |
-| `UnicornPatch.CPK` (güncelleme) | Ana arşivin yamaları; yine Japonca MsgSheet |
-| `Unicorn_US.CPK`, `_DE`, `_ES`, `_FR`, `_IT` (~5 MB) | Dil arşivleri: 32 `MsgSheet/*.fms`, 14 `Help/*.ftx` (yazılı yardım resimleri), `Debug/*.inc` |
+| `<Oyun>.CPK` (2,9 GB) | Ana arşiv: 4.752 dosya; `MsgSheet/*.fms` burada **Japonca** |
+| `<Oyun>Patch.CPK` (güncelleme) | Ana arşivin yamaları; yine Japonca MsgSheet |
+| `<Oyun>_US.CPK`, `_DE`, `_ES`, `_FR`, `_IT` (~5 MB) | Dil arşivleri: 32 `MsgSheet/*.fms`, 14 `Help/*.ftx` (yazılı yardım resimleri), `Debug/*.inc` |
 
-Dil arşivi ana arşivdeki aynı adlı sayfanın üstüne biner. Türkçe mod yalnızca `Unicorn_US.CPK`'yı değiştirir
+Dil arşivi ana arşivdeki aynı adlı sayfanın üstüne biner. Türkçe mod yalnızca `<Oyun>_US.CPK`'yı değiştirir
 (Rusça topluluk yaması da aynısını yapıyor). Dil, arşiv adından (`_US` → en) okunur; ana arşivdeki sayfalar
 içerikten Japonca tanınır (dizgelerin %10'undan fazlasında kana/kanji; gerçek veride Japonca sayfalarda en az
 %24, İngilizce/Fransızcada en çok %3) ve İngilizce kaynak seçilince atlanır.
@@ -36,7 +36,7 @@ Açma saf Python: 6 MB'lık diyalog dosyası ~2 sn.
 **Yazma:** değişen dosyalar sıkıştırılmadan (`FileSize == ExtractSize`) konur — Rusça yamadaki tüm dosyalar da
 böyle, oyun kabul ediyor. Dosyalar aynı sırayla, 2048 hizalı yeniden dizilir; TOC ve başlıktaki sayısal alanlar
 yerinde güncellenir, tablolar aynı şekilde karıştırılır, ETOC olduğu gibi sona kopyalanır. Değişiklik yoksa
-çıktı orijinalle bayt bayt aynı (gerçek `Unicorn_US.CPK` ile doğrulandı). 512 MB'tan büyük arşivler
+çıktı orijinalle bayt bayt aynı (gerçek `<Oyun>_US.CPK` ile doğrulandı). 512 MB'tan büyük arşivler
 (ana arşiv) yeniden yazılmaz; açık hata verilir.
 
 ## FMSB (MsgSheet)
@@ -66,4 +66,4 @@ henüz çözülmedi; doğrudan glif denetimi yapılmadı.
 ## Gerçek oyunda ölçülenler (güncelleme v262144 ile)
 
 Tarama 0,2 sn; İngilizce kaynakla 32 sayfadan 49.242 satır aktarılıyor (~27 sn, çoğu CRILAYLA açma). Dışa aktarma
-~3 sn, çıktı tek dosya: `Unicorn_US.CPK`. **Cihazda henüz denenmedi.**
+~3 sn, çıktı tek dosya: `<Oyun>_US.CPK`. **Cihazda henüz denenmedi.**

@@ -3,7 +3,7 @@
 `u32 adet | 4 bayt dolgu | adet × u64 mutlak ofset | bölümler`. Ofset 0 boş girdidir; bölümler dosyada
 ardışık durur, bir bölümün boyutu sonraki ofsetle (veya dosya sonuyla) bulunur. Dizin dışında bölümlerin
 içinde mutlak ofset yoktur: Rusça topluluk modu bölümleri büyütüp küçülterek yalnızca dizini günceller
-(docs/formats/dmc1.md), aynı yöntem burada kullanılır.
+(docs/formats/fsd-msg.md), aynı yöntem burada kullanılır.
 """
 
 from __future__ import annotations

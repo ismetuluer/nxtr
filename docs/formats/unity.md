@@ -16,7 +16,7 @@ Unity Localization paketi (com.unity.localization) Addressables ile derlenince m
 
 ## Bundle ve SerializedFile
 
-UnityFS bundle (Silver Pines: Unity 6000.3.15f1, bundle biçimi 8, veri bayrakları 0x243 =
+UnityFS bundle (örnek oyun: Unity 6000.3.15f1, bundle biçimi 8, veri bayrakları 0x243 =
 LZ4HC + birleşik blok bilgisi + blok hizalaması). İçinde tek bir SerializedFile (sürüm 22),
 tip ağacı (typetree) **açık**. Tip ağacı olmasaydı nesneleri okumak için oyunun
 IL2CPP meta verisinden tip üretmek gerekirdi.
@@ -36,7 +36,7 @@ references    (ManagedReferencesRegistry)
 Anahtar adı = `m_Entries` içinde aynı `m_Id`'nin `m_Key`'i.
 
 `AssetTable` yapısı birebir aynıdır; `m_Localized` değerleri 32 haneli varlık GUID'leridir
-(ör. Silver Pines `Fonts_en`). Bu yüzden tüm dolu değerleri GUID olan tablo metin sayılmaz.
+(ör. `Fonts_en`). Bu yüzden tüm dolu değerleri GUID olan tablo metin sayılmaz.
 
 ## Metin içindeki kodlar
 
@@ -46,7 +46,7 @@ Anahtar adı = `m_Entries` içinde aynı `m_Id`'nin `m_Key`'i.
   tek kod sayılır.
 - `\n` gerçek satır sonudur, metnin parçasıdır.
 
-Silver Pines (İngilizce): 3.466 satır, 127'sinde kod; en sık `<b>` (77), `<color>` (58),
+Örnek oyun (İngilizce): 3.466 satır, 127'sinde kod; en sık `<b>` (77), `<color>` (58),
 `{0}` (40), `{input_0}` (22), `<sprite>` (8).
 
 ## Geri yazma
@@ -60,7 +60,7 @@ metin beklenenle karşılaştırılır.
 ## Açık sorular (M5)
 
 - ~~Addressables kataloğundaki bundle özeti/CRC denetimi değiştirilmiş bundle'ı reddediyor mu?~~
-  **Evet** (Kong: Survivor Instinct, 0.31.13). Aşağıdaki bölüme bakın.
+  **Evet** (bir Unity oyunu, 0.31.13). Aşağıdaki bölüme bakın.
 - TextMeshPro fontlarında Türkçe glifler var mı?
 
 ## Addressables katalog CRC'si (0.31.13)
@@ -72,7 +72,7 @@ Addressables, `AssetBundleRequestOptions.m_Crc` sıfırdan farklıysa yerel pake
 (paket hiç açılmaz; çeviri oyunda görünmez). CRC, paketin derleme anındaki içeriğine bağlıdır;
 metin bundle'ı yeniden yazıldığı için eski CRC eşleşmez. Katalogdaki CRC 0 ise denetim atlanır.
 
-Kong'da 372 paket kaydından yalnızca dördünde CRC sıfırdan farklıydı; değiştirilen tek paket
+Bu oyunda 372 paket kaydından yalnızca dördünde CRC sıfırdan farklıydı; değiştirilen tek paket
 olan `localization-string-tables-english(unitedstates)(en-us)_assets_all.bundle` (46.548 bayt,
 CRC 1109416191) bunlardan biriydi. Diğer üçü (paylaşılan varlıklar 11.135.377, dil tanımları
 5.280, Lehçe tablo 46.524 bayt) değiştirilmediği için dokunulmadı.
@@ -88,7 +88,7 @@ Eşleşme paket boyutundan yapılır (`m_BundleSize` = diskteki dosya boyutu); b
 dosyaların **özgün** boyutları toplanır. Aynı boyutu paylaşan başka bir paket varsa onun CRC'si
 de sıfırlanır; bu zararsızdır (CRC 0 yalnızca denetimi kapatır). Düzeltilmiş `catalog.json`
 moda aynı romfs yoluyla eklenir; böylece LayeredFS birleşik romfs'te oyunun okuduğu katalog
-değişir. `catalog.hash` yoksa ayrıca güncelleme denetimi yapılmaz (Kong'da yok).
+değişir. `catalog.hash` yoksa ayrıca güncelleme denetimi yapılmaz (bu oyunda yok).
 
 
 ## I2 Localization
@@ -96,7 +96,7 @@ değişir. `catalog.hash` yoksa ayrıca güncelleme denetimi yapılmaz (Kong'da 
 Kod: `nxceviri/core/formats/unity/i2.py` (ham bayt okuyucu/yazıcı), `unity.py` (bağlama).
 Test verisi: `tests/unitybuild.py` (`i2_source_raw`, `serialized_without_typetree`).
 
-I2 Localization tüm dilleri tek bir `LanguageSource` MonoBehaviour'unda tutar. Blasphemous'ta üç
+I2 Localization tüm dilleri tek bir `LanguageSource` MonoBehaviour'unda tutar. Bir I2 oyununda üç
 kaynak `Data/resources.assets` içindedir (eşyalar 621, diyaloglar 804, arayüz 613 terim; 10 dil).
 Bu dosyada **tip ağacı yoktur** (`_enable_type_tree = False`), UnityPy alanları adla okuyamaz;
 bu yüzden nesnenin ham baytı çözülür.
@@ -115,14 +115,14 @@ TermData dizilimi (I2 sürümüne göre):
 
 | Düzen | Alanlar | Durum |
 |---|---|---|
-| A (2.6.x) | Term, TermType, Description, Languages[], Languages_Touch[], Flags[] | Blasphemous ile doğrulandı |
+| A (2.6.x) | Term, TermType, Description, Languages[], Languages_Touch[], Flags[] | Gerçek oyunla doğrulandı |
 | B (2.8.x) | Term, TermType, Languages[], Flags[], Languages_Touch[] | Gerçek oyunda denenmedi |
 
 Alan sırası IL2CPP meta verisindeki (`global-metadata.dat`) adlarla ve ham bayttaki desenle
 çıkarıldı. Başlık tahmin edilmez: terim listesi m_Name'den sonraki ilk 1 KB içinde aranır ve
 ancak şu koşulların hepsi tutarsa kabul edilir: tüm terimler çözülür, her terimde dil sayısı
 aynıdır, hemen ardından (≤256 bayt) aynı sayıda geçerli dil kodlu `mLanguages` listesi gelir.
-`Languages_Touch` ve `Flags` eski kalmış olabilir (Blasphemous'ta 10 dil varken 9 elemanlı); uzunlukları
+`Languages_Touch` ve `Flags` eski kalmış olabilir (bir oyunda 10 dil varken 9 elemanlı); uzunlukları
 serbesttir.
 
 - Yalnızca `TermType = 0` (metin) terimleri çevrilir; diğerleri font/görsel/ses başvurusudur.
@@ -134,7 +134,7 @@ serbesttir.
   listeden sonrası özgün baytlarıyla kalır. Değişiklik yoksa dosya bayt bayt aynıdır. Gerçek
   `resources.assets` (36 MB, 10.942 nesne) yazıldığında yalnızca I2 nesnesi değişti.
 
-Blasphemous'un `AssetBundles/Switch/dialog/*` paketlerindeki `dialogLines` alanları İspanyolca özgün
+Bir I2 oyununun `AssetBundles/Switch/dialog/*` paketlerindeki `dialogLines` alanları İspanyolca özgün
 metinlerdir; oyunda gösterilen çeviriler I2 terimlerinden (`ST03_TIRSO/…`) gelir.
 
 
@@ -143,7 +143,7 @@ metinlerdir; oyunda gösterilen çeviriler I2 terimlerinden (`ST03_TIRSO/…`) g
 Kod: `nxceviri/core/formats/unity/loctext.py` (ayrıştırıcı), `unity.py` (bağlama). Test verisi:
 `tests/unitybuild.py` (`text_asset`), `tests/test_unity_loctext.py`.
 
-Despelote gibi oyunlar metni Unity Localization ya da I2 yerine `Resources` klasöründeki düz metin
+Bazı oyunlar metni Unity Localization ya da I2 yerine `Resources` klasöründeki düz metin
 varlıklarında (`TextAsset`, sınıf 49: `m_Name`, `m_Script`) tutar; `Data/resources.assets` içindedir.
 
 | Varlık | Biçim | Dil nasıl anlaşılır |
@@ -171,7 +171,7 @@ Kurallar ve tuzaklar:
 
 Kod: `nxceviri/core/formats/unity/locoliser.py`. Test verisi: `tests/unitybuild.py` (`locoliser_raw`).
 
-Despelote metni çalışırken TSV'lerden değil, `resources.assets` içindeki `Locoliser` MonoBehaviour'undan okur
+Bu oyun metni çalışırken TSV'lerden değil, `resources.assets` içindeki `Locoliser` MonoBehaviour'undan okur
 (path_id 3322, 1,8 MB, tip ağacı silinmiş). 0.24.0–0.25.0'da yalnızca TSV/SRT değiştirildiği için cihazda Türkçe
 görünmedi. Bulmak için tüm RomFS (UnityFS paketlerinin nesneleri dahil) belirgin cümlelerle tarandı; metinler
 yalnızca TSV TextAsset'lerinde ve bu nesnede geçiyor.
@@ -197,12 +197,12 @@ Row[164]         string[6]
 
 ### Harfler: oyunun fontlarına `ı İ ş Ş ğ Ğ` ekleme
 
-Despelote'nin fontları (Despelote-Regular 45 KB glyf, DespeloteFill3/Outline3 CFF) bu harfleri içermez; TextMeshPro
+Oyunun fontları (45 KB glyf'li ana font, iki CFF font) bu harfleri içermez; TextMeshPro
 fontları **dinamik** (`m_AtlasPopulationMode = 1`) olduğundan eksik harf çalışma anında gömülü TTF/OTF'ten üretilir,
 orada da yoksa yedek fonta (LiberationSans) düşülür ve harf başka bir yazı tipiyle çizilir. Çözüm: `Font` nesnelerindeki
 TTF/OTF'e harfleri eklemek (`nxceviri/core/fontpatch/ttf.py`, ayrıntı `docs/formats/tmp-font.md`).
 
-- Fontlar yalnızca adında "font" geçen paketlerde değildir: Despelote'de ana sahne paketinde (`Font` 991–994),
-  `despelotini_scene_scenes_all.bundle` içinde ve `resources.assets` içindedir. Font taraması boyutu ≤ 256 MB tüm Unity
+- Fontlar yalnızca adında "font" geçen paketlerde değildir: Bazı oyunlarda ana sahne paketinde (`Font` 991–994),
+  `<oyun>_scene_scenes_all.bundle` içinde ve `resources.assets` içindedir. Font taraması boyutu ≤ 256 MB tüm Unity
   dosyalarını açar; yamalanacak dosyalar projeye `font_files` ayarı olarak kaydedilir.
-- Kullanım (Despelote için): **4. Kontrol Et → Fontları Tara → "Font yaması" seçeneğini işaretle → 5. Dışa Aktar.**
+- Kullanım (bu tür oyunlar için): **4. Kontrol Et → Fontları Tara → "Font yaması" seçeneğini işaretle → 5. Dışa Aktar.**

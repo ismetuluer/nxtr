@@ -1,6 +1,6 @@
 # Başlarken
 
-NXTR, sahip olduğunuz Nintendo Switch oyunlarının metinlerini Türkçeye çevirmenize ve oyuna yüklenebilen bir
+NXTR, sahip olduğunuz Switch oyunlarının metinlerini Türkçeye çevirmenize ve oyuna yüklenebilen bir
 **mod klasörü** üretmenize yarar. Oyunun kendisi değiştirilmez; mod yalnızca değişen dosyaları içerir.
 
 ## Beş adım

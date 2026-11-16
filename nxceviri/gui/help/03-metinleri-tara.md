@@ -1,7 +1,7 @@
 # Metinleri Tara
 
-Tarama, oyunun içindeki dosyaları açar ve tanınan metin biçimlerini bulur: MSBT (Nintendo), Unity Localization ve I2,
-Unreal `.locres`, Game Freak mesajları ve bazı oyunlara özel biçimler.
+Tarama, oyunun içindeki dosyaları açar ve tanınan metin biçimlerini bulur: MSBT, Unity Localization ve I2,
+Unreal `.locres`, GFMSG mesajları ve bazı oyunlara özel biçimler.
 
 - Büyük oyunlarda tarama birkaç dakika sürebilir; işi istediğiniz an **İptal** edebilirsiniz. Bitince bildirim gelir.
 - Rapor, bulunan metin dosyalarını, satır sayılarını ve tanınmayan dosyaları gösterir.

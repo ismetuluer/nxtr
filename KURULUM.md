@@ -23,7 +23,7 @@ sonraki açılışlarda doğrudan uygulamayı açar. Şirket ağında `pip` enge
 kurulmasını söyleyin.
 
 ## 3. Projeyi açma
-Uygulamada **Dosya → Proje Aç…** ile `projeler\Devil May Cry.nxproj` veya `projeler\Mina the Hollower.nxproj` dosyasını seçin.
+Uygulamada **Dosya → Proje Aç…** ile `projeler\` klasöründeki bir `.nxproj` dosyasını seçin.
 "3. Çevir" ekranında satırları görürsünüz. Oyun dosyaları bu bilgisayarda olmadığı için "Metinleri Tara" ve "Dışa Aktar"
 adımları çalışmaz; çevirilen projeyi geri getirip kendi bilgisayarınızda dışa aktarırsınız.
 
@@ -34,7 +34,7 @@ adımları çalışmaz; çevirilen projeyi geri getirip kendi bilgisayarınızda
    `⟦n⟧` işaretleri aynı mı, satır sonları korunmuş mu, satırlar çok uzamış mı.
 4. Beğenirseniz tümünü çevirin. Çeviriler "Makine" durumuyla yazılır; onayladığınız satırlara dokunulmaz.
 
-Devil May Cry'da satır sonları ve satır uzunluğu önemlidir (metin kutusu dardır): her satır en çok ~34 karakter,
+Bazı oyunlarda satır sonları ve satır uzunluğu önemlidir (metin kutusu dardır): her satır en çok ~34 karakter,
 `⟦n⟧` işaretleri aynen. Bağlam notu ve terminoloji projede hazırdır (Otomatik Çeviri penceresinden görebilir/değiştirebilirsiniz).
 
 ## 5. Güncelleme

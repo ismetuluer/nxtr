@@ -86,7 +86,7 @@ def ekle(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
             "Oyun dosyalarındaki fontları tarar; ç ğ ı İ ö ş ü Ç Ğ Ö Ş Ü harflerinden eksik olanları ve font yaması "
             "ya da harf dönüştürme gerekip gerekmediğini yazar. Son satır tek satırlık sonuçtur."
         ),
-        epilog='Örnek: python -m nxceviri.arac font "D:/Nintendo/Oyun.nsp" --anahtar prod.keys --json',
+        epilog='Örnek: python -m nxceviri.arac font "D:/Oyunlar/Oyun.nsp" --anahtar prod.keys --json',
     )
     p.add_argument("oyun", nargs="+", type=Path, help="NSP/NSZ dosyaları (base, update, DLC)")
     p.add_argument("--anahtar", type=Path, help="prod.keys yolu (verilmezse uygulamadaki kayıtlı yol)")

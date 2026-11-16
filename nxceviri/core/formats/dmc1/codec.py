@@ -1,6 +1,6 @@
 """Devil May Cry (Switch) mesaj tabloları ve karakter kodlaması.
 
-Ayrıntılar: docs/formats/dmc1.md.
+Ayrıntılar: docs/formats/fsd-msg.md.
 
 - Mesaj tablosu: `u32 adet | adet × (u32 ofset, u32 uzunluk) | dizgiler`; ofsetler tablo başına göredir.
 - Metin tek baytlık oyun tablosuyla kodlanır (ASCII değil). `0x7E xx` bir kontrol kodudur;

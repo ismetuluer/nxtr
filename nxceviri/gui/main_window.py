@@ -771,7 +771,7 @@ class MainWindow(QMainWindow):
             self,
             "Hakkında",
             f"<b>{APP_TITLE}</b> {__version__}<br><br>"
-            "Kendi sahip olduğunuz Nintendo Switch oyunlarının metinlerini Türkçeye çevirmek için bir araç.<br><br>"
+            "Kendi sahip olduğunuz Switch oyunlarının metinlerini Türkçeye çevirmek için bir araç.<br><br>"
             "Uygulama hiçbir şifreleme anahtarı veya oyun dosyası içermez, indirmez, paylaşmaz. "
             "Anahtarlarınızı ve oyun dosyalarınızı kendi konsolunuzdan çıkarmanız gerekir.",
         )

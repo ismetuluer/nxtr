@@ -9,7 +9,7 @@ Yapı (küçük sonlu):
 
 Yazma: başlık ve klasör tablosu aynen kalır; üyeler orijinal ofset sırasıyla, aralarındaki boşluk
 baytları korunarak yeniden dizilir ve dosya tablosundaki boyut/ofset alanları güncellenir. Değişiklik
-yoksa çıktı orijinalle bayt bayt aynıdır. Ayrıntılar: docs/formats/danganronpa.md
+yoksa çıktı orijinalle bayt bayt aynıdır. Ayrıntılar: docs/formats/wad-lin.md
 """
 
 from __future__ import annotations

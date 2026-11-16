@@ -10,7 +10,7 @@ Resmin içindeki yazı çeviri tablosuna girmez. İş akışı iki yarıdır:
 1. **Uygulama** oyundaki resimleri bulup çıkarır (`orijinal/`), değiştirilmiş resmi oyun dosyasına **aynı biçimde,
    aynı boyutta** geri yazar.
 2. **Kullanıcı** (Photoshop, GIMP vb.) yazıyı silip Türkçesini çizer. Bu iş sanat işidir; ajan çizmez, kullanıcı yapar
-   (ya da yazı sade ve zemin düzse ajan tek tek etiketler için araç yazabilir; DMC1'de böyle yapıldı).
+   (ya da yazı sade ve zemin düzse ajan tek tek etiketler için araç yazabilir; `.fsd`/`.msg` biçimli oyunda böyle yapıldı).
 
 ## Yöntem: iki klasör
 
@@ -18,20 +18,20 @@ Resmin içindeki yazı çeviri tablosuna girmez. İş akışı iki yarıdır:
 <oyun klasörü>/grafik_temizleme/
     orijinal/   ← uygulamanın çıkardığı özgün resimler (PNG); DEĞİŞTİRMEYİN
     temiz/      ← kullanıcının yazısını Türkçeleştirdiği resimler, AYNI ADLA
-    OKUBENI.txt ← kullanıcıya kısa açıklama (Ys Origin'de uygulama yazar)
+    OKUBENI.txt ← kullanıcıya kısa açıklama (NNI arşivli oyunda uygulama yazar)
 ```
 
 - Dışa aktarma yalnızca `temiz/` içinde `orijinal/` ile **gerçekten farklı** olan resimleri yerleştirir; aynı kalanlar
   yok sayılır.
 - Boyut değişmişse özgün boya ölçeklenir. PNG saydamlık kaydetmediyse özgünün alfa kanalı korunur.
-- Oyunun resim biçimi korunur: Ys Origin DDS'inde özgün başlık, biçim (BC3/BC1) ve mip sayısı aynen kalır, her mip
+- Oyunun resim biçimi korunur: NNI arşivli oyunun DDS'inde özgün başlık, biçim (BC3/BC1) ve mip sayısı aynen kalır, her mip
   seviyesi yeniden kodlanır, dosya boyu doğrulanır.
-- Klasörü ortam değişkeni gösterir (arayüzde ayar yoktur, TECH_DEBT 75): `NXCEVIRI_YS_GRAFIK` (Ys Origin; yoksa
-  oyun dosyalarının yanındaki `grafik_temizleme`), `NXCEVIRI_DMC1_GRAFIK` (Devil May Cry).
+- Klasörü ortam değişkeni gösterir (arayüzde ayar yoktur, TECH_DEBT 75): `NXCEVIRI_YS_GRAFIK` (NNI arşivli oyun; yoksa
+  oyun dosyalarının yanındaki `grafik_temizleme`), `NXCEVIRI_DMC1_GRAFIK` (`.fsd`/`.msg` biçimli oyun).
 
 ## Çözülmüş örnekler
 
-### Ys Origin (`fontpatch/ys_graphics.py`, `docs/formats/ys-origin.md` "Grafikler")
+### NNI arşivli oyun (`fontpatch/ys_graphics.py`, `docs/formats/nni.md` "Grafikler")
 - 150 çevrilebilir resim: `data-en.ni` içinde `EXTENSION/STORY/EN/*.DDS` (140: harita ve patron adları, hikâye ve rehber
   sayfaları) ve `EXTENSION/MENU/*/*_EN.DDS` (8: seçenek düğmeleri, onay kutuları); serbest `menu/categories_atlas.dds`
   ve `demo/demo_over.dds` (baş aşağı saklanır, PNG'de dik gösterilir).
@@ -40,7 +40,7 @@ Resmin içindeki yazı çeviri tablosuna girmez. İş akışı iki yarıdır:
 - `orijinal/` klasörü şimdilik bir betikle üretilir: `ys_graphics.export_originals(read, members, folder)`
   (arayüz yok, TECH_DEBT 75). Betiği çalıştırmak gerekiyorsa kullanıcıya söyle; kendiliğinden oyun dosyası arama.
 
-### Devil May Cry (`fontpatch/dmc1_images.py`, `dmc1_graphics.py`, `labels.py`, `dmc1_menu.py`, `dmc1_animation.py`; `docs/formats/dmc1.md`)
+### `.fsd`/`.msg` biçimli oyun (`fontpatch/dmc1_images.py`, `dmc1_graphics.py`, `labels.py`, `dmc1_menu.py`, `dmc1_animation.py`; `docs/formats/fsd-msg.md`)
 - Sayfalar çeşitli kapsayıcılardadır (`.itm`, `.dat`, `.tm2`, `.t32`, `.pack`, `.bnd`); hepsinde sıradan DDS başlıkları
   durur (BC7 DX10, 32 bit BGRA; birkaçı DXT3/DXT5). Uygulama kapsayıcıyı çözmez: dosyadaki DDS başlıklarını bulur,
   sayfayı çözer, **içerik özetiyle** (çözülmüş RGBA'nın SHA-1'i) tanır ve değiştirileni aynı biçimde, **yerinde**
@@ -57,8 +57,8 @@ Resmin içindeki yazı çeviri tablosuna girmez. İş akışı iki yarıdır:
 - Bilinen sınır: BC7 kayıplı kodlandığı için sonuç hazır resme ~29-42 dB yakındır.
 
 ### Yazısı resimde kalanlar
-Unicorn Overlord'un yazılı yardım resimleri (`Help/*.ftx`) çevrilmedi (TECH_DEBT 73). Donkey Kong Country Returns HD
-(`dkcr.md`) bu rehberde grafik örneği değildir: metni tek nesnededir, resim çevirisi yapılmadı.
+CPK/FMSB biçimli oyunun yazılı yardım resimleri (`Help/*.ftx`) çevrilmedi (TECH_DEBT 73). `Localization` nesneli Unity oyunu
+(`unity-serializereference.md`) bu rehberde grafik örneği değildir: metni tek nesnededir, resim çevirisi yapılmadı.
 
 ## Yeni bir oyunda adımlar
 1. **Ekranda yazıyı kanıtla:** `ara "<yazı>"` bulamadı; yazı resimdir (ya da sıkıştırılmıştır: farkı `yeni-oyun.md`
@@ -81,7 +81,7 @@ Unicorn Overlord'un yazılı yardım resimleri (`Help/*.ftx`) çevrilmedi (TECH_
 ## Karar noktaları
 - **Yeni kod yazmadan önce:** yazı sayısı azsa (10-20 etiket) kullanıcının elle yaptığı `temiz/` yolu, çoksa ve düz
   zeminse etiket çizimi daha verimli olabilir.
-- **Büyük arşiv:** resim 1 GB'lık bir arşivdeyse tamamını moda koymak gerekir; kullanıcıya boyutu sor (Ys Origin ana
+- **Büyük arşiv:** resim 1 GB'lık bir arşivdeyse tamamını moda koymak gerekir; kullanıcıya boyutu sor (NNI arşivli oyunun ana
   arşivi bu yüzden kapsam dışı).
 - **Dile bağlı mı?** Bazı resimler `EN` klasöründedir (yalnızca o dil için değişir), bazıları dilden bağımsızdır;
   ikinci grubu değiştirmek oyunun tüm dillerini etkiler.

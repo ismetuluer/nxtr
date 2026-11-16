@@ -1,4 +1,4 @@
-# Donkey Kong Country Returns HD (Switch)
+# Unity `Localization` nesnesi (`[SerializeReference]` kayıt defteri, Switch)
 
 Kod: `core/formats/unity/dklocal.py` (kayıt defteri ayrıştırıcı/yazıcı), `core/formats/unity/unity.py` (eklenti bağlantısı).
 Test: `tests/test_dkcr.py`.

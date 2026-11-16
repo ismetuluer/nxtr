@@ -1,4 +1,4 @@
-# NCA (Nintendo Content Archive)
+# NCA (içerik arşivi)
 
 Kod: `nxceviri/core/container/nca.py`, `crypto.py`
 
@@ -54,7 +54,7 @@ girdiler).
 ## Seyrek (sparse) bölümler
 
 Kod: `nca.py` (`_sparse_section`). Güncellemeyle birlikte dağıtılan bazı ana oyunlarda
-(ör. Castlevania: Belmont's Curse) Program NCA'nın RomFS bölümü **seyrektir**: güncellemenin
+(bazı oyunlarda) Program NCA'nın RomFS bölümü **seyrektir**: güncellemenin
 yeniden yazdığı veri base pakete hiç konmaz. Başlıktaki bölüm sonu dosyanın dışına düşebilir.
 
 - Dosyadaki gerçek veri `fiziksel ofset`ten başlar; tablo `fiziksel ofset + tablo ofseti`ndedir.
@@ -68,7 +68,7 @@ Seyrek base tek başına okunamaz; uygulama güncellemenin de eklenmesini ister.
 
 ## Sıkıştırma katmanı
 
-Kod: `compression.py`. Yeni SDK'larla (ör. Avatar Legends, SDK 21) RomFS verisi bloklar hâlinde
+Kod: `compression.py`. Yeni SDK'larla (ör. SDK 21) RomFS verisi bloklar hâlinde
 LZ4 ile sıkıştırılır. **Katman, hash katmanları atlanmış veri bölgesinin üzerindedir** (bölümün
 değil): tablo ofseti + boyutu, IVFC veri bölgesinin boyutuna eşittir; tablo bölgenin sonundadır.
 
@@ -82,6 +82,6 @@ değil): tablo ofseti + boyutu, IVFC veri bölgesinin boyutuna eşittir; tablo b
 ## Tuzaklar
 
 - XTS tweak'i big-endian; `cryptography`'ye tweak olarak doğrudan bu 16 bayt verilir.
-- Bir oyunda RomFS her zaman 0. bölüm değildir (Silver Pines'ta 1. bölüm); FS türüne göre aranır.
+- Bir oyunda RomFS her zaman 0. bölüm değildir (bazı oyunlarda 1. bölüm); FS türüne göre aranır.
 - Yanlış `titlekek`/başlık anahtarı CTR'de hata vermez; çöp veri çıkar. RomFS başlık
   boyutu (0x50) kontrolüyle yakalanıp anlaşılır hataya çevrilir.

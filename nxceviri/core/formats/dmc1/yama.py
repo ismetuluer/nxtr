@@ -3,7 +3,7 @@
 Yama dosyası (`D1FS`): `"D1FS" | u32 dosya sayısı | dosya × { u16 ad uzunluğu, ad, u32 yama sayısı,
 yama × { u32 ofset, u32 boyut, veri } }`. Her yama, oyunun `.fsd` dosyasındaki İngilizce mesaj tablosunun
 (23. bölüm) üzerine yerinde yazılır; Switch ve PC sürümlerinin `.fsd` dosyaları aynı düzendedir
-(docs/formats/dmc1.md), bu yüzden metin satır sırasıyla eşleşir. Yalnızca metin okunur: yamadaki
+(docs/formats/fsd-msg.md), bu yüzden metin satır sırasıyla eşleşir. Yalnızca metin okunur: yamadaki
 font ve görüntü dosyaları kullanılmaz.
 """
 

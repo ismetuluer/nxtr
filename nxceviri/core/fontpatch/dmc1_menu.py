@@ -1,7 +1,7 @@
 """Devil May Cry (Switch) menü başlığı resimlerini Türkçeleştirme: `status_e/st_init.dat` dokuları.
 
 Durum (pause) menüsünün başlıkları (Weapon, Item, Map, File, Exit …) metin değil, `st_init.dat` dosyasının
-1–4. bölümlerindeki T32 dokularına çizilmiş resimlerdir (docs/formats/dmc1.md). Switch dokuları BC7 (DX10 DDS)
+1–4. bölümlerindeki T32 dokularına çizilmiş resimlerdir (docs/formats/fsd-msg.md). Switch dokuları BC7 (DX10 DDS)
 sayfalarıdır; her sayfa okunur, İngilizce sözcüğün bulunduğu pencere silinir ve Türkçe karşılığı aynı yükseklikte,
 aynı taban çizgisinde, özgün renk ve parıltıyla çizilir. Dokular PC sürümünün (ve oyunun yazı dokusunun, cihazda
 doğrulandı) kullandığı sıkıştırılmamış biçimde geri yazılır: 0xC0 baytlık T32 başlığı + sayfa başına DDS.

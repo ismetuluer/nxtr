@@ -2,7 +2,7 @@
 
 `extract` oyunun İngilizce sütununu okur. `inject` çevirileri satırın tüm dil sütunlarına yazar;
 dosya boyutu ve hiçbir işaretçi değişmez, yalnızca çevrilen satırın betimleyicileri ve dizgi baytları
-güncellenir (ayrıntı: docs/formats/mina-ycd.md). Cihazda doğrulanana kadar deneysel sayılır.
+güncellenir (ayrıntı: docs/formats/pak-yc.md). Cihazda doğrulanana kadar deneysel sayılır.
 """
 
 from __future__ import annotations

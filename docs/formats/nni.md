@@ -1,4 +1,4 @@
-# Ys Origin (Switch, DotEmu sürümü)
+# NNI arşivi, XSO betikleri ve arayüz XML'i (Switch)
 
 Kod: `core/archives/nni.py` (arşiv), `core/formats/ysorigin/` (metin eklentisi). Test: `tests/test_ysorigin.py`.
 
@@ -17,7 +17,7 @@ dil, üye yolundaki `LOC/<DİL>/` klasöründen okunur (`pipeline.path_language`
 
 ## NNI arşivi
 
-Kaynak: Kyuuhachi'nin "Ys I/II/Origin/VI extractor" betiği (GitHub gist) ve Luigi Auriemma'nın `ysext` notları.
+Kaynak: Kyuuhachi'nin NNI arşivi çıkarma betiği (GitHub gist) ve Luigi Auriemma'nın `ysext` notları.
 
 - `.ni` başlığı 16 bayt: `NNI\0`, girdi sayısı, ad tablosu boyutu, bayraklar (bit 0 = artımlı bağlama; desteklenmez).
 - Girdi tablosu (16 bayt): ad özeti, boyut, `.na` ofseti, ad ofseti. Ad tablosu: sıfırla biten CP932 adlar, `\` ayraçlı.

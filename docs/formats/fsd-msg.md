@@ -1,7 +1,7 @@
-# Devil May Cry (Switch) — metin biçimleri
+# `.fsd` / `.msg` mesaj tabloları ve oyunun harf tablosu (Switch)
 
 Durum: okuma (0.20.0) ve **yazma (0.22.0, `fsd` ve `.msg`)**. Yazma 2026-10-23'te Switch'te doğrulandı: açılış sahnesi
-ve sistem mesajları Türkçe göründü. Çözümleme Switch sürümü v0 (TitleID 0100E8000D5B8000)
+ve sistem mesajları Türkçe göründü. Çözümleme Switch sürümü v0
 ve topluluğun Rusça modu üzerinde yapıldı.
 
 ## Dosya yerleşimi
@@ -77,21 +77,21 @@ yok. Dışa aktarırken bu harfler otomatik dönüştürülür (ğ→g, ş→s, 
 4. Rusça mod ayrıca `fsd`'nin 80 dosyasını yeniden düzenliyor (boyutlar değişiyor), yani yeniden boyutlandırma
    mümkün; başka bir şey (komut dizisindeki ofsetler) kaymıyor olabilir ama doğrulanmadı.
 
-# DMC2 ve DMC3
+# Aynı oyunun sonraki sürümleri (`.nbz`)
 
-Metinler `data/dmc2/dmc2-0.nbz` ve `data/dmc3/dmc3-0.nbz` arşivlerinde (DMC3'te güncelleme `dmc3-1.nbz`
-ile değiştiriyor). `.nbz` biçimi çözülmedi. Rusça DMC3 modu ayrıca `exefs/main` (çalıştırılabilir dosya) yamalıyor;
+Metinler `data/dmc2/dmc2-0.nbz` ve `data/dmc3/dmc3-0.nbz` arşivlerinde (birinde güncelleme `dmc3-1.nbz`
+ile değiştiriyor). `.nbz` biçimi çözülmedi. Rusça mod ayrıca `exefs/main` (çalıştırılabilir dosya) yamalıyor;
 kodlama veya yazı tipi yürütülebilir dosyada olabilir.
 
 # PC (HD Collection) topluluk Türkçe yaması ve yazı dokusu (0.23.0)
 
-`games/Devil May Cry/DMC_HD_Turkce_Yama` (Steam sürümü için, Salih Yılmaz): DMC1 + DMC2 + DMC3 + launcher.
+Bir topluluk Türkçe yaması (PC sürümü için): üç oyun + başlatıcı.
 Betikler yalnızca okundu, çalıştırılmadı; `dinput8.dll` (DLL enjeksiyonu) kullanılmaz.
 
 **Önemli:** `.nbz` dosyaları düz **ZIP** arşividir (yama betiği `ZipFile` ile açıyor). Switch'in `dmc1-0.nbz`/`dmc2-0.nbz`
 dosyaları da aynıdır (`dmc2-0.nbz`: 3.882 girdi).
 
-## DMC1 uyumu (doğrulandı)
+## PC yamasıyla uyum (doğrulandı)
 - `fsd_tr.yama` (`D1FS`): 80 `.fsd` için yerinde bayt yamaları. Yama bloklarının içindeki 80 Türkçe mesaj tablosunun
   hepsi, Switch `.fsd` dosyalarındaki İngilizce tabloyla aynı dizgi sayısına sahiptir; 65'inin konumu birebir aynı,
   15'i birkaç yüz bayt kaymıştır (PC dosyası biraz farklı). Bu yüzden eşleşme konuma göre değil **dosya adı + dizgi sırasıyla** kurulur.
@@ -116,11 +116,11 @@ Hatalı önceki varsayımlar (bu bölümün eski sürümü): dosyayı ham 512×2
 DDS başlığının görüntüyü 32 piksel kaydırmasıydı). DDS başlığı olmayan veya boş hücreli bir doku oyunu açılışta çökertti
 ("Hata oluştu, kapatılıyor"; cihazda iki kez). Oyun 0x47 dışındaki tüm hücreleri ölçüyor olabilir; üretilen doku hepsini doldurur.
 
-## DMC2 / DMC3 (ön değerlendirme, doğrulanmadı)
-- DMC2: PC yamasındaki 87 dosyanın hepsi Switch `dmc2-0.nbz` içinde aynı adla var; 73'ü (`edm_*_e.bin`, altyazı görüntüleri) aynı
+## Sonraki sürümler (ön değerlendirme, doğrulanmadı)
+- İkinci oyun: PC yamasındaki 87 dosyanın hepsi Switch `dmc2-0.nbz` içinde aynı adla var; 73'ü (`edm_*_e.bin`, altyazı görüntüleri) aynı
   boyutta, 14'ü (`msg_*.nb`, metin) farklı boyutta (Türkçe metin). Switch'te `dmc2-1.nbz` bindirmesi yok; uygulamak için ya 768 MB'lık
   `dmc2-0.nbz` yeniden yazılmalı ya da oyunun başka bir yüklemesi aranmalı.
-- DMC3: yama 347 dosyalık bir bindirme (`GData.afs/id*.pac` görüntüleri, menü görselleri); metin görüntü içinde olduğundan çeviri değil
+- Üçüncü oyun: yama 347 dosyalık bir bindirme (`GData.afs/id*.pac` görüntüleri, menü görselleri); metin görüntü içinde olduğundan çeviri değil
   görüntü yamasıdır. İncelenmedi.
 
 ## Cihaz doğrulaması (2026-10-24)
@@ -177,11 +177,10 @@ derin vadilerinden ayrılır, paragraf alanı yazısı süzülmüş ve koyulaşt
 çizilir. Bu yolla kolay mod tanıtımı, zorluk ekranları ("Sırada ZOR mod."), Tekrar Dene, Yükleniyor ve sonuç ekranı
 (GENEL SONUÇ …) çevrildi (cihazda **henüz doğrulanmadı**).
 
-Çevrilenler: eşya adları ve eşya kartları, "Devil Arms"/"Guns", dosya
+Çevrilenler: eşya adları ve eşya kartları, silah türü başlıkları, dosya
 ekranındaki "Mission"/"Enemy", görev sonu (Ranking Bonus, Clear Time, Orbs, Perfect, next mission, SAVE), "mission
 start / power up", sonuç ekranı zorluk adları, başlık menüsü (NEW GAME …, Character Change …), EXTRAS/ACHIEVEMENTS/
-CREDITS/GALLERY, PRIVACY POLICY, Ayarlar ekranı. Özel adlar (silah, düşman adları, "Dante Must Die", "Super Dante",
-"Stylish" dereceleri) PC Türkçe yamasındaki gibi İngilizce kalır.
+CREDITS/GALLERY, PRIVACY POLICY, Ayarlar ekranı. Özel adlar (silah, düşman adları, zorluk kipi adları, derece adları) PC Türkçe yamasındaki gibi İngilizce kalır.
 
 Henüz yapılmayanlar: resim üzerindeki yazılar (kontrol şemaları `ctrl_*_nx.pack`/`*type*.t32`, hareket açıklamaları
 `status_u/act_img.itm`, düşman adları `status_u/file_img.itm`, görev ekranları `status_u/mssn_img.itm`, haritalar,
@@ -220,7 +219,7 @@ kullanıp kullanmadığı doğrulanmadı.
 
 ## Kullanıcının hazırladığı grafikler ve animasyonlar (Mod #19)
 Zor sayfalar (kontrol şemaları, hareket açıklamaları, görev kartları, zorluk ve sonuç ekranları) resim olarak
-`games/Devil May Cry/grafik_temizleme/orijinal` klasörüne çıkarılır; kullanıcı yazıyı silip Türkçeyi çizerek aynı adla
+`D:/Oyunlar/<oyun>/grafik_temizleme/orijinal` klasörüne çıkarılır; kullanıcı yazıyı silip Türkçeyi çizerek aynı adla
 `temiz` klasörüne koyar. `fontpatch/dmc1_graphics.py` değişmiş çiftleri okur (`NXCEVIRI_DMC1_GRAFIK` ortam değişkeni
 klasörü gösterir), özgün sayfanın içerik özetiyle oyundaki her kopyasını bulur (`dizin.json`: 22 dosya) ve hazır sayfayı
 yerinde yazar; hazır sayfa varsa etiket çizimi yerine geçer. Yazılan sayfalar BC7 kayıplı kodlandığı için sonuç hazır

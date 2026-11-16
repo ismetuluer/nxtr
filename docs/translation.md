@@ -16,7 +16,7 @@ Kod: `nxceviri/core/translate/` — `providers/base.py` (sözleşme), `providers
    | `ollama pull qwen3:14b` | 16 GB için sık önerilen genel model |
 
    Öneriler Ekim 2026 araştırmasına dayanır; Türkçe çeviriye özel bir karşılaştırma yoktur.
-   Silver Pines'tan 20–30 satırla iki modeli yan yana deneyip seçmeniz önerilir.
+   Kendi oyununuzdan 20–30 satırla iki modeli yan yana deneyip seçmeniz önerilir.
 3. Uygulamada "Çevir" → **Otomatik Çeviri…** (`Ctrl+T`) → **Modelleri Listele** → model seçin →
    **Çeviriyi Başlat**.
 
@@ -51,7 +51,7 @@ Kod: `nxceviri/core/translate/` — `providers/base.py` (sözleşme), `providers
     satır sonu, sayı ve sembollerden ayıklanır; onay listesinde işaretlenenler eklenir, başka karşılıkla olanlar
     işaretsiz gelir (işaretlenirse güncellenir).
   - **Kitaplık** (`%LOCALAPPDATA%\NXCeviri\terminoloji\`): terminolojiyi adlandırılmış liste olarak kaydedin
-    ("DMC serisi"), başka projede *Kitaplıktan Ekle* ile katın; projede olan terimin karşılığı korunur.
+    ("Oyun serisi"), başka projede *Kitaplıktan Ekle* ile katın; projede olan terimin karşılığı korunur.
   - **Bilgi notu (lore):** Türkçe karşılığı boş, notu dolu madde (ör. Elara → "Kahramanın ablası; ona 'siz'
     denir"). Ad partide geçtiğinde not modele bilgi olarak gider; çeviri zorlanmaz, QA terminoloji uyarısı vermez,
     DeepL sözlüğüne (glossary) girmez.
@@ -325,15 +325,14 @@ sınırı aşarsa aynı hata verilir. Seçilen değer günlüğe yazılır. Sağ
 sağlayıcı isteğe bağlı `prepare_job(batches, kaynak_dil, hedef_dil, notlar)` yöntemini sunarsa, partiler
 kurulduktan sonra ve ilk istekten önce bir kez çağrılır.
 
-### Örnek: makine çevirisi ve hedeflenen sonuç (Despelote)
+### Örnek: makine çevirisi ve hedeflenen sonuç (kısa diyalog)
 
 | Özgün | Birebir makine çevirisi | Hedef |
 |---|---|---|
-| No, I can't believe it. I just can't! And my friends. | Hayır, buna inanamıyorum. İnanamıyorum işte! Ve arkadaşlarım. | Yok, inanamıyorum. Gerçekten inanamıyorum! Bir de arkadaşlarım… |
-| Yes, but they like soccer. | Evet, ama onlar futbolu seviyorlar. | Ama futbolu seviyorlar ki. |
-| No, some of my friends don't like it. | Hayır, bazı arkadaşlarım bundan hoşlanmıyor. | Benim arkadaşların bazıları hiç sevmez ama. |
+| Well, I guess that's that. | Eh, sanırım bu kadar. | Pekâlâ, iş burada bitti sanırım. |
+| Yes, but they like it. | Evet, ama onlar bunu seviyorlar. | Ama hoşlarına gidiyor ki. |
 | That's the limit! | Bu kadar yeter! | Bu kadarı da fazla! |
-| Not me. (içki teklifine) | Ben değil. | Ben içmem. |
+| Not me. (bir teklife) | Ben değil. | Ben almayayım. |
 
 ## DeepL
 
