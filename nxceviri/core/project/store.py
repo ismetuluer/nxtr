@@ -17,7 +17,7 @@ import os
 import shutil
 import sqlite3
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -940,8 +940,21 @@ class Project:
         ]
         return sorted(out, key=lambda c: order.get(c.entry_id, 0))
 
-    def last_jobs(self) -> dict[int, str]:
-        """Satır kimliği → çevirisini en son değiştiren iş (geçmişi olan satırlar)."""
+    def last_jobs(self, entry_ids: Sequence[int] | None = None) -> dict[int, str]:
+        """Satır kimliği → çevirisini en son değiştiren iş (geçmişi olan satırlar); `entry_ids` ile yalnızca onlar."""
+        if entry_ids is not None:
+            out: dict[int, str] = {}
+            for start in range(0, len(entry_ids), 500):
+                chunk = list(entry_ids[start : start + 500])
+                marks = ",".join("?" * len(chunk))
+                for eid, job in self._conn.execute(
+                    f"SELECT h.entry_id, h.job FROM history h JOIN "  # noqa: S608 - yalnızca "?" yer tutucuları
+                    f"(SELECT entry_id, MAX(id) AS id FROM history WHERE entry_id IN ({marks}) GROUP BY entry_id) m "
+                    "ON m.id = h.id",
+                    chunk,
+                ):
+                    out[int(eid)] = str(job)
+            return out
         rows = self._conn.execute(
             "SELECT h.entry_id, h.job FROM history h "
             "JOIN (SELECT entry_id, MAX(id) AS id FROM history GROUP BY entry_id) m ON m.id = h.id"

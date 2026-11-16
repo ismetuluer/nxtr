@@ -29,6 +29,11 @@ def turkish_lower(text: str) -> str:
     return text.replace("İ", "i").replace("I", "ı").lower()
 
 
+def is_sound_effect(low: str) -> bool:
+    """Küçük harfli sözcük bir ses efekti ya da kahkaha mı (hihihi, ahhh)?"""
+    return _SOUND_EFFECT.fullmatch(low) is not None
+
+
 def words_of(text: str) -> Iterator[tuple[str, int]]:
     """Denetlenebilir sözcükler ve başlangıç konumları (kodlar, sayılı ve kesme işaretli sözcükler atlanır)."""
     visible = placeholders.TOKEN_RE.sub(lambda m: " " * len(m.group(0)), text)
@@ -73,7 +78,7 @@ class SpellChecker:
         for word, start in words_of(text):
             low = turkish_lower(word)
             copied = low in from_source
-            if (copied and not self.flag_copied) or (len(word) > 1 and word.isupper()) or _SOUND_EFFECT.fullmatch(low):
+            if (copied and not self.flag_copied) or (len(word) > 1 and word.isupper()) or is_sound_effect(low):
                 continue
             if word[0].isupper() and not copied and not is_sentence_start(text, start):
                 continue  # cümle ortasında büyük harf: özel ad (orijinalden kopya işaretlenecekse bu kural uygulanmaz)

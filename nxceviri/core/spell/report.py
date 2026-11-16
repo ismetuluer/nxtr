@@ -56,6 +56,17 @@ class UnknownWordCache:
     def store(self, scanned: Scanned) -> None:
         self._rows.update(scanned)
 
+    def row_ids(self, words: Collection[str]) -> dict[str, list[int]]:
+        """Her sözcüğü (küçük harfle) bilinmeyen sayan satırların kimlikleri; önbellek tek geçişte taranır."""
+        wanted = {turkish_lower(w): w for w in words}
+        found: dict[str, list[int]] = {w: [] for w in words}
+        for row_id, (_row, unknown) in self._rows.items():
+            for low in unknown:
+                original = wanted.get(low)
+                if original is not None:
+                    found[original].append(row_id)
+        return found
+
     def words(self, rows: Sequence[TranslationRow], ignored: Collection[str] = ()) -> list[WordUse]:
         """`rows` için sözcük dökümü (sayıya göre azalan, eşitlikte Türkçe alfabe sırası); önbelleksiz satır yoktur."""
         skip = {turkish_lower(w) for w in ignored}
