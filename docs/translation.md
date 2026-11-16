@@ -134,14 +134,16 @@ kapalıyken satırlar tek satır yüksekliğinde kalır ve satır sonları boşl
 | Kısayol | İş |
 |---|---|
 | Ctrl+Z | Son işlemi geri al (elle düzenleme, onay, onay kaldırma, makine işi, bul/değiştir, dış redaksiyon/çeviri içe aktarma, geri alma) |
+| Ctrl+Y | Geri alınan son işlemi yinele (aynı işlem tek adım; yeni bir düzenleme yinele listesini boşaltır) |
 | F3 | Sonraki bakılacak (onaylanmamış) satır |
 | Ctrl+C | Seçili satırları panoya kopyala |
 | Ctrl+F / Ctrl+H | Ara / bul ve değiştir |
 
 Geri alma yığını (`Project.undo`) bu oturumda yapılan son 100 işlemi tutar; aynı makine işinin parça parça
-yazımları tek işlem sayılır. Yeniden tarama yığını boşaltır. Kalıcı geçmiş ayrıdır: “Son İşin Değişiklikleri” ve
-sağ tık → “Çeviri geçmişi” proje kapatılıp açıldıktan sonra da çalışır. Bir hücreyi düzenlerken Ctrl+Z hücredeki
-yazıyı geri alır.
+yazımları tek işlem sayılır. Geri alınanlar ayrı bir yinele yığınında (`Project.redo`) beklenir; yeni yazım yinele yığınını, yeniden tarama ikisini de boşaltır.
+Yinele geçmişe işin kendi adıyla yazılır, böylece durum sütunundaki iş işareti ve “Son işte değişenler” geri gelir. Kalıcı geçmiş ayrıdır: “Son İşin Değişiklikleri” ve
+sağ tık → “Çeviri geçmişi” proje kapatılıp açıldıktan sonra da çalışır. Bir hücreyi düzenlerken Ctrl+Z ve Ctrl+Y hücredeki
+yazıyı geri alır / yineler.
 
 Aramada bulduğunuz satırın çevresini görmek için sağ tık → **Satırı yerinde göster**: arama metni ve süzgeçler
 temizlenir, satır tablodaki gerçek yerinde komşularıyla birlikte ekranın ortasına getirilir. Tek satır

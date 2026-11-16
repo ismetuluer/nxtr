@@ -9,11 +9,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     testler 3.13'te çalıştırıldı. Kod 3.12 özelliklerinin üstüne çıkmıyor (`StrEnum`,
     `datetime.UTC` 3.11+). *Ne zaman:* M9 paketlemede sabit sürüm seçilirken.
 
-18. **Çeviri tablosunda geri al (undo) yok.** Her düzenleme anında kaydedilir; yanlış toplu
-    işlem "Çeviriyi temizle" ile geri alınamaz. M3'te risk azaltıldı: makine çevirisi onaylanmış
-    satırlara ve bellekteki insan çevirilerine hiç yazmaz. Tam geri alma hâlâ yok. *Ne zaman:* M5
-    öncesi (QA ekranıyla birlikte değişiklik geçmişi).
-
 21. **Smart String ifadeleri tek bir kontrol kodu sayılıyor.** `{0:plural:one item|{} items}`
     gibi ifadelerin içindeki sözcükler çevrilemez. Bir Unity oyununda böyle ifade yok (yalnızca
     `{0}`, `{input_0}`, `{ManualInput…}`). *Ne zaman:* Çoğul ifadeli bir oyunda; ifadenin içi
@@ -427,3 +422,7 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     tek katalogda (`gui/table_roles.py`); değerlerin farklı olduğu testle korunur.
 95. ~~Sığdırmada anahtar adı her biçimde bağlamdan alınıyor (0.59.0).~~ — **0.59.0 sonrası kapandı:** bağlamın son
     parçası yalnızca koleksiyonlu biçimlerde (Unity, Unreal) anahtar adı sayılır (`key_names`, `in_collection`).
+
+18. ~~Çeviri tablosunda geri al (undo) yok.~~ — **Kapandı:** Geri Al (oturum içinde son 100 işlem; toplu işler tek
+    adım) daha önce eklenmişti, kayıt eskimişti; Yinele 0.60.0 sonrasında eklendi. Yığın oturumluktur; kalıcı
+    değişiklik geçmişinden satır bazlı geri dönüş ayrıca vardır.

@@ -22,6 +22,14 @@ def test_catalog_ids_unique_and_categories_known() -> None:
     assert {c.category for c in COMMANDS} <= set(CATEGORIES)
 
 
+def test_redo_is_in_the_catalog_with_ctrl_y_next_to_undo() -> None:
+    ids = [c.id for c in COMMANDS]
+    assert ids.index("edit.redo") == ids.index("edit.undo") + 1
+    assert COMMANDS_BY_ID["edit.redo"].default == "Ctrl+Y"
+    assert ShortcutRegistry().conflicts("edit.redo", QKeySequence("Ctrl+Y")) == []
+    assert ShortcutRegistry().conflicts("edit.undo", QKeySequence("Ctrl+Y")) != []
+
+
 def test_default_keys_do_not_collide() -> None:
     seen: dict[str, str] = {}
     for command in COMMANDS:

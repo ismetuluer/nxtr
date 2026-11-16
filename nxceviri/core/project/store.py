@@ -309,7 +309,7 @@ UNDO_LIMIT = 100
 
 @dataclass(frozen=True)
 class UndoStep:
-    """Geri alınabilir bir işlem: iş adı ve değiştirdiği satırların önceki (metin, durum, açıklama) hâli."""
+    """Geri alınabilir ya da yinelenebilir işlem: iş adı ve satırların bir yandaki (metin, durum, açıklama) hâli."""
 
     job: str
     before: dict[int, tuple[str, str, str]]
@@ -391,6 +391,8 @@ class Project:
         self.path = path
         #: Bu oturumda yapılan işlemler (Ctrl+Z); proje kapanınca unutulur, kalıcı geçmiş `history` tablosundadır.
         self._undo: list[UndoStep] = []
+        #: Geri alınıp henüz yinelenmemiş işlemler (Ctrl+Y); her adım, geri alınmadan önceki hâli tutar.
+        self._redo: list[UndoStep] = []
 
     # --- yaşam döngüsü -------------------------------------------------------------
 
@@ -638,9 +640,10 @@ class Project:
 
         Var olan çeviriler korunur. Orijinal metni değişen girdinin çevirisi silinmez,
         "hatalı" işaretlenip gözden geçirilmeye bırakılır. Artık oyunda olmayan dosya ve
-        girdiler kaldırılır. Geri alma yığını boşalır (önceki işlemler eski metinlere göredir).
+        girdiler kaldırılır. Geri alma ve yinele yığınları boşalır (önceki işlemler eski metinlere göredir).
         """
         self._undo.clear()
+        self._redo.clear()
         now = _now()
         added = changed = unchanged = removed = 0
         conn = self._conn
@@ -805,6 +808,7 @@ class Project:
         """İşlemi geri alma yığınına ekler. Aynı makine işinin parça parça yazımları tek işlem sayılır."""
         if not before:
             return
+        self._redo.clear()  # yeni yazım: geri alınanlar artık geçerli bir "sonraki" değil
         top = self._undo[-1] if self._undo else None
         if top is not None and top.job == job and job not in (JOB_MANUAL, JOB_REVERT, JOB_UNAPPROVE):
             self._undo[-1] = UndoStep(job, {**before, **top.before})  # her satırın işten önceki ilk hâli kalır
@@ -816,33 +820,68 @@ class Project:
         """Geri alınabilecek son işlemin iş adı; yoksa None."""
         return self._undo[-1].job if self._undo else None
 
+    def redo_job(self) -> str | None:
+        """Yinelenebilecek son geri alınmış işlemin iş adı; yoksa None."""
+        return self._redo[-1].job if self._redo else None
+
     def undo(self) -> tuple[str, list[TranslationRow]] | None:
         """Son işlemi geri alır: satırlar işlemden önceki metin, durum ve açıklamaya döner.
 
-        Metni değişen satırlar geçmişe "geri alma" olarak yazılır. Geri alınacak işlem yoksa None.
+        Metni değişen satırlar geçmişe "geri alma" olarak yazılır. Geri alınan işlem `redo` ile geri getirilebilir.
+        Geri alınacak işlem yoksa None.
         """
         if not self._undo:
             return None
         step = self._undo[-1]
-        now = _now()
-        ids = []
         with _Transaction(self._conn):
-            for entry_id, (text, status, note) in step.before.items():
-                row = self._conn.execute(
-                    "SELECT status, translation, note FROM text_entries WHERE id = ?", (entry_id,)
-                ).fetchone()
-                if row is None:
-                    continue  # satır bu arada yeniden taramayla kalkmış
-                if row[1] != text:
-                    self._record(entry_id, (row[1], row[0], row[2]), text, job=JOB_REVERT, now=now)
-                self._conn.execute(
-                    "UPDATE text_entries SET translation = ?, status = ?, note = ?, updated_at = ? WHERE id = ?",
-                    (text, status, note, now, entry_id),
-                )
-                ids.append(entry_id)
-            self._conn.execute("UPDATE project SET updated_at = ?", (now,))
+            undone, ids = self._apply_step(step, JOB_REVERT)
         self._undo.pop()
+        if undone:
+            self._redo.append(UndoStep(step.job, undone))
+            del self._redo[:-UNDO_LIMIT]
         return step.job, [self.translation_row(i) for i in ids]
+
+    def redo(self) -> tuple[str, list[TranslationRow]] | None:
+        """Geri alınan son işlemi aynen geri getirir (metin, durum ve açıklama); yinelenecek işlem yoksa None.
+
+        Metni değişen satırlar geçmişe işin kendi adıyla yazılır: durum sütunundaki iş işareti ve "Son işte
+        değişenler" süzgeci işin ilk yapıldığı hâle döner. Çeviri belleğine dokunulmaz (`undo` gibi).
+        """
+        if not self._redo:
+            return None
+        step = self._redo[-1]
+        with _Transaction(self._conn):
+            redone, ids = self._apply_step(step, step.job)
+        self._redo.pop()
+        if redone:
+            self._undo.append(UndoStep(step.job, redone))  # birleştirilmez: işlem tek adım olarak geri alınır
+            del self._undo[:-UNDO_LIMIT]
+        return step.job, [self.translation_row(i) for i in ids]
+
+    def _apply_step(self, step: UndoStep, history_job: str) -> tuple[dict[int, tuple[str, str, str]], list[int]]:
+        """Adımın satırlarını yazar (açık işlem içinde); (yazmadan önceki hâlleri, yazılan satır kimliklerini) verir.
+
+        Bu arada kalkmış satır sessizce atlanır. Metni değişen satır geçmişe `history_job` adıyla yazılır.
+        """
+        now = _now()
+        previous: dict[int, tuple[str, str, str]] = {}
+        ids = []
+        for entry_id, (text, status, note) in step.before.items():
+            row = self._conn.execute(
+                "SELECT status, translation, note FROM text_entries WHERE id = ?", (entry_id,)
+            ).fetchone()
+            if row is None:
+                continue  # satır bu arada yeniden taramayla kalkmış
+            previous[entry_id] = (row[1], row[0], row[2])
+            if row[1] != text:
+                self._record(entry_id, previous[entry_id], text, job=history_job, now=now)
+            self._conn.execute(
+                "UPDATE text_entries SET translation = ?, status = ?, note = ?, updated_at = ? WHERE id = ?",
+                (text, status, note, now, entry_id),
+            )
+            ids.append(entry_id)
+        self._conn.execute("UPDATE project SET updated_at = ?", (now,))
+        return previous, ids
 
     # --- çeviri geçmişi -----------------------------------------------------------------------
 

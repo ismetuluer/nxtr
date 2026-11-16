@@ -284,6 +284,82 @@ def test_ctrl_z_undoes_last_operation(qtbot: QtBot, window: MainWindow) -> None:
     assert "Geri alınacak bir işlem yok" in page.notice_text
 
 
+def test_redo_menu_item_follows_undo_and_ctrl_y_redoes(qtbot: QtBot, window: MainWindow) -> None:
+    from PySide6.QtTest import QTest
+
+    page = window.translate_page
+    redo = window.redo_action
+    window._update_redo_action()
+    assert (redo.text(), redo.isEnabled()) == ("Yinele", False)  # henüz geri alınan yok
+    assert redo.shortcut().toString() == "Ctrl+Y"
+    assert window.menu_actions["edit.redo"] is redo
+    s01 = _rows(window)["s01"]
+    page.approve([s01])
+    page.table.setFocus()
+    QTest.keyClick(page.table, Qt.Key.Key_Z, Qt.KeyboardModifier.ControlModifier)  # tuşla geri al ...
+    assert _rows(window)["s01"].status == Status.MACHINE
+    assert (redo.text(), redo.isEnabled()) == ("Yinele: Elle düzenleme", True)  # ... zamanlayıcı beklenmeden
+    QTest.keyClick(page.table, Qt.Key.Key_Y, Qt.KeyboardModifier.ControlModifier)  # hemen tuşla yinele
+    assert _rows(window)["s01"].status == Status.APPROVED
+    shown = page.model.row_by_id(s01.id)
+    assert shown is not None
+    assert shown.status == Status.APPROVED  # tablo da yenilendi
+    assert "Yinelendi (Elle düzenleme): 1 satır yeniden uygulandı." in page.notice_text
+    assert (redo.text(), redo.isEnabled()) == ("Yinele", False)
+    window.redo_last()
+    assert "Yinelenecek bir işlem yok" in page.notice_text
+
+
+def test_new_edit_after_undo_disables_redo_and_busy_blocks_it(qtbot: QtBot, window: MainWindow) -> None:
+    from nxceviri.gui.tasks import Task
+
+    page = window.translate_page
+    rows = _rows(window)
+    page.approve([rows["s01"]])
+    window.undo_last()
+    window._update_redo_action()
+    assert window.redo_action.isEnabled()
+    window.task = Task(lambda _ctx: None, "başka iş")  # başlatılmamış, yalnızca meşgul göstergesi
+    window._update_redo_action()
+    assert not window.redo_action.isEnabled()
+    window.redo_last()
+    assert "iş sürerken" in page.notice_text
+    assert _rows(window)["s01"].status == Status.MACHINE  # dokunulmadı
+    window.task = None
+    page.approve([rows["s02"]])  # yeni düzenleme
+    qtbot.waitUntil(lambda: not window.redo_action.isEnabled())  # türetilmiş göstergeler zamanlayıcıyla yenilenir
+    window.redo_last()
+    assert "Yinelenecek bir işlem yok" in page.notice_text
+
+
+def test_cell_editor_keeps_its_own_undo_and_redo_keys(qtbot: QtBot, window: MainWindow) -> None:
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QPlainTextEdit
+
+    from nxceviri.gui.translate_page import COL_TRANSLATION
+
+    page = window.translate_page
+    rows = _rows(window)
+    page.approve([rows["s01"]])
+    window.undo_last()  # yinelenebilecek bir adım var: tuş pencereye gitseydi bu onaylanırdı
+    page.select_row(rows["s02"].id)
+    index = page.table.currentIndex().siblingAtColumn(COL_TRANSLATION)
+    page.table.setCurrentIndex(index)
+    page.table.edit(index)
+    editor = page.table.findChild(QPlainTextEdit)
+    assert editor is not None
+    editor.setFocus()
+    editor.selectAll()
+    QTest.keyClicks(editor, "yeni yazi")
+    assert editor.toPlainText() == "yeni yazi"
+    QTest.keyClick(editor, Qt.Key.Key_Z, Qt.KeyboardModifier.ControlModifier)
+    assert editor.toPlainText() != "yeni yazi"  # düzenleyicinin kendi geri alması çalıştı
+    QTest.keyClick(editor, Qt.Key.Key_Y, Qt.KeyboardModifier.ControlModifier)
+    assert editor.toPlainText() == "yeni yazi"  # ... ve kendi yinelemesi
+    assert _rows(window)["s01"].status == Status.MACHINE  # proje yığınına dokunulmadı
+    assert window.project.redo_job() is not None
+
+
 @pytest.mark.parametrize("fmt", ["txt", "xlsx"])
 def test_revision_export_and_import(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, fmt: str

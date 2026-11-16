@@ -147,6 +147,12 @@ def test_enabled_menu_actions_trigger_without_error(window: MainWindow) -> None:
     assert count > 15  # her şey pasif olsaydı bu döngü hiçbir şeyi sınamazdı
 
 
+def test_redo_sits_directly_below_undo_in_the_edit_menu(window: MainWindow) -> None:
+    leaves = _leaf_actions(_menu(window, "Düzen"))
+    undo = window.menu_actions["edit.undo"]
+    assert leaves[leaves.index(undo) + 1] is window.menu_actions["edit.redo"]
+
+
 def test_expected_entries_exist(window: MainWindow) -> None:
     texts = {m: [a.text().replace("&", "") for a in _leaf_actions(_menu(window, m))] for m in TITLES}
     assert "Ayarlar…" in texts["Dosya"]

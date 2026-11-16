@@ -107,7 +107,7 @@ listesinden ürün sahibinin seçimiyle belirlenir.
 - Paketteki oyuna ait hazır çeviri verisi çıkarıldı; `fontpatch/fsdmsg_userdata.py` veriyi grafik klasöründen okur.
 - Borç dosyası üç bölüme ayrıldı (borçlar / bilinen sınırlar / kapananlar); 93–96 kapandı. "Cihazda ya da gerçek
   pencerede deneme" borç sayılmaz.
-- Sıradaki büyük borçlar (ürün sahibiyle konuşulan sıra): geri al (TECH_DEBT 18), kontrol kodu sırası (26, 52);
+- Sıradaki büyük borçlar (ürün sahibiyle konuşulan sıra): kontrol kodu sırası (26, 52) (geri al vardı; Yinele eklendi, TECH_DEBT 18 kapandı);
   ana pencerenin bölünmesi (69) yalnızca o bölümlere büyük iş gelirse.
 
 **Yapıldı (0.59.0)**

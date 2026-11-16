@@ -59,6 +59,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("app.quit", "Çıkış", CATEGORY_FILE, "Ctrl+Q"),
     # Düzen
     Command("edit.undo", "Geri Al", CATEGORY_EDIT, "Ctrl+Z"),
+    Command("edit.redo", "Yinele", CATEGORY_EDIT, "Ctrl+Y"),
     Command("edit.find", "Bul", CATEGORY_EDIT, "Ctrl+F"),
     Command("edit.replace", "Değiştir", CATEGORY_EDIT, "Ctrl+H"),
     Command("edit.filter", "Tabloyu Süz", CATEGORY_EDIT, "Ctrl+Shift+F"),

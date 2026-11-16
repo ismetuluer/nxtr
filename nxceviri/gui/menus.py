@@ -142,7 +142,16 @@ class Menus:
         page = w.translate_page
         menu = self._menu("Dü&zen", tips=True)
         w.undo_action = self._add(menu, "Geri Al", w.undo_last, command="edit.undo", icon="undo-2")
+        w.redo_action = self._add(
+            menu,
+            "Yinele",
+            w.redo_last,
+            command="edit.redo",
+            icon="redo-2",
+            tip="Geri aldığınız son işlemi geri getirir. Yeni bir düzenleme yinele listesini boşaltır.",
+        )
         menu.aboutToShow.connect(w._update_undo_action)
+        menu.aboutToShow.connect(w._update_redo_action)
         self._track_selection(menu)
         menu.addSeparator()
         self._add(menu, "Bul…", w._menu_find, command="edit.find", icon="search")

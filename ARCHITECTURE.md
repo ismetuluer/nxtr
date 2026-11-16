@@ -455,7 +455,9 @@ proje önbelleğine bir kez açılır (SHA-256 ile doğrulanarak).
     (metin, durum, açıklama) hâlini tutar; onay gibi yalnızca durum değiştiren işlemler de geri alınır. Kalıcı
     `history` tablosu yalnızca metin değişikliklerini tuttuğu için onay geri alınamazdı; şemayı değiştirmek
     yerine oturumluk yığın seçildi (son 100 işlem, yeniden taramada boşalır). Geri alma da geçmişe "geri alma"
-    olarak yazılır.
+    olarak yazılır. **Yinele** (`Project.redo`): geri alınan adım, geri alınmadan önceki hâliyle ayrı bir yığına (yine 100)
+    konur; yeni yazım ve yeniden tarama yığını boşaltır. Yinele geçmişe işin kendi adıyla yazılır (durum sütunundaki iş
+    işareti ve “Son işte değişenler” eski hâline döner); çeviri belleğine dokunmaz (`undo` gibi).
 85. **Dış redaksiyonun varsayılanı üç sütunlu TXT** (0.31.7, ürün sahibi kararı): CSV'de modelin `id` ve
     `anahtar` sütunlarını yeniden yazması gerekiyordu; içerikte yoğun kontrol kodu ve tırnak olduğunda model
     çıktısı bozuluyordu. TXT'de `orijinal`, `çeviri`, `düzeltme` sütunları vardır; model yalnızca sonuncuyu

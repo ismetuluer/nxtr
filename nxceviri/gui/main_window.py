@@ -359,6 +359,7 @@ class MainWindow(QMainWindow):
     size_group: QActionGroup
     theme_group: QActionGroup
     undo_action: QAction
+    redo_action: QAction
     update_action: QAction
 
     def __init__(self, settings: QSettings) -> None:
@@ -962,6 +963,7 @@ class MainWindow(QMainWindow):
         self._refresh_nav()
         self._refresh_status()
         self._update_undo_action()
+        self._update_redo_action()
         self.update_menu_state()
 
     def _open_qa_from_status(self) -> None:
@@ -3239,6 +3241,11 @@ class MainWindow(QMainWindow):
         self.undo_action.setText("Geri Al" if job is None else f"Geri Al: {job_label(job)}")
         self.undo_action.setEnabled(job is not None and not self.busy)
 
+    def _update_redo_action(self) -> None:
+        job = self.project.redo_job()
+        self.redo_action.setText("Yinele" if job is None else f"Yinele: {job_label(job)}")
+        self.redo_action.setEnabled(job is not None and not self.busy)
+
     def undo_last(self) -> None:
         """Çeviri tablosundaki son işlemi (elle düzenleme, onay, makine işi, bul-değiştir, içe aktarma …) geri alır."""
         page = self.translate_page
@@ -3255,16 +3262,42 @@ class MainWindow(QMainWindow):
             page.show_notice("warning", "Geri alınacak bir işlem yok.")
             return
         job, rows = result
+        self._show_stepped_rows(rows)
+        page.show_notice(
+            "success", f"Geri alındı ({job_label(job)}): {format_int(len(rows))} satır önceki hâline döndü."
+        )
+
+    def redo_last(self) -> None:
+        """Geri alınan son işlemi aynen geri getirir; arada yeni bir düzenleme yapıldıysa yinelenecek bir şey kalmaz."""
+        page = self.translate_page
+        if self.busy:
+            page.show_notice("warning", "Bir iş sürerken yinelenemez; iş bitince veya durdurulunca deneyin.")
+            return
+        try:
+            result = self.project.redo()
+        except NxError as exc:
+            page.show_notice("danger", exc.user_text())
+            return
+        self._to_translate_step()
+        if result is None:
+            page.show_notice("warning", "Yinelenecek bir işlem yok.")
+            return
+        job, rows = result
+        self._show_stepped_rows(rows)
+        page.show_notice("success", f"Yinelendi ({job_label(job)}): {format_int(len(rows))} satır yeniden uygulandı.")
+
+    def _show_stepped_rows(self, rows: list[TranslationRow]) -> None:
+        """Geri al / yinele sonrası: tabloyu, iş işaretlerini ve "Son işte değişenler"i yeniler."""
+        page = self.translate_page
         page.model.update_rows(rows)
         self._mark_changed()
         self._refresh_marks()
+        self._update_undo_action()  # art arda Ctrl+Z / Ctrl+Y zamanlayıcıyı beklemeden doğru eylemi bulsun
+        self._update_redo_action()
         if self._last_job is not None:
             self._set_last_job(self._last_job)
         if len(rows) == 1:
             page.select_row(rows[0].id)
-        page.show_notice(
-            "success", f"Geri alındı ({job_label(job)}): {format_int(len(rows))} satır önceki hâline döndü."
-        )
 
     # --- dış dosya: dışa / içe aktarma (redaksiyon ve çeviri) ------------------------------------
 
