@@ -100,6 +100,16 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 Görsel denetim listesi ve 0.57.2 sonrası geri bildirim kapandı. Sıradaki iş, yukarıdaki "Sonraki yapılacaklar"
 listesinden ürün sahibinin seçimiyle belirlenir.
 
+**Yapıldı (0.60.0)**
+- Ad temizliği (ürün sahibinin kararı, yasal gerekçe): depoda oyun ve firma adı geçmez; motor ve biçim adı geçer.
+  "Switch" sözcüğü kalır. Git geçmişine dokunulmadı. Eski kalıcı değerler yalnızca `core/formats/legacy.py`
+  tablosunda durur; proje dosyası dönüştürülmez.
+- Paketteki oyuna ait hazır çeviri verisi çıkarıldı; `fontpatch/fsdmsg_userdata.py` veriyi grafik klasöründen okur.
+- Borç dosyası üç bölüme ayrıldı (borçlar / bilinen sınırlar / kapananlar); 93–96 kapandı. "Cihazda ya da gerçek
+  pencerede deneme" borç sayılmaz.
+- Sıradaki büyük borçlar (ürün sahibiyle konuşulan sıra): geri al (TECH_DEBT 18), kontrol kodu sırası (26, 52);
+  ana pencerenin bölünmesi (69) yalnızca o bölümlere büyük iş gelirse.
+
 **Yapıldı (0.59.0)**
 - Çevir: durum süzgeci simge düğmeleri şeridi (`gui/status_filter.py`); "Tümü" düğmesi süzgeç varken
   "görünen / toplam" yazar ve bütün süzgeçleri kaldırır; arama Türkçe I/ı/İ/i ayırmaz (`fold_search`).

@@ -1011,6 +1011,25 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
 206. **Gruplama düğmesinin yeri:** süzgeç değil görünüm seçeneği olduğu için süzgeç şeridinde durmaz; esnek boşluğun
     sağında, birincil düğmenin solundadır ve panel düğmesiyle aynı görünümdedir.
 
+### 4.53 0.60.0 kararları (adlar, eski kimlikler, ek çeviri verisi)
+
+207. **Adlandırma:** depoda oyun ve firma adı geçmez; paket, modül, sınıf, biçim kimliği, motor anahtarı ve görünen
+    etiketler dosya biçimi ya da motor adını taşır. Oyunun kendi RomFS yolları ve dosya adları biçim gerçeğidir,
+    tespit ve yazma bunlara bağlı olduğu için kalır.
+208. **Eski kalıcı değerler:** proje dosyası dönüştürülmez (eski sürüm de açabilsin). Eski biçim kimliği, motor
+    anahtarı, tarama ayrıntısı ve kanıt adı projeden okuma sınırında (`core/project/store.py`) tek tablodan
+    (`core/formats/legacy.py`) bugünkü değere çözülür; üst katmanlar yalnızca yeni değeri görür. Yeniden içe
+    aktarmada aynı biçimin dosyada saklı eski kimliği korunur, projeye yeni giren dosya yeni kimlikle yazılır.
+    Eski adların kaynakta kalabileceği tek yer bu tablo ve onun testidir.
+209. **Oyuna ait çeviri verisi uygulamayla gelmez:** resim üzeri yazılar, program içi açıklamalar ve menü sözcükleri
+    kullanıcının grafik klasöründeki isteğe bağlı JSON dosyalarından okunur (`fontpatch/fsdmsg_userdata.py`; şema
+    denetimli). Veri yoksa yama atlanır ve bilgi dosyasına not düşülür; bozuksa dışa aktarma yazmaya başlamadan
+    durur. Yapı (doku işleme, IPS üretimi) kodda, veri (koordinat, sözcük, özet) dışarıdadır.
+210. **Tablo rolleri kataloğu:** çeviri tablosu modelinin özel veri rolleri `gui/table_roles.py` içindedir;
+    değerlerin farklı olduğu testle korunur.
+211. **Anahtar adı:** bağlamın son parçası yalnızca koleksiyonlu biçimlerde anahtar adıdır (`key_names`,
+    `in_collection`); sığdırma kuralları ve makine çevirisi kapsamı aynı işlevi kullanır.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

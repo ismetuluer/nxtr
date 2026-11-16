@@ -1,6 +1,14 @@
-# HANDOFF — oturum devri (2026-11-16, 0.59.0)
+# HANDOFF — oturum devri (2026-11-16, 0.60.0)
 
 ## Durum
+- **Sürüm 0.60.0** (2026-11-16; CHANGELOG 0.60.0): ad temizliği (belgeler, arayüz, kod, testler, eski sürüm notları);
+  biçim kimlikleri `wadlin`, `fsdmsg`, `pakyc`, `nnitext`, `psbtext`; motor anahtarları `psb`, `nni`, `cpk`, `wad`,
+  `lms`, `gfmsg`; eski değerler `core/formats/legacy.py` ile okuma anında çözülür (`core/project/store.py` sınırında),
+  proje dosyası dönüştürülmez. Paketteki hazır çeviri verisi çıktı (`fontpatch/fsdmsg_userdata.py`,
+  `NXCEVIRI_FSD_GRAFIK` klasöründe `resim_yazilari.json` ve `aciklamalar.json`). Tablo rolleri
+  `gui/table_roles.py`; `key_names` yalnızca koleksiyonlu biçimlerde bağlam sonunu ad sayar; süre testleri
+  `tests/perf.py`. Tam test seti 2601 geçti. Gerçek pencerede denenmedi; paketlenmiş sürüm kurulmadı.
+  Kalan adlar bilerek duruyor: `legacy.py` ve testi, oyunun kendi RomFS yolları, testlerdeki TitleID'ler.
 - **Sürüm 0.59.0** (2026-11-16; CHANGELOG 0.59.0): Çevir'de simgeli durum süzgeci (`gui/status_filter.py`), "Tümü"
   bütün süzgeçleri kaldırır, arama Türkçe harf duyarsız (`core/translate/textsearch.py` `fold_search`), grup işlevi
   yalnızca Unity/Unreal'da koleksiyon kullanır (`core/project/store.py` `COLLECTION_FORMATS`, `in_collection`),

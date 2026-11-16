@@ -2,6 +2,39 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.60.0] — 2026-11-16 — Adlar biçim adlarına geçti; ek çeviri verisi paketten çıktı
+
+### Değişti
+- **Oyun ve firma adları kaldırıldı.** Arayüzde, yardımda, belgelerde ve kodda biçimler artık oyun adıyla değil
+  dosya biçimi ve motor adıyla anılır: Metinleri Tara'daki tür ve motor etiketleri ("PSB metni", "NNI metni
+  (XSO/XML)", "LIN/PAK metni", "LMS (MSBT)" gibi), eklenti adları ve hata iletileri değişti.
+- **Eski projeler aynen açılır.** Proje dosyası dönüştürülmez; eski biçim kimlikleri okunurken tanınır. Proje eski
+  sürümle de açılabilir (yeni sürümde yeniden taranırsa eski sürüm tür adlarını ham hâliyle gösterir).
+- **Uyumluluk belgesi** oyun listesi yerine motor ve biçim tablosudur (`docs/uyumluluk.md`); oyun adı taşıyan biçim
+  notları biçim adıyla yeniden adlandırıldı.
+- **Gruplama düğmesi (Çevir)** süzgeç şeridinden ayrıldı; sağda, Otomatik Çeviri'nin solunda durur.
+- **Ortam değişkenleri:** `NXCEVIRI_FSD_GRAFIK` ve `NXCEVIRI_NNI_GRAFIK`; eski adlar da okunmaya devam eder.
+- **Anahtar desenli kurallar** (sığdırma sınırları ve makine çevirisinin "grup ya da anahtar deseni" kapsamı):
+  bağlamın son parçası yalnızca koleksiyonlu biçimlerde (Unity, Unreal) anahtar adı sayılır; diğer biçimlerde
+  desen yalnızca satır anahtarına ve gruba bakar.
+
+### Kaldırıldı
+- **Paketle gelen hazır çeviri verisi** (`.fsd`/`.msg` biçimli oyunun resim üzeri yazıları, program içi
+  açıklamaları ve menü sözcükleri). Özellik duruyor ama veriyi sizin grafik klasörünüzdeki iki isteğe bağlı
+  dosyadan okur: `resim_yazilari.json` ve `aciklamalar.json` (biçim: `docs/formats/fsd-msg.md`). Dosya yoksa o
+  yazılar çevrilmeden kalır ve mod klasöründeki bilgi dosyasına not düşülür; dosya bozuksa dışa aktarma hiçbir
+  şey yazmadan, neyin bozuk olduğunu söyleyerek durur.
+- Belgeler arasındaki oyuna ait ek çeviri dosyaları.
+
+### Düzeltildi
+- Çeviri tablosunda arama vurgusu ile durum hücresi aynı iç numarayı paylaşıyordu (görünür bir hata yoktu).
+
+### Geliştiriciler için
+- Yeniden adlandırılan modüller: `core/formats/{wadlin,fsdmsg,pakyc,nnitext,psbtext}`, `core/archives/psb_archive.py`,
+  `core/fontpatch/{fsdmsg*,nni_*}.py`, `core/formats/unity/serializeref.py`. Bu modülleri içe aktaran kullanıcı
+  eklentileri yeni adları kullanmalıdır (uyumluluk katmanı yok).
+- Süre testleri en iyi ölçüme bakar (`tests/perf.py`); sıraya bağlı bir test hatası giderildi.
+
 ## [0.59.0] — 2026-11-16 — Çevir: gruplu görünüm, simgeli durum süzgeci
 
 ### Eklendi
