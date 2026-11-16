@@ -853,22 +853,22 @@ class TranslatePage(QWidget):
         self.key_filter = ValueFilter("Anahtar")
         filters.addWidget(self.search, 2)
         filters.addWidget(self.status_filter)
-        # Gruplu görünüm: şeridin sağında, çiplerle aynı biçemde aç/kapa düğmesi (Görünüm menüsüyle aynı eylem).
+        # Gruplu görünüm: esnek boşluğun hemen sağında, makine çevirisi düğmesinin solunda.
+        # Görünüm menüsüyle aynı eylem.
         self.group_action = QAction("Gruplu Görünüm", self, checkable=True)
         self.shortcuts.bind("view.grouped", self.group_action, tip=_GROUP_TIP)
         bind_icon(self.group_action, "list-tree")
         self.group_action.toggled.connect(self._group_toggled)
         self.group_button = QToolButton()
         self.group_button.setDefaultAction(self.group_action)
-        self.group_button.setProperty("role", "chip")
         self.group_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        self.group_button.setAutoRaise(True)
         self.group_button.setIconSize(QSize(16, 16))
-        self.group_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.group_button.setAccessibleName("Gruplu görünüm")
         self._group_pref = False  # kullanıcının tercihi; tek gruplu projede gruplama yine kapalı davranır
         self._group_possible = False  # projede birden çok grup var mı
-        filters.addWidget(self.group_button)
         filters.addStretch(1)
+        filters.addWidget(self.group_button)
         # Görünüm seçenekleri menü çubuğundadır (Görünüm menüsü); eylemler burada yaşar, tablo durumu bunlara bağlıdır.
         self.wrap_box = QAction("Metni Kaydır", self, checkable=True)
         self.wrap_box.setChecked(True)

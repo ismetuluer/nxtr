@@ -8,7 +8,7 @@ import pytest
 from PySide6.QtCore import QItemSelectionModel, QRect, QSettings, Qt
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QPlainTextEdit, QStyleOptionViewItem
+from PySide6.QtWidgets import QLayout, QPlainTextEdit, QStyleOptionViewItem
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.errors import ProjectError
@@ -117,10 +117,11 @@ def test_button_hidden_when_project_has_single_group(qtbot: QtBot) -> None:
     assert p.group_action.isEnabled()
 
 
-def test_button_is_chip_with_tip_icon_and_accessible_name(qtbot: QtBot) -> None:
+def test_button_is_tool_with_tip_icon_and_accessible_name(qtbot: QtBot) -> None:
     p = _page(qtbot, ROWS)
     b = p.group_button
-    assert b.property("role") == "chip"
+    assert b.property("role") is None
+    assert b.autoRaise()
     assert b.isCheckable()
     assert b.accessibleName() == "Gruplu görünüm"
     assert "öbekle" in b.toolTip()
@@ -476,3 +477,26 @@ def test_marked_delegate_draws_nothing_on_header(qtbot: QtBot, monkeypatch: pyte
     painter.end()
     assert built == []
     assert delegate.sizeHint(option, p.proxy.index(0, COL_SOURCE)).height() == 0
+
+
+# --- süzgeç şeridindeki yer ve biçem ------------------------------------------------------------
+
+
+def _filters_layout(p: TranslatePage) -> QLayout:
+    body = p.card.body
+    for i in range(body.count()):
+        item = body.itemAt(i)
+        child = item.layout() if item is not None else None
+        if child is not None and child.indexOf(p.search) >= 0:
+            return child
+    raise AssertionError("süzgeç şeridi bulunamadı")
+
+
+def test_group_button_sits_right_of_stretch_before_machine_button(qtbot: QtBot) -> None:
+    p = _page(qtbot, ROWS)
+    layout = _filters_layout(p)
+    group = layout.indexOf(p.group_button)
+    assert layout.indexOf(p.status_filter) < group < layout.indexOf(p.machine_button)
+    assert layout.indexOf(p.machine_button) < layout.indexOf(p.pane_button)
+    assert p.group_button.property("role") is None
+    assert p.group_button.autoRaise()
