@@ -46,7 +46,7 @@ from PySide6.QtWidgets import (
 
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa import transliterate
-from nxceviri.core.qa.autofix import FIX_KINDS
+from nxceviri.core.qa.autofix import FIX_KINDS, FixPlan
 from nxceviri.core.qa.checks import (
     KIND_LABELS,
     SEVERITY_ERROR,
@@ -82,6 +82,8 @@ _EMPTY_CLEAN = "Sorun bulunmadı."
 _EMPTY_FILTERED = "Bu süzgeçte gösterilecek bulgu yok."
 #: Riskli türler kapsamdayken düzeltme çubuğunun ikinci satırı.
 _FIX_WARNING = "Bu düzeltmeler yanılabilir; sonucu gözden geçirin."
+#: Düzelt bildirimi için plan, kapsam bu satır sayısına kadar hesaplanır (her seçim değişiminde bekletmemek için).
+_FIX_PLAN_ROWS = 1500
 _FIT_RESULT_EMPTY = "Henüz denetlenmedi. Önce Sorunlar sekmesinde “Denetle”ye basın."
 _FIT_RESULT_CHECKING = "Denetleniyor…"
 _FIT_RESULT_FAILED = "Denetim yenilenemedi. Sorunlar sekmesinde “Denetle”ye basarak yeniden deneyin."
@@ -297,6 +299,9 @@ class QaPage(QWidget):
     font_patch_changed = Signal(bool)
     open_row = Signal(int)  # satır kimliği → çeviri tablosunda o satırı aç
     fix_requested = Signal(list, list)  # düzeltilecek türler, satır kimlikleri (boş: tüm bulgular)
+    #: Düzelt bildiriminin planı: (satırlar, o satırların bulguları, türler) → plan; verilmezse bulgu sayısı yazılır.
+    fix_planner: Callable[[list[TranslationRow], list[QaIssue], list[str]], FixPlan] | None = None
+    _plan_cache: tuple[tuple[tuple[str, ...], tuple[int, ...]], FixPlan] | None = None
     report_requested = Signal()  # bildirimdeki "Raporu Gör"
     #: Düzeltme sonucu (durum, metin, düğme adı): ana pencere bildirim olarak gösterir.
     fix_notice = Signal(str, str, str)
@@ -661,6 +666,12 @@ class QaPage(QWidget):
     def show_fit_checking(self) -> None:
         """Sığdırma sekmesinde sonuç özeti: denetim sürüyor."""
         self._show_fit_result(_FIT_RESULT_CHECKING)
+
+    def mark_checking(self) -> None:
+        """Bulgular eskidi, tam denetim arka planda sürüyor: sayılar "Denetleniyor…" olur, düzeltme çubuğu gizlenir."""
+        self._plan_cache = None
+        self.summary.setText("Denetleniyor…")
+        self.fix_bar.hide()
 
     def show_check_failed(self, text: str) -> None:
         """Denetim çalışmadı: Sorunlar sekmesinde hata, Sığdırma sekmesinde "yenilenemedi" gösterilir."""
@@ -1099,6 +1110,7 @@ class QaPage(QWidget):
 
     def _issues_changed(self) -> None:
         """Bulgu listesi değişti: özet, tür listesi ve düzeltme sayıları yeniden hesaplanır."""
+        self._plan_cache = None  # bulgular ya da satır metinleri değişti: bildirim planı eskidi
         issues = self.model.issues
         errors = sum(1 for i in issues if i.severity == SEVERITY_ERROR)
         warnings = sum(1 for i in issues if i.severity == SEVERITY_WARNING)
@@ -1168,6 +1180,7 @@ class QaPage(QWidget):
         self.fix_button.clicked.connect(lambda: self._commit_pending(self._request_fix))
         row.addWidget(self.fix_button)
         self._fix_scope: list[QaIssue] = []
+        self._plan_cache = None
         self._update_fix_bar()
         return self.fix_bar
 
@@ -1198,24 +1211,74 @@ class QaPage(QWidget):
             return fixable, False
         return [i for i in fixable if i.kind not in RISKY_FIX_KINDS], False
 
+    def _scope_plan(self, scope: list[QaIssue]) -> FixPlan | None:
+        """Kapsamın gerçek düzeltme planı (Düzelt'in uygulayacağıyla aynı kural); hesaplanamazsa None.
+
+        Planlayıcı verilmemişse ya da kapsam çok genişse (her seçim değişiminde bekletmemek için) hesaplanmaz.
+        Plan, kapsamdaki satırların panodaki tüm bulgularından çıkarılır: Düzelt de aynı satırları aynı türlerle işler.
+        """
+        planner = self.fix_planner
+        row_ids = {i.row_id for i in scope}
+        if planner is None or len(row_ids) > _FIX_PLAN_ROWS:
+            return None
+        kinds = [k for k in FIX_KINDS if any(i.kind == k for i in scope)]
+        key = (tuple(kinds), tuple(sorted(row_ids)))
+        if self._plan_cache is not None and self._plan_cache[0] == key:
+            return self._plan_cache[1]
+        rows = [self.model.rows[r] for r in sorted(row_ids) if r in self.model.rows]
+        plan = planner(rows, [i for i in self.model.issues if i.row_id in row_ids], kinds)
+        self._plan_cache = (key, plan)
+        return plan
+
     def _update_fix_bar(self) -> None:
-        """Çubuğun yazısını, düğmesini ve görünürlüğünü tazeler; kapsam boşsa çubuk gizlenir."""
+        """Çubuğun yazısını, düğmesini ve görünürlüğünü tazeler; kapsam boşsa çubuk gizlenir.
+
+        Sayı, Düzelt'in gerçekten değiştireceği satır sayısıdır (aynı plandan); düzeltilemeyenler de söylenir.
+        """
         scope, from_selection = self._compute_scope()
         self._fix_scope = scope
         self.fix_bar.setVisible(bool(scope))
         if not scope:
             return
-        n = format_int(len(scope))
         tips = {i.kind for i in scope}
         explicit = from_selection or bool(self.kind_list.selected_kinds())
-        if from_selection:
-            self.fix_text.setText(f"Seçili {n} bulgu kendiliğinden düzeltilebilir.")
-        elif explicit:
-            self.fix_text.setText(f"Bu {n} bulgu kendiliğinden düzeltilebilir.")
+        plan = self._scope_plan(scope)
+        prefix = "Seçili " if from_selection else ""
+        can_fix = True
+        if (
+            plan is None and self.fix_planner is None
+        ):  # planlayıcı yok (sayfa tek başına): yalnızca bulgu sayısı bilinir
+            n = format_int(len(scope))
+            if from_selection:
+                self.fix_text.setText(f"Seçili {n} bulgu kendiliğinden düzeltilebilir.")
+            elif explicit:
+                self.fix_text.setText(f"Bu {n} bulgu kendiliğinden düzeltilebilir.")
+            else:
+                self.fix_text.setText(f"{n} bulgu güvenle düzeltilebilir.")
+            self.fix_button.setText(f"{prefix}{n} bulguyu düzelt")
+        elif plan is None:
+            n = format_int(len(scope))
+            self.fix_text.setText(
+                f"{prefix or 'Bu '}{n} bulgu için düzeltme denenecek; kaç satırın düzeldiği sonuçta yazılır."
+            )
+            self.fix_button.setText(f"{prefix}{n} bulguyu düzelt")
+        elif not plan.changes:
+            can_fix = False
+            self.fix_text.setText(f"{prefix or 'Bu '}bulgular kendiliğinden düzeltilemiyor; elle bakın.")
         else:
-            self.fix_text.setText(f"{n} bulgu güvenle düzeltilebilir.")
-        self.fix_warning.setVisible(explicit and bool(tips & RISKY_FIX_KINDS))
-        self.fix_button.setText(f"{'Seçili ' if from_selection else ''}{n} bulguyu düzelt")
+            n = format_int(len(plan.changes))
+            if from_selection:
+                text = f"Seçili {n} satır kendiliğinden düzeltilebilir."
+            elif explicit:
+                text = f"Bu {n} satır kendiliğinden düzeltilebilir."
+            else:
+                text = f"{n} satır güvenle düzeltilebilir."
+            if plan.unfixed:
+                text += f" {format_int(plan.unfixed)} satır düzeltilemez; elle bakın."
+            self.fix_text.setText(text)
+            self.fix_button.setText(f"{prefix}{n} satırı düzelt")
+        self.fix_button.setVisible(can_fix)
+        self.fix_warning.setVisible(explicit and can_fix and bool(tips & RISKY_FIX_KINDS))
         self.fix_button.setToolTip(
             tip_html("\n\n".join(f"{KIND_LABELS[k]}: {FIX_TIPS[k]}" for k in FIX_KINDS if k in tips))
         )
