@@ -2046,7 +2046,11 @@ class MainWindow(QMainWindow):
             if task is not None:
                 release_thread(task)
             if "by_row" in result and self.project is project and self._qa_count is not None:
-                self._show_board_recheck(group, result["by_row"])
+                current = {r.id: r for r in self.translate_page.model.rows}
+                if all(current.get(r.id) is r for r in group):
+                    self._show_board_recheck(group, result["by_row"])
+                else:  # satırlar bu arada değişti (ör. Geri Al): bu sonuç eski, güncel satırlar yeniden denetlenir
+                    self._board_pending.update({r.id: current[r.id] for r in group if r.id in current})
             pending, self._board_pending = list(self._board_pending.values()), {}
             if pending:
                 self._recheck_board_later(pending)

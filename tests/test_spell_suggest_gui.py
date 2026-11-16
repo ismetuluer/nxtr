@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QSettings
+from PySide6.QtWidgets import QMessageBox
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.formats.base import TextEntry
@@ -25,6 +26,20 @@ from tests.perf import best_time
 
 pytestmark = pytest.mark.gui
 
+
+@pytest.fixture(autouse=True)
+def confirm_yes(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Toplu düzeltme onay penceresi: varsayılan "Evet"; sorulan metinler döndürülen listede."""
+    asked: list[str] = []
+
+    def question(_parent: object, _title: str, text: str, *_args: object) -> QMessageBox.StandardButton:
+        asked.append(text)
+        return QMessageBox.StandardButton.Yes
+
+    monkeypatch.setattr(QMessageBox, "question", question)
+    return asked
+
+
 WORDS = [
     "buradasın",
     "şapkadır",
@@ -38,6 +53,8 @@ WORDS = [
     "güzel",
     "burada",
     "neredesin",
+    "dün",
+    "geldi",
 ]
 
 
@@ -132,6 +149,17 @@ def test_fix_all_lists_only_single_letter_suggestions(win: SpellWindow, qtbot: Q
     with qtbot.waitSignal(win.fix_all_requested) as sig:
         win.fix_all_button.click()
     assert sig.args == [[("buradaşın", "buradasın"), ("şapkadir", "şapkadır")]]
+
+
+def test_fix_all_asks_first_and_does_nothing_when_declined(
+    win: SpellWindow, qtbot: QtBot, monkeypatch: pytest.MonkeyPatch, confirm_yes: list[str]
+) -> None:
+    win.fix_all_button.click()
+    assert "2 sözcük" in confirm_yes[0]
+    assert "buradaşın → buradasın" in confirm_yes[0]
+    monkeypatch.setattr(QMessageBox, "question", lambda *_a: QMessageBox.StandardButton.No)
+    with qtbot.assertNotEmitted(win.fix_all_requested):
+        win.fix_all_button.click()
 
 
 def test_fix_all_follows_the_search_filter_and_disables_when_empty(win: SpellWindow) -> None:
@@ -297,6 +325,44 @@ def test_last_jobs_for_some_rows_only(window: MainWindow) -> None:
     some = sorted(everything)[:2]
     assert window.project.last_jobs(some) == {k: everything[k] for k in some}
     assert window.project.last_jobs([]) == {}
+
+
+def _name_project() -> Project:
+    p = Project.new()
+    entries = (
+        TextEntry("a", 0, "Yesterday Hat came", ()),
+        TextEntry("b", 1, "Hat came", ()),
+        TextEntry("c", 2, "Hat", ()),
+    )
+    p.import_texts([ImportedFile("Menu.tsv", "0100", "unity", "base", entries)])
+    rows = {r.key: r for r in p.translation_rows()}
+    p.set_translations(
+        [(rows["a"].id, "Dün Şapkadir geldi"), (rows["b"].id, "şapkadir geldi"), (rows["c"].id, "Şapkadir")],
+        machine=True,
+    )
+    return p
+
+
+def test_proper_names_mid_sentence_get_no_suggestion_and_are_never_replaced(window: MainWindow) -> None:
+    window._replace_project(_name_project())
+    win = _open(window)
+    assert _column(win) == {"şapkadir": "şapkadır"}  # "Dün Şapkadir geldi" özel ad sayılır: listelenmez
+    win.fix_all_button.click()
+    after = _translations(window)
+    assert after["a"] == "Dün Şapkadir geldi"  # cümle ortasında büyük harfli: dokunulmadı
+    assert after["b"] == "şapkadır geldi"
+    assert after["c"] == "Şapkadır"  # cümle başındaki büyük harfli geçiş sıradan sözcük; harf büyüklüğü korunur
+
+
+def test_board_recheck_is_redone_when_rows_change_meanwhile(qtbot: QtBot, window: MainWindow) -> None:
+    window.run_checks()
+    page = window.qa_page
+    win = _open(window)
+    _select(win, "şapkadir")
+    win.replace_button.click()
+    window.undo_last()  # arka plan denetimi bitmeden satırlar eski hâline döndü
+    qtbot.waitUntil(lambda: window._board_task is None and not window._board_pending, timeout=30_000)
+    assert any(i.kind == "spelling" and "şapkadir" in i.words for i in page.model.issues)  # eski sonuç uygulanmadı
 
 
 # --- Hız ----------------------------------------------------------------------------------------------

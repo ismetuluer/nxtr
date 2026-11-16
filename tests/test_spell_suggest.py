@@ -104,9 +104,10 @@ def test_edit_distance_only_when_no_letter_candidate(spell: SpellChecker) -> Non
     assert result.words == ("kitap",)
     assert not result.letters
     assert not result.safe  # tek düzenleme toplu düzeltmeye girmez
-    assert suggest("kitp", spell, frozenset()) == ["kitap"]  # eksik harf
     assert suggest("kiatp", spell, frozenset()) == ["kitap"]  # yer değiştirmiş harf
-    assert suggest("kitaq", spell, frozenset()) == ["kitap"]  # değişmiş harf
+    # eksik ve değişmiş harf aranmaz: aday sayısı çok, süzgecin uydurma isabeti gerçeğinden çok olur
+    assert suggest("kitp", spell, frozenset()) == []
+    assert suggest("kitaq", spell, frozenset()) == []
 
 
 def test_letter_candidates_win_over_edit_distance(spell: SpellChecker) -> None:
@@ -117,9 +118,9 @@ def test_letter_candidates_win_over_edit_distance(spell: SpellChecker) -> None:
     assert not only_edit.letters
 
 
-def test_edit_distance_skipped_when_too_many_neighbours(spell: SpellChecker) -> None:
-    # "kalef", "kalen", "kaler", "kales", "kalem" hepsi sözlükte: "kalex"in beşi de tek düzenlemede komşusu
-    assert suggest("kalex", spell, frozenset()) == []
+def test_edit_distance_skipped_when_too_many_neighbours() -> None:
+    crowded = SpellChecker(_bloom(["acde", "abde", "abce", "abcd"]))
+    assert suggest("abcde", crowded, frozenset()) == []  # dört komşu: belirsiz ya da gürültü
 
 
 def test_edit_distance_keeps_first_letter_and_needs_four_letters(spell: SpellChecker) -> None:
@@ -161,6 +162,5 @@ def test_long_edit_candidate_needs_a_known_root(spell: SpellChecker) -> None:
     assert suggest("pirinçlerr", lone, frozenset()) == []  # uzun aday, kökü yok: uydurma isabet olabilir
 
 
-def test_doubled_letter_wins_over_noisy_substitutions(spell: SpellChecker) -> None:
-    # "kalemm": silinince "kalem"; ama "kalen/kaler/kales/kalef" da bir değişim uzaklığında (ikinci basamak)
+def test_doubled_letter_is_suggested(spell: SpellChecker) -> None:
     assert suggest("kalemm", spell, frozenset()) == ["kalem"]

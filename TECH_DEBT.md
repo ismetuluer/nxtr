@@ -422,11 +422,13 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 77. ~~Yazım denetimi düzeltme önerisi vermez (0.43.0).~~ — **Kapandı:** öneriyi uygulamanın kendisi üretir
     (`core/spell/suggest.py`, çevrimdışı, yapay zekâ yok): sözcükten aday yazımlar üretilip her biri Bloom süzgecine
     (yanlış olumlu oranı %0,1; ölçümde rastgele dizilerde %0,07) sorulur. Önce Türkçe harf değişimi (ı↔i, ş↔s, ğ↔g,
-    ü↔u, ö↔o, ç↔c; en çok 3 harf, en çok 12 değişebilir konum: aday sayısı ≤ 298), yalnızca o boşsa tek düzenleme
-    (ilk harf korunur, ≥ 4 harf, en çok 2 isabet, 6 harften uzun adayın kökü de sözlükte). Aday başına %0,1 risk:
+    ü↔u, ö↔o, ç↔c; en çok 3 harf, en çok 12 değişebilir konum: aday sayısı ≤ 298), yalnızca o boşsa fazla ya da yer
+    değiştirmiş tek harf (≈ 2·uzunluk aday; ilk harf korunur, ≥ 4 harf, en çok 2 isabet). Eksik ve değişmiş harf
+    ARANMAZ: ≈ 58·uzunluk aday, gerçek projede beklenen uydurma isabet gerçek isabetten çoktu. Aday başına %0,1 risk:
     toplu düzeltmeye yalnızca harf değişimiyle tek isabet girer ve ya aday sayısı ≤ 7 (risk ≤ %0,7) ya da kök
-    doğrulanmıştır; tek düzenleme toplu düzeltmeye hiç girmez. Sınırlar: sözlükte olmayan ama doğru sözcüğün (özel ad,
-    yeni imla) sözlükteki yakın bir akrabaya çevrilmesi önerilebilir ("öğeyi" → "ögeyi"); bu Bloom gürültüsü değil
-    sözlük kapsamıdır, bu yüzden toplu düzeltme listesi önce Öneri sütunundan gözden geçirilir ve Geri Al ile döner.
-    Yer değiştirme/ünlü uyumu ya da sözcük sıklığı bilinmediği için önerilerin sırası olasılığa değil değişen harf
-    sayısına dayanır.
+    doğrulanmıştır; tek düzenleme toplu düzeltmeye hiç girmez; toplu düzeltme onay ister. Sınırlar: sözlükte olmayan
+    ama doğru sözcüğün (özel ad, sözlükte olmayan ek zinciri) sözlükteki yakın bir akrabaya çevrilmesi önerilebilir
+    ("öğeyi" → "ögeyi", "güldene" → "guldene"); bu Bloom gürültüsü değil sözlük kapsamıdır, bu yüzden toplu
+    düzeltme önce Öneri sütunundan gözden geçirilir ve Geri Al ile döner. Önerilerin sırası olasılığa değil değişen
+    harf sayısına dayanır (sözcük sıklığı bilinmiyor). *Olası iyileştirme:* Türkçe harf silen önerileri toplu
+    düzeltmeden çıkarmak (gerçek projede güvenli sınıfın 109/257'si).

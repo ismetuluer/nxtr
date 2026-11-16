@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -36,6 +37,7 @@ _WORD_COLUMN = 0
 _COUNT_COLUMN = 1
 _SUGGEST_COLUMN = 2
 _FIX_ALL_TEXT = "Tek önerisi olanları düzelt"
+_CONFIRM_LISTED = 12
 
 
 class SpellWindow(QDialog):
@@ -123,7 +125,7 @@ class SpellWindow(QDialog):
             "Öneri sütununda tek harf değişimi önerisi olan sözcükleri (aramada görünenler) tek işte düzeltir; "
             "Geri Al ile döner."
         )
-        self.fix_all_button.clicked.connect(lambda: self.fix_all_requested.emit(self.fix_all_pairs()))
+        self.fix_all_button.clicked.connect(self._fix_all)
         actions.addWidget(self.fix_all_button)
         lay.addLayout(actions)
 
@@ -211,6 +213,23 @@ class SpellWindow(QDialog):
             if found is not None and found.safe:
                 pairs.append((item.text(), found.words[0]))
         return pairs
+
+    def _fix_all(self) -> None:
+        """Onaydan sonra istek bildirir: öneriler sözlük kapsamına dayanır, yanlış olanlar önce yoksayılabilsin."""
+        pairs = self.fix_all_pairs()
+        if not pairs:
+            return
+        listed = "\n".join(f"{old} → {new}" for old, new in pairs[:_CONFIRM_LISTED])
+        if len(pairs) > _CONFIRM_LISTED:
+            listed += f"\n… ve {format_int(len(pairs) - _CONFIRM_LISTED)} sözcük daha"
+        answer = QMessageBox.question(
+            self,
+            _FIX_ALL_TEXT,
+            f"{format_int(len(pairs))} sözcük önerilen yazımla değiştirilecek:\n\n{listed}\n\n"
+            "Yanlış önerileri önce Yoksay ile ayırabilirsiniz. Geri Al hepsini geri alır. Devam edilsin mi?",
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            self.fix_all_requested.emit(pairs)
 
     def selected_words(self) -> list[str]:
         rows = sorted({i.row() for i in self.table.selectedItems()})

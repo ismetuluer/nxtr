@@ -6,14 +6,15 @@ bu soruyla süzerek bulunur. İki sınıf vardır, **ilki önceliklidir**:
 - **Harf değişimi (a):** ı↔i, ş↔s, ğ↔g, ü↔u, ö↔o, ç↔c, iki yönde, en çok `MAX_SWAPS` konumda birden. Türkçe yazım
   hatalarının büyük çoğunluğu budur (yanlış klavye, ASCII'ye çevrilmiş metin). En çok `MAX_SPOTS` değişebilir harfi
   olan sözcüğe bakılır; aday sayısı en çok C(12,1)+C(12,2)+C(12,3) = 298'dir.
-- **Tek düzenleme (b):** yalnızca (a) boşken; eksik, fazla, yer değiştirmiş ya da değişmiş tek harf (Türkçe alfabe).
+- **Tek düzenleme (b):** yalnızca (a) boşken; fazla harf (çift basılmış) ya da yer değiştirmiş iki harf. Eksik ve
+  değişmiş harf ARANMAZ: aday sayısı ≈ 58·uzunluk olduğundan süzgecin uydurma isabeti gerçek isabetten çoktur.
 
 Süzgecin yanlış olumlu oranı %0,1'dir: sözlükte olmayan bir yazım kabaca her bin adayda bir "var" çıkar. Bu yüzden
-(a)'da aday sayısı küçük tutulur; (b) iki basamaklıdır: önce fazla ya da yer değiştirmiş harf (≈ 2·uzunluk aday), o
-boşsa değişmiş ya da eksik harf (≈ 58·uzunluk aday). (b)'de ek güven ölçütleri vardır: ilk harf korunur, dört ünsüz
-yığını ve ünlüsüz aday atılır, en az dört harf aranır, ikiden çok isabet varsa hiç önerilmez, altı harften uzun
-adayın kökü de sözlükte olmalıdır. Toplu düzeltmeye yalnızca "güvenli" öneri girer (`Suggestion.safe`): harf
-değişimiyle tek isabet ve ya aday sayısı çok az ya da önerinin kökü de sözlükte; tek düzenleme hiç girmez.
+(a)'da aday sayısı küçük tutulur (en çok 298). (b) ≈ 2·uzunluk adaydır (uydurma isabet ≈ %2) ve ek güven ölçütleri
+taşır: ilk harf korunur, dört ünsüz yığını ve ünlüsüz aday atılır, en az dört harf aranır, ikiden çok isabet varsa
+hiç önerilmez, altı harften uzun adayın kökü de sözlükte olmalıdır. Toplu düzeltmeye yalnızca "güvenli" öneri girer
+(`Suggestion.safe`): harf değişimiyle tek isabet ve ya aday sayısı çok az ya da önerinin kökü de sözlükte; tek
+düzenleme hiç girmez.
 """
 
 from __future__ import annotations
@@ -54,7 +55,6 @@ _PAIRS = {
     "c": "ç",
     "ç": "c",
 }
-_ALPHABET = "abcçdefgğhıijklmnoöprsştuüvyz"
 _VOWELS = frozenset("aeıioöuü")
 
 
@@ -109,31 +109,19 @@ def _plausible(word: str) -> bool:
     return True
 
 
-def _edit_tiers(low: str) -> tuple[list[str], list[str]]:
-    """Tek düzenleme adayları (ilk harf korunur), iki basamakta: (fazla, yer değiştirmiş), (değişmiş, eksik harf).
+def _edit_variants(low: str) -> list[str]:
+    """Tek düzenleme adayları (ilk harf korunur): fazla harf, yer değiştirmiş iki harf; tekrarsız, ses düzenine uygun.
 
-    İlk basamak küçüktür (≈ 2·uzunluk aday): çift basılmış ve ters yazılmış harf en yaygın hatadır ve uydurma isabet
-    riski düşüktür. İkinci basamak büyüktür (≈ 58·uzunluk), yalnızca ilki boşsa bakılır. Tekrarsız, ses dizilimine uyan.
+    Değişmiş/eksik harf adayları (≈ 58·uzunluk) üretilmez: ölçümde uydurma isabetleri gerçeklerinden çoktu.
     """
     size = len(low)
-    first: dict[str, None] = {}
+    out: dict[str, None] = {}
     for i in range(1, size):  # fazla harf
-        first[low[:i] + low[i + 1 :]] = None
+        out[low[:i] + low[i + 1 :]] = None
     for i in range(1, size - 1):  # yer değiştirmiş iki harf
-        first[low[:i] + low[i + 1] + low[i] + low[i + 2 :]] = None
-    second: dict[str, None] = {}
-    for i in range(1, size):  # değişmiş harf
-        for c in _ALPHABET:
-            if c != low[i]:
-                second[low[:i] + c + low[i + 1 :]] = None
-    for i in range(1, size + 1):  # eksik harf
-        for c in _ALPHABET:
-            second[low[:i] + c + low[i:]] = None
-    drop = {low}
-    return (
-        [w for w in first if w not in drop and _plausible(w)],
-        [w for w in second if w not in drop and w not in first and _plausible(w)],
-    )
+        out[low[:i] + low[i + 1] + low[i] + low[i + 2 :]] = None
+    out.pop(low, None)
+    return [w for w in out if _plausible(w)]
 
 
 def _rooted(word: str, spell: SpellChecker, extra: Collection[str]) -> bool:
@@ -171,15 +159,12 @@ def suggestions(
         return Suggestion(tuple(_cased(word, c) for c in found[:MAX_SUGGESTIONS]), True, len(letters), rooted)
     if not edits or len(low) < MIN_EDIT_LENGTH:
         return Suggestion(tried=len(letters))
-    tried = len(letters)
-    for tier in _edit_tiers(low):
-        tried += len(tier)
-        found = [c for c in tier if spell.is_known(c, extra) and _rooted(c, spell, extra)]
-        if found:
-            if len(found) > MAX_EDIT_HITS:
-                break  # çok isabet: belirsizlik ya da süzgeç gürültüsü; ikinci basamağa geçilmez
-            return Suggestion(tuple(_cased(word, c) for c in found), False, tried)
-    return Suggestion(tried=tried)
+    variants = _edit_variants(low)
+    found = [c for c in variants if spell.is_known(c, extra) and _rooted(c, spell, extra)]
+    tried = len(letters) + len(variants)
+    if not found or len(found) > MAX_EDIT_HITS:
+        return Suggestion(tried=tried)
+    return Suggestion(tuple(_cased(word, c) for c in found), False, tried)
 
 
 def suggest(word: str, spell: SpellChecker, extra: Collection[str] = frozenset()) -> list[str]:
