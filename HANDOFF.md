@@ -1,6 +1,13 @@
-# HANDOFF — oturum devri (2026-11-16, 0.60.0)
+# HANDOFF — oturum devri (2026-11-16, 0.61.0)
 
 ## Durum
+- **Sürüm 0.61.0** (2026-11-16; CHANGELOG 0.61.0): Yinele (`core/project/store.py` `_redo`, `redo`, `redo_job`,
+  ortak `_apply_step`; `main_window.redo_last`; yeni yazım `_push_undo` içinde yinele yığınını boşaltır; geçmişe işin
+  kendi adıyla yazılır). Kod ekleme kısayolları (`gui/editor_pane.py` `insert_code`, `bind_code_keys`,
+  `EditorPane.insert_code_for_row`; `translate_page._table_code_key`; kısayollar `WidgetShortcut` bağlamlı,
+  düzenleyici kapanınca kayıttan düşer). Sayfa geçişi Alt+1…5. Tam test seti 2647 geçti. Gerçek pencerede ve
+  gerçek Türkçe klavyede denenmedi. Bilinen: `QTest.keyClicks` ile ASCII dışı harf yazan test Windows'ta süreci
+  çökertebiliyor; geri alma çeviri belleğine dokunmaz (geri alınan çeviri bellekte kalır).
 - **Sürüm 0.60.0** (2026-11-16; CHANGELOG 0.60.0): ad temizliği (belgeler, arayüz, kod, testler, eski sürüm notları);
   biçim kimlikleri `wadlin`, `fsdmsg`, `pakyc`, `nnitext`, `psbtext`; motor anahtarları `psb`, `nni`, `cpk`, `wad`,
   `lms`, `gfmsg`; eski değerler `core/formats/legacy.py` ile okuma anında çözülür (`core/project/store.py` sınırında),

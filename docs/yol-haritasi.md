@@ -100,6 +100,12 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 Görsel denetim listesi ve 0.57.2 sonrası geri bildirim kapandı. Sıradaki iş, yukarıdaki "Sonraki yapılacaklar"
 listesinden ürün sahibinin seçimiyle belirlenir.
 
+**Yapıldı (0.61.0)**
+- Yinele (`Project.redo`, `edit.redo`, Ctrl+Y); geri al zaten vardı, borç kaydı eskimişti (TECH_DEBT 18 kapandı).
+- Kontrol kodunu klavyeden ekleme (`edit.code1`…`edit.code9`, Ctrl+1…9; `editor_pane.insert_code`,
+  `bind_code_keys`); sayfa geçişi Alt+1…5. Ürün sahibinin isteği ve tuş kararı (2026-11-16).
+- Gerçek pencerede ve gerçek Türkçe klavyede (AltGr) denenmedi.
+
 **Yapıldı (0.60.0)**
 - Ad temizliği (ürün sahibinin kararı, yasal gerekçe): depoda oyun ve firma adı geçmez; motor ve biçim adı geçer.
   "Switch" sözcüğü kalır. Git geçmişine dokunulmadı. Eski kalıcı değerler yalnızca `core/formats/legacy.py`

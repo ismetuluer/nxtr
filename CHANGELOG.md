@@ -2,6 +2,23 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.61.0] — 2026-11-16 — Yinele, kontrol kodlarını klavyeden ekleme
+
+### Eklendi
+- **Yinele (Ctrl+Y):** Düzen menüsünde Geri Al'ın altında. Geri alınan son işlemi metni, durumu ve açıklamasıyla
+  aynen geri getirir; çok partili makine çevirisi gibi toplu işler tek adımda döner. Yeni bir düzenleme yinele
+  listesini boşaltır. Liste oturumluktur: uygulama kapanınca ya da yeniden taramada sıfırlanır.
+- **Kontrol kodunu klavyeden ekleme (Ctrl+1 … Ctrl+9):** satırın o numaralı kodunu imlecin olduğu yere ekler;
+  seçili metin varsa onun yerine geçer. Düzenleme panelinin çeviri kutusunda ve hücre yerinde düzenlenirken
+  çalışır. Tabloda tek satır seçiliyken (düzenleme kapalı) panele odaklanıp kodu oraya ekler; panel gizliyse,
+  çoklu seçimde ve grup başlığında hiçbir şey eklemez. Satırda o numaralı kod yoksa metin değişmez, durum
+  çubuğunda bildirilir. Kod düğmelerinin ipucu kısayolu gösterir. Tuşlar Ayarlar'dan değiştirilebilir
+  ("Kod 1 Ekle" … "Kod 9 Ekle").
+
+### Değişti
+- **Sayfa geçişi kısayolları Alt+1 … Alt+5 oldu** (önceden Ctrl+1 … Ctrl+5). Ayarlar'da kendi atadığınız tuşlar
+  korunur; başka bir komuta elle Ctrl+1…9 atadıysanız Ayarlar çakışmayı gösterir.
+
 ## [0.60.0] — 2026-11-16 — Adlar biçim adlarına geçti; ek çeviri verisi paketten çıktı
 
 ### Değişti

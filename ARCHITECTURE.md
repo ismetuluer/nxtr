@@ -1032,6 +1032,20 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
 211. **Anahtar adı:** bağlamın son parçası yalnızca koleksiyonlu biçimlerde anahtar adıdır (`key_names`,
     `in_collection`); sığdırma kuralları ve makine çevirisi kapsamı aynı işlevi kullanır.
 
+### 4.54 0.61.0 kararları (yinele, kod kısayolları)
+
+212. **Yinele:** geri alma bir adımı yazarken satırların o andaki tam hâlini (metin, durum, açıklama) yinele
+    yığınına koyar; yinele bunu tek işlemde geri yazar ve adımı birleştirmeden geri al yığınına döndürür (toplu iş
+    iki yönde de tek adımdır). Kullanıcıdan gelen her yeni yazım ve yeniden tarama yinele yığınını boşaltır; hiçbir
+    satırı değiştirmeyen yazım boşaltmaz. Yinele geçmişe işin kendi adıyla yazılır: "Son işte değişenler" ve
+    "Önceki Çeviri" işin ilk yapıldığı hâle döner. Yığınlar oturumluktur; şema değişmedi.
+213. **Kod kısayolları:** dokuz katalog komutu (`edit.code1`…`edit.code9`) menüde yer almaz; her düzenleyiciye ve
+    tabloya `WidgetShortcut` bağlamlı kısayol olarak bağlanır, bu yüzden odak başka yerdeyken tuş yutulmaz ve aynı
+    tuş iki kez işlenmez. Ctrl+Alt (AltGr) tam değiştirici eşleşmesi gerektiği için kısayolla eşleşmez. Tablodan
+    ekleme, paneli önce geçerli satıra eşler ve yalnızca panelin gösterdiği satıra yazar.
+214. **Sayfa geçişi Alt+1…5:** Ctrl+rakam kod eklemeye ayrıldı (ürün sahibinin kararı). Varsayılana eşit tuş
+    ayarlarda saklanmadığı için göç gerekmedi; kullanıcının kendi atamaları korunur.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.
