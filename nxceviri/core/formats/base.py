@@ -11,7 +11,7 @@ Her metin formatı `FormatPlugin`'i uygular:
 İsteğe bağlı yardımcılar:
 
 - `collect_context(data, path)`: başka dosyalarda duran ek bilgiyi (ör. Unity'de anahtar adları,
-  Game Freak'te yan dosyadaki etiket adları)
+  GFMSG'de yan dosyadaki etiket adları)
   toplar; aktarma sırasında tüm adaylardan toplanıp `extract`'e verilir.
 - `language(data)`: dosyanın dili biliniyorsa dil kodu ("en", "ja"…). Aynı metnin birden çok
   dildeki kopyası varsa yalnızca kaynak dildeki dosya aktarılır.

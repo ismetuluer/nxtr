@@ -1,4 +1,4 @@
-"""Devil May Cry yazı dokusu üretici (`etc_e/msg_tex.t32`)."""
+"""`.fsd`/`.msg` yazı dokusu üretici (`etc_e/msg_tex.t32`)."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Devil May Cry (Switch) oyun resimlerindeki İngilizce yazıları Türkçeleştirme (eşya, silah, düşman adları …).
+"""`.fsd`/`.msg` biçimli oyunun resimlerindeki İngilizce yazıları Türkçeleştirme (eşya, silah, düşman adları …).
 
 Bu yazılar metin değil, dokulara çizilmiş resimlerdir ve `status/`, `etc/`, `pack_e/` … altındaki birçok farklı
 kapsayıcıda (`.itm`, `.dat`, `.tm2`, `.t32`, `.pack`) durur. Kapsayıcıların yapısına dokunmamak için her dosyadaki DDS

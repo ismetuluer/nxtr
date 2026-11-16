@@ -1,4 +1,4 @@
-"""Yacht Club "YCD" paketleri (Mina the Hollower `.yc`) — yalnızca okuma.
+""" "YCD" paketleri (`.yc`) — yalnızca okuma.
 
 Yapı (ayrıntılar: docs/formats/pak-yc.md):
 
@@ -114,7 +114,7 @@ def _candidates(data: bytes) -> list[int]:
 def read_tables(data: bytes) -> list[Table]:
     """Dosyadaki dil tablolarını (başlık + satırlar) dosyadaki sırayla döndürür."""
     if not is_ycd(data[:4]):
-        raise FormatError("Bu bir Yacht Club YCD dosyası değil.", "Mina the Hollower'ın .yc dosyalarını seçin.")
+        raise FormatError("Bu bir YCD dosyası değil.", "Oyunun .yc dosyalarını seçin.")
     if b"\0English\0" not in data:
         return []
     candidates = _candidates(data)

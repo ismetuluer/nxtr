@@ -1,6 +1,6 @@
-"""Ys Origin metin eklentisi: harita betikleri (`.XSO`) ve arayüz dizgeleri (`loc/strings/*.xml`).
+"""NNI metin eklentisi: harita betikleri (`.XSO`) ve arayüz dizgeleri (`loc/strings/*.xml`).
 
-**XSO** (Falcom betik derlemesi, `data-<dil>.ni` arşivlerinin `LOC/<DİL>/` klasöründe):
+**XSO** (derlenmiş betik, `data-<dil>.ni` arşivlerinin `LOC/<DİL>/` klasöründe):
 - Başlık 0x24: `XSR\\0` | … | 0x1C: kod uzunluğu (u32 sayısı) | 0x20: dizge sayısı.
 - 0x24'ten itibaren kod, ardından dizge sayısı × u32 ofset tablosu, ardından sıfırla biten UTF-8
   dizgeler. Kod dizgelere sıra numarasıyla başvurur; bu yüzden dizgeler serbestçe uzayıp kısalabilir.
@@ -39,8 +39,8 @@ _CODE_RE = re.compile(r"<[a-z]+:[^<>\n]*>|%[-+0-9.]*[sdf]")
 _IDENTIFIER = re.compile(r"[@$]?[A-Za-z0-9_\\]*")
 _SENTENCE_END = re.compile(r"[.!?…]$")
 _NEWLINE = "\\n"
-#: Japonca betik kopyalarının bağlam anahtarı öneki (bağlam: ("ys-ja", "DATA/MAP/…/X.XSO") → dizgeler).
-_REFERENCE = "ys-ja"
+#: Japonca betik kopyalarının bağlam anahtarı öneki (bağlam: ("nni-ja", "DATA/MAP/…/X.XSO") → dizgeler).
+_REFERENCE = "nni-ja"
 _REFERENCE_LANGUAGE = "JP"
 _LOC_PATH = re.compile(r"(?:^|>)LOC/([A-Z]{2})/([^>]+)$", re.IGNORECASE)
 
@@ -239,7 +239,7 @@ def _inject_xml(data: bytes, translations: Mapping[str, str]) -> bytes:
 
 class NniTextPlugin:
     name = "nnitext"
-    label = "Ys Origin betik ve arayüz metinleri"
+    label = "NNI betik ve arayüz metinleri (XSO/XML)"
     candidates_only = True
     path_suffixes: tuple[str, ...] = (".xso", ".xml")
     #: Oyunun Latin BMFont yazı tiplerinde (`extension/font/*.fnt`) ç ö ü var, ğ ş ı İ Ğ Ş yok; dışa aktarma bu harfleri

@@ -1,4 +1,4 @@
-"""PSB (M2 / E-mote "PSB") okuma ve dizge tablosunu yerinde yeniden yazma.
+"""PSB okuma ve dizge tablosunu yerinde yeniden yazma.
 
 Başlık: "PSB\\0" | sürüm u16 | şifreleme u16 | başlık boyu u32 | adlar | dizge ofsetleri |
 dizge verisi | parça ofsetleri | parça boyları | parça verisi | kök değer (hepsi u32 ofset).

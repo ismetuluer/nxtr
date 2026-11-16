@@ -1,4 +1,4 @@
-"""Devil May Cry menü başlığı dokuları: okuma (BC7 / BGRA), Türkçe başlık çizimi ve geri yazma."""
+"""`.fsd`/`.msg` menü başlığı dokuları: okuma (BC7 / BGRA), Türkçe başlık çizimi ve geri yazma."""
 
 from __future__ import annotations
 

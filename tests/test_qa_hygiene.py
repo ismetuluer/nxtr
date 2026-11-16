@@ -125,19 +125,19 @@ def test_missing_markup_check_is_warning_without_autofix() -> None:
 
 
 def test_protected_expression_missing() -> None:
-    row = _row("Use Barrel_Cannon and DK_Coin now.", "Şimdi Varil Topu ve DK_Coin kullan.")
+    row = _row("Use Fire_Cannon and Gold_Coin now.", "Şimdi Ateş Topu ve Gold_Coin kullan.")
     found = [i for i in run_checks([row], "", "") if i.kind == "protected"]
     assert len(found) == 1
     assert found[0].severity == SEVERITY_WARNING
-    assert "Barrel_Cannon" in found[0].message
-    assert "DK_Coin" not in found[0].message
+    assert "Fire_Cannon" in found[0].message
+    assert "Gold_Coin" not in found[0].message
     assert "protected" not in FIX_KINDS
-    kept = _row("Use Barrel_Cannon now.", "Şimdi Barrel_Cannon kullan.")
+    kept = _row("Use Fire_Cannon now.", "Şimdi Fire_Cannon kullan.")
     assert "protected" not in _kinds(kept)
 
 
 def test_protected_does_not_double_report_with_identifier() -> None:
-    row = _row("Barrel_Cannon", "Varil Topu")
+    row = _row("Fire_Cannon", "Ateş Topu")
     kinds = _kinds(row)
     assert "identifier" in kinds
     assert "protected" not in kinds

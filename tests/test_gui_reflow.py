@@ -40,7 +40,7 @@ def _project() -> Project:
                     TextEntry("a1", 0, LONG, (), context="Dialogue/a1"),
                     TextEntry("a2", 1, "short talk here", (), context="Dialogue/a2"),
                     TextEntry("m1", 2, "Start the game now please", (), context="Menu/m1"),
-                    TextEntry("m2", 3, "Quit", (), context="Menu/m2"),
+                    TextEntry("m9", 3, "Quit", (), context="Menu/m9"),
                     TextEntry("c1", 4, "Left⟦1⟧Right text here", (BREAK,), context="Code/c1"),
                 ),
             )
@@ -52,7 +52,7 @@ def _project() -> Project:
             (rows["a1"].id, "bir iki üç dört beş altı\nyedi sekiz dokuz on onbir on iki on üç"),
             (rows["a2"].id, "kısa konuşma burada"),
             (rows["m1"].id, "oyunu şimdi\nbaşlat lütfen"),
-            (rows["m2"].id, "Çık"),
+            (rows["m9"].id, "Çık"),
             (rows["c1"].id, "Sol taraf bu metin⟦1⟧Sağ"),
         ],
         machine=True,

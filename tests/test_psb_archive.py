@@ -1,4 +1,4 @@
-"""M2 arşivleri: PSB okuma/dizge yeniden yazma, mdf, anahtar bulma, `.psb.m` + `.bin`, NSO."""
+"""PSB arşivleri: PSB okuma/dizge yeniden yazma, mdf, anahtar bulma, `.psb.m` + `.bin`, NSO."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ KEY = b"TestAnahtar01"  # testlere özgü uydurma anahtar; hiçbir oyuna ait de�
 
 TREE: dict[str, PsbValue] = {
     "data": [
-        {"pageNo": 1, "pageTitle": "TOP", "text": "<b>Briefing</b><br>Snake"},
+        {"pageNo": 1, "pageTitle": "TOP", "text": "<b>Briefing</b><br>Raven"},
         {"pageNo": 2, "pageTitle": "Section 1", "text": "Çok uzun bir Türkçe metin: ğüşıöç İ"},
     ],
     "flags": [True, False, None],
@@ -53,7 +53,7 @@ def test_psb_unchanged_round_trip_is_identical(version: int) -> None:
 def test_psb_replace_strings_keeps_everything_else(version: int) -> None:
     data = build_psb(TREE, [b"\xaa" * 300], version, chunk_align=0x80)
     doc = psb.Psb(data)
-    i = doc.strings.index("<b>Briefing</b><br>Snake")
+    i = doc.strings.index("<b>Briefing</b><br>Raven")
     new_text = "<b>Brifing</b><br>Yılan " + "ğ" * 400  # dizge tablosunu büyütür, ofset genişliğini değiştirir
     out = psb.replace_strings(data, {i: new_text})
     again = psb.Psb(out)
@@ -69,7 +69,7 @@ def test_psb_replace_strings_keeps_everything_else(version: int) -> None:
     assert out[header_end:o_strings] == data[header_end:o_strings]  # adlar ve kök ağaç aynen kalır
     if version >= 3:
         assert struct.unpack_from("<I", out, 0x28)[0] == psb.checksum(out)
-    back = psb.replace_strings(out, {i: "<b>Briefing</b><br>Snake"})
+    back = psb.replace_strings(out, {i: "<b>Briefing</b><br>Raven"})
     assert psb.Psb(back).root() == TREE
 
 
@@ -147,7 +147,7 @@ def test_find_key_from_game_code() -> None:
 
 
 def test_psb_archive_reads_members() -> None:
-    text_psb = build_psb({"data": ["Merhaba", "Snake"]})
+    text_psb = build_psb({"data": ["Merhaba", "Raven"]})
     members = {
         "087/config/title_menu_string.psb.m": text_psb,
         "system/roms/disc.BIN": b"\x00\xff" * 3000,
@@ -161,7 +161,7 @@ def test_psb_archive_reads_members() -> None:
         assert arc.read(path) == content
     assert arc.open("system/roms/disc.BIN").read_all() == members["system/roms/disc.BIN"]
     assert psb_archive.is_mdf(arc.open("system/font/a.ttf.m").read(0, 4))
-    assert psb.Psb(arc.read("087/config/title_menu_string.psb.m")).root() == {"data": ["Merhaba", "Snake"]}
+    assert psb.Psb(arc.read("087/config/title_menu_string.psb.m")).root() == {"data": ["Merhaba", "Raven"]}
     assert psb_archive.PsbArchive.data_name("dlc/dlc_usa.psb.m") == "dlc/dlc_usa.bin"
     with pytest.raises(ArchiveError, match="bulunamadı"):
         arc.read("yok.psb.m")

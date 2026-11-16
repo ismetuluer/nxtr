@@ -5,7 +5,7 @@ sıkıştırılmış mı) | üç bölüm başlığı (0x10'dan, 16'şar bayt: do
 açık boyut, hizalama/bss) | ... | sıkıştırılmış boyutlar (0x60'tan, 3 × u32).
 
 Uygulama kodu yalnızca okur; amacı oyunun kendi kodunda geçen dizgelere bakmaktır
-(ör. M2 arşivlerinin oyuna özgü anahtarı). Kod çalıştırılmaz, değiştirilmez.
+(ör. PSB arşivlerinin oyuna özgü anahtarı). Kod çalıştırılmaz, değiştirilmez.
 """
 
 from __future__ import annotations

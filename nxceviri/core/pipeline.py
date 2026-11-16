@@ -132,9 +132,9 @@ class TextExtraction:
 
 #: Unity Localization'ın varsayılan adlandırması: "...-english(en)_assets_all.bundle".
 _LANG_IN_NAME = re.compile(r"\(([a-z]{2,3}(?:-[a-z]{2,4})?)\)", re.IGNORECASE)
-#: Nintendo'nun bölge+dil klasörleri: "USen", "EUfr", "JPja", "CNzh"…
+#: Bölge+dil klasörleri: "USen", "EUfr", "JPja", "CNzh"…
 _REGION_LANG_DIR = re.compile(r"^(US|EU|JP|KR|CN|TW|AU)(en|fr|de|es|it|nl|pt|ru|ja|ko|zh)$")
-#: Game Freak: "bin/message/English/common/…" (klasör adı dilin İngilizce adı).
+#: GFMSG: "bin/message/English/common/…" (klasör adı dilin İngilizce adı).
 _NAMED_LANG_DIRS = {
     "english": "en",
     "french": "fr",
@@ -149,8 +149,8 @@ _NAMED_LANG_DIRS = {
 }
 #: Unreal: ".../Localization/<hedef>/<dil>/<hedef>.locres"
 _UNREAL_LANG_DIR = re.compile(r"(?:^|/)Localization/[^/>]+/([A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,4})?)/[^/>]+$")
-#: Oyuna özgü dil işaretleri: Ys Origin arşiv üyeleri "LOC/EN/…" ve arayüz dosyaları
-#: "loc/strings/english.xml"; Unicorn Overlord dil arşivleri "Unicorn_US.CPK>…".
+#: Biçime özgü dil işaretleri: NNI arşiv üyeleri "LOC/EN/…" ve arayüz dosyaları
+#: "loc/strings/english.xml"; CPK dil arşivleri "<ad>_US.CPK>…".
 _NNI_LOC_DIR = re.compile(r">LOC/([A-Z]{2})/", re.IGNORECASE)
 _NNI_LOC_CODES = {"en": "en", "fr": "fr", "de": "de", "ge": "de", "it": "it", "es": "es", "sp": "es", "jp": "ja"}
 _NNI_STRINGS_FILE = re.compile(r"(?:^|/)loc/strings/([a-z-]+)\.xml$", re.IGNORECASE)
@@ -165,14 +165,14 @@ _NNI_STRINGS_CODES = {
     "chinese-ch": "zh-hans",
     "chinese-tw": "zh-hant",
 }
-#: Altyazı dosyaları: `yso_pro_en.srt` (Ys Origin: de, en, fr, it, sp, ko, zh-hans, zh-hant).
+#: Altyazı dosyaları: `yso_pro_en.srt` (NNI biçimli oyun: de, en, fr, it, sp, ko, zh-hans, zh-hant).
 _SRT_LANG = re.compile(r"_([a-z]{2}(?:-[a-z]{4})?)\.srt$", re.IGNORECASE)
 _SRT_LANG_CODES = {"sp": "es"}
 _CPK_LANG_SUFFIX = re.compile(r"_(US|DE|ES|FR|IT|JP)\.cpk>", re.IGNORECASE)
 _CPK_LANG_CODES = {"us": "en", "de": "de", "es": "es", "fr": "fr", "it": "it", "jp": "ja"}
-#: Danganronpa: "dr1_data.wad>Dr1/data/us/script/…" (`ch` klasörü geleneksel Çincedir).
-_DR_LANG_DIR = re.compile(r">Dr\d+/data/(us|jp|ch)/", re.IGNORECASE)
-_DR_LANG_CODES = {"us": "en", "jp": "ja", "ch": "zh-hant"}
+#: WAD: "dr1_data.wad>Dr1/data/us/script/…" (`ch` klasörü geleneksel Çincedir).
+_WAD_LANG_DIR = re.compile(r">Dr\d+/data/(us|jp|ch)/", re.IGNORECASE)
+_WAD_LANG_CODES = {"us": "en", "jp": "ja", "ch": "zh-hant"}
 
 LANGUAGE_NAMES = {
     "en": "İngilizce",
@@ -223,9 +223,9 @@ def language_label(code: str) -> str:
 def path_language(path: str) -> str | None:
     """Dosyanın yolundan anlaşılan dil kodu; yoksa None.
 
-    Unity adlandırması "(en)", Nintendo klasörü "USen" → "en-us", Game Freak klasörü
-    "English" → "en", Unreal klasörü "Localization/Game/pt-BR/" → "pt-br"; Ys Origin "LOC/GE/" → "de",
-    "loc/strings/english.xml" → "en"; Unicorn Overlord "Unicorn_US.CPK" → "en"; Danganronpa
+    Unity adlandırması "(en)", LMS klasörü "USen" → "en-us", GFMSG klasörü
+    "English" → "en", Unreal klasörü "Localization/Game/pt-BR/" → "pt-br"; NNI "LOC/GE/" → "de",
+    "loc/strings/english.xml" → "en"; CPK "<ad>_US.CPK" → "en"; WAD
     "dr1_data.wad>Dr1/data/us/" → "en".
     """
     special = _NNI_LOC_DIR.search(path)
@@ -241,9 +241,9 @@ def path_language(path: str) -> str | None:
     special = _CPK_LANG_SUFFIX.search(path)
     if special:
         return _CPK_LANG_CODES[special.group(1).lower()]
-    special = _DR_LANG_DIR.search(path)
+    special = _WAD_LANG_DIR.search(path)
     if special:
-        return _DR_LANG_CODES[special.group(1).lower()]
+        return _WAD_LANG_CODES[special.group(1).lower()]
     inner = path.rsplit(">", 1)[-1]
     m = _LANG_IN_NAME.search(inner.rsplit("/", 1)[-1])
     if m:
@@ -406,7 +406,7 @@ def _nothing_extracted(
 
 
 def _read(readers: dict[str, MemberReader], cache: dict[tuple[str, ...], bytes], tree: ContentTree, path: str) -> bytes:
-    """Pak ve M2 içindekileri dizinden, diğerlerini (kardeşleri için ara katmanları saklayarak) okur."""
+    """Pak ve PSB arşivi içindekileri dizinden, diğerlerini (kardeşleri için ara katmanları saklayarak) okur."""
     if is_member_path(path):
         reader = readers.setdefault(tree.title_id, MemberReader(tree.view, tree.code))
         return reader.read(path)

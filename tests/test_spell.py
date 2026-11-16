@@ -61,9 +61,9 @@ def test_is_known_uses_filter_user_words_and_extra() -> None:
 def test_unknown_words_ignores_names_taken_from_the_source() -> None:
     spell = _checker()
     found = spell.unknown_words(
-        "Silver Pines'a merhaba, oyun başlatt", source="Welcome to Silver Pines. Start the game"
+        "Silver Grove'a merhaba, oyun başlatt", source="Welcome to Silver Grove. Start the game"
     )
-    assert found == ["başlatt"]  # "Silver" kaynaktan, "Pines'a" kesme işaretinden dolayı sayılmaz
+    assert found == ["başlatt"]  # "Silver" kaynaktan, "Grove'a" kesme işaretinden dolayı sayılmaz
     assert spell.unknown_words("Silver ışığı", source="Silver light") == ["ışığı"]
 
 
@@ -139,16 +139,16 @@ def test_unknown_spans_give_positions() -> None:
 def test_words_copied_from_source_are_skipped_unless_flagged() -> None:
     spell = _checker()
     spell.add_user_words(["ve", "aç"])
-    source = "Use Sunflare Spike and Honor Pivot"
-    text = "Sunflare Spike ve Honor Pivot kullan, merhaba Pivot"
+    source = "Use Sunfire Lance and Honor Pivot"
+    text = "Sunfire Lance ve Honor Pivot kullan, merhaba Pivot"
     # Varsayılan: orijinalden aynen kopyalanan sözcükler (korunan adlar) işaretlenmez.
     assert spell.unknown_words(text, source) == ["kullan"]
     spell.flag_copied = True
     flagged = spell.unknown_words(text, source)
-    assert {"sunflare", "spike", "honor", "pivot"} <= set(flagged)  # büyük harfli olsalar da işaretlenir
+    assert {"sunfire", "lance", "honor", "pivot"} <= set(flagged)  # büyük harfli olsalar da işaretlenir
     # Sözlükteki, ses efekti ve kısaltmalar yine işaretlenmez; kullanıcı sözlüğü hâlâ işe yarar.
-    spell.add_user_words(["Sunflare"])
-    assert "sunflare" not in spell.unknown_words(text, source)
+    spell.add_user_words(["Sunfire"])
+    assert "sunfire" not in spell.unknown_words(text, source)
     assert spell.unknown_words("Merhaba OYUN hihihi", "Merhaba OYUN hihihi") == []
 
 

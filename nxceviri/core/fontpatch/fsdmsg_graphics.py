@@ -1,6 +1,6 @@
 """Kullanıcının hazırladığı Türkçe oyun grafiklerini (Photoshop vb. ile temizlenip çevrilmiş sayfalar) yerleştirme.
 
-Klasör düzeni (`games/Devil May Cry/grafik_temizleme`):
+Klasör düzeni (`<oyun klasörü>/grafik_temizleme`):
 
 - `orijinal/<ad>.png`: oyundan çıkarılmış özgün sayfa (uygulamanın `iter_pages` çözümüyle üretilir);
 - `temiz/<ad>.png`: aynı adlı, yazısı Türkçe olan hazır sayfa (aynı boyut; alfa kanalı özgünle aynı kalır);

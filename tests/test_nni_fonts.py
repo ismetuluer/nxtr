@@ -1,4 +1,4 @@
-"""Ys Origin: BMFont yazı tiplerine eksik Türkçe harfleri ekleme (elle üretilmiş küçük yazı tipleriyle)."""
+"""NNI biçimi: BMFont yazı tiplerine eksik Türkçe harfleri ekleme (elle üretilmiş küçük yazı tipleriyle)."""
 
 from __future__ import annotations
 

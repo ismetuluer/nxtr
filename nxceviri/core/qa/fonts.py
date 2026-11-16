@@ -253,7 +253,7 @@ def _patch_plan(data: bytes, source: str, result: FontReport) -> list[Any]:
 def scan_fonts(view: GameView, report: ScanReport, ctx: TaskContext | None = None) -> FontReport:
     """Oyundaki fontları bulur ve karakter kümelerini okur.
 
-    Fontlar yalnızca adında "font" geçen bundle'larda değildir (ör. Despelote'de sahne paketinde ve `resources.assets`
+    Fontlar yalnızca adında "font" geçen bundle'larda değildir (ör. kimi oyunda sahne paketinde ve `resources.assets`
     içindedir); bu yüzden boyutu makul tüm Unity dosyaları açılır.
     """
     ctx = ctx or TaskContext()

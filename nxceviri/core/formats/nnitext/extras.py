@@ -1,4 +1,4 @@
-"""Ys Origin'in metinden bağımsız ek dosyaları: Türkçe harfli yazı tipleri ve kullanıcının çevirdiği resimler.
+"""NNI biçimli oyunun metinden bağımsız ek dosyaları: Türkçe harfli yazı tipleri ve kullanıcının çevirdiği resimler.
 
 `NniTextPlugin` ve `SrtPlugin` (giriş altyazısı) aynı kancayı kullanır; dışa aktarma aynı oyun için bir kez çağırır.
 """

@@ -1,6 +1,6 @@
 """BMFont ikili (v3) yazı tipi: okuma, yazma ve eksik Türkçe harfleri mevcut glif bitmaplerinden türetme.
 
-Ys Origin'in yazı tipleri `*.fnt` (BMFont ikili biçimi) + `*.png` (glif atlası) çiftidir ve yalnızca Latin-1
+NNI biçimli oyunun yazı tipleri `*.fnt` (BMFont ikili biçimi) + `*.png` (glif atlası) çiftidir ve yalnızca Latin-1
 harflerini içerir: `ç ö ü` vardır, `ğ ş ı İ Ğ Ş` yoktur. Eksik harfler yazı tipinin **kendi glifleriyle**
 türetilir, böylece
 dış çizgi, gölge ve renk aynı kalır:

@@ -1,4 +1,4 @@
-"""M2 PSB metin eklentisi: oyunun menü, onay, rehber ve Master Book metinleri.
+"""PSB metin eklentisi: oyunun menü, onay, rehber ve kitap sayfası metinleri.
 
 Metinler `.psb.m` dosyalarının (PSB) dizge tablosundadır. İki yapı tanınır:
 
@@ -131,7 +131,7 @@ def is_text_member(path: str, data: bytes) -> bool:
 
 class PsbTextPlugin:
     name = "psbtext"
-    label = "M2 PSB metni (Metal Gear Solid)"
+    label = "PSB metni (.psb.m)"
     candidates_only = True
     path_suffixes: tuple[str, ...] = (".psb.m",)
 

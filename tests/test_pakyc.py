@@ -1,4 +1,4 @@
-"""Mina the Hollower (Yacht Club YCD): okuma eklentisi ve topluluk yamasını içe aktarma."""
+"""YCD paketi (`.yc`): okuma eklentisi ve topluluk yamasını içe aktarma."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ UI_ROWS = [
     ["dup", "Second", "", "", "", ""],
     [
         "codes",
-        "<f cn=mina>Mina</f> says {0} <w>hi</w>",
+        "<f cn=nora>Nora</f> says {0} <w>hi</w>",
         "Texte français assez long pour laisser de la place",
         "b",
         "c",
@@ -42,7 +42,7 @@ UI_ROWS = [
     ],
 ]
 DIALOGUE_ROWS = [
-    ["1", "Lionel", "", "", "Welcome, Mina.", "Bienvenue, Mina, dans la tour.", "", "", ""],
+    ["1", "Edmund", "", "", "Welcome, Nora.", "Bienvenue, Nora, dans la tour.", "", "", ""],
     ["2", "", "", "", "A very long line " + "x" * 300, "", "", "", ""],
 ]
 NAME_ROWS = [["ID5", "<f cn=lion>Robed Figure</f>", "", "<f cn=lion>Robed Figure</f>", "", "", "", ""]]
@@ -92,10 +92,10 @@ def test_extract_keys_codes_and_filters() -> None:
     }
     assert entries["ui/yes"].source == "Yes"
     assert entries["ui/dup#2"].source == "Second"
-    assert entries["ui/codes"].source == "⟦1⟧Mina⟦2⟧ says ⟦3⟧ ⟦4⟧hi⟦5⟧"
-    assert [c.raw for c in entries["ui/codes"].codes] == [b"<f cn=mina>", b"</f>", b"{0}", b"<w>", b"</w>"]
-    assert entries["dialogue/1"].context == "Lionel"
-    assert entries["dialogue/1"].source == "Welcome, Mina."
+    assert entries["ui/codes"].source == "⟦1⟧Nora⟦2⟧ says ⟦3⟧ ⟦4⟧hi⟦5⟧"
+    assert [c.raw for c in entries["ui/codes"].codes] == [b"<f cn=nora>", b"</f>", b"{0}", b"<w>", b"</w>"]
+    assert entries["dialogue/1"].context == "Edmund"
+    assert entries["dialogue/1"].source == "Welcome, Nora."
 
 
 def test_extract_uses_first_table_of_each_kind() -> None:
@@ -115,16 +115,16 @@ def test_inject_rewrites_all_language_columns_in_place() -> None:
     translations = {
         "ui/yes": "Evet",
         "ui/confirm": "Emin misiniz?",
-        "ui/codes": "⟦1⟧Mina⟦2⟧ {0} diyor ⟦4⟧selam⟦5⟧",
-        "dialogue/1": "Hoş geldin, Mina.",
+        "ui/codes": "⟦1⟧Nora⟦2⟧ {0} diyor ⟦4⟧selam⟦5⟧",
+        "dialogue/1": "Hoş geldin, Nora.",
     }
-    translations["ui/codes"] = "⟦1⟧Mina⟦2⟧ ⟦3⟧ diyor ⟦4⟧selam⟦5⟧"
+    translations["ui/codes"] = "⟦1⟧Nora⟦2⟧ ⟦3⟧ diyor ⟦4⟧selam⟦5⟧"
     out = plugin.inject(data, translations)
     assert len(out) == len(data)  # hiçbir şey taşınmaz
     got = {e.key: e.source for e in plugin.extract(out)}
     assert got["ui/yes"] == "Evet"
     assert got["ui/codes"] == translations["ui/codes"]
-    assert got["dialogue/1"] == "Hoş geldin, Mina."
+    assert got["dialogue/1"] == "Hoş geldin, Nora."
     assert got["ui/shared"] == "Same"  # çevirisi verilmeyen satır aynen kalır
     assert got["dialogue/2"] == "A very long line " + "x" * 300
     for tbl in ycd.read_tables(out):
@@ -198,15 +198,15 @@ def _patch(tmp_path: Path) -> Path:
         ["shared", "Aynı"] + [""] * 4,
         ["dup", "Birinci"] + [""] * 4,
         ["dup", "İkinci"] + [""] * 4,
-        ["codes", "<f cn=mina>Mina</f> {0} diyor"] + [""] * 4,  # <w> kodları eksik
+        ["codes", "<f cn=nora>Nora</f> {0} diyor"] + [""] * 4,  # <w> kodları eksik
     ]
     original_ui = [[r[0], r[1]] + [""] * 4 for r in UI_ROWS]
     old_dialogue = [
-        ["1", "Lionel", "", "", "Welcome, Mina.", "", "", "", ""],
+        ["1", "Edmund", "", "", "Welcome, Nora.", "", "", "", ""],
         ["2", "", "", "", "An older line", "", "", "", ""],  # güncellemede metin değişmiş
     ]
     turkish_dialogue = [
-        ["1", "Lionel", "", "", "Hoş geldin, Mina.", "", "", "", ""],
+        ["1", "Edmund", "", "", "Hoş geldin, Nora.", "", "", "", ""],
         ["2", "", "", "", "Eski satırın çevirisi", "", "", "", ""],
     ]
     (folder / "global.pak.yc").write_bytes(
@@ -225,7 +225,7 @@ def test_read_pakyc_translations(tmp_path: Path) -> None:
     got = read_pakyc_translations(_patch(tmp_path))
     assert got.texts["ui/yes"] == "Evet"
     assert got.texts["ui/dup#2"] == "İkinci"
-    assert got.texts["dialogue/1"] == "Hoş geldin, Mina."
+    assert got.texts["dialogue/1"] == "Hoş geldin, Nora."
     assert got.sources is not None
     assert got.sources["ui/yes"] == frozenset({"Yes"})
     assert got.sources["dialogue/2"] == frozenset({"An older line"})
@@ -251,7 +251,7 @@ def test_port_writes_only_matching_sources(tmp_path: Path) -> None:
     assert [k for k, _s, _why in report.code_problems] == ["ui/codes"]
     assert rows["ui/yes"].translation == "Evet"
     assert rows["ui/dup#2"].translation == "İkinci"
-    assert rows["dialogue/1"].translation == "Hoş geldin, Mina."
+    assert rows["dialogue/1"].translation == "Hoş geldin, Nora."
     assert rows["dialogue/2"].translation == ""
     assert rows["ui/yes"].status == Status.MACHINE
     assert report.unmatched_rows == 0

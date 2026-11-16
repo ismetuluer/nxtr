@@ -1,4 +1,4 @@
-"""Devil May Cry HD Collection (PC) topluluk Türkçe yamasını okuma: `fsd_tr.yama` ve `common.msg`.
+"""Oyunun PC sürümü için yapılmış topluluk Türkçe yamasını okuma: `fsd_tr.yama` ve `common.msg`.
 
 Yama dosyası (`D1FS`): `"D1FS" | u32 dosya sayısı | dosya × { u16 ad uzunluğu, ad, u32 yama sayısı,
 yama × { u32 ofset, u32 boyut, veri } }`. Her yama, oyunun `.fsd` dosyasındaki İngilizce mesaj tablosunun
@@ -35,7 +35,7 @@ def _first_table(block: bytes) -> codec.MessageTable | None:
 def read_yama(data: bytes) -> list[YamaTable]:
     """Yama dosyasındaki mesaj tablolarını (dosya başına en çok bir) okur; tablo olmayan yamalar atlanır."""
     if data[:4] != MAGIC:
-        raise FormatError("Bu bir Devil May Cry yama dosyası (D1FS) değil.", "fsd_tr.yama dosyasını seçin.")
+        raise FormatError("Bu bir D1FS yama dosyası değil.", "fsd_tr.yama dosyasını seçin.")
     out: list[YamaTable] = []
     try:
         files = struct.unpack_from("<I", data, 4)[0]
@@ -69,7 +69,7 @@ def read_status_file(data: bytes, name: str) -> YamaTable:
     try:
         offsets = fsd.read_directory(data, wide=False)
     except FormatError:
-        raise FormatError(f"'{name}' bir Devil May Cry durum dosyası değil.") from None
+        raise FormatError(f"'{name}' bir `st_init.dat` durum dosyası değil.") from None
     table = codec.parse_table(data, offsets[0])
     if table is None:
         raise FormatError(f"'{name}' içinde mesaj tablosu yok.")

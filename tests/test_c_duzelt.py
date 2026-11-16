@@ -173,11 +173,11 @@ def test_o2_kapatilan_anlik_tur_kontrol_et_sonucundan_geri_gelmez(qtbot: QtBot) 
 
 
 def test_o2_canlida_olmayan_turler_kontrol_et_sonucundan_gelir(qtbot: QtBot) -> None:
-    row = make_row(1, "Welcome to Silver Pines", "Merhaba")
+    row = make_row(1, "Welcome to Silver Grove", "Merhaba")
     page = make_page(qtbot, [row])
-    page.set_qa_issues([_qa_issue(row, "term", "‘Silver Pines’ burada…")], [row])
+    page.set_qa_issues([_qa_issue(row, "term", "‘Silver Grove’ burada…")], [row])
     assert _kinds(page, 1) == ["term"]
-    page.model.update_rows([make_row(1, "Welcome to Silver Pines", "Başka")])
+    page.model.update_rows([make_row(1, "Welcome to Silver Grove", "Başka")])
     assert _kinds(page, 1) == []  # çeviri değişti: eski terim bulgusu geçersiz
 
 
@@ -189,9 +189,9 @@ WORDS = ["merhaba", "oyun", "başlat", "yükle", "iyi", "ile", "hoş", "geldin",
 def _window_project() -> Project:
     p = Project.new()
     entries = (
-        TextEntry("s1", 0, "Silver Pines", ()),
-        TextEntry("s2", 1, "Silver Pines", ()),
-        TextEntry("w", 2, "Welcome to Silver Pines", ()),
+        TextEntry("s1", 0, "Silver Grove", ()),
+        TextEntry("s2", 1, "Silver Grove", ()),
+        TextEntry("w", 2, "Welcome to Silver Grove", ()),
         TextEntry("x1", 3, "Hello there", ()),
         TextEntry("x2", 4, "Hello there", ()),
         TextEntry("a", 5, "Start", ()),
@@ -205,7 +205,7 @@ def _window_project() -> Project:
         [
             (ids["s1"], "Gümüş Çamlar"),
             (ids["s2"], "Gümüş Çamlar"),
-            (ids["w"], "Silver Pines'a hoş geldin!"),
+            (ids["w"], "Silver Grove'a hoş geldin!"),
             (ids["x1"], "Merhaba"),
             (ids["x2"], "Selam"),
             (ids["a"], "Oyun başlatt"),
@@ -249,7 +249,7 @@ def test_o3_yerinde_duzenleme_terim_bulgusunu_korur_ya_da_giderir(window: MainWi
     window.run_checks()
     assert {"term", "end_punctuation"} <= _board(window, "w")
     ids = _ids(window)
-    window.qa_page.translation_edited.emit(ids["w"], "Silver Pines'a hoş geldin")  # terim hâlâ çevrilmemiş
+    window.qa_page.translation_edited.emit(ids["w"], "Silver Grove'a hoş geldin")  # terim hâlâ çevrilmemiş
     assert _board(window, "w") == {"term"}
     window.qa_page.translation_edited.emit(ids["w"], "Gümüş Çamlar'a hoş geldin")
     assert _board(window, "w") == set()
@@ -380,7 +380,7 @@ def test_o7_kontrol_et_sayfasi_sigdirma_sekmesi_gorunmeden_istatistik_hesaplamaz
 def test_o7_terim_degil_sonrasi_denetim_arka_planda_yenilenir(qtbot: QtBot, window: MainWindow) -> None:
     window.run_checks()
     assert any(i.kind == "term" for i in window.qa_page.model.issues)
-    window.qa_page.not_term_requested.emit(["Silver Pines"])
+    window.qa_page.not_term_requested.emit(["Silver Grove"])
     assert window.busy  # denetim arka plan işi olarak başladı, arayüz beklemedi
     qtbot.waitUntil(lambda: not window.busy, timeout=30_000)
     assert not any(i.kind == "term" for i in window.qa_page.model.issues)
@@ -442,12 +442,12 @@ def test_k7_otomatik_duzeltme_terim_denetimi_calistirmaz(window: MainWindow, mon
     monkeypatch.setattr(window, "run_checks", lambda: None)  # düzeltme sonrası tam denetim terimleri yine arar
     window.apply_fixes(["end_punctuation"], [])
     after = {r.key: r.translation for r in window.project.translation_rows()}
-    assert after["w"] == "Silver Pines'a hoş geldin"  # sondaki "!" düzeltildi
+    assert after["w"] == "Silver Grove'a hoş geldin"  # sondaki "!" düzeltildi
 
 
 def test_k9_kanonik_ceviri_sonda_noktalama_icerse_de_cumle_ici_gecis_uyari_almaz() -> None:
-    canon = {"Silver Pines": "Gümüş Çamlar."}
-    row = make_row(1, "Go to Silver Pines now", "Gümüş Çamlar'a git")
+    canon = {"Silver Grove": "Gümüş Çamlar."}
+    row = make_row(1, "Go to Silver Grove now", "Gümüş Çamlar'a git")
     assert term_issues([row], canon) == []
 
 

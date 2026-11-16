@@ -1,4 +1,4 @@
-"""Devil May Cry (Switch) program kodundaki metinler: düşman dosyası açıklamaları.
+"""`.fsd`/`.msg` biçimli oyunun program kodundaki metinler: düşman dosyası açıklamaları.
 
 Düşman açıklamaları RomFS'te değil, oyunun program kodunda (ExeFS `main`, `ro` bölümü) oyunun kendi harf
 kodlamasıyla durur (docs/formats/fsd-msg.md). Japonca, İngilizce, Fransızca, Almanca, İtalyanca ve İspanyolca

@@ -1,4 +1,4 @@
-"""SubRip (.srt) altyazı eklentisi (Ys Origin giriş videosu)."""
+"""SubRip (.srt) altyazı eklentisi."""
 
 from nxceviri.core.formats.srt.plugin import SrtPlugin
 

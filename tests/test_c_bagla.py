@@ -57,9 +57,9 @@ def _project() -> Project:
         TextEntry("b", 1, "Meet Elara", ()),
         TextEntry("c", 2, "Press ⟦1⟧ Start", (CODE,)),
         TextEntry("d", 3, "Start again", ()),
-        TextEntry("e", 4, "Silver Pines", ()),
-        TextEntry("f", 5, "Welcome to Silver Pines", ()),
-        TextEntry("g", 6, "Silver Pines", ()),  # terim en az iki satırda kendi başına geçmeli
+        TextEntry("e", 4, "Silver Grove", ()),
+        TextEntry("f", 5, "Welcome to Silver Grove", ()),
+        TextEntry("g", 6, "Silver Grove", ()),  # terim en az iki satırda kendi başına geçmeli
     )
     p.import_texts([ImportedFile("Menu.tsv", "0100", "unity", "base", entries)])
     rows = {r.key: r for r in p.translation_rows()}
@@ -70,7 +70,7 @@ def _project() -> Project:
             (rows["d"].id, "Yine başlatt"),
             (rows["e"].id, "Gümüş Çamlar"),
             (rows["g"].id, "Gümüş Çamlar"),
-            (rows["f"].id, "Silver Pines'a hoş geldin"),
+            (rows["f"].id, "Silver Grove'a hoş geldin"),
         ],
         machine=True,
     )
@@ -150,7 +150,7 @@ def test_window_lists_unknown_words_and_is_single_instance(window: MainWindow) -
     win = _spell_window(window)
     assert not win.isModal()
     assert win.isVisible()
-    assert _words(win) == ["başlatt"]  # "Elara" sözlükte, "Silver" ve "Pines" kaynakta; kodlar atlanır
+    assert _words(win) == ["başlatt"]  # "Elara" sözlükte, "Silver" ve "Grove" kaynakta; kodlar atlanır
     window.menu_actions["tools.spell_check"].trigger()
     assert window._spell_window is win
 
@@ -254,16 +254,16 @@ def test_replace_all_is_one_undoable_job_and_keeps_codes_and_approval(window: Ma
 
 def _term_rows() -> list[TranslationRow]:
     return [
-        TranslationRow(1, "f", "k1", "Silver Pines", "Gümüş Çamlar", "machine", "", (), None),
-        TranslationRow(3, "f", "k3", "Silver Pines", "Gümüş Çamlar", "machine", "", (), None),
-        TranslationRow(2, "f", "k2", "Welcome to Silver Pines", "Gümüş Çam'a hoş geldin", "machine", "", (), None),
+        TranslationRow(1, "f", "k1", "Silver Grove", "Gümüş Çamlar", "machine", "", (), None),
+        TranslationRow(3, "f", "k3", "Silver Grove", "Gümüş Çamlar", "machine", "", (), None),
+        TranslationRow(2, "f", "k2", "Welcome to Silver Grove", "Gümüş Çam'a hoş geldin", "machine", "", (), None),
     ]
 
 
 def test_term_issue_carries_phrase() -> None:
     rows = _term_rows()
     issues = term_issues(rows, canonical_terms(rows, []))
-    assert [i.words for i in issues] == [("Silver Pines",)]
+    assert [i.words for i in issues] == [("Silver Grove",)]
 
 
 def test_term_is_not_a_live_kind() -> None:
@@ -277,7 +277,7 @@ def test_not_term_menu_item_emits_phrases(qtbot: QtBot) -> None:
     page.show()
     rows = _term_rows()
     issues = [
-        QaIssue(2, "k2", "term", "warning", "terim", ("Silver Pines",)),
+        QaIssue(2, "k2", "term", "warning", "terim", ("Silver Grove",)),
         QaIssue(1, "k1", "spaces", "warning", "b"),
     ]
     page.show_issues(issues, rows)
@@ -295,20 +295,20 @@ def test_not_term_menu_item_emits_phrases(qtbot: QtBot) -> None:
     action = next(a for a in menu.actions() if a.text() == "Terim değil")
     with qtbot.waitSignal(page.not_term_requested) as sig:
         action.trigger()
-    assert sig.args == [["Silver Pines"]]
+    assert sig.args == [["Silver Grove"]]
 
 
 def test_not_term_persists_and_clears_finding(qtbot: QtBot, window: MainWindow) -> None:
     window.nav.setCurrentRow(STEP_QA)
     window.run_checks()
     page = window.qa_page
-    assert [i.words for i in page.model.issues if i.kind == "term"] == [("Silver Pines",)]
-    page.not_term_requested.emit(["Silver Pines"])
-    assert json.loads(window.project.setting("terms_ignored")) == ["Silver Pines"]
+    assert [i.words for i in page.model.issues if i.kind == "term"] == [("Silver Grove",)]
+    page.not_term_requested.emit(["Silver Grove"])
+    assert json.loads(window.project.setting("terms_ignored")) == ["Silver Grove"]
     qtbot.waitUntil(lambda: not window.busy)  # denetim arka planda yenilenir
     assert not [i for i in page.model.issues if i.kind == "term"]
-    page.not_term_requested.emit(["Silver Pines"])  # tekrar eklemek listeyi çoğaltmaz
-    assert json.loads(window.project.setting("terms_ignored")) == ["Silver Pines"]
+    page.not_term_requested.emit(["Silver Grove"])  # tekrar eklemek listeyi çoğaltmaz
+    assert json.loads(window.project.setting("terms_ignored")) == ["Silver Grove"]
 
 
 def test_broken_terms_ignored_setting(window: MainWindow, caplog: pytest.LogCaptureFixture) -> None:

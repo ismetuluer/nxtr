@@ -3,7 +3,7 @@
 İki adımlıdır ve uydurmaya karşı sınırlıdır:
 
 1. **Adaylar programla bulunur** (`find_candidates`): en az iki kez geçen, büyük harfle başlayan sözcük dizileri
-   ("Silver Pines", "Old Mill", "Mara"). Yalnızca cümle başında geçen tek sözcükler (Welcome, Yes), tamamı büyük harf
+   ("Silver Grove", "Old Mill", "Mara"). Yalnızca cümle başında geçen tek sözcükler (Welcome, Yes), tamamı büyük harf
    arayüz sözcükleri (MENU), sözlükte zaten olan terimler ve kontrol kodları atlanır.
 2. **Model yalnızca bu adaylara karşılık önerir** (`suggest_glossary`): her aday örnek cümleleriyle gider; model
    çeviriyi, kısa bir notu (karakter adı, yer…) ve sözlüğe eklemeye değip değmediğini (`add`) döndürür. Listede

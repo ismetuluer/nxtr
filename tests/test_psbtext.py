@@ -1,4 +1,4 @@
-"""M2 PSB metin eklentisi, M2 taraması ve M2 dışa aktarma (elle üretilmiş küçük arşivlerle)."""
+"""PSB metin eklentisi, PSB arşivi taraması ve dışa aktarma (elle üretilmiş küçük arşivlerle)."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ MENU: dict[str, PsbValue] = {
         "NoticeMsg__NUMBER": {"eng": ["123"]},
     }
 }
-_RICH = "<b>Briefing</b><br><size=0><voffset=63.4px><br></voffset></size>Snake"
+_RICH = "<b>Briefing</b><br><size=0><voffset=63.4px><br></voffset></size>Raven"
 BOOK: dict[str, PsbValue] = {
     "data": [
         {"pageNo": 1, "pageTitle": "TOP", "text": "", "groupid": "g1"},
@@ -100,7 +100,7 @@ def test_extract_book_pages() -> None:
     assert [e.source for e in entries] == [
         "TOP",
         "Section 1: Briefing",
-        "⟦1⟧Briefing⟦2⟧⟦3⟧⟦4⟧⟦5⟧⟦6⟧⟦7⟧⟦8⟧Snake",
+        "⟦1⟧Briefing⟦2⟧⟦3⟧⟦4⟧⟦5⟧⟦6⟧⟦7⟧⟦8⟧Raven",
     ]
     assert entries[0].key == "data/0/pageTitle"
     assert entries[0].context == "sayfa 0 / pageTitle, sayfa 2 / pageTitle"  # "TOP" iki sayfada

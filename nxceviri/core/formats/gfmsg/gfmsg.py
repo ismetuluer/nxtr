@@ -1,4 +1,4 @@
-"""Game Freak mesaj dosyaları (Pokémon: Let's Go, Legends: Arceus…) — `.dat` + `.tbl`.
+"""GFMSG mesaj dosyaları — `.dat` + `.tbl`.
 
 Yapı (ayrıntılar: docs/formats/gfmsg.md):
 
@@ -74,7 +74,7 @@ def _crypt(chars: list[int], index: int) -> list[int]:
 
 def read(data: bytes) -> GfMessage:
     if not is_message(data[: HEADER_SIZE + 4]):
-        raise FormatError("Game Freak mesaj dosyası değil veya başlığı bozuk.")
+        raise FormatError("GFMSG mesaj dosyası değil veya başlığı bozuk.")
     _sections, count, total, _key, offset = struct.unpack_from("<HHIII", data)
     if offset + total > len(data):
         raise FormatError("Mesaj dosyası eksik: bölüm dosyanın sonunu aşıyor.")
@@ -243,7 +243,7 @@ def _encode(display: str, codes: tuple[ControlCode, ...], key: str) -> list[int]
 
 class GfMsgPlugin:
     name = "gfmsg"
-    label = "Game Freak mesajları (Pokémon)"
+    label = "GFMSG mesajları (.dat + .tbl)"
     candidates_only = False
     path_suffixes: tuple[str, ...] = (".dat", ".tbl")
 

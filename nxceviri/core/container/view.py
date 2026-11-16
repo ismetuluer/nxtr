@@ -75,7 +75,7 @@ class ContentTree:
     title_id: str
     label: str
     view: LayeredRomFs
-    #: Oyunun çalıştırılabilir kodu (ExeFS `main`), isteğe bağlı ve tembel okunur. M2 arşivlerinin
+    #: Oyunun çalıştırılabilir kodu (ExeFS `main`), isteğe bağlı ve tembel okunur. PSB arşivlerinin
     #: anahtarı bu koddaki dizgelerden bulunur; kod yalnızca okunur, çalıştırılmaz.
     code: Callable[[], bytes | None] | None = None
 

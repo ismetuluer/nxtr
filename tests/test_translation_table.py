@@ -40,7 +40,7 @@ def test_extract_texts_from_game(extracted: list[ImportedFile]) -> None:
     assert menu.origin == "update"
     assert [(e.key, e.source) for e in menu.entries] == [
         ("Menu_Start", "Start Adventure"),  # güncellemedeki metin
-        ("Menu_Hello", "Hello ⟦1⟧Link⟦2⟧!"),
+        ("Menu_Hello", "Hello ⟦1⟧Kael⟦2⟧!"),
         ("Menu_New", "New option"),
     ]
     assert by_path[NESTED_COMMON].entries[2].source == "Please wait⟦1⟧"
@@ -68,7 +68,7 @@ def test_no_supported_format_is_explained() -> None:
 def test_no_text_in_supported_files_is_an_error(game: GameFiles, monkeypatch: pytest.MonkeyPatch) -> None:
     """Dosyalar açılır ama hiç metin çıkmazsa "0 satır aktarıldı" başarısı yerine açık bir hata verilir.
 
-    Gerçek örnek: Unity oyunu metnini tanınmayan kendi yapısında saklar (DKCR HD, Danganronpa).
+    Gerçek örnek: Unity oyunu metnini tanınmayan kendi yapısında saklar (SerializeReference kayıt defteri, WAD arşivi).
     """
     monkeypatch.setattr(MsbtPlugin, "extract", lambda self, data, context=None: [])
     inputs = Inputs((game.base_nsp, game.update_nsp), load_keys(game.keys_path))
@@ -95,7 +95,7 @@ def test_translated_counts_by_file(extracted: list[ImportedFile]) -> None:
     project.import_texts(extracted)
     assert project.translated_counts_by_file() == {"Message/Ana_Menü.msbt": 0, NESTED_COMMON: 0}  # iç arşiv yolu da
     row = next(r for r in project.translation_rows() if r.key == "Menu_Hello")
-    project.set_translations([(row.id, "Merhaba ⟦1⟧Link⟦2⟧!")])
+    project.set_translations([(row.id, "Merhaba ⟦1⟧Kael⟦2⟧!")])
     assert project.translated_counts_by_file()["Message/Ana_Menü.msbt"] == 1
     assert project.translated_counts_by_file()[NESTED_COMMON] == 0
 
@@ -110,7 +110,7 @@ def test_import_and_edit(extracted: list[ImportedFile], tmp_path: Path) -> None:
 
     ok, bad, empty = project.set_translations(
         [
-            (rows["Menu_Hello"].id, "Merhaba ⟦1⟧Link⟦2⟧!"),
+            (rows["Menu_Hello"].id, "Merhaba ⟦1⟧Kael⟦2⟧!"),
             (rows["Wait"].id, "Lütfen bekleyin"),  # ⟦1⟧ eksik
             (rows["Menu_Start"].id, ""),
         ]
@@ -131,7 +131,7 @@ def test_import_and_edit(extracted: list[ImportedFile], tmp_path: Path) -> None:
     project.close()
     reopened = Project.open(tmp_path / "Çeviri ğüş.nxproj")
     again = {r.key: r for r in reopened.translation_rows()}
-    assert again["Menu_Hello"].translation == "Merhaba ⟦1⟧Link⟦2⟧!"
+    assert again["Menu_Hello"].translation == "Merhaba ⟦1⟧Kael⟦2⟧!"
     assert again["Wait"].status == Status.ERROR
     reopened.close()
 

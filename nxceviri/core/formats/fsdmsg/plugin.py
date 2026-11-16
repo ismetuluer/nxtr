@@ -1,4 +1,4 @@
-"""Devil May Cry (Switch) metin eklentisi.
+"""`.fsd`/`.msg` mesaj tablosu metin eklentisi.
 
 - `fsd/*.fsd`: dizindeki 23. bölüm İngilizce mesaj tablosudur (73 dosyada doğrulandı); diğer bölümler
   başka dillerdir. Yazarken yalnızca bu bölüm yeniden kurulur, sonraki bölümler kaydırılır, dizin güncellenir.
@@ -102,7 +102,7 @@ def _layout(data: bytes) -> tuple[str, codec.MessageTable] | None:
 
 class FsdMsgPlugin:
     name = "fsdmsg"
-    label = "Devil May Cry (mesaj tabloları)"
+    label = "FSD/MSG mesaj tabloları"
     candidates_only = True
     path_suffixes: tuple[str, ...] = (".fsd", ".msg", ".atm", "st_init.dat", "memicon.dat")
     #: Dışa aktarma bu oyun için kendi yazı dokusunu (`support_files`) ekler; hiçbir harf dönüştürülmez.

@@ -1,4 +1,4 @@
-"""Ys Origin (NNI, XSO, XML) ve Unicorn Overlord (CPK, CRILAYLA, FMSB) için elle üretilmiş küçük örnekler."""
+"""NNI (XSO, XML) ve CPK (CRILAYLA, FMSB) biçimleri için elle üretilmiş küçük örnekler."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw
 
 from nxceviri.core.archives import cpk, nni
 
-# --- Ys Origin ---------------------------------------------------------------------------------
+# --- NNI --------------------------------------------------------------------------------------
 
 
 def build_nni(members: dict[str, bytes], *, compressed: frozenset[str] = frozenset()) -> tuple[bytes, bytes]:
@@ -51,7 +51,7 @@ def build_nni_xml(strings: dict[str, str]) -> bytes:
     return ("\r\n".join(lines) + "\r\n").encode("utf-8")
 
 
-# --- Unicorn Overlord --------------------------------------------------------------------------
+# --- CPK ---------------------------------------------------------------------------------------
 
 
 def build_fmsb(strings: list[str]) -> bytes:
@@ -219,7 +219,7 @@ def layla_compress(data: bytes) -> bytes:
     return b"CRILAYLA" + struct.pack("<II", len(body), len(stream)) + stream + prefix
 
 
-# --- Ys Origin yazı tipi (BMFont) ve grafik (DDS) ----------------------------------------------
+# --- NNI yazı tipi (BMFont) ve grafik (DDS) ----------------------------------------------
 
 
 def _blob(w: int, h: int, *, outline: bool, parts: list[tuple[int, int, int, int]] | None = None) -> Image.Image:

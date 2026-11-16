@@ -1,9 +1,9 @@
 """Düz metin olarak saklanan yerelleştirme verileri: SRT altyazıları ve dil sütunlu TSV tabloları.
 
-Bazı Unity oyunları (ör. Despelote) metni `TextAsset` olarak koyar:
+Bazı Unity oyunları metni `TextAsset` olarak koyar:
 
 - SRT altyazı: `1\\r\\n00:00:00,000 --> 00:00:04,118\\r\\nMetin`. Dil, varlık adındaki
-  `[en]` etiketinden anlaşılır (`Nina1[en]`, `[es]shop convo_x`).
+  `[en]` etiketinden anlaşılır (`Npc1[en]`, `[es]shop convo_x`).
 - TSV tablo: ilk satır başlık, sonraki satırlar sekmeyle ayrılmış hücreler; dil sütunları
   `es`, `en` veya `[es]`, `[en]` başlıklıdır. Satır sonları metnin içinde `\\n` (ters bölü + n)
   olarak yazılıdır; gerçek satır sonu yalnızca satırları ayırır.

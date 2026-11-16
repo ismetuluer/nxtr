@@ -38,13 +38,13 @@ MAX_NESTED_INPUT = 64 * 1024 * 1024
 MAX_NESTED_OUTPUT = 256 * 1024 * 1024
 MAX_DEPTH = 4
 NESTED_SEPARATOR = ">"
-#: M2 arşivinde metin aranan üyelerin en büyük boyutu ve atlanan klasörler (yazı tipi, hareket, görsel).
+#: PSB arşivinde metin aranan üyelerin en büyük boyutu ve atlanan klasörler (yazı tipi, hareket, görsel).
 MAX_PSB_ARCHIVE_MEMBER = 4 * 1024 * 1024
 _PSB_ARCHIVE_SKIPPED_DIRS = ("font/", "motion/", "image/", "texture/", "sound/", "roms/", "patch/")
-#: Danganronpa: betikler ve metin tabloları `Dr1/data/<dil>/script/*.lin|*.pak` (WAD içinde).
-_DR_SCRIPT = re.compile(r"(?:^|/)script/[^/]+\.(?:lin|pak)$", re.IGNORECASE)
+#: WAD arşivindeki betikler ve metin tabloları: `Dr1/data/<dil>/script/*.lin|*.pak`.
+_WAD_SCRIPT = re.compile(r"(?:^|/)script/[^/]+\.(?:lin|pak)$", re.IGNORECASE)
 #: Dizini okunan büyük arşivlerde metin üyeleri: (tespit ayrıntısı) → (üye seçici, tür, açıklama).
-#: Ys Origin: yerelleştirilmiş betikler `LOC/<DİL>/…/*.XSO`; Unicorn Overlord: `MsgSheet/*.fms`.
+#: NNI: yerelleştirilmiş betikler `LOC/<DİL>/…/*.XSO`; CPK: `MsgSheet/*.fms`.
 _MEMBER_TEXT: dict[str, tuple[Callable[[str], bool], FileKind, str]] = {
     NNI_ARCHIVE_DETAIL: (
         lambda m: m.upper().startswith("LOC/") and m.upper().endswith(".XSO"),
@@ -53,7 +53,7 @@ _MEMBER_TEXT: dict[str, tuple[Callable[[str], bool], FileKind, str]] = {
     ),
     CPK_ARCHIVE_DETAIL: (lambda m: m.lower().endswith(".fms"), FileKind.FMSB, "FMSB MsgSheet"),
     WAD_ARCHIVE_DETAIL: (
-        lambda m: _DR_SCRIPT.search(m) is not None,
+        lambda m: _WAD_SCRIPT.search(m) is not None,
         FileKind.WADLIN,
         "LIN betiği / PAK metin tablosu",
     ),
@@ -218,7 +218,7 @@ def _scan_pak(
 def _scan_psb_archive(
     tree: ContentTree, path: str, origin: str, *, out: list[ScanEntry], warnings: list[str], ctx: TaskContext
 ) -> None:
-    """M2 arşivinin (mdf kodlu PSB dizini) üyelerini tarar; yalnızca çevrilebilir metin içerenleri listeler."""
+    """PSB arşivinin (mdf kodlu PSB dizini) üyelerini tarar; yalnızca çevrilebilir metin içerenleri listeler."""
     try:
         archive = MemberReader(tree.view, tree.code).psb_archive(path)
     except NxError as exc:

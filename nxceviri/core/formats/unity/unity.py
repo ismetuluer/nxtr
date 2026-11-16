@@ -21,7 +21,7 @@ TextAsset olarak saklanan düz metin yerelleştirmesi (`loctext.py`): SRT altyaz
 adındaki `[en]` etiketinden) ve dil sütunlu TSV tabloları (`es`, `en`, `fr` … sütunları). Tüm
 diller aynı dosyadadır; kaynak dilin sütunu/altyazısı aktarılır, Türkçe aynı yere yazılır.
 
-Donkey Kong Country Returns HD'nin `Localization` nesnesi de tip ağacı silinmiş `resources.assets` içindedir ve
+Bazı oyunların `Localization` nesnesi de tip ağacı silinmiş `resources.assets` içindedir ve
 bir `[SerializeReference]` kayıt defteridir (`serializeref.py`); İngilizce yuva aktarılır, Türkçe aynı yuvaya yazılır.
 
 Geri yazma: yalnızca değişen tablolar yeniden serileştirilir; bundle orijinal sıkıştırma
@@ -322,7 +322,7 @@ _LOCOLISER_MIN_SIZE = 64
 
 
 def _locolisers(env: Any) -> list[tuple[Any, locoliser.Locoliser]]:
-    """TSV tablolarının oyuna gömülmüş, ayrıştırılmış kopyaları (Despelote `Locoliser`)."""
+    """TSV tablolarının oyuna gömülmüş, ayrıştırılmış kopyaları (`Locoliser`)."""
     found = []
     for obj in env.objects:
         if obj.type.name != "MonoBehaviour":
@@ -427,7 +427,7 @@ def _locoliser_update(
     return locoliser.with_texts(loc, dialogue, ui)
 
 
-#: Donkey Kong Country Returns HD `Localization` metinlerinin anahtar öneki (`DK|<nesne>|<dil sırası>|<yuva>`).
+#: `[SerializeReference]` kayıt defterli `Localization` metinlerinin anahtar öneki (`DK|<nesne>|<dil sırası>|<yuva>`).
 _SERIALIZEREF_PREFIX = "DK|"
 #: Bundan küçük nesne bu yapıda olamaz; büyük dosyalardaki binlerce küçük nesne okunmaz.
 _SERIALIZEREF_MIN_SIZE = 4096

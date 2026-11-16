@@ -1,4 +1,4 @@
-"""Donkey Kong Country Returns HD: `Localization` SerializeReference kayıt defteri (elle üretilmiş örneklerle)."""
+"""`Localization` SerializeReference kayıt defteri (elle üretilmiş örneklerle)."""
 
 from __future__ import annotations
 
@@ -17,16 +17,16 @@ PATH_ID = 100
 
 #: İngilizce (0), Fransızca (1), ikinci İngilizce yuva (7); 5. yuva oyunda boştur.
 EN: list[SerializeRefSlot] = [
-    "Dixie Kong",  # 0
+    "Mira Fox",  # 0
     "",  # 1: boş
-    "<scale=0.8>Start a level\nwith Dixie.",  # 2: biçim etiketi
+    "<scale=0.8>Start a level\nwith Mira.",  # 2: biçim etiketi
     ["Hit", "Hits", 0],  # 3: çoklu öğe: iki yeni çocuk + 0. yuvaya başvuru
     "\\3630bddf\\27b05a76",  # 4: ses kimliği, çevrilmez
     "...",  # 5: harfsiz
     "Continue?",  # 6
 ]
 FR: list[SerializeRefSlot] = [
-    "Dixie Kong",
+    "Mira Fox",
     "",
     "<scale=0.8>Commencez un niveau.",
     ["Coup", "Coups", 0],
@@ -110,11 +110,11 @@ def test_changed_text_keeps_alignment_and_other_fields() -> None:
     doc = serializeref.parse(raw)
     assert doc is not None
     rid = serializeref.unique_slots(doc, doc.languages[0])[0][1].rid
-    out = serializeref.serialize(serializeref.with_texts(doc, {rid: "Dixie Kong'un Türkçe adı ğüşıİ"}))
+    out = serializeref.serialize(serializeref.with_texts(doc, {rid: "Mira Fox'un Türkçe adı ğüşıİ"}))
     again = serializeref.parse(out)
     assert again is not None
     assert len(out) % 4 == len(raw) % 4
-    assert again.singles[rid].text == "Dixie Kong'un Türkçe adı ğüşıİ"
+    assert again.singles[rid].text == "Mira Fox'un Türkçe adı ğüşıİ"
     assert again.singles[rid].number == doc.singles[rid].number
     assert again.singles[rid].tag == doc.singles[rid].tag
     others = {r: s for r, s in again.singles.items() if r != rid}
@@ -129,15 +129,15 @@ def test_changed_text_keeps_alignment_and_other_fields() -> None:
 def test_extract_default_is_english_slot() -> None:
     entries = {e.key: e for e in PLUGIN.extract(_file(), {SOURCE_LANGUAGE: None})}
     assert list(entries) == [f"DK|{PATH_ID + 1}|0|{slot}" for slot in ("0", "2", "3.0", "3.1", "6")]
-    assert entries[f"DK|{PATH_ID + 1}|0|2"].source == "⟦1⟧Start a level\nwith Dixie."
+    assert entries[f"DK|{PATH_ID + 1}|0|2"].source == "⟦1⟧Start a level\nwith Mira."
     assert entries[f"DK|{PATH_ID + 1}|0|2"].codes[0].raw == b"<scale=0.8>"
     assert "\\3630bddf" not in "".join(e.source for e in entries.values())  # ses kimliği çevrilmez
 
 
 def test_extract_without_context_still_uses_english() -> None:
     assert {e.source for e in PLUGIN.extract(_file())} == {
-        "Dixie Kong",
-        "⟦1⟧Start a level\nwith Dixie.",
+        "Mira Fox",
+        "⟦1⟧Start a level\nwith Mira.",
         "Hit",
         "Hits",
         "Continue?",
@@ -175,16 +175,16 @@ def test_inject_writes_slot_and_mirrors_identical_twin() -> None:
     out = PLUGIN.inject(
         data,
         {
-            key(0, 0): "Dixie Kong (çeviri)",
-            key(0, 2): "⟦1⟧Bir seviyeye Dixie ile başla.",
+            key(0, 0): "Mira Fox (çeviri)",
+            key(0, 2): "⟦1⟧Bir seviyeye Mira ile başla.",
             key(0, "3.1"): "Vuruşlar",
             key(0, 6): "Devam edilsin mi? ğüşıİ",
         },
     )
     assert _texts(out, 0) == [
-        "Dixie Kong (çeviri)",
+        "Mira Fox (çeviri)",
         "",
-        "<scale=0.8>Bir seviyeye Dixie ile başla.",
+        "<scale=0.8>Bir seviyeye Mira ile başla.",
         "Hit",
         "Vuruşlar",
         "\\3630bddf\\27b05a76",
@@ -192,7 +192,7 @@ def test_inject_writes_slot_and_mirrors_identical_twin() -> None:
         "Devam edilsin mi? ğüşıİ",
     ]
     uk = _texts(out, 7)
-    assert uk[0] == "Dixie Kong (çeviri)"  # özdeş satır ikinci İngilizce yuvaya da yazıldı
+    assert uk[0] == "Mira Fox (çeviri)"  # özdeş satır ikinci İngilizce yuvaya da yazıldı
     assert uk[3:5] == ["Hit", "Vuruşlar"]
     assert uk[-1] == "Continue ?"  # İngiliz yazımı farklıydı: dokunulmadı
     assert _texts(out, 1) == _texts(data, 1)  # Fransızca aynen

@@ -1,4 +1,4 @@
-"""Game Freak mesaj biçimi (Pokémon oyunları)."""
+"""GFMSG mesaj biçimi (`.dat` + `.tbl`)."""
 
 from nxceviri.core.formats.gfmsg.gfmsg import GfMsgPlugin
 

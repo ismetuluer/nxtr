@@ -1,4 +1,4 @@
-"""Danganronpa: Spike Chunsoft WAD arşivi, .lin betikleri, .pak metin tabloları (elle üretilmiş örneklerle)."""
+"""WAD arşivi, .lin betikleri, .pak metin tabloları (elle üretilmiş örneklerle)."""
 
 from __future__ import annotations
 
@@ -27,13 +27,13 @@ PLUGIN = WadLinPlugin()
 WAD_PATH = "Data/StreamingAssets/Initialpack/dr1_data.wad"
 
 LINES = [
-    "<CLT 4>Hope's Peak Academy...\n<CLT>",
+    "<CLT 4>Old Harbor School...\n<CLT>",
     "",
-    "<CLT 4>It was built to raise <CLT><CLT 3>hope<CLT><CLT 4> in the nation's future.\n<CLT>",
+    "<CLT 4>It was built to keep <CLT><CLT 3>hope<CLT><CLT 4> alive in the old town.\n<CLT>",
     "？？？",  # harf içermeyen satır alınmaz
-    "Makoto Naegi",
+    "Taro Mori",
 ]
-ITEMS = ["？？？", "Cola Cola", "Contains a highly stimulating,\nalmost addictive sweetness.", ""]
+ITEMS = ["？？？", "Lemon Soda", "A fizzy drink with\na sour aftertaste.", ""]
 
 
 def build_lin(strings: list[str], script: bytes = b"p\x00\x05\x00p\x02\x00\x00p\x02\x00\x02") -> bytes:
@@ -87,7 +87,7 @@ MEMBERS = {
     ITEM_PAK: build_pak([encode(s) for s in ITEMS]),
     SCRIPT_PAK: build_pak([build_lin(["First script line."]), build_plain_lin(), build_lin(["Third", "Fourth one"])]),
     "Dr1/data/us/script/e00_000_000.lin": build_plain_lin(),
-    "Dr1/data/jp/script/04_ItemName.pak": build_pak([encode("コーラ")]),
+    "Dr1/data/jp/script/04_ItemName.pak": build_pak([encode("ソーダ")]),
     "Dr1/data/us/bin/nonstop_01_001.dat": b"\x01\x02\x03",
 }
 
@@ -155,8 +155,8 @@ def test_lin_round_trip_and_tokens() -> None:
     data = build_lin(LINES)
     entries = {e.key: e for e in PLUGIN.extract(data)}
     assert set(entries) == {"0", "2", "4"}  # boş ve harfsiz satırlar alınmaz
-    assert entries["0"].source == "⟦1⟧Hope's Peak Academy...\n⟦2⟧"
-    assert entries["2"].source == "⟦1⟧It was built to raise ⟦2⟧⟦3⟧hope⟦4⟧⟦5⟧ in the nation's future.\n⟦6⟧"
+    assert entries["0"].source == "⟦1⟧Old Harbor School...\n⟦2⟧"
+    assert entries["2"].source == "⟦1⟧It was built to keep ⟦2⟧⟦3⟧hope⟦4⟧⟦5⟧ alive in the old town.\n⟦6⟧"
     assert [c.raw for c in entries["2"].codes][:3] == [b"<CLT 4>", b"<CLT>", b"<CLT 3>"]
     assert entries["4"].codes == ()
     assert PLUGIN.inject(data, {k: e.source for k, e in entries.items()}) == data
@@ -164,10 +164,10 @@ def test_lin_round_trip_and_tokens() -> None:
 
 def test_lin_inject_changes_length_and_keeps_script() -> None:
     data = build_lin(LINES)
-    out = PLUGIN.inject(data, {"0": "⟦1⟧Umudun Zirvesi Akademisi... çğıİöşü ÇĞÖŞÜ\n⟦2⟧", "4": "Makoto"})
+    out = PLUGIN.inject(data, {"0": "⟦1⟧Eski Liman Okulu... çğıİöşü ÇĞÖŞÜ\n⟦2⟧", "4": "Taro"})
     got = {e.key: e.source for e in PLUGIN.extract(out)}
-    assert got["0"] == "⟦1⟧Umudun Zirvesi Akademisi... çğıİöşü ÇĞÖŞÜ\n⟦2⟧"
-    assert got["4"] == "Makoto"
+    assert got["0"] == "⟦1⟧Eski Liman Okulu... çğıİöşü ÇĞÖŞÜ\n⟦2⟧"
+    assert got["4"] == "Taro"
     assert got["2"].startswith("⟦1⟧It was built")
     assert out[:12] == data[:12]  # tür, başlık ve metin bloğu ofseti aynı: betik değişmez
     assert out[16:28] == data[16:28]
@@ -180,9 +180,11 @@ def test_text_pak_round_trip_and_inject() -> None:
     entries = {e.key: e for e in PLUGIN.extract(data)}
     assert {k: e.source for k, e in entries.items()} == {"1": ITEMS[1], "2": ITEMS[2]}
     assert PLUGIN.inject(data, {"1": ITEMS[1]}) == data
-    out = PLUGIN.inject(data, {"1": "Kola Kola", "2": "Son derece uyarıcı,\nneredeyse bağımlılık yapan bir tatlılık."})
+    out = PLUGIN.inject(
+        data, {"1": "Limonlu Gazoz", "2": "Son derece uyarıcı,\nneredeyse bağımlılık yapan bir tatlılık."}
+    )
     got = {e.key: e.source for e in PLUGIN.extract(out)}
-    assert got == {"1": "Kola Kola", "2": "Son derece uyarıcı,\nneredeyse bağımlılık yapan bir tatlılık."}
+    assert got == {"1": "Limonlu Gazoz", "2": "Son derece uyarıcı,\nneredeyse bağımlılık yapan bir tatlılık."}
     assert out.count(BOM) == len(ITEMS)  # boş ve harfsiz öğeler de yerinde kalır
 
 
@@ -247,7 +249,7 @@ def test_detection_and_paths() -> None:
 
 
 def test_scan_lists_scripts_and_tables() -> None:
-    report = scan_view(GameView(TID, "Danganronpa", 0, None, [_tree()]))
+    report = scan_view(GameView(TID, "Örnek Oyun", 0, None, [_tree()]))
     found = sorted(e.path.split(">", 1)[1] for e in report.entries if e.kind == "wadlin")
     assert found == sorted(m for m in MEMBERS if "/script/" in m)
     reader = MemberReader(_tree().view)
@@ -257,7 +259,7 @@ def test_scan_lists_scripts_and_tables() -> None:
 def test_export_rebuilds_wad() -> None:
     tree = _tree()
     script, items = f"{WAD_PATH}>{SCRIPT}", f"{WAD_PATH}>{ITEM_PAK}"
-    translations = {script: {"4": "Makoto Naegi (çeviri)"}, items: {"1": "Kola Kola"}}
+    translations = {script: {"4": "Taro Mori (çeviri)"}, items: {"1": "Limonlu Gazoz"}}
     outputs = _export_member_archive(
         tree,
         WAD_PATH,
@@ -268,7 +270,7 @@ def test_export_rebuilds_wad() -> None:
     )
     assert [rel.as_posix() for rel, _ in outputs] == [f"romfs/{WAD_PATH}"]
     arc = wad.WadArchive(MemoryStorage(outputs[0][1]), WAD_PATH)
-    assert {e.key: e.source for e in PLUGIN.extract(arc.read(SCRIPT))}["4"] == "Makoto Naegi (çeviri)"
-    assert {e.key: e.source for e in PLUGIN.extract(arc.read(ITEM_PAK))}["1"] == "Kola Kola"
+    assert {e.key: e.source for e in PLUGIN.extract(arc.read(SCRIPT))}["4"] == "Taro Mori (çeviri)"
+    assert {e.key: e.source for e in PLUGIN.extract(arc.read(ITEM_PAK))}["1"] == "Limonlu Gazoz"
     assert arc.read(SCRIPT_PAK) == MEMBERS[SCRIPT_PAK]
     assert arc.read("Dr1/data/us/bin/nonstop_01_001.dat") == b"\x01\x02\x03"

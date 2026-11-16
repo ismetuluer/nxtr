@@ -31,9 +31,9 @@ def _problems(source: str, new: str) -> list[str]:
         ("You're crazy!", "You're crazy! Don't you think it's a bit risky?", "İngilizce"),
         ("Hello there, friend.", "Merhaba 朋友, nasılsın?", "alfabe"),
         ("Привет is Russian for hi.", "Привет, Rusçada selam demek; 你好 ise Çince.", "你"),
-        ("Treat that ball like our kid.", "Topa türlü türlü davran, türlü türlü sev, türlü türlü", "tekrar"),
+        ("Treat that garden like our kid.", "Bahçeye türlü türlü davran, türlü türlü sev, türlü türlü", "tekrar"),
         ("Yes, of course.", "Evet, elbette; ama önce kapıyı aç, sonra ışıkları kapat ve beni bekle.", "uzun"),
-        ("I told you we should treat that ball like it's our own kid.", "Evet.", "kısa"),
+        ("I told you we should treat that garden like it's our own kid.", "Evet.", "kısa"),
     ],
 )
 def test_fresh_translation_symptoms_are_caught(source: str, new: str, expected: str) -> None:
@@ -45,7 +45,7 @@ def test_fresh_translation_symptoms_are_caught(source: str, new: str, expected: 
 @pytest.mark.parametrize(
     ("source", "new"),
     [
-        ("Hello ⟦1⟧Link⟦2⟧!", "Merhaba ⟦1⟧Link⟦2⟧!"),
+        ("Hello ⟦1⟧Kael⟦2⟧!", "Merhaba ⟦1⟧Kael⟦2⟧!"),
         ("Oh, that's really nice of you!", "Ne kadar naziksin!"),
         ("OK", "Tamam"),
         ("Pokémon Center", "Pokémon Merkezi"),  # Latin harfi, Türkçede olmasa da kaynakta var

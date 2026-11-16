@@ -1,4 +1,4 @@
-"""Ys Origin: NNI arşivi, XSO betik metinleri, arayüz XML'i, tarama ve dışa aktarma (elle üretilmiş örneklerle)."""
+"""NNI arşivi, XSO betik metinleri, arayüz XML'i, tarama ve dışa aktarma (elle üretilmiş örneklerle)."""
 
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ PLUGIN = NniTextPlugin()
 
 EN_STRINGS = [
     "V_180",
-    "Yes. With the tower's influence cut off, Solomon\\nShrine has begun reascending.",
+    "Yes. With the tower's influence cut off, Amber\\nTemple has begun reascending.",
     "OPEN",
     "<color:0xffff3232>Well, well...<color:> a piece of %s ore.",
     "Yes",
@@ -44,7 +44,7 @@ JA_STRINGS = [
     "@Flag_Inv",
     "取消",
 ]
-EN_ONLY = ["S_0003", "Who goes there?", "Hugo", "...!"]
+EN_ONLY = ["S_0003", "Who goes there?", "Toma", "...!"]
 
 
 def _archives() -> dict[str, bytes]:
@@ -128,7 +128,7 @@ def test_xso_round_trip_is_byte_identical() -> None:
 
 def test_xso_tokens_and_newlines() -> None:
     entries = {e.key: e for e in PLUGIN.extract(build_xso(EN_STRINGS))}
-    assert entries["1"].source == "Yes. With the tower's influence cut off, Solomon\nShrine has begun reascending."
+    assert entries["1"].source == "Yes. With the tower's influence cut off, Amber\nTemple has begun reascending."
     assert entries["3"].source == "⟦1⟧Well, well...⟦2⟧ a piece of ⟦3⟧ ore."
     assert [c.raw for c in entries["3"].codes] == [b"<color:0xffff3232>", b"<color:>", b"%s"]
 
@@ -144,7 +144,7 @@ def test_xso_uses_japanese_copy_to_skip_script_identifiers() -> None:
 def test_xso_without_japanese_copy_uses_heuristic() -> None:
     context: dict[object, object] = {SOURCE_PATH: "data-en.ni>LOC/EN/DATA/MAP/Y.XSO"}
     keys = [e.key for e in PLUGIN.extract(build_xso(EN_ONLY), context)]
-    assert keys == ["1"]  # tek sözcüklü "Hugo" belirsiz: alınmaz; "...!" harf içermez
+    assert keys == ["1"]  # tek sözcüklü "Toma" belirsiz: alınmaz; "...!" harf içermez
     sources = [e.source for e in PLUGIN.extract(build_xso(["S_0003", "...!", "Run!"]), context)]
     assert sources == ["Run!"]
 
@@ -213,7 +213,7 @@ def test_detection_and_languages() -> None:
 
 
 def test_scan_lists_localized_scripts_only() -> None:
-    report = scan_view(GameView(TID, "Ys Origin", 0, None, [_tree()]))
+    report = scan_view(GameView(TID, "Örnek Oyun", 0, None, [_tree()]))
     texts = sorted(e.path for e in report.entries if e.kind == FileKind.NNITEXT.value)
     assert texts == [
         "ys_data/archives/data-en.ni>LOC/EN/DATA/MAP/S_00/S_0003/EVT_0001.XSO",
@@ -229,7 +229,7 @@ def test_scan_warns_when_data_file_missing() -> None:
     files = {k: v for k, v in _archives().items() if not k.endswith("data-en.na")}
     romfs = RomFs(MemoryStorage(build_romfs(files)))
     tree = ContentTree(TID, "Ana oyun", LayeredRomFs([RomFsLayer("base", romfs)]), lambda: None)
-    report = scan_view(GameView(TID, "Ys Origin", 0, None, [tree]))
+    report = scan_view(GameView(TID, "Örnek Oyun", 0, None, [tree]))
     assert any("data-en.na" in w for w in report.warnings)
 
 
@@ -237,7 +237,7 @@ def test_export_rebuilds_index_and_data() -> None:
     tree = _tree()
     path = "ys_data/archives/data-en.ni>LOC/EN/DATA/MAP/S_00/S_0003/EVT_0001.XSO"
     ref = TextFileRef(path, TID, "nnitext")
-    translations = {path: {"1": "Evet. Kulenin etkisi kesildi,\nSolomon yükseliyor.", "6": "Vazgeç"}}
+    translations = {path: {"1": "Evet. Kulenin etkisi kesildi,\nAmber yükseliyor.", "6": "Vazgeç"}}
     result = ExportResult(Path("x"))
     outputs = _export_member_archive(
         tree, "ys_data/archives/data-en.ni", [ref], translations=translations, root=Path("romfs"), result=result

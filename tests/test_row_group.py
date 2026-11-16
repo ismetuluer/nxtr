@@ -14,7 +14,7 @@ def _row(file: str, context: str, fmt: str, i: int = 1, key: str = "k") -> Trans
 
 
 def test_slash_context_of_plugin_format_groups_by_file_name() -> None:
-    row = _row("a.pak>x/y~z.sprbin", "/(Aang)", "kitt")
+    row = _row("a.pak>x/y~z.sprbin", "/(Arin)", "kitt")
     assert row_group(row) == "y~z.sprbin"
     assert not in_collection(row)
 
@@ -45,14 +45,14 @@ def _project() -> Project:
     project.import_texts(
         [
             ImportedFile(
-                "a.pak>x/one.sprbin", "0100", "kitt", "base", (TextEntry("1", 0, "A", (), context="/(Aang)"),)
+                "a.pak>x/one.sprbin", "0100", "kitt", "base", (TextEntry("1", 0, "A", (), context="/(Arin)"),)
             ),
             ImportedFile(
                 "a.pak>x/two.sprbin",
                 "0100",
                 "kitt",
                 "base",
-                (TextEntry("1", 0, "B", (), context="/(Katara)"), TextEntry("2", 1, "B2", (), context="/(Sokka)")),
+                (TextEntry("1", 0, "B", (), context="/(Selene)"), TextEntry("2", 1, "B2", (), context="/(Sokka)")),
             ),
             ImportedFile("m.mdf", "0100", "psbtext", "base", (TextEntry("1", 0, "C", (), context="sayfa 0 / text"),)),
             ImportedFile("t.bundle", "0100", "unity", "base", (TextEntry("UI/1", 0, "D", (), context="UI/Start"),)),
@@ -100,14 +100,14 @@ def test_unity_uppercase_rules_unchanged() -> None:
 def test_stale_empty_group_rule_does_not_override_file_rule() -> None:
     file_rule, stale = FitRules(40, 2), FitRules(10, 1)
     config = FitConfig(per_file={"a.pak>x/one.sprbin": file_rule, "b.msbt": file_rule}, per_group={"": stale})
-    assert config.rules_for_row(_row("a.pak>x/one.sprbin", "/(Aang)", "kitt")) == file_rule
+    assert config.rules_for_row(_row("a.pak>x/one.sprbin", "/(Arin)", "kitt")) == file_rule
     assert config.rules_for_row(_row("b.msbt", "", "msbt")) == file_rule
     unity = _row("t.bundle", "/Adsız", "unity")
     assert config.rules_for_row(unity) == stale  # adsız Unity koleksiyonunun kendi kuralı bugünkü gibi
 
 
 def test_plugin_slash_context_is_not_a_separate_group() -> None:
-    rows = [_row("a.pak>x/one.sprbin", "/(Aang)", "kitt", 1), _row("a.pak>x/two.sprbin", "/(Katara)", "kitt", 2)]
+    rows = [_row("a.pak>x/one.sprbin", "/(Arin)", "kitt", 1), _row("a.pak>x/two.sprbin", "/(Selene)", "kitt", 2)]
     assert separate_groups(rows) == []
     assert learn_group_rules(rows, FitConfig()) == {}
     unity = [_row("t.bundle", "UI/Start", "unity")]

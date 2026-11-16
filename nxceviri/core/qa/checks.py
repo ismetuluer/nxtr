@@ -20,7 +20,7 @@ Denetimler satır başınadır ve yalnızca bulguları döndürür; satırları 
 | ascii_turkish | uyarı | ASCII'ye çevrilmiş Türkçe harf (tesekkur → teşekkür); sözlükle onarılır |
 | spelling | bilgi | Çeviride Türkçe yazım sözlüğünde olmayan sözcük var (süzgeçle görülür; sözlüğe eklenebilir) |
 | missing_markup | uyarı | Orijinaldeki ham etiket (`<i>`, `[color=..]`, `{ad}`) çeviride eksik |
-| protected | uyarı | Orijinal cümlenin içindeki kod adı (`Barrel_Cannon`) çeviride aynen yok |
+| protected | uyarı | Orijinal cümlenin içindeki kod adı (`Fire_Cannon`) çeviride aynen yok |
 | double_space | uyarı | Metnin içinde çift/çoklu boşluk (otomatik düzeltilir) |
 | repeated_word | uyarı | Art arda aynı sözcük, "ve ve" (otomatik düzeltilir) |
 | extra_dots | uyarı | 4+ nokta, orijinalde olmayan "..", "!!!!", ",," (otomatik düzeltilir) |

@@ -1,4 +1,4 @@
-"""Yaz0 (Nintendo LZ77 türevi) açma ve sıkıştırma.
+"""Yaz0 (LZ77 türevi) açma ve sıkıştırma.
 
 Başlık: "Yaz0" | açılmış boyut u32 (big-endian) | hizalama u32 | 4 bayt ayrılmış.
 Veri: her grup bir bayraklar baytıyla başlar; 1 bit = düz bayt, 0 bit = geri başvuru
@@ -82,7 +82,7 @@ _MAX_CHAIN = 32
 def compress(data: bytes, alignment: int = 0) -> bytes:
     """Yaz0 ile sıkıştırır (açgözlü LZ77, 3 baytlık hash zincirleri).
 
-    Çıktı geçerli bir Yaz0 akışıdır; Nintendo'nun aracıyla bayt bayt aynı olması
+    Çıktı geçerli bir Yaz0 akışıdır; özgün araçla bayt bayt aynı olması
     beklenmez (oyun yalnızca açılabilir olmasını ister).
     """
     out = bytearray(MAGIC + struct.pack(">II", len(data), alignment) + b"\0" * 4)

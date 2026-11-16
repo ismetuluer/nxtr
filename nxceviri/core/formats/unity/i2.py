@@ -42,7 +42,7 @@ _NAME_RE = re.compile(r"[^\x00-\x1f]+")  # boş olmayan, kontrol karakteri içer
 TERM_TEXT = 0
 
 # Bilinen TermData alan dizilimleri:
-# A: I2 2.6.x (Blasphemous ile doğrulandı) — Term, TermType, Description, Languages,
+# A: I2 2.6.x (gerçek oyunda doğrulandı) — Term, TermType, Description, Languages,
 #    Languages_Touch, Flags.
 # B: I2 2.8.x — Term, TermType, Languages, Flags, Languages_Touch (gerçek oyunda denenmedi).
 LAYOUT_A = "A"

@@ -1,4 +1,4 @@
-"""SubRip altyazı eklentisi (Ys Origin giriş videosu): tanıma, dil, aktarma, geri yazma (elle üretilmiş örneklerle)."""
+"""SubRip altyazı eklentisi (giriş videosu altyazısı): tanıma, dil, aktarma, geri yazma (elle üretilmiş örneklerle)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from nxceviri.core.pipeline import path_language
 PLUGIN = SrtPlugin()
 CUES = [
     ("00:00:00,290 --> 00:00:06,000", "Once upon a time, lost within the tides\nof history, there existed a land."),
-    ("00:00:18,500 --> 00:00:22,300", 'It was called "Ys".'),
+    ("00:00:18,500 --> 00:00:22,300", 'It was called "Eld".'),
     (
         "00:00:24,200 --> 00:00:34,000",
         "<i>Goddesses</i> and the Six Priests,\nwith a trailing space \n{\an8}and a code.",
@@ -60,9 +60,9 @@ def test_inject_changes_only_the_text_and_keeps_line_endings(eol: str) -> None:
         "1" + eol + "00:00:00,290 --> 00:00:06,000" + eol + "Bir zamanlar, tarihin" + eol + "akıntısında"
     )
     assert "<i>Tanrıçalar</i>" + eol + "{\an8}ve altı Rahip." in text
-    assert 'It was called "Ys".' in text  # dokunulmayan blok aynen
+    assert 'It was called "Eld".' in text  # dokunulmayan blok aynen
     assert out.startswith(b"\xef\xbb\xbf")
-    assert [e.source for e in PLUGIN.extract(out)][1] == 'It was called "Ys".'
+    assert [e.source for e in PLUGIN.extract(out)][1] == 'It was called "Eld".'
     assert text.count("-->") == 3
 
 

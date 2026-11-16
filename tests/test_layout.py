@@ -24,7 +24,7 @@ from nxceviri.gui.main_window import STEP_TRANSLATE, MainWindow
 from nxceviri.gui.translate_page import COL_KEY, TranslatePage
 
 LB = ControlCode(b"\n", "Satır sonu")
-KEY = "despelote_loc_monsterFile/01_Kids\\Conversations\\ArmarArcoDiscussion/Nina1_01/conversation/"
+KEY = "game_loc_dialogue/01_Kids\\Conversations\\ParkDiscussion/Npc1_01/conversation/"
 LINES = [
     ("I've got an idea.", (), "Aklıma bir fikir geldi."),
     (
@@ -42,7 +42,7 @@ FONT_POINTS = [10, 12]
 def _project() -> Project:
     p = Project.new()
     entries = tuple(TextEntry(KEY + str(i), i, s, c) for i, (s, c, _) in enumerate(LINES))
-    p.import_texts([ImportedFile("resources.assets>despelote_loc_monsterFile", "0100", "unity", "base", entries)])
+    p.import_texts([ImportedFile("resources.assets>game_loc_dialogue", "0100", "unity", "base", entries)])
     rows = p.translation_rows()
     p.set_translations([(r.id, t) for r, (_, _, t) in zip(rows, LINES, strict=True)], machine=True)
     return p

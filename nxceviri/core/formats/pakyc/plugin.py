@@ -1,4 +1,4 @@
-"""Mina the Hollower (Yacht Club YCD) metin eklentisi.
+"""YCD paketi (`.yc`) metin eklentisi.
 
 `extract` oyunun İngilizce sütununu okur. `inject` çevirileri satırın tüm dil sütunlarına yazar;
 dosya boyutu ve hiçbir işaretçi değişmez, yalnızca çevrilen satırın betimleyicileri ve dizgi baytları
@@ -32,7 +32,7 @@ def _tag_label(tag: str) -> str:
 
 
 def tokenize(text: str) -> tuple[str, tuple[ControlCode, ...]]:
-    """Oyunun metin etiketlerini (`<f cn=mina>`, `<w>`…) ⟦n⟧ yer tutucularına çevirir."""
+    """Oyunun metin etiketlerini (`<f cn=ad>`, `<w>`…) ⟦n⟧ yer tutucularına çevirir."""
     return markup.tokenize(text, _TAG_RE, _tag_label)
 
 
@@ -53,7 +53,7 @@ def _plain(text: str) -> str:
 
 class PakYcPlugin:
     name = "pakyc"
-    label = "Mina the Hollower (YCD)"
+    label = "YCD paketi (.yc)"
     candidates_only = True
     path_suffixes: tuple[str, ...] = (".yc",)
 

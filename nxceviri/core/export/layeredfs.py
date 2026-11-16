@@ -279,7 +279,7 @@ def fold_unsupported_letters(translations: dict[str, dict[str, str]], files: lis
 
 
 def support_files(files: list[TextFileRef], layout: str, mod_name: str) -> list[tuple[Path, bytes]]:
-    """Biçim eklentilerinin moda eklediği dosyalar (ör. Devil May Cry'nin Türkçe harfli yazı dokusu)."""
+    """Biçim eklentilerinin moda eklediği dosyalar (ör. `.fsd`/`.msg` biçimli oyunun Türkçe harfli yazı dokusu)."""
     out: list[tuple[Path, bytes]] = []
     seen: set[tuple[str, str]] = set()
     for ref in files:
@@ -296,7 +296,7 @@ def support_files(files: list[TextFileRef], layout: str, mod_name: str) -> list[
 def game_file_patches(files: list[TextFileRef]) -> dict[tuple[str, str], Callable[[bytes], bytes]]:
     """Biçim eklentilerinin metinden bağımsız değiştirdiği oyun dosyaları ((TitleID, yol) → dönüştürücü).
 
-    Ör. Devil May Cry'nin menü başlığı resimleri; dosya metin de içeriyorsa dönüştürücü çeviriler yazıldıktan
+    Ör. `.fsd`/`.msg` biçimli oyunun menü başlığı resimleri; dosya metin de içeriyorsa dönüştürücü çeviriler yazıldıktan
     sonra uygulanır.
     """
     out: dict[tuple[str, str], Callable[[bytes], bytes]] = {}
@@ -331,7 +331,7 @@ def _info_text(info: ExportInfo, options: ExportOptions, result: ExportResult) -
         )
     if any(f.endswith(psb_archive.INDEX_SUFFIX) for f in result.files):
         howto += (
-            "\nM2 (Metal Gear Solid): oyunun arşiv dizini ('alldata.psb.m', değişen dosyaların kaydı çıkarılmış) ve "
+            "\nPSB arşivi (mdf): oyunun arşiv dizini ('alldata.psb.m', değişen dosyaların kaydı çıkarılmış) ve "
             "değişen dosyaların kendisi verilir; 8 GB'lık 'alldata.bin' değiştirilmez."
         )
     if any(f.endswith(".ips") for f in result.files):
@@ -844,7 +844,7 @@ def _export_psb_archive(
     root: Path,
     result: ExportResult,
 ) -> list[tuple[Path, bytes]]:
-    """M2 arşivindeki değişen üyeleri gevşek dosya olarak, dizinden çıkarılmış girdileriyle verir.
+    """PSB arşivindeki (mdf) değişen üyeleri gevşek dosya olarak, dizinden çıkarılmış girdileriyle verir.
 
     8 GB'lık veri dosyasına (`.bin`) dokunulmaz. Oyun, dizinde kaydı olmayan dosyayı dosya
     sisteminde (RomFS katmanında) arar; bu yüzden değişen üyelerin girdisi `.psb.m` dizininden
@@ -893,7 +893,7 @@ def _export_member_archive(
     result: ExportResult,
     extra: Mapping[str, bytes] | None = None,
 ) -> list[tuple[Path, bytes]]:
-    """NNI (Ys Origin), CPK (Unicorn Overlord) veya WAD (Danganronpa) arşivini değişen üyeleriyle yeniden kurar.
+    """NNI, CPK veya WAD arşivini değişen üyeleriyle yeniden kurar.
 
     NNI: orijinal `.na` korunur, değişen üyeler sonuna eklenir; `.ni` dizini ve `.na` birlikte verilir.
     CPK: değişen dosyalar sıkıştırılmadan konmuş tüm arşiv verilir. WAD: tüm arşiv, üyeler aynı sırada.

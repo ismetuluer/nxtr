@@ -1,7 +1,7 @@
 """`ara`: ekranda görülen bir cümleyi oyun dosyalarında farklı kodlamalarla arar.
 
 UTF-8, UTF-16LE, UTF-16BE ve Shift-JIS aranır; SARC/Yaz0/ZSTD arşivlerinin içine özyinelemeli bakılır.
-Dizini ayrı okunan büyük arşivlerin (pak, CPK, WAD, NNI, M2) içine bakılmaz; yalnızca ham baytları taranır
+Dizini ayrı okunan büyük arşivlerin (pak, CPK, WAD, NNI, PSB) içine bakılmaz; yalnızca ham baytları taranır
 ve bu çıktıda belirtilir. Oyun dosyalarına yazılmaz.
 """
 

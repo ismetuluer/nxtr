@@ -67,10 +67,10 @@ def test_fmsb_export_writes_reordered_free_codes_and_verifies() -> None:
     plugin = FmsbPlugin()
     sheet = build_fmsb(["##(START)", "", "Gold: %d, name: #FN(Bob)"])
     archive = build_cpk({"MsgSheet/A.fms": sheet})
-    path = "Unicorn_US.CPK>MsgSheet/A.fms"
+    path = "Game_US.CPK>MsgSheet/A.fms"
     key = plugin.extract(sheet)[0].key
     translations = {path: {key: "Ad: ⟦2⟧, altın: ⟦1⟧"}}
-    tree = _tree({"Unicorn_US.CPK": archive})
+    tree = _tree({"Game_US.CPK": archive})
     with pytest.raises(FormatError):  # sıra gevşetmesi olmadan eklenti reddeder
         plugin.inject(sheet, translations[path])
     result = ExportResult(Path("x"))
@@ -78,13 +78,13 @@ def test_fmsb_export_writes_reordered_free_codes_and_verifies() -> None:
     result.reordered_keys = {path: frozenset({key})}
     outputs = _export_member_archive(
         tree,
-        "Unicorn_US.CPK",
+        "Game_US.CPK",
         [TextFileRef(path, TID, "fmsb")],
         translations=translations,
         root=Path("romfs"),
         result=result,
     )
-    arc = cpk.CpkFile(MemoryStorage(outputs[0][1]), "Unicorn_US.CPK")
+    arc = cpk.CpkFile(MemoryStorage(outputs[0][1]), "Game_US.CPK")
     written = arc.read("MsgSheet/A.fms")
     assert b"Ad: #FN(Bob), alt\xc4\xb1n: %d" in written  # her kod kendi ham biçimine döndü
     assert not result.dropped_keys.get(path)

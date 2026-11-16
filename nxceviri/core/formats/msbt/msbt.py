@@ -1,4 +1,4 @@
-"""MSBT (Nintendo LMS "MsgStdBn") okuma ve geri yazma.
+"""MSBT (LMS "MsgStdBn") okuma ve geri yazma.
 
 Yapı (ayrıntılar: docs/formats/msbt.md):
 
@@ -244,7 +244,7 @@ def _build(f: MsbtFile, txt2: bytes) -> bytes:
 
 class MsbtPlugin:
     name = "msbt"
-    label = "MSBT (Nintendo LMS)"
+    label = "MSBT (LMS)"
     candidates_only = False
     path_suffixes: tuple[str, ...] = ()
 

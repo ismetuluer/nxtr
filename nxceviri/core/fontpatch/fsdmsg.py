@@ -1,4 +1,4 @@
-"""Devil May Cry (Switch) yazı dokusu üretici: `etc_e/msg_tex.t32`.
+"""`.fsd`/`.msg` biçimli oyunun yazı dokusu üretici: `etc_e/msg_tex.t32`.
 
 Oyunun İngilizce diyalog yazısı bir T32 dosyasından çizilir (docs/formats/fsd-msg.md). Biçim, topluluğun
 Rusça modunun ve PC Türkçe yamasının (ikisi de Switch'te açılıyor) dosyalarından ve oyunun kendi

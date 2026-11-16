@@ -92,8 +92,8 @@ def test_result_is_cached_until_row_changes() -> None:
 
 def test_glossary_and_spelling_findings_are_live() -> None:
     checker = LiveChecker()
-    checker.set_context(LiveContext(glossary=(GlossaryTerm("Pines", "Çam"),), spell=fake_spell()))
-    row = make_row(1, "Silver Pines", "Gümüş Ormanı")
+    checker.set_context(LiveContext(glossary=(GlossaryTerm("Grove", "Çam"),), spell=fake_spell()))
+    row = make_row(1, "Silver Grove", "Gümüş Ormanı")
     found = {i.kind: i for i in checker.check(row)}
     assert "glossary" in found
     assert "spelling" in found

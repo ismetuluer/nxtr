@@ -239,7 +239,7 @@ def test_delegate_underlines_copied_words_only_when_flagged(qtbot: QtBot) -> Non
     from nxceviri.core.spell.checker import SpellChecker
 
     spell = SpellChecker(BloomFilter.build(["merhaba", "oyun"], error_rate=0.0001))
-    page = make_page(qtbot, [make_row(1, "Sunflare Spike", "Merhaba Sunflare Spike")])
+    page = make_page(qtbot, [make_row(1, "Sunfire Lance", "Merhaba Sunfire Lance")])
     page.set_spell(spell, frozenset())
     index = page.proxy.index(0, COL_TRANSLATION)
     assert "text-decoration:underline" not in page.translation_delegate.html_for(index)

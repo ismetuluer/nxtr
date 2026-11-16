@@ -40,7 +40,7 @@ def test_short_summary_is_one_line_without_paths_or_suggestions() -> None:
         unchanged=2098,
         rejected=6,
         cleaned=5,
-        rejections=[Rejection("despelote_loc/x/Nina1_01/conversation/2", "Kaleyi …", ("Eksik kontrol kodu: [1]",))],
+        rejections=[Rejection("game_loc/x/Npc1_01/conversation/2", "Kaleyi …", ("Eksik kontrol kodu: [1]",))],
     )
     level, title, text = short_summary(ACTION_RETRANSLATE, summary)
     assert level == LEVEL_WARNING

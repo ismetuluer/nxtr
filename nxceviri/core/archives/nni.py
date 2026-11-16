@@ -1,4 +1,4 @@
-"""Falcom NNI arşivi (Ys Origin): `.ni` dizini + `.na` veri dosyası.
+"""NNI arşivi: `.ni` dizini + `.na` veri dosyası.
 
 Dizin (`.ni`):
 - Başlık 16 bayt: `NNI\\0` | girdi sayısı u32 | ad tablosu boyutu u32 | bayraklar u32.

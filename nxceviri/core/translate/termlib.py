@@ -1,4 +1,4 @@
-"""Terminoloji kitaplığı: projelerden bağımsız, adlandırılmış terim listeleri ("DMC serisi").
+"""Terminoloji kitaplığı: projelerden bağımsız, adlandırılmış terim listeleri ("Örnek seri").
 
 Listeler kullanıcıya aittir (`%LOCALAPPDATA%/NXCeviri/terminoloji/<dosya>.json`); bir oyunda kurulan terminoloji
 aynı serinin başka bir oyununda doğrudan eklenebilir, birden çok liste birleştirilebilir. Listenin görünen adı

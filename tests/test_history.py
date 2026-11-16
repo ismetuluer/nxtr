@@ -13,7 +13,7 @@ from nxceviri.core.project import store as store_module
 from nxceviri.core.translate.diff import ADDED, REMOVED, SAME, word_diff
 from nxceviri.core.translate.status import SOURCE_CHANGED_NOTE, Status
 
-LINES = [("a", "Yes, but they like soccer."), ("b", "Not me."), ("c", "Press ⟦1⟧ now")]
+LINES = [("a", "Yes, but they like music."), ("b", "Not me."), ("c", "Press ⟦1⟧ now")]
 
 
 @pytest.fixture
@@ -133,7 +133,7 @@ def test_changes_export_csv_and_html(project: Project, tmp_path: Path) -> None:
     assert raw.startswith(b"\xef\xbb\xbf")  # Excel UTF-8'i tanısın
     lines = raw.decode("utf-8-sig").splitlines()
     assert lines[0] == "Satır;Orijinal;Önceki çeviri;Yeni çeviri;İş;Zaman"
-    assert lines[1].startswith('a;Yes, but they like soccer.;"Evet; ama ""onlar"" seviyor.";Ama seviyorlar ki.;')
+    assert lines[1].startswith('a;Yes, but they like music.;"Evet; ama ""onlar"" seviyor.";Ama seviyorlar ki.;')
     write_changes(tmp_path / "rapor.html", changes, "Talimatla <düzeltme>")
     page = (tmp_path / "rapor.html").read_text(encoding="utf-8")
     assert "<del>" in page

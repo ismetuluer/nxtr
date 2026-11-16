@@ -38,9 +38,9 @@ def test_path_language(path: str, expected: str | None) -> None:
 @pytest.mark.parametrize(
     ("a", "b", "same"),
     [
-        ("en", "en-us", True),  # Kong: dosya adında "en-us", tabloda "en"
+        ("en", "en-us", True),  # bir oyunda dosya adında "en-us", tabloda "en"
         ("en-US", "en-us", True),
-        ("en-us", "en-eu", False),  # Rhythm Heaven: USen ve EUen ayrı dosyalar
+        ("en-us", "en-eu", False),  # bir oyunda USen ve EUen ayrı dosyalar
         ("zh-cn", "zh-tw", False),
         ("zh", "zh-hant", False),  # yazı alt etiketi ayrı bir dildir
         ("zh-Hant", "zh-hant", True),

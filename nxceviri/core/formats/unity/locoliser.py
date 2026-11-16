@@ -1,19 +1,19 @@
-"""Despelote'nin `Locoliser` MonoBehaviour'u: TSV yerelleştirme tablolarının oyuna gömülmüş, ayrıştırılmış kopyası.
+"""`Locoliser` MonoBehaviour'u: TSV yerelleştirme tablolarının oyuna gömülmüş, ayrıştırılmış kopyası.
 
 Oyun çalışırken metinleri TSV TextAsset'lerinden değil, bu nesneden okur (TSV'ler yalnızca editörde
 önbelleği üretmek için kullanılır). `resources.assets` içindedir ve tip ağacı silinmiştir; bu yüzden ham
 bayttan çözülür. Unity serileştirmesi sıralıdır (nesne içinde ofset yoktur): bir dizgenin boyu değişince
 yalnızca uzunluk alanı ve 4 bayt hizalaması değişir, geri kalan alanlar olduğu gibi yazılır.
 
-Dizilim (Despelote 1.0.1, Unity 2021.3):
+Dizilim (denenen oyun, Unity 2021.3):
 
 ```
 MonoBehaviour başlığı (m_GameObject, m_Enabled, m_Script, m_Name)
 int, int                                   bilinmeyen alanlar (aynen korunur)
-PPtr<TextAsset>       diyalog TSV'si       (ör. despelote_loc_monsterFile)
-string[]              anahtarlar           "01_kids/conversations/armararcodiscussion/nina1_01"
+PPtr<TextAsset>       diyalog TSV'si       (ör. <oyun>_loc_dialogue)
+string[]              anahtarlar           "01_kids/conversations/park/npc1_01"
 Entry[]               her anahtar için:    Sub[] { int sıra; float başlangıç; float bitiş; string[] diller }
-PPtr<TextAsset>       menü TSV'si          (ör. despelote_loc_UI)
+PPtr<TextAsset>       menü TSV'si          (ör. <oyun>_loc_UI)
 Row[]                 menü satırları:      string[] diller
 ...                   kalan alanlar (font başvuruları vb., aynen korunur)
 ```

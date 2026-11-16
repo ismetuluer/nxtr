@@ -1,4 +1,4 @@
-"""Despelote `Locoliser`: TSV tablolarının oyuna gömülü kopyası (oyun metni buradan okur)."""
+"""`Locoliser`: TSV tablolarının oyuna gömülü kopyası (oyun metni buradan okur)."""
 
 from __future__ import annotations
 
@@ -15,12 +15,12 @@ DIALOGUE_ID, UI_ID, LOCO_ID = 100, 101, 102
 
 DIALOGUE_TSV = (
     "path\tvoice name\tvoice type\tsub index\tsub timestamp\t[es]\t[en]\r\n"
-    "01_Kids\\Talk\tNina1_01\tconversation\t1\t0:00:00,292 --> 0:00:04,000\tHola amigos\tHello friends\r\n"
-    "01_Kids\\Talk\tNina1_01\tconversation\t2\t0:00:04,167 --> 0:00:09,334\tUno\\ndos\tOne\\ntwo\r\n"
+    "01_Kids\\Talk\tNpc1_01\tconversation\t1\t0:00:00,292 --> 0:00:04,000\tHola amigos\tHello friends\r\n"
+    "01_Kids\\Talk\tNpc1_01\tconversation\t2\t0:00:04,167 --> 0:00:09,334\tUno\\ndos\tOne\\ntwo\r\n"
 )
 UI_TSV = "ID\tes\ten\r\n0\tcomenzar\tstart\r\n1\tmes\\nfin\tmonth\\nend\r\n2\tsalir\tquit\r\n"
 # Önbellekte diyalog metni ekrana sığsın diye satırlara bölünmüş olabilir ("Hello\nfriends").
-ENTRIES = [("01_kids/talk/nina1_01", [(1, ["Hola\namigos", "Hello\nfriends"]), (2, ["Uno\ndos", "One\ntwo"])])]
+ENTRIES = [("01_kids/talk/npc1_01", [(1, ["Hola\namigos", "Hello\nfriends"]), (2, ["Uno\ndos", "One\ntwo"])])]
 UI_ROWS = [["comenzar", "start"], ["mes\\nfin", "month\\nend"], ["salir (eski)", "quit (old)"]]
 
 
@@ -28,8 +28,8 @@ def _file(ui_rows: list[list[str]] = UI_ROWS) -> bytes:
     loco = locoliser_raw(DIALOGUE_ID, ENTRIES, UI_ID, ui_rows)
     return serialized_without_typetree(
         [
-            text_asset_raw("despelote_loc_monsterFile", DIALOGUE_TSV),
-            text_asset_raw("despelote_loc_UI", UI_TSV),
+            text_asset_raw("game_loc_dialogue", DIALOGUE_TSV),
+            text_asset_raw("game_loc_UI", UI_TSV),
             loco,
         ],
         [49, 49, 114],
@@ -47,7 +47,7 @@ def test_parse_and_serialize_are_exact() -> None:
     raw = locoliser_raw(DIALOGUE_ID, ENTRIES, UI_ID, UI_ROWS)
     loc = locoliser.parse(raw)
     assert loc is not None
-    assert loc.keys == ("01_kids/talk/nina1_01",)
+    assert loc.keys == ("01_kids/talk/npc1_01",)
     assert (loc.dialogue_file, loc.ui_file, loc.language_count) == (DIALOGUE_ID, UI_ID, 2)
     assert loc.entries[0][1].texts == ("Uno\ndos", "One\ntwo")
     assert loc.ui_rows[2] == ("salir (eski)", "quit (old)")

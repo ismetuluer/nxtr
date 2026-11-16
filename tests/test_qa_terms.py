@@ -17,11 +17,11 @@ def _row(i: int, source: str, translation: str, status: str = Status.MACHINE) ->
 
 def test_canonical_is_most_frequent_translation_of_standalone_line() -> None:
     rows = [
-        _row(1, "Silver Pines", "Gümüş Çamlar"),
-        _row(2, "Silver Pines", "Gümüş Çamlar"),
-        _row(3, "Silver Pines", "Gümüş Çam"),
+        _row(1, "Silver Grove", "Gümüş Çamlar"),
+        _row(2, "Silver Grove", "Gümüş Çamlar"),
+        _row(3, "Silver Grove", "Gümüş Çam"),
     ]
-    assert canonical_terms(rows, []) == {"Silver Pines": "Gümüş Çamlar"}
+    assert canonical_terms(rows, []) == {"Silver Grove": "Gümüş Çamlar"}
 
 
 def test_canonical_tie_prefers_approved() -> None:
@@ -45,30 +45,30 @@ def test_canonical_only_short_capitalised_standalone_translated_lines() -> None:
 
 
 def test_glossary_beats_rows_and_ignored_are_dropped() -> None:
-    rows = [_row(1, "Silver Pines", "Gümüş Çam"), _row(2, "Mara", "Mara")]
-    glossary = [GlossaryTerm("silver pines", "Gümüş Çamlar"), GlossaryTerm("Sheriff", "Şerif")]
+    rows = [_row(1, "Silver Grove", "Gümüş Çam"), _row(2, "Mara", "Mara")]
+    glossary = [GlossaryTerm("silver grove", "Gümüş Çamlar"), GlossaryTerm("Sheriff", "Şerif")]
     canon = canonical_terms(rows, glossary, ignored=["mara"])
-    assert canon == {"silver pines": "Gümüş Çamlar", "Sheriff": "Şerif"}
+    assert canon == {"silver grove": "Gümüş Çamlar", "Sheriff": "Şerif"}
 
 
 def test_canonical_row_itself_gives_no_issue() -> None:
-    rows = [_row(1, "Silver Pines", "Gümüş Çamlar")]
-    assert term_issues(rows, {"Silver Pines": "Gümüş Çamlar"}) == []
+    rows = [_row(1, "Silver Grove", "Gümüş Çamlar")]
+    assert term_issues(rows, {"Silver Grove": "Gümüş Çamlar"}) == []
 
 
 def test_matching_ignores_suffix_case_breaks_codes_and_spaces() -> None:
-    canon = {"Silver Pines": "Gümüş Çamlar"}
+    canon = {"Silver Grove": "Gümüş Çamlar"}
     ok = [
-        _row(1, "Welcome to Silver Pines.", "Gümüş Çamlar'a hoş geldin."),
-        _row(2, "Welcome to Silver Pines.", "Gümüş Çamlar’a hoş geldin."),
-        _row(3, "The people of Silver Pines.", "Gümüş Çamlarda yaşayanlar."),
-        _row(4, "Silver Pines is home.", "GÜMÜŞ ÇAMLAR yuvam."),
-        _row(5, "Silver Pines is home.", "gümüş çamlar yuvam."),
-        _row(6, "Go to Silver Pines.", "Gümüş\nÇamlar'a git."),
-        _row(7, "Go to Silver Pines.", "Gümüş ⟦1⟧ Çamlar'a git."),
-        _row(8, "Go to Silver Pines.", "Gümüş   Çamlar'a git."),
-        _row(9, "SILVER PINES rocks", "Gümüş Çamlar harika"),
-        _row(10, "In silver pines", "Gümüş Çamlar'daki ev"),
+        _row(1, "Welcome to Silver Grove.", "Gümüş Çamlar'a hoş geldin."),
+        _row(2, "Welcome to Silver Grove.", "Gümüş Çamlar’a hoş geldin."),
+        _row(3, "The people of Silver Grove.", "Gümüş Çamlarda yaşayanlar."),
+        _row(4, "Silver Grove is home.", "GÜMÜŞ ÇAMLAR yuvam."),
+        _row(5, "Silver Grove is home.", "gümüş çamlar yuvam."),
+        _row(6, "Go to Silver Grove.", "Gümüş\nÇamlar'a git."),
+        _row(7, "Go to Silver Grove.", "Gümüş ⟦1⟧ Çamlar'a git."),
+        _row(8, "Go to Silver Grove.", "Gümüş   Çamlar'a git."),
+        _row(9, "SILVER GROVE rocks", "Gümüş Çamlar harika"),
+        _row(10, "In silver grove", "Gümüş Çamlar'daki ev"),
     ]
     assert term_issues(ok, canon) == []
 
@@ -81,15 +81,15 @@ def test_turkish_dotted_and_dotless_i() -> None:
 
 
 def test_different_translation_reports_with_count() -> None:
-    canon = {"Silver Pines": "Gümüş Çamlar"}
-    rows = [_row(i, "See Silver Pines.", "Gümüş Çamlar'ı gör.") for i in range(14)]
-    rows.append(_row(100, "Welcome to Silver Pines.", "Gümüş Çam'a hoş geldin."))
-    rows.append(_row(101, "Welcome to Silver Pines.", "Silver Pines'a hoş geldin."))
+    canon = {"Silver Grove": "Gümüş Çamlar"}
+    rows = [_row(i, "See Silver Grove.", "Gümüş Çamlar'ı gör.") for i in range(14)]
+    rows.append(_row(100, "Welcome to Silver Grove.", "Gümüş Çam'a hoş geldin."))
+    rows.append(_row(101, "Welcome to Silver Grove.", "Silver Grove'a hoş geldin."))
     found = term_issues(rows, canon)
     assert [i.row_id for i in found] == [100, 101]
     first = found[0]
     assert (first.kind, first.severity) == ("term", "warning")
-    assert first.message == "‘Silver Pines’ burada çevrilmemiş ya da farklı çevrilmiş; 14 satırda ‘Gümüş Çamlar’."
+    assert first.message == "‘Silver Grove’ burada çevrilmemiş ya da farklı çevrilmiş; 14 satırda ‘Gümüş Çamlar’."
 
 
 def test_prefix_of_a_longer_word_is_not_a_match() -> None:
@@ -110,25 +110,25 @@ def test_phrase_needs_word_boundary_in_source_and_untranslated_rows_skipped() ->
 
 
 def test_multi_word_phrase_needs_whitespace_between_words_in_source() -> None:
-    canon = {"Silver Pines": "Gümüş Çamlar"}
+    canon = {"Silver Grove": "Gümüş Çamlar"}
     rows = [
-        _row(1, "Go to Silver\nPines now", "Bilinmeyen"),
-        _row(2, "Go to Silver ⟦1⟧ Pines now", "Bilinmeyen"),
-        _row(3, "Go to Silver. Pines now", "Bilinmeyen"),
+        _row(1, "Go to Silver\nGrove now", "Bilinmeyen"),
+        _row(2, "Go to Silver ⟦1⟧ Grove now", "Bilinmeyen"),
+        _row(3, "Go to Silver. Grove now", "Bilinmeyen"),
     ]
     assert [i.row_id for i in term_issues(rows, canon)] == [1, 2]
 
 
 def test_run_checks_includes_term_issues_and_respects_ignored() -> None:
     rows = [
-        _row(1, "Silver Pines", "Gümüş Çamlar"),
-        _row(3, "Silver Pines", "Gümüş Çamlar"),
-        _row(2, "Welcome to Silver Pines.", "Gümüş Çam'a hoş geldin."),
+        _row(1, "Silver Grove", "Gümüş Çamlar"),
+        _row(3, "Silver Grove", "Gümüş Çamlar"),
+        _row(2, "Welcome to Silver Grove.", "Gümüş Çam'a hoş geldin."),
     ]
     kinds = [i.kind for i in run_checks(rows, "", "")]
     assert kinds.count("term") == 1
-    assert [i.kind for i in run_checks(rows, "", "", ignored_terms=["silver pines"])].count("term") == 0
-    glossary = [GlossaryTerm("Silver Pines", "Gümüş Çam")]
+    assert [i.kind for i in run_checks(rows, "", "", ignored_terms=["silver grove"])].count("term") == 0
+    glossary = [GlossaryTerm("Silver Grove", "Gümüş Çam")]
     assert [i.kind for i in run_checks(rows, "", "", glossary)].count("term") == 0  # sözlük "Gümüş Çam" der
 
 
@@ -172,9 +172,9 @@ def test_o4_ortak_arayuz_sozcukleri_cumle_icinde_uyari_uretmez() -> None:
 
 
 def test_o4_cumle_basi_eslesme_tek_sozcukte_sayilmaz_cok_sozcukte_sayilir() -> None:
-    canon = {"Silver Pines": "Gümüş Çamlar", "Mara": "Mara"}
+    canon = {"Silver Grove": "Gümüş Çamlar", "Mara": "Mara"}
     rows = [
-        _row(1, "Silver Pines is quiet.", "Sessiz bir yer."),
+        _row(1, "Silver Grove is quiet.", "Sessiz bir yer."),
         _row(2, "Hi. Mara is here.", "Merhaba. Orada biri var."),
         _row(3, "Hi Mara is here.", "Merhaba. Orada biri var."),
     ]

@@ -1,4 +1,4 @@
-"""CRI Middleware CPK arşivi (Unicorn Overlord): okuma ve değişen dosyalarla yeniden kurma.
+"""CPK arşivi: okuma ve değişen dosyalarla yeniden kurma.
 
 Yapı:
 - Her tablo bölümü 16 baytlık bir başlıkla başlar: imza (`CPK `, `TOC `, `ETOC`…) | u32 | boyut u64,

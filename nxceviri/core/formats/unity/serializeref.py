@@ -1,4 +1,4 @@
-"""Donkey Kong Country Returns HD'nin `Localization` MonoBehaviour'u (`resources.assets`).
+"""Tip ağacı silinmiş `Localization` MonoBehaviour'u (`resources.assets`).
 
 Oyunun tüm metinleri, tip ağacı silinmiş tek bir nesnededir ve Unity'nin `[SerializeReference]` kayıt defteri
 olarak saklanır. Metin yok sayılsa bile yapı sıralıdır (nesne içinde ofset yoktur); bir dizgenin boyu değişince

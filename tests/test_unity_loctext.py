@@ -1,4 +1,4 @@
-"""Unity TextAsset yerelleştirmesi: SRT altyazıları ve dil sütunlu TSV tabloları (Despelote biçimi)."""
+"""Unity TextAsset yerelleştirmesi: SRT altyazıları ve dil sütunlu TSV tabloları (elle üretilmiş örneklerle)."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ UI_TSV = (
 )
 DIALOGUE_TSV = (
     "path\tvoice name\tvoice type\tsub index\tsub timestamp\t[es]\t[en]\t[fr]\r\n"
-    "01_Kids\\Talk\tNina1\tconversation\t1\t0:00:00,292 --> 0:00:04,000\tHola\tHi\tSalut\r\n"
+    "01_Kids\\Talk\tNpc1\tconversation\t1\t0:00:00,292 --> 0:00:04,000\tHola\tHi\tSalut\r\n"
     "01_Kids\\Talk\tNino1\tconversation\t2\t0:00:04,167 --> 0:00:09,334\tUno\\ndos\tOne\\ntwo\tUn\\ndeux\r\n"
 )
 NOT_TABLE = '{\r\n  "name": "com.example.package"\r\n}'
@@ -34,8 +34,8 @@ NOT_TABLE = '{\r\n  "name": "com.example.package"\r\n}'
 def _bundle() -> bytes:
     return build_bundle(
         [
-            text_asset("Nina1[en]", SRT_EN),
-            text_asset("Nina1[es]", SRT_ES),
+            text_asset("Npc1[en]", SRT_EN),
+            text_asset("Npc1[es]", SRT_ES),
             text_asset("loc_UI", UI_TSV),
             text_asset("loc_dialogue", DIALOGUE_TSV),
             text_asset("package", NOT_TABLE),
@@ -66,7 +66,7 @@ def test_srt_detection_and_language_tag() -> None:
     assert loctext.is_srt(SRT_ES)
     assert not loctext.is_srt(UI_TSV)
     assert not loctext.is_srt(NOT_TABLE)
-    assert loctext.srt_language("Nina1[en]") == "en"
+    assert loctext.srt_language("Npc1[en]") == "en"
     assert loctext.srt_language("[ES]shop convo_x") == "es"
     assert loctext.srt_language("credits") == ""
 
@@ -82,7 +82,7 @@ def test_tsv_languages_rows_and_label() -> None:
     assert table is not None
     assert table.languages == {"es": 5, "en": 6, "fr": 7}
     assert [line for line, _ in table.rows] == [1, 2]
-    assert table.label(table.rows[0][1]) == "01_Kids\\Talk/Nina1/conversation/1"
+    assert table.label(table.rows[0][1]) == "01_Kids\\Talk/Npc1/conversation/1"
     assert loctext.parse_tsv(NOT_TABLE) is None
     assert loctext.parse_tsv("a\tb\tc\r\n1\t2\t3") is None  # dil sütunu yok
 
@@ -103,7 +103,7 @@ def test_extract_english_only_with_controls() -> None:
     entries = PLUGIN.extract(_bundle(), {SOURCE_LANGUAGE: None})
     got = _by_context(entries)
     assert "package" not in got
-    assert sorted(e.source for e in entries if e.context == "Nina1[en]") == sorted(
+    assert sorted(e.source for e in entries if e.context == "Npc1[en]") == sorted(
         ["Hello, ⟦1⟧neighbor⟦2⟧!", "One line\nTwo lines ⟦1⟧", "Before\r\n\r\nafter blank line"]
     )
     ui = [e for e in entries if e.context.startswith("loc_UI/")]
@@ -114,10 +114,10 @@ def test_extract_english_only_with_controls() -> None:
 
 def test_extract_respects_chosen_source_language() -> None:
     es = PLUGIN.extract(_bundle(), {SOURCE_LANGUAGE: "es"})
-    assert {e.source for e in es if e.context == "Nina1[es]"} == {"Hola, vecino!"}
+    assert {e.source for e in es if e.context == "Npc1[es]"} == {"Hola, vecino!"}
     assert {e.key.split("|")[2] for e in es} == {"es"}
     fr = PLUGIN.extract(_bundle(), {SOURCE_LANGUAGE: "fr"})
-    assert not [e for e in fr if e.context in {"Nina1[en]", "Nina1[es]"}]  # altyazıda fr yok
+    assert not [e for e in fr if e.context in {"Npc1[en]", "Npc1[es]"}]  # altyazıda fr yok
     assert {e.key.split("|")[2] for e in fr} == {"fr"}
 
 
@@ -158,7 +158,7 @@ def test_inject_writes_turkish_into_source_language_only() -> None:
     assert everything["TSV|4|es|2"] == "Uno⟦1⟧dos"
     # Kaynak metin korunur: <i> etiketi, değişken, TSV'deki düz \n.
     env_texts = _raw_scripts(out)
-    assert "Merhaba, <i>komşu</i>! ğüşıöçİ" in env_texts["Nina1[en]"]
+    assert "Merhaba, <i>komşu</i>! ğüşıöçİ" in env_texts["Npc1[en]"]
     assert "\tsüre {} dk\\nson\t" in env_texts["loc_UI"]
     assert env_texts["loc_UI"].count("\r\n") == UI_TSV.count("\r\n")
     assert env_texts["package"] == NOT_TABLE
@@ -185,7 +185,7 @@ def test_inject_rejects_tab_or_newline_in_tsv_but_allows_srt_line_breaks() -> No
         PLUGIN.inject(bundle, {tsv_key: "ba\nşla"})
     srt_key = next(e.key for e in entries if e.source.startswith("One line"))
     out = PLUGIN.inject(bundle, {srt_key: "Bir satır\nİki satır ⟦1⟧"})
-    assert "Bir satır\nİki satır {0}" in _raw_scripts(out)["Nina1[en]"]
+    assert "Bir satır\nİki satır {0}" in _raw_scripts(out)["Npc1[en]"]
     with pytest.raises(FormatError, match="biçimi bozacak"):
         PLUGIN.inject(bundle, {srt_key: "Bir\n\n2\n00:00:01,000 --> 00:00:02,000\nsahte ⟦1⟧"})
 

@@ -1,4 +1,4 @@
-"""Vanillaware FMSB MsgSheet eklentisi (Unicorn Overlord)."""
+"""FMSB MsgSheet eklentisi."""
 
 from nxceviri.core.formats.fmsb.plugin import FmsbPlugin
 

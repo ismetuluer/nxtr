@@ -17,15 +17,15 @@ def test_lists_live_in_app_data() -> None:
 def test_save_load_list_and_delete() -> None:
     assert list_names() == []
     save_list(
-        "DMC serisi", [GlossaryTerm("Dante", "Dante", "ana karakter"), GlossaryTerm("Devil Arm", "Şeytan Silahı", "")]
+        "Ana seri", [GlossaryTerm("Rowan", "Rowan", "ana karakter"), GlossaryTerm("Shadow Arm", "Gölge Silahı", "")]
     )
-    save_list("Zelda/Hyrule?", [GlossaryTerm("Rupee", "Rupi", "")])  # dosya adına uygun olmayan karakterler
-    assert list_names() == ["DMC serisi", "Zelda/Hyrule?"]
-    assert load_list("DMC serisi")[1] == GlossaryTerm("Devil Arm", "Şeytan Silahı", "")
-    save_list("DMC serisi", [GlossaryTerm("Vergil", "Vergil", "")])  # aynı ad: yerine yazılır
-    assert [t.term for t in load_list("DMC serisi")] == ["Vergil"]
-    delete_list("Zelda/Hyrule?")
-    assert list_names() == ["DMC serisi"]
+    save_list("Seri/Bölüm?", [GlossaryTerm("Coin", "Sikke", "")])  # dosya adına uygun olmayan karakterler
+    assert list_names() == ["Ana seri", "Seri/Bölüm?"]
+    assert load_list("Ana seri")[1] == GlossaryTerm("Shadow Arm", "Gölge Silahı", "")
+    save_list("Ana seri", [GlossaryTerm("Darian", "Darian", "")])  # aynı ad: yerine yazılır
+    assert [t.term for t in load_list("Ana seri")] == ["Darian"]
+    delete_list("Seri/Bölüm?")
+    assert list_names() == ["Ana seri"]
 
 
 def test_broken_list_file_is_skipped(caplog: pytest.LogCaptureFixture) -> None:
@@ -37,11 +37,11 @@ def test_broken_list_file_is_skipped(caplog: pytest.LogCaptureFixture) -> None:
 
 
 def test_add_missing_keeps_project_translation() -> None:
-    project = [GlossaryTerm("Dante", "Dante", ""), GlossaryTerm("Devil Arm", "İblis Silahı", "")]
-    incoming = [GlossaryTerm("devil arm", "Şeytan Silahı", ""), GlossaryTerm("Vergil", "Vergil", "")]
+    project = [GlossaryTerm("Rowan", "Rowan", ""), GlossaryTerm("Shadow Arm", "Karanlık Silahı", "")]
+    incoming = [GlossaryTerm("shadow arm", "Gölge Silahı", ""), GlossaryTerm("Darian", "Darian", "")]
     merged, added, kept = add_missing(project, incoming)
-    assert [t.term for t in merged] == ["Dante", "Devil Arm", "Vergil"]
-    assert merged[1].translation == "İblis Silahı"  # projedeki karşılık korunur
+    assert [t.term for t in merged] == ["Rowan", "Shadow Arm", "Darian"]
+    assert merged[1].translation == "Karanlık Silahı"  # projedeki karşılık korunur
     assert (added, kept) == (1, 1)
 
 
@@ -50,16 +50,16 @@ def test_dialog_library_saves_and_adds(qtbot: QtBot, monkeypatch: pytest.MonkeyP
 
     from nxceviri.gui.machine_dialogs import GlossaryDialog
 
-    dialog = GlossaryDialog(None, [GlossaryTerm("Dante", "Dante", "")])
+    dialog = GlossaryDialog(None, [GlossaryTerm("Rowan", "Rowan", "")])
     qtbot.addWidget(dialog)
-    monkeypatch.setattr(QInputDialog, "getText", lambda *_a, **_k: ("DMC serisi", True))
+    monkeypatch.setattr(QInputDialog, "getText", lambda *_a, **_k: ("Ana seri", True))
     dialog.library.save_current()
-    assert load_list("DMC serisi") == [GlossaryTerm("Dante", "Dante", "")]
+    assert load_list("Ana seri") == [GlossaryTerm("Rowan", "Rowan", "")]
 
-    other = GlossaryDialog(None, [GlossaryTerm("Link", "Link", "")])
+    other = GlossaryDialog(None, [GlossaryTerm("Kael", "Kael", "")])
     qtbot.addWidget(other)
-    other.library.add_from("DMC serisi")
-    assert [t.term for t in other.terms()] == ["Link", "Dante"]
+    other.library.add_from("Ana seri")
+    assert [t.term for t in other.terms()] == ["Kael", "Rowan"]
     assert "1 terim eklendi" in other.banner.text.text()
     names = [a.text() for a in other.library.menu_widget.actions() if a.menu() is not None]
     assert names == ["Kitaplıktan Ekle", "Listeyi Sil"]

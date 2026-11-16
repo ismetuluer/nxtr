@@ -1,8 +1,8 @@
 """SubRip (`.srt`) altyazı eklentisi.
 
-Ys Origin'in giriş videosu (`yso_pro.mp4`) yazısız bir görüntüdür; altyazıyı oyun `extension/movies/yso_pro_<dil>.srt`
-dosyasından kendi fontuyla çizer (dil kodları: de, en, fr, it, sp, ko, zh-hans, zh-hant). Dosya arşivde değil, RomFS'te
-serbest durur; moda doğrudan konabilir.
+Denenen NNI biçimli oyunun giriş videosu (`yso_pro.mp4`) yazısız bir görüntüdür; altyazıyı oyun
+`extension/movies/yso_pro_<dil>.srt` dosyasından kendi fontuyla çizer (dil kodları: de, en, fr, it, sp, ko, zh-hans,
+zh-hant). Dosya arşivde değil, RomFS'te serbest durur; moda doğrudan konabilir.
 
 Yapı: boş satırla ayrılmış bloklar; her blok `sıra numarası`,
 `başlangıç --> bitiş` ve bir veya daha fazla metin satırıdır.
@@ -71,7 +71,7 @@ class SrtPlugin:
     label = "SubRip altyazısı (.srt)"
     candidates_only = True
     path_suffixes: tuple[str, ...] = (".srt",)
-    #: Ys Origin'de yazı tiplerine eksik harfler dışa aktarmada eklenir (`derived_files`); harf dönüştürülmez.
+    #: NNI biçimli oyunda yazı tiplerine eksik harfler dışa aktarmada eklenir (`derived_files`); harf dönüştürülmez.
     unsupported_letters = ""
 
     derived_files = staticmethod(derived_files)

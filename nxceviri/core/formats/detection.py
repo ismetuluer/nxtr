@@ -33,14 +33,14 @@ class FileKind(StrEnum):
 
 KIND_LABELS = {
     FileKind.MSBT: "MSBT",
-    FileKind.GFMSG: "Game Freak mesajı",
-    FileKind.PAKYC: "Yacht Club YCD",
-    FileKind.FSDMSG: "Devil May Cry mesajı",
-    FileKind.PSBTEXT: "M2 PSB metni",
-    FileKind.NNITEXT: "Ys Origin metni",
-    FileKind.FMSB: "Vanillaware MsgSheet",
+    FileKind.GFMSG: "GFMSG mesajı",
+    FileKind.PAKYC: "YCD paketi",
+    FileKind.FSDMSG: "FSD/MSG mesajı",
+    FileKind.PSBTEXT: "PSB metni",
+    FileKind.NNITEXT: "NNI metni (XSO/XML)",
+    FileKind.FMSB: "FMSB MsgSheet",
     FileKind.SRT: "SubRip altyazısı",
-    FileKind.WADLIN: "Danganronpa metni",
+    FileKind.WADLIN: "LIN/PAK metni",
     FileKind.UNITY: "Unity",
     FileKind.UNREAL: "Unreal",
     FileKind.TEXT: "Düz metin / JSON / CSV",
@@ -57,13 +57,13 @@ class TextLikelihood(StrEnum):
 
 LIKELIHOOD_LABELS = {TextLikelihood.HIGH: "Yüksek", TextLikelihood.MEDIUM: "Olası", TextLikelihood.NONE: "—"}
 
-#: M2 arşivinin (`alldata.psb.m` gibi mdf kodlu PSB dizini) tespit ayrıntısı.
+#: PSB arşivinin (`alldata.psb.m` gibi mdf kodlu PSB dizini) tespit ayrıntısı.
 PSB_ARCHIVE_DETAIL = "PSB arşivi (mdf)"
-#: Falcom NNI arşivinin (`data-en.ni` dizini + `.na` verisi) ve CRI CPK arşivinin tespit ayrıntıları.
+#: NNI arşivinin (`data-en.ni` dizini + `.na` verisi) ve CPK arşivinin tespit ayrıntıları.
 NNI_ARCHIVE_DETAIL = "NNI arşivi"
 CPK_ARCHIVE_DETAIL = "CPK arşivi"
 WAD_ARCHIVE_DETAIL = "WAD arşivi"
-#: Ys Origin'in arayüz dizgeleri: `ys_data/data/loc/strings/english.xml`.
+#: NNI biçimli oyunun arayüz dizgeleri: `ys_data/data/loc/strings/english.xml`.
 _NNI_STRINGS = re.compile(r"(?:^|/)loc/strings/[^/]+\.xml$", re.IGNORECASE)
 _UTF8_BOM = bytes.fromhex("efbbbf")
 #: SubRip dosya başı (isteğe bağlı BOM, sıra numarası, zaman satırı).
@@ -102,7 +102,7 @@ _UNITY_SERIALIZED_NAMES = re.compile(
 
 
 def is_gf_message(head: bytes) -> bool:
-    """Game Freak mesaj dosyası başlığı: 1 bölüm, ilk anahtar 0, bölüm 0x10'da ve boyutu tutarlı."""
+    """GFMSG mesaj dosyası başlığı: 1 bölüm, ilk anahtar 0, bölüm 0x10'da ve boyutu tutarlı."""
     if len(head) < 0x14:
         return False
     sections, count, total, key, offset = struct.unpack_from("<HHIII", head)
@@ -176,7 +176,7 @@ def detect(path: str, head: bytes, tail: bytes = b"") -> Detection:
     if ext == ".msg" and "/dmc1/" in path.lower():
         return Detection(FileKind.FSDMSG, "MSG mesaj dosyası (.msg)", TextLikelihood.MEDIUM)
     if head.startswith(b"YCD\0") and ext == ".yc":
-        # Yacht Club paketi: dil tabloları genellikle adında "global" geçen paketlerdedir.
+        # YCD paketi: dil tabloları genellikle adında "global" geçen paketlerdedir.
         likely = TextLikelihood.HIGH if "global" in path.lower() else TextLikelihood.MEDIUM
         return Detection(FileKind.PAKYC, "YCD paketi (.yc)", likely)
     if head.startswith(b"mdf\0") and path.lower().endswith(".psb.m"):

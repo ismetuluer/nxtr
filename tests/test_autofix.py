@@ -45,17 +45,17 @@ FIT = FitConfig(default=FitRules(40, 3))
 FIT_KINDS = {"line_too_long", "page_too_tall", "bad_break"}
 PAGES = ("Sayfa sonu", "Sayfa sonu", "Sayfa sonu")
 FIT_SOURCE = (
-    "Just a word of warning.⟦1⟧This setting can sometimes give odd results. For example, you might hear the "
-    "success sound even though you failed.⟦2⟧Sorry about that; it happens sometimes when we change the TV "
-    "settings like this.⟦3⟧Ah! But it should never happen in handheld mode! Thank goodness for that."
+    "Just a small note.⟦1⟧This option can sometimes give strange results. For example, you might hear the "
+    "victory music even though you lost.⟦2⟧We are sorry about that; it happens sometimes when we change the "
+    "sound settings like this.⟦3⟧Ah! But it should never happen with headphones! Thank goodness for that."
 )
 BADLY_SPLIT = (
-    "Yalnız bir uyarı.⟦1⟧Bu ayar bazen garip\n"
-    "sonuç verebilir. Örneğin başarısız olduğun\n"
-    "hâlde başarılı hareket sesi duyabilirsin.⟦2⟧Kusura\n"
-    "bakma; TV ayarını böyle değiştirdiğimizde\n"
-    "bazen oluyor.⟦3⟧Aa! Ama elde\n"
-    "taşınır modda hiç yaşanmamalı! Buna da şükür."
+    "Küçük bir not.⟦1⟧Bu seçenek bazen tuhaf\n"
+    "sonuç verebilir. Örneğin kaybettiğin hâlde\n"
+    "zafer müziğini duyabilirsin.⟦2⟧Bunun için özür\n"
+    "dileriz; ses ayarını böyle değiştirdiğimizde\n"
+    "bazen oluyor.⟦3⟧Aa! Ama kulaklıkla\n"
+    "oynarken hiç yaşanmamalı! Buna da şükür."
 )
 
 

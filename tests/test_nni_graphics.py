@@ -1,4 +1,4 @@
-"""Ys Origin: çevrilmiş resimleri (DDS) yerleştirme, grafik klasörü ve dışa aktarma kancası (elle üretilmiş)."""
+"""NNI biçimi: çevrilmiş resimleri (DDS) yerleştirme, grafik klasörü ve dışa aktarma kancası (elle üretilmiş)."""
 
 from __future__ import annotations
 

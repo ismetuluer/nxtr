@@ -1,4 +1,4 @@
-"""M2 arşivleri (Metal Gear Solid Master Collection gibi M2 yapımı oyunlar): mdf ve `.psb.m` + `.bin`.
+"""PSB arşivleri: mdf ve `.psb.m` + `.bin`.
 
 mdf: "mdf\\0" | açık boyut u32 | gövde. Gövde, zlib ile sıkıştırılmış veridir ve 64 baytlık
 bir anahtar akışıyla XOR'lanmıştır. Akış: MD5(oyun anahtarı + dosya adı küçük harfle,
@@ -162,7 +162,7 @@ class PsbArchive:
         root = psb.Psb(self._index).root()
         info = root.get("file_info") if isinstance(root, dict) else None
         if not isinstance(info, dict):
-            raise ArchiveError(f"{index_name}: M2 arşiv dizini değil (file_info yok).")
+            raise ArchiveError(f"{index_name}: PSB arşiv dizini değil (file_info yok).")
         self.entries: dict[str, PsbArchiveEntry] = {}
         for path, span in info.items():
             offset, size = span if isinstance(span, list) and len(span) == 2 else (None, None)
@@ -178,7 +178,7 @@ class PsbArchive:
     @staticmethod
     def data_name(index_name: str) -> str:
         if not index_name.endswith(INDEX_SUFFIX):
-            raise ArchiveError(f"{index_name}: M2 arşiv dizini adı '{INDEX_SUFFIX}' ile bitmeli.")
+            raise ArchiveError(f"{index_name}: PSB arşiv dizini adı '{INDEX_SUFFIX}' ile bitmeli.")
         return index_name[: -len(INDEX_SUFFIX)] + DATA_SUFFIX
 
     def index_without(self, paths: set[str]) -> bytes:

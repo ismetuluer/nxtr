@@ -1,4 +1,4 @@
-"""Devil May Cry (Switch): mesaj tablosu, karakter kodlaması, fsd kapsayıcısı ve eklenti."""
+"""`.fsd`/`.msg`: mesaj tablosu, karakter kodlaması, fsd kapsayıcısı ve eklenti."""
 
 from __future__ import annotations
 
@@ -223,7 +223,7 @@ def test_export_normalizes_text_and_adds_the_font_for_this_format_only() -> None
     }
     files = [TextFileRef("a.fsd", "T", "fsdmsg"), TextFileRef("b.msbt", "T", "msbt")]
     folded = fold_unsupported_letters(translations, files)
-    assert folded == ""  # DMC için ğ ş ı İ dönüştürülmez: moda kendi yazı dokusu eklenir
+    assert folded == ""  # bu biçimde ğ ş ı İ dönüştürülmez: moda kendi yazı dokusu eklenir
     assert translations["a.fsd"]["1"] == "Işık, güzel 'yıl' - bitti..."  # fontta olmayan işaretler düzeltilir
     assert translations["b.msbt"]["1"] == "Işık \u2019yıl\u2019"  # başka biçime dokunulmaz
     extra = support_files(files, "atmosphere", "Mod")

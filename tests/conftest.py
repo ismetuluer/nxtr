@@ -46,7 +46,7 @@ DLC_TID = BASE_TID + 0x1000 + 1
 MENU_MSBT = nxbuild.build_msbt(
     [
         ("Menu_Start", ["Start Game"]),
-        ("Menu_Hello", ["Hello ", ("tag", 0, 3, b"\x01\x00"), "Link", ("end", 0, 3, b""), "!"]),
+        ("Menu_Hello", ["Hello ", ("tag", 0, 3, b"\x01\x00"), "Kael", ("end", 0, 3, b""), "!"]),
     ]
 )
 COMMON_MSBT = nxbuild.build_msbt([("Yes", ["Yes"]), ("No", ["No"]), ("Wait", ["Please wait", ("tag", 0, 4, b"")])])
@@ -68,7 +68,7 @@ UPDATE_FILES: dict[str, bytes] = {
     "Message/Ana_Menü.msbt": nxbuild.build_msbt(  # değişti: bir metin güncellendi, biri eklendi
         [
             ("Menu_Start", ["Start Adventure"]),
-            ("Menu_Hello", ["Hello ", ("tag", 0, 3, b"\x01\x00"), "Link", ("end", 0, 3, b""), "!"]),
+            ("Menu_Hello", ["Hello ", ("tag", 0, 3, b"\x01\x00"), "Kael", ("end", 0, 3, b""), "!"]),
             ("Menu_New", ["New option"]),
         ]
     ),

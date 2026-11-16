@@ -1,6 +1,6 @@
 """Switch oyun fontlarını (`.bfttf` / `.bfotf`) yamalama.
 
-Nintendo Switch oyunlarında gömülü fontlar `.zs` uzantılıdır ve üç katmanlıdır:
+Switch oyunlarında gömülü fontlar `.zs` uzantılıdır ve üç katmanlıdır:
 
 1. zstd ile sıkıştırılmış gövde,
 2. 8 baytlık başlık (`d9 9b 87 1a` + 4 bayt; anlamı çözülemedi, **aynen korunur**),

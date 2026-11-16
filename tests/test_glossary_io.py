@@ -18,7 +18,7 @@ from nxceviri.core.translate.providers.base import GlossaryTerm
 
 def test_round_trip_keeps_terms_and_lore(tmp_path: Path) -> None:
     terms = [
-        GlossaryTerm("Silver Pines", "Silver Pines"),
+        GlossaryTerm("Silver Grove", "Silver Grove"),
         GlossaryTerm("Sheriff", "Şerif", "unvan"),
         GlossaryTerm("Elara", "", "Kahramanın ablası; resmî konuşur."),  # lore: çevirisi yok, yalnızca not
     ]
@@ -27,7 +27,7 @@ def test_round_trip_keeps_terms_and_lore(tmp_path: Path) -> None:
     assert GLOSSARY_COLUMNS == ("terim", "çeviri")
     back = read_glossary_xlsx(path)
     # İki sütun: notlar dışa aktarılmaz; lore maddesinin notu çeviri yerine yazılmaz.
-    assert back == [GlossaryTerm("Silver Pines", "Silver Pines"), GlossaryTerm("Sheriff", "Şerif")]
+    assert back == [GlossaryTerm("Silver Grove", "Silver Grove"), GlossaryTerm("Sheriff", "Şerif")]
 
 
 def test_reads_headerless_and_extra_columns(tmp_path: Path) -> None:

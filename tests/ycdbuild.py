@@ -1,4 +1,4 @@
-"""Test için elle üretilmiş küçük Yacht Club YCD dosyaları (gerçek oyun verisi içermez)."""
+"""Test için elle üretilmiş küçük YCD dosyaları (gerçek oyun verisi içermez)."""
 
 from __future__ import annotations
 

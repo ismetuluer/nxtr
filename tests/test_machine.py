@@ -68,10 +68,10 @@ def test_translate_batch_request_shape() -> None:
     server = FakeOllama()
     provider = server.provider()
     assert provider.test_connection().ok
-    items = [BatchItem("0", "Hello ⟦1⟧Link⟦2⟧!", "Dialogue/Greet"), BatchItem("1", "Sword", "", 10)]
-    glossary = [GlossaryTerm("Link", "Link", "karakter adı; çevrilmez")]
+    items = [BatchItem("0", "Hello ⟦1⟧Kael⟦2⟧!", "Dialogue/Greet"), BatchItem("1", "Sword", "", 10)]
+    glossary = [GlossaryTerm("Kael", "Kael", "karakter adı; çevrilmez")]
     results = provider.translate_batch(items, "en", "tr", "Korku oyunu, ciddi ton.", glossary)
-    assert [(r.id, r.text) for r in results] == [("0", "tr-Hello ⟦1⟧tr-Link⟦2⟧!"), ("1", "tr-Sword")]
+    assert [(r.id, r.text) for r in results] == [("0", "tr-Hello ⟦1⟧tr-Kael⟦2⟧!"), ("1", "tr-Sword")]
     body = server.requests[0]
     assert body["stream"] is True  # akış: iptal anında kesilir, takılma anlaşılır
     assert body["think"] is False  # model düşünme destekliyor; kapatıldı
@@ -85,7 +85,7 @@ def test_translate_batch_request_shape() -> None:
     assert body["options"]["seed"] == OLLAMA_SEED
     payload = json.loads(body["messages"][1]["content"])
     assert "game_notes" not in payload
-    assert payload["glossary"] == [{"term": "Link", "translation": "Link", "note": "karakter adı; çevrilmez"}]
+    assert payload["glossary"] == [{"term": "Kael", "translation": "Kael", "note": "karakter adı; çevrilmez"}]
     assert payload["items"][0]["where"] == "Dialogue Greet"  # sözcük ipucu; kod gibi görünen anahtar gitmez
     assert "key" not in payload["items"][0]
     assert payload["items"][1]["max_length"] == 10
@@ -119,12 +119,12 @@ def test_build_messages_without_extras() -> None:
 
 def test_relevant_terms() -> None:
     gl = [
-        GlossaryTerm("Silver Pines", "Silver Pines"),
+        GlossaryTerm("Silver Grove", "Silver Grove"),
         GlossaryTerm("Sheriff", "Şerif"),
         GlossaryTerm("Motel", "Motel"),
     ]
-    assert [g.term for g in relevant_terms(gl, ["Go to the sheriff.", "Welcome to Silver Pines"])] == [
-        "Silver Pines",
+    assert [g.term for g in relevant_terms(gl, ["Go to the sheriff.", "Welcome to Silver Grove"])] == [
+        "Silver Grove",
         "Sheriff",
     ]
 
@@ -133,7 +133,7 @@ def test_relevant_terms() -> None:
 
 SOURCES = [
     ("Menu_Start", "Start Game"),
-    ("Menu_Hello", "Hello ⟦1⟧Link⟦2⟧!"),
+    ("Menu_Hello", "Hello ⟦1⟧Kael⟦2⟧!"),
     ("Yes_1", "Yes"),
     ("Yes_2", "Yes"),
     ("Yes_3", "Yes"),
@@ -166,7 +166,7 @@ def test_full_run_dedupes_and_marks_machine(project: Project) -> None:
     server = FakeOllama()
     summary = run_machine_translation(server.provider(), _job(project), TaskContext(), _write(project))
     rows = {r.key: r for r in project.translation_rows()}
-    assert rows["Menu_Hello"].translation == "tr-Hello ⟦1⟧tr-Link⟦2⟧!"
+    assert rows["Menu_Hello"].translation == "tr-Hello ⟦1⟧tr-Kael⟦2⟧!"
     assert {rows[k].translation for k in ("Yes_1", "Yes_2", "Yes_3")} == {"tr-Yes"}
     assert all(rows[k].status == Status.MACHINE for k in rows if k != "Empty")
     assert rows["Empty"].status == Status.UNTRANSLATED
@@ -211,15 +211,15 @@ def test_glossary_only_relevant_terms_sent(project: Project) -> None:
 
 
 def test_broken_placeholders_are_retried_then_marked(project: Project) -> None:
-    server = FakeOllama(break_texts={"Hello ⟦1⟧Link⟦2⟧!": 1})
+    server = FakeOllama(break_texts={"Hello ⟦1⟧Kael⟦2⟧!": 1})
     summary = run_machine_translation(server.provider(), _job(project), TaskContext(), _write(project))
     assert summary.retried == 1
     assert {r.key: r for r in project.translation_rows()}["Menu_Hello"].status == Status.MACHINE
 
     p2 = Project.new()
-    entries = (TextEntry("Hello", 0, "Hello ⟦1⟧Link⟦2⟧!", ()),)
+    entries = (TextEntry("Hello", 0, "Hello ⟦1⟧Kael⟦2⟧!", ()),)
     p2.import_texts([ImportedFile("a", "0", "msbt", "base", entries)])
-    stubborn = FakeOllama(break_texts={"Hello ⟦1⟧Link⟦2⟧!": 5})
+    stubborn = FakeOllama(break_texts={"Hello ⟦1⟧Kael⟦2⟧!": 5})
     summary = run_machine_translation(stubborn.provider(), _job(p2), TaskContext(), _write(p2))
     row = p2.translation_rows()[0]
     assert summary.broken == 1
@@ -293,12 +293,12 @@ def test_publish_via_context(project: Project) -> None:
 
 def test_glossary_settings_persist(tmp_path: Path) -> None:
     p = Project.new()
-    p.set_glossary([GlossaryTerm("Sheriff", "Şerif", "unvan"), GlossaryTerm("  ", "boş"), GlossaryTerm("Link", "Link")])
+    p.set_glossary([GlossaryTerm("Sheriff", "Şerif", "unvan"), GlossaryTerm("  ", "boş"), GlossaryTerm("Kael", "Kael")])
     p.set_setting("translation_notes", "Korku oyunu; ciddi, kısa cümleler.")
     p.save_as(tmp_path / "ayarlı ğüş.nxproj")
     p.close()
     q = Project.open(tmp_path / "ayarlı ğüş.nxproj")
-    assert q.glossary() == [GlossaryTerm("Sheriff", "Şerif", "unvan"), GlossaryTerm("Link", "Link", "")]
+    assert q.glossary() == [GlossaryTerm("Sheriff", "Şerif", "unvan"), GlossaryTerm("Kael", "Kael", "")]
     assert q.setting("translation_notes") == "Korku oyunu; ciddi, kısa cümleler."
     assert q.setting("yok", "varsayılan") == "varsayılan"
     q.close()
@@ -415,7 +415,7 @@ def test_truncated_answer_splits_the_batch_and_retries(project: Project) -> None
     server = FakeOllama(truncate_over=2)
     summary = run_machine_translation(server.provider(), _job(project), TaskContext(), _write(project))
     rows = {r.key: r for r in project.translation_rows()}
-    assert rows["Menu_Hello"].translation == "tr-Hello ⟦1⟧tr-Link⟦2⟧!"
+    assert rows["Menu_Hello"].translation == "tr-Hello ⟦1⟧tr-Kael⟦2⟧!"
     assert summary.missing == 0
     assert summary.translated == len(SOURCES) - 1
     sizes = [len(json.loads(r["messages"][1]["content"])["items"]) for r in server.requests]
@@ -425,7 +425,7 @@ def test_truncated_answer_splits_the_batch_and_retries(project: Project) -> None
 
 def test_truncated_single_item_is_skipped(project: Project) -> None:
     """Tek satırlık yanıt bile kesiliyorsa satır atlanır; iş sürer, diğer satırlar çevrilir."""
-    server = FakeOllama(truncate_texts=frozenset({"Hello ⟦1⟧Link⟦2⟧!"}))
+    server = FakeOllama(truncate_texts=frozenset({"Hello ⟦1⟧Kael⟦2⟧!"}))
     summary = run_machine_translation(server.provider(), _job(project), TaskContext(), _write(project))
     rows = {r.key: r for r in project.translation_rows()}
     assert summary.skipped == 1

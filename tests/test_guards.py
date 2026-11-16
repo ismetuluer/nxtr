@@ -29,9 +29,9 @@ def _problems(source: str, old: str, new: str) -> list[str]:
         ("You're crazy!", "Deli misin sen ya!", "You're crazy!\n\nDon't you think it's a bit risky?", "İngilizce"),
         # Komşu satırın metnini alıp tekrar döngüsüne girmiş.
         (
-            "See? I told you we should⟦1⟧treat that ball like",
-            "Gördün mü?⟦1⟧Size o topla şöyle davranmamız gerektiğini söylemiştim.",
-            "Gördün mü?⟦1⟧Topa sanki kendi çocuğumuzmuş gibi,türlü türlü davranmamız gerektiğini "
+            "See? I told you we should⟦1⟧treat that garden like",
+            "Gördün mü?⟦1⟧Size o bahçeyle şöyle davranmamız gerektiğini söylemiştim.",
+            "Gördün mü?⟦1⟧Bahçeye sanki kendi çocuğumuzmuş gibi,türlü türlü davranmamız gerektiğini "
             "söylemiştim,türlü türlü",
             "tekrar",
         ),

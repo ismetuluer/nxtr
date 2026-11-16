@@ -1,4 +1,4 @@
-"""Devil May Cry `.fsd` kapsayıcısı: bölüm dizini ve bölüm değiştirme.
+"""`.fsd` kapsayıcısı: bölüm dizini ve bölüm değiştirme.
 
 `u32 adet | 4 bayt dolgu | adet × u64 mutlak ofset | bölümler`. Ofset 0 boş girdidir; bölümler dosyada
 ardışık durur, bir bölümün boyutu sonraki ofsetle (veya dosya sonuyla) bulunur. Dizin dışında bölümlerin

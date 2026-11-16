@@ -357,7 +357,7 @@ def text_asset_raw(name: str, script: str) -> bytes:
     return _w_str(name) + _w_str(script)
 
 
-#: Despelote `Locoliser` altyazısı: (sıra, metinler)
+#: `Locoliser` altyazısı: (sıra, metinler)
 LocoSub = tuple[int, list[str]]
 
 
@@ -368,7 +368,7 @@ def locoliser_raw(
     ui_rows: list[list[str]],
     tail: bytes = b"\x02\0\0\0" + b"\0" * 8,
 ) -> bytes:
-    """Despelote `Locoliser` MonoBehaviour'unun ham baytları (TSV'lerin gömülü, ayrıştırılmış kopyası)."""
+    """`Locoliser` MonoBehaviour'unun ham baytları (TSV'lerin gömülü, ayrıştırılmış kopyası)."""
     out = struct.pack("<iq", 0, 0) + struct.pack("<B3x", 1) + struct.pack("<iq", 1, 47) + _w_str("Locoliser")
     out += struct.pack("<ii", 0, 1) + struct.pack("<iq", 0, dialogue_file)
     out += _w_strs([key for key, _subs in entries])
@@ -383,15 +383,15 @@ def locoliser_raw(
     return out + tail
 
 
-#: DKCR HD `Localization` yuvası: metin (tekli öğe) ya da çoklu öğe (çocuklar: yeni metin, ya da `int` = aynı dilin
-#: o sıradaki doğrudan yuvasına başvuru).
+#: `Localization` yuvası ([SerializeReference]): metin (tekli öğe) ya da çoklu öğe (çocuklar: yeni metin,
+#: ya da `int` = aynı dilin o sıradaki doğrudan yuvasına başvuru).
 SerializeRefSlot = str | list[str | int]
 
 
 def serializeref_localization_raw(
     languages: list[tuple[int, list[SerializeRefSlot]]], named: bool = False, tag: str = "*"
 ) -> bytes:
-    """DKCR HD `Localization` MonoBehaviour'unun ham baytları (SerializeReference kayıt defteri, elle yazılmış)."""
+    """`Localization` MonoBehaviour'unun ham baytları (SerializeReference kayıt defteri, elle yazılmış)."""
     entries: list[bytes] = []
     next_rid = [1000]
 

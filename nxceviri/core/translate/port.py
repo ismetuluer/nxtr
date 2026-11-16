@@ -66,7 +66,7 @@ class ReadyTranslations:
     #: Özgün metin → çeviri (yalnızca tek çevirisi olan metinler). Kimliği kaymış satırlar için ikinci şans.
     by_source: dict[str, str] | None = None
     #: Satırın yamadaki arama anahtarını verir (varsayılan: satırın kendi anahtarı). Anahtarları dosya
-    #: konumuna bağlı olan biçimlerde (Devil May Cry: dosya adı + sıra) eşleşmeyi kurar.
+    #: konumuna bağlı olan biçimlerde (`.fsd`/`.msg`: dosya adı + sıra) eşleşmeyi kurar.
     row_key: Callable[[TranslationRow], str] | None = None
 
 
@@ -124,7 +124,7 @@ def _pakyc_files(root: Path) -> list[Path]:
 
 
 def is_pakyc_patch(root: Path) -> bool:
-    """Klasörde (veya dosyada) Yacht Club YCD paketi var mı?"""
+    """Klasörde (veya dosyada) YCD paketi var mı?"""
     for p in _pakyc_files(root) if root.exists() else []:
         try:
             with p.open("rb") as fh:
@@ -154,7 +154,7 @@ def _extra_translations(root: Path) -> dict[str, str]:
 
 
 def read_pakyc_translations(root: Path, ctx: TaskContext | None = None) -> ReadyTranslations:
-    """Mina the Hollower yamasındaki Türkçe tabloları okur.
+    """YCD yamasındaki Türkçe tabloları okur.
 
     Yama, her dil tablosunun yeni bir kopyasını dosyanın sonuna ekler ve Türkçe metni
     İngilizce sütununa koyar; özgün kopyalar yerinde kalır. Aynı başlığa sahip tablolardan
@@ -192,7 +192,7 @@ def read_pakyc_translations(root: Path, ctx: TaskContext | None = None) -> Ready
     ctx.report(len(files), len(files), f"{len(texts)} metin okundu")
     if not texts:
         raise PortError(
-            "Seçilen klasörde Mina the Hollower çeviri tablosu bulunamadı.",
+            "Seçilen klasörde YCD çeviri tablosu bulunamadı.",
             "Yama, oyunun “global.pak.yc” ve “global_startup.pak.yc” dosyalarını içermelidir.",
         )
     candidates: dict[str, set[str]] = {}
@@ -213,12 +213,12 @@ def _fsdmsg_yama_files(root: Path) -> list[Path]:
 
 
 def is_fsdmsg_patch(root: Path) -> bool:
-    """Klasörde Devil May Cry HD Collection Türkçe yaması (`fsd_tr.yama`) var mı?"""
+    """Klasörde `.fsd`/`.msg` Türkçe yaması (`fsd_tr.yama`) var mı?"""
     return bool(_fsdmsg_yama_files(root))
 
 
 def read_fsdmsg_translations(root: Path, ctx: TaskContext | None = None) -> ReadyTranslations:
-    """PC (HD Collection) Türkçe yamasından DMC1 çevirilerini okur: `fsd_tr.yama` + `common.msg`."""
+    """PC sürümünün Türkçe yamasından `.fsd`/`.msg` çevirilerini okur: `fsd_tr.yama` + `common.msg`."""
     ctx = ctx or TaskContext()
     texts: dict[str, str] = {}
     for yama_path in _fsdmsg_yama_files(root):
@@ -236,13 +236,13 @@ def read_fsdmsg_translations(root: Path, ctx: TaskContext | None = None) -> Read
             for i, text in enumerate(table.texts):
                 texts[f"{table.file}|{i}"] = text
     if not texts:
-        raise PortError("Yamada Devil May Cry mesaj tablosu bulunamadı.", "DMC_HD_Turkce_Yama klasörünü seçin.")
+        raise PortError("Yamada mesaj tablosu bulunamadı.", "İçinde `fsd_tr.yama` olan yama klasörünü seçin.")
     ctx.report(1, 1, f"{len(texts)} metin okundu")
     return ReadyTranslations(texts, row_key=lambda r: f"{r.file.rsplit('/', 1)[-1]}|{r.key.rsplit('/', 1)[-1]}")
 
 
 def read_ready_translations(root: Path, ctx: TaskContext | None = None) -> ReadyTranslations:
-    """Klasörün yama türünü (Mina YCD, DMC1 yaması veya Unity metin tabloları) anlayıp çevirileri okur."""
+    """Klasörün yama türünü (YCD, `fsd_tr.yama` veya Unity metin tabloları) anlayıp çevirileri okur."""
     if is_fsdmsg_patch(root):
         return read_fsdmsg_translations(root, ctx)
     if is_pakyc_patch(root):

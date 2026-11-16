@@ -30,11 +30,11 @@ from nxceviri.gui.jobs import describe_summary
 from tests.fake_deepl import FakeDeepL
 from tests.fake_ollama import FakeOllama
 
-#: Despelote'den kısaltılmış bir sahne (aynı dosyada art arda gelen satırlar).
+#: Uydurma bir sahne (aynı dosyada art arda gelen satırlar).
 SCENE = [
-    ("s01", "It's not just your family. Look how many of them there are,"),
-    ("s02", "they're already putting it up.⟦1⟧People are already there. No, no, no."),
-    ("s03", "Yes, but they like soccer."),
+    ("s01", "It's not only the village. Look how many lanterns there are,"),
+    ("s02", "they're already hanging them.⟦1⟧People are already there. No, no, no."),
+    ("s03", "Yes, but they like music."),
     ("s04", "Have a drink with me. Have a drink, a little wine."),
     ("s05", "That's the limit!"),
     ("s06", "Not me."),
@@ -226,7 +226,7 @@ def test_revise_sends_current_and_instruction_and_counts_unchanged(project: Proj
     project.set_translations([(rows["s06"].id, "Ben değil.")])  # onaylı
 
     def revise(item: dict[str, Any]) -> str:
-        return {"Yes, but they like soccer.": "Ama futbolu seviyorlar ki."}.get(item["text"], str(item["current"]))
+        return {"Yes, but they like music.": "Ama müziği seviyorlar ki."}.get(item["text"], str(item["current"]))
 
     server = FakeOllama(revise=revise)
     targets = target_rows([_rows(project)[k] for k in ("s03", "s05", "s06")], ACTION_REVISE, include_approved=True)
@@ -241,7 +241,7 @@ def test_revise_sends_current_and_instruction_and_counts_unchanged(project: Proj
     assert payloads[0]["items"][0]["current"] == "Evet, ama onlar futbolu seviyorlar."
     assert "editor" in server.requests[0]["messages"][0]["content"]
     after = _rows(project)
-    assert after["s03"].translation == "Ama futbolu seviyorlar ki."
+    assert after["s03"].translation == "Ama müziği seviyorlar ki."
     assert (summary.translated, summary.unchanged) == (1, 2)
     assert after["s06"].status == Status.APPROVED  # aynen kalan onaylı satırın durumu değişmez
 

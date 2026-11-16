@@ -1,4 +1,4 @@
-"""Devil May Cry program kodundaki düşman açıklamaları: işaretçi kayıtlarını bulma, Türkçe yama ve IPS (sahte kod)."""
+"""`.fsd`/`.msg` biçiminde program kodundaki düşman açıklamaları: işaretçi kayıtları, Türkçe yama, IPS (sahte kod)."""
 
 from __future__ import annotations
 

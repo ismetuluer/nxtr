@@ -1,5 +1,5 @@
 # ruff: noqa: E501  (üretilmiş veri: paragraf metinleri tek satırda tutulur)
-"""Devil May Cry oyun resimlerindeki yazıların Türkçeleri: sayfa özeti → etiketler (bkz. `fsdmsg_images`).
+"""`.fsd`/`.msg` biçimli oyunun resimlerindeki yazıların Türkçeleri: sayfa özeti → etiketler (bkz. `fsdmsg_images`).
 
 Pencereler, yazı bölgelerini otomatik bulan bir araçla (bitişik yazı piksellerinin kutuları) çıkarılıp elle
 gruplandı; her etiketin İngilizcesi resimde okunan yazıdır. Eşya adlarının Türkçeleri PC Türkçe yamasının eşya

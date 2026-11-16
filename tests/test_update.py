@@ -162,7 +162,7 @@ def app(tmp_path: Path) -> Path:
         "nxceviri/core/eski.py": "# kaldırılan modül\n",
         "nxceviri/core/__pycache__/eski.cpython-313.pyc": "önbellek",
         "README.md": "eski beni oku\n",
-        "projeler/Despelote.nxproj": "kullanıcı projesi",
+        "projeler/Ornek.nxproj": "kullanıcı projesi",
         ".venv/kurulu_pyproject.toml": "kurulum izi",
     }
     for name, text in files.items():
@@ -356,7 +356,7 @@ def test_apply_replaces_code_and_keeps_user_data(app: Path) -> None:
     assert (app / "nxceviri" / "core" / "yeni.py").is_file()
     assert not (app / "nxceviri" / "core" / "eski.py").exists()  # yeni sürümde olmayan modül silindi
     assert (app / "nxceviri" / "core" / "__pycache__" / "eski.cpython-313.pyc").exists()  # önbelleğe dokunulmaz
-    assert (app / "projeler" / "Despelote.nxproj").read_text(encoding="utf-8") == "kullanıcı projesi"
+    assert (app / "projeler" / "Ornek.nxproj").read_text(encoding="utf-8") == "kullanıcı projesi"
     assert (app / ".venv" / "kurulu_pyproject.toml").exists()
     assert pending_version(app) is None  # hazır klasör temizlendi
     assert (app / STAGING_DIR / "yedek" / "nxceviri" / "core" / "eski.py").is_file()  # eski dosyalar yedekte
@@ -463,7 +463,7 @@ def git_app(tmp_path: Path) -> tuple[Path, Path]:
     app = tmp_path / "uygulama"
     _git(tmp_path, "clone", "-q", str(origin), str(app))
     (app / "projeler").mkdir()
-    (app / "projeler" / "Despelote.nxproj").write_text("kullanıcı projesi", encoding="utf-8")
+    (app / "projeler" / "Ornek.nxproj").write_text("kullanıcı projesi", encoding="utf-8")
     _commit(
         work,
         {

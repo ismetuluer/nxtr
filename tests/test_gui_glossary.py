@@ -25,9 +25,9 @@ from tests.fake_ollama import FakeOllama
 pytestmark = pytest.mark.gui
 
 LINES = [
-    "Welcome to Silver Pines.",
+    "Welcome to Silver Grove.",
     "The Sheriff waits at the Old Mill.",
-    "Ask the Sheriff about Silver Pines.",
+    "Ask the Sheriff about Silver Grove.",
     "Is the Old Mill open?",
 ]
 
@@ -86,7 +86,7 @@ def test_dialog_imports_exports_and_keeps_lore(qtbot: QtBot, tmp_path: Path, mon
 
 def test_suggestions_dialog_returns_checked_and_edited_terms(qtbot: QtBot) -> None:
     dialog = TermSuggestionsDialog(
-        None, [TermSuggestion("Silver Pines", "Silver Pines", "yer adı", 3), TermSuggestion("Mara", "Mara", "", 2)]
+        None, [TermSuggestion("Silver Grove", "Silver Grove", "yer adı", 3), TermSuggestion("Mara", "Mara", "", 2)]
     )
     qtbot.addWidget(dialog)
     item = dialog.table.item(1, 0)
@@ -95,7 +95,7 @@ def test_suggestions_dialog_returns_checked_and_edited_terms(qtbot: QtBot) -> No
     translation = dialog.table.item(0, 1)
     assert translation is not None
     translation.setText("Gümüş Çamlar")
-    assert dialog.selected() == [GlossaryTerm("Silver Pines", "Gümüş Çamlar", "yer adı")]
+    assert dialog.selected() == [GlossaryTerm("Silver Grove", "Gümüş Çamlar", "yer adı")]
 
 
 def test_suggest_terms_end_to_end(qtbot: QtBot, window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -112,10 +112,10 @@ def test_suggest_terms_end_to_end(qtbot: QtBot, window: MainWindow, monkeypatch:
     monkeypatch.setattr(machine_dialogs.TermSuggestionsDialog, "exec", accept)
     window.suggest_glossary_terms()
     qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
-    assert shown == [["Silver Pines", "Old Mill"]]  # sözlükte olan Sheriff aday değil
+    assert shown == [["Silver Grove", "Old Mill"]]  # sözlükte olan Sheriff aday değil
     assert window.project.glossary() == [
         GlossaryTerm("Sheriff", "Şerif"),
-        GlossaryTerm("Silver Pines", "tr-Silver Pines", "öneri notu"),
+        GlossaryTerm("Silver Grove", "tr-Silver Grove", "öneri notu"),
         GlossaryTerm("Old Mill", "tr-Old Mill", "öneri notu"),
     ]
     assert window.notifier.history[0].title == "Terminoloji güncellendi"

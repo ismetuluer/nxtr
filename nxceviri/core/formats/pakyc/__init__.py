@@ -1,4 +1,4 @@
-"""Mina the Hollower (Yacht Club YCD) format eklentisi — yalnızca okuma."""
+"""YCD paketi (`.yc`) format eklentisi — yalnızca okuma."""
 
 from nxceviri.core.formats.pakyc.plugin import PakYcPlugin
 

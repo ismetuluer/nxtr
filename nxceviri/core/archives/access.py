@@ -1,8 +1,8 @@
 """Oyun içindeki bir dosyayı, iç içe yolundan (arşiv içindekiler dahil) okuma.
 
 Yol biçimi tarayıcınınkiyle aynıdır: `dış.sarc.zs>…>a.msbt`. İlk parça bir Unreal `.pak` ise
-pak tamamen okunmaz: yalnızca dizini ve istenen girdi okunur (pak'lar GB'larca olabilir). Falcom NNI
-(`data-en.ni>LOC/…/X.XSO`), CRI CPK (`Unicorn_US.CPK>MsgSheet/X.fms`) ve Spike Chunsoft WAD
+pak tamamen okunmaz: yalnızca dizini ve istenen girdi okunur (pak'lar GB'larca olabilir). NNI
+(`data-en.ni>LOC/…/X.XSO`), CPK (`<ad>_US.CPK>MsgSheet/X.fms`) ve WAD
 (`dr1_data.wad>Dr1/data/us/script/X.lin`) arşivleri de aynı biçimde okunur.
 """
 
@@ -21,38 +21,38 @@ def is_pak_path(path: str) -> bool:
 
 
 def is_psb_archive_path(path: str) -> bool:
-    """`alldata.psb.m>system/config/menu_item.psb.m` gibi, M2 arşivinin içindeki bir üyenin yolu."""
+    """`alldata.psb.m>system/config/menu_item.psb.m` gibi, PSB arşivinin (mdf) içindeki bir üyenin yolu."""
     parts = nested.split(path)
     return len(parts) > 1 and parts[0].lower().endswith(psb_archive.INDEX_SUFFIX)
 
 
 def is_nni_path(path: str) -> bool:
-    """`ys_data/archives/data-en.ni>LOC/EN/…/X.XSO` gibi, Falcom NNI arşivinin içindeki bir üyenin yolu."""
+    """`ys_data/archives/data-en.ni>LOC/EN/…/X.XSO` gibi, NNI arşivinin içindeki bir üyenin yolu."""
     parts = nested.split(path)
     return len(parts) > 1 and parts[0].lower().endswith(nni.INDEX_SUFFIX)
 
 
 def is_cpk_path(path: str) -> bool:
-    """`Unicorn_US.CPK>MsgSheet/UcSysMsg.fms` gibi, CRI CPK arşivinin içindeki bir üyenin yolu."""
+    """`<ad>_US.CPK>MsgSheet/<ad>.fms` gibi, CPK arşivinin içindeki bir üyenin yolu."""
     parts = nested.split(path)
     return len(parts) > 1 and parts[0].lower().endswith(cpk.SUFFIX)
 
 
 def is_wad_path(path: str) -> bool:
-    """`dr1_data.wad>Dr1/data/us/script/e00_001_000.lin` gibi, Spike Chunsoft WAD arşivinin içindeki bir üyenin yolu."""
+    """`dr1_data.wad>Dr1/data/us/script/e00_001_000.lin` gibi, WAD arşivinin içindeki bir üyenin yolu."""
     parts = nested.split(path)
     return len(parts) > 1 and parts[0].lower().endswith(wad.SUFFIX)
 
 
 def is_member_path(path: str) -> bool:
-    """Büyük arşivlerin içindeki (pak, M2, NNI, CPK, WAD) üyeler: dış dosya tamamen okunmadan yalnızca üye okunur."""
+    """Büyük arşivlerin içindeki (pak, PSB, NNI, CPK, WAD) üyeler: dış dosya tamamen okunmadan yalnızca üye okunur."""
     return is_pak_path(path) or is_psb_archive_path(path) or is_nni_path(path) or is_cpk_path(path) or is_wad_path(path)
 
 
 class MemberReader:
-    """Aynı işlem boyunca açılan pak, M2, NNI ve CPK dizinlerini saklar.
+    """Aynı işlem boyunca açılan pak, PSB, NNI ve CPK dizinlerini saklar.
 
-    `code`, oyunun çalıştırılabilir kodunu veren işlevdir (`ContentTree.code`); M2 arşivlerinin
+    `code`, oyunun çalıştırılabilir kodunu veren işlevdir (`ContentTree.code`); PSB arşivlerinin
     anahtarı yalnızca buradan bulunur.
     """
 

@@ -89,15 +89,15 @@ def test_translate_batch_request() -> None:
     server = FakeDeepL()
     provider = server.provider()
     res = provider.translate_batch(
-        [BatchItem("0", "Hello ⟦1⟧Link⟦2⟧!"), BatchItem("1", "Talk to the Sheriff")],
+        [BatchItem("0", "Hello ⟦1⟧Kael⟦2⟧!"), BatchItem("1", "Talk to the Sheriff")],
         "en",
         "tr",
         "Korku oyunu.",
         [GlossaryTerm("Sheriff", "Şerif")],
     )
-    assert [r.text for r in res] == ["tr-Hello ⟦1⟧tr-Link⟦2⟧!", "tr-Talk tr-to tr-the tr-Sheriff"]
+    assert [r.text for r in res] == ["tr-Hello ⟦1⟧tr-Kael⟦2⟧!", "tr-Talk tr-to tr-the tr-Sheriff"]
     translate = next(b for m, p, b, _ in server.requests if p == "/v2/translate")
-    assert translate["text"][0] == 'Hello <x id="1"/>Link<x id="2"/>!'
+    assert translate["text"][0] == 'Hello <x id="1"/>Kael<x id="2"/>!'
     assert (translate["source_lang"], translate["target_lang"]) == ("EN", "TR")
     assert translate["tag_handling"] == "xml"
     assert translate["context"] == "Korku oyunu."
@@ -154,7 +154,7 @@ def test_api_key_never_leaks(caplog: pytest.LogCaptureFixture) -> None:
 def project() -> Project:
     p = Project.new()
     entries = (
-        TextEntry("a", 0, "Hello ⟦1⟧Link⟦2⟧!", ()),
+        TextEntry("a", 0, "Hello ⟦1⟧Kael⟦2⟧!", ()),
         TextEntry("b", 1, "Start Game", ()),
         TextEntry("c", 2, "Options", ()),
     )

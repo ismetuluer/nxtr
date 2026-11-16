@@ -119,8 +119,9 @@ Kaynak kurulumda `pyproject.toml`'daki bağımlılıklar kurulu: `cryptography`,
 `keyring`, `fonttools`, `lz4`, `Pillow` (Qt'yi eklentide kullanma). Hazır `NXTR.exe`'de saf Python eklentileri çalışır;
 standart kütüphane (alt modülleriyle; `tkinter`, `test` ve `curses` hariç) ve yukarıdaki bağımlılıklar pakettedir,
 başka kütüphaneler değildir; kaynak kodda yazdığın bir eklenti başka paket (ör. `numpy`)
-gerektiriyorsa exe'de çalışmaz. Çekirdek yardımcıları (`nxceviri.core.archives.*` SARC/Yaz0/ZSTD/NNI/CPK/WAD/pak,
-`nxceviri.core.translate.placeholders`) içe aktarılabilir. Yeni bir kütüphane ekleme önerisi yapma; biçim küçükse kendin
+gerektiriyorsa exe'de çalışmaz. Çekirdek yardımcıları içe aktarılabilir: `nxceviri.core.archives` altındaki `sarc`,
+`yaz0`, `zstd`, `nni`, `cpk`, `wad`, `pak`, `psb`, `psb_archive` (mdf ve `.psb.m` + `.bin`), `nested`, `access` ve
+`nxceviri.core.translate.placeholders`. Yeni bir kütüphane ekleme önerisi yapma; biçim küçükse kendin
 yaz.
 
 ## Çekirdeğe taşıma (kabul edilen eklenti)

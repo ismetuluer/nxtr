@@ -57,7 +57,7 @@ def test_suggest_when_ollama_is_down_says_so_briefly(qtbot: QtBot, window: MainW
     window.settings.setValue("translate/provider", "ollama")
     window.settings.setValue("ollama/model", "gemma4:12b")
     window.provider_factory = lambda s: FakeOllama(down=True).provider(s.model)
-    window.find_term_candidates = lambda: [TermCandidate("Link", 2, ("Link geldi.",))]  # type: ignore[method-assign]
+    window.find_term_candidates = lambda: [TermCandidate("Kael", 2, ("Kael geldi.",))]  # type: ignore[method-assign]
     window.suggest_glossary_terms()
     _wait(qtbot, window)
     notice = window.notifier.history[0]
@@ -69,7 +69,7 @@ def test_suggest_when_ollama_is_down_says_so_briefly(qtbot: QtBot, window: MainW
 def test_dialog_is_plain_and_has_no_more_menu(qtbot: QtBot) -> None:
     from nxceviri.gui.machine_dialogs import GlossaryDialog
 
-    dialog = GlossaryDialog(None, [GlossaryTerm("Link", "Link", "ad")])
+    dialog = GlossaryDialog(None, [GlossaryTerm("Kael", "Kael", "ad")])
     qtbot.addWidget(dialog)
     assert dialog.windowTitle() == "Terminoloji"
     headers = [dialog.table.horizontalHeaderItem(i).text() for i in range(3)]  # type: ignore[union-attr]
@@ -82,7 +82,7 @@ def test_dialog_is_plain_and_has_no_more_menu(qtbot: QtBot) -> None:
 def test_term_text_is_cleaned() -> None:
     from nxceviri.core.translate.glossary_io import term_text
 
-    assert term_text("⟦1⟧Silver Pines⟦2⟧!") == "Silver Pines"
+    assert term_text("⟦1⟧Silver Grove⟦2⟧!") == "Silver Grove"
     assert term_text("Gümüş\nÇamlar.") == "Gümüş Çamlar"
     assert term_text("  “Kılıç” x3 ") == "Kılıç x"  # sayı ve semboller ayıklanır
     assert term_text("Ana'nın Evi") == "Ana'nın Evi"  # sözcük içi kesme kalır
@@ -97,19 +97,19 @@ def test_plan_terms_from_rows_skips_known_and_reports_conflicts() -> None:
     def row(i: int, src: str, tr: str) -> TranslationRow:
         return TranslationRow(i, "a", f"k{i}", src, tr, Status.MACHINE, "", (), None)
 
-    existing = [GlossaryTerm("Link", "Link", "ad"), GlossaryTerm("Hyrule", "Hyrule", "")]
+    existing = [GlossaryTerm("Kael", "Kael", "ad"), GlossaryTerm("Eldora", "Eldora", "")]
     plan = plan_terms_from_rows(
         [
-            row(1, "Silver Pines", "Gümüş Çamlar."),
-            row(2, "Link", "Link"),  # zaten aynı: atlanır
-            row(3, "hyrule", "Hayrul"),  # farklı karşılık: çakışma
+            row(1, "Silver Grove", "Gümüş Çamlar."),
+            row(2, "Kael", "Kael"),  # zaten aynı: atlanır
+            row(3, "eldora", "Eldura"),  # farklı karşılık: çakışma
             row(4, "Untranslated", ""),  # çevirisiz: atlanır
-            row(5, "Silver Pines", "Gümüş Çamlar"),  # aynı terim ikinci kez: bir kez
+            row(5, "Silver Grove", "Gümüş Çamlar"),  # aynı terim ikinci kez: bir kez
         ],
         existing,
     )
-    assert plan.new == [GlossaryTerm("Silver Pines", "Gümüş Çamlar", "")]
-    assert plan.conflicts == [(GlossaryTerm("Hyrule", "Hyrule", ""), GlossaryTerm("hyrule", "Hayrul", ""))]
+    assert plan.new == [GlossaryTerm("Silver Grove", "Gümüş Çamlar", "")]
+    assert plan.conflicts == [(GlossaryTerm("Eldora", "Eldora", ""), GlossaryTerm("eldora", "Eldura", ""))]
     assert plan.skipped == 2
 
 
@@ -156,16 +156,16 @@ def test_implicit_terms_come_from_short_standalone_rows() -> None:
     from nxceviri.core.qa.terms import implicit_terms
 
     rows = [
-        _trow(1, "Silver Pines", "Gümüş Çamlar"),
-        _trow(2, "Silver Pines", "Gümüş Çamlar"),
-        _trow(3, "Welcome to Silver Pines, stranger.", "Hoş geldin yabancı."),
-        _trow(4, "Link", "Link"),
-        _trow(5, "Link", "Link"),
+        _trow(1, "Silver Grove", "Gümüş Çamlar"),
+        _trow(2, "Silver Grove", "Gümüş Çamlar"),
+        _trow(3, "Welcome to Silver Grove, stranger.", "Hoş geldin yabancı."),
+        _trow(4, "Kael", "Kael"),
+        _trow(5, "Kael", "Kael"),
     ]
-    glossary = [GlossaryTerm("Link", "Link", "ad")]
+    glossary = [GlossaryTerm("Kael", "Kael", "ad")]
     found = implicit_terms(rows, glossary)
-    assert found == [GlossaryTerm("Silver Pines", "Gümüş Çamlar", "oyunda böyle çevrildi")]  # terminolojide olan yok
-    assert implicit_terms(rows, glossary, ignored=["Silver Pines"]) == []
+    assert found == [GlossaryTerm("Silver Grove", "Gümüş Çamlar", "oyunda böyle çevrildi")]  # terminolojide olan yok
+    assert implicit_terms(rows, glossary, ignored=["Silver Grove"]) == []
 
 
 def test_machine_job_gets_implicit_terms(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -279,7 +279,7 @@ def missing_markup(source: str, text: str) -> list[str]:
     return out
 
 
-#: Çeviride kod adı gibi korunması gereken ifade: `Barrel_Cannon`, `DK_Coin`.
+#: Çeviride kod adı gibi korunması gereken ifade: `Fire_Cannon`, `Gold_Coin`.
 _PROTECTED_RE = re.compile(r"[A-Za-z0-9]+(?:_[A-Za-z0-9]+)+")
 
 

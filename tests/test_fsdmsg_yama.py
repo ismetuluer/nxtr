@@ -1,4 +1,4 @@
-"""Devil May Cry HD Collection (PC) topluluk Türkçe yaması: okuma ve projeye aktarma."""
+"""PC sürümünün topluluk Türkçe yaması (`fsd_tr.yama`): okuma ve projeye aktarma."""
 
 from __future__ import annotations
 
@@ -87,9 +87,9 @@ def _project() -> Project:
 
 def _patch_folder(tmp_path: Path) -> Path:
     folder = tmp_path / "DMC_HD_Turkce_Yama"
-    (folder / "_yama" / "dmc1" / "ekler" / "Etc_e").mkdir(parents=True)
-    (folder / "_yama" / "dmc1" / "fsd_tr.yama").write_bytes(_yama({"Fsd/r002.fsd": [bytes(0x20) + _tr_table()]}))
-    (folder / "_yama" / "dmc1" / "ekler" / "Etc_e" / "common.msg").write_bytes(_tr_table())
+    (folder / "_yama" / "oyun" / "ekler" / "Etc_e").mkdir(parents=True)
+    (folder / "_yama" / "oyun" / "fsd_tr.yama").write_bytes(_yama({"Fsd/r002.fsd": [bytes(0x20) + _tr_table()]}))
+    (folder / "_yama" / "oyun" / "ekler" / "Etc_e" / "common.msg").write_bytes(_tr_table())
     (folder / "OKU_BENI.txt").write_text("not a package", encoding="utf-8")
     return folder
 

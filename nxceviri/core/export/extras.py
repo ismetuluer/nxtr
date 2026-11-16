@@ -1,7 +1,7 @@
-"""Biçim eklentilerinin metinden bağımsız ürettiği dosyalar ve arşiv üyeleri (Ys Origin: yazı tipleri, resimler).
+"""Biçim eklentilerinin metinden bağımsız ürettiği dosyalar ve arşiv üyeleri (ör. NNI biçiminde yazı tipleri, resimler).
 
 Eklenti `derived_files(read, files, game_dir) -> Derived` sunarsa (`formats/derived.py`) dışa aktarma, o oyunun
-dosyalarını okuyup sonucu moda ekler. Aynı kancayı kullanan birden çok eklenti (Ys metni ve altyazısı) oyun başına
+dosyalarını okuyup sonucu moda ekler. Aynı kancayı kullanan birden çok eklenti (NNI metni ve altyazısı) oyun başına
 bir kez çalıştırılır.
 """
 

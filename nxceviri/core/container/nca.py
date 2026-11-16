@@ -1,4 +1,4 @@
-"""NCA (Nintendo Content Archive) okuyucu.
+"""NCA (Switch içerik arşivi) okuyucu.
 
 Yalnızca NCA3 başlıkları desteklenir (2017 sonrası tüm yayınlar). Başlık
 `header_key` ile AES-XTS, bölümler içerik anahtarıyla AES-CTR şifrelidir. İçerik

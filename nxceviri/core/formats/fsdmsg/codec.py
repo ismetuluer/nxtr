@@ -1,4 +1,4 @@
-"""Devil May Cry (Switch) mesaj tabloları ve karakter kodlaması.
+"""`.fsd`/`.msg` mesaj tabloları ve karakter kodlaması.
 
 Ayrıntılar: docs/formats/fsd-msg.md.
 

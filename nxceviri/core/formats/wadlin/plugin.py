@@ -1,4 +1,4 @@
-"""Danganronpa (Spike Chunsoft) metin eklentisi: `.lin` betikleri ve `.pak` metin tabloları.
+"""WAD arşivindeki metin eklentisi: `.lin` betikleri ve `.pak` metin tabloları.
 
 Dosyalar `dr1_data.wad` arşivinin `Dr1/data/<dil>/script/` klasöründedir (`us`, `jp`, `ch`).
 
@@ -205,7 +205,7 @@ class _Document:
 
 class WadLinPlugin:
     name = "wadlin"
-    label = "Danganronpa (.lin betikleri, .pak metin tabloları)"
+    label = "LIN/PAK (.lin betikleri, .pak metin tabloları)"
     candidates_only = True
     path_suffixes: tuple[str, ...] = (".lin", ".pak")
 

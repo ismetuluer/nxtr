@@ -20,9 +20,9 @@ def _rows(*sources: str) -> list[TranslationRow]:
 
 
 ROWS = _rows(
-    "Welcome to Silver Pines, stranger.",
+    "Welcome to Silver Grove, stranger.",
     "The Sheriff is waiting at the Old Mill.",
-    "Ask the Sheriff about Silver Pines.",
+    "Ask the Sheriff about Silver Grove.",
     "Did you see the Old Mill?",
     "Yes. I saw it.",  # cümle başı sözcükler aday değil
     "Yes, Mara went home.",
@@ -35,12 +35,12 @@ ROWS = _rows(
 
 def test_find_candidates_collects_repeated_names() -> None:
     found = find_candidates(ROWS, [GlossaryTerm("sheriff", "Şerif")])
-    assert [(c.term, c.count) for c in found] == [("Silver Pines", 2), ("Old Mill", 2), ("Mara", 2)]
-    assert found[0].examples == ("Welcome to Silver Pines, stranger.", "Ask the Sheriff about Silver Pines.")
+    assert [(c.term, c.count) for c in found] == [("Silver Grove", 2), ("Old Mill", 2), ("Mara", 2)]
+    assert found[0].examples == ("Welcome to Silver Grove, stranger.", "Ask the Sheriff about Silver Grove.")
 
 
 def test_find_candidates_limit_and_empty() -> None:
-    assert [c.term for c in find_candidates(ROWS, [], limit=2)] == ["Silver Pines", "Sheriff"]
+    assert [c.term for c in find_candidates(ROWS, [], limit=2)] == ["Silver Grove", "Sheriff"]
     assert find_candidates([], []) == []
 
 
@@ -51,7 +51,7 @@ def test_suggest_glossary_asks_model_in_batches() -> None:
     ctx = TaskContext(progress=lambda done, total, _msg: progress.append((done, total)))
     got = suggest_glossary(server.provider(), candidates, "en", "Kasaba korku oyunu.", ctx, batch_size=2)
     assert got == [
-        TermSuggestion("Silver Pines", "tr-Silver Pines", "öneri notu", 2),
+        TermSuggestion("Silver Grove", "tr-Silver Grove", "öneri notu", 2),
         TermSuggestion("Sheriff", "tr-Sheriff", "öneri notu", 2),
         TermSuggestion("Old Mill", "tr-Old Mill", "öneri notu", 2),
         TermSuggestion("Mara", "tr-Mara", "öneri notu", 2),
@@ -60,8 +60,8 @@ def test_suggest_glossary_asks_model_in_batches() -> None:
     assert len(chats) == 2
     payload = json.loads(chats[0]["messages"][1]["content"])
     assert payload["terms"][0] == {
-        "term": "Silver Pines",
-        "examples": ["Welcome to Silver Pines, stranger.", "Ask the Sheriff about Silver Pines."],
+        "term": "Silver Grove",
+        "examples": ["Welcome to Silver Grove, stranger.", "Ask the Sheriff about Silver Grove."],
     }
     assert "Kasaba korku oyunu." in chats[0]["messages"][0]["content"]
     assert progress[-1] == (4, 4)
@@ -70,7 +70,7 @@ def test_suggest_glossary_asks_model_in_batches() -> None:
 def test_suggest_glossary_drops_terms_model_rejects_or_invents() -> None:
     def suggest(payload: dict[str, object]) -> list[dict[str, object]]:
         return [
-            {"term": "Silver Pines", "translation": "Silver Pines", "note": "yer adı", "add": True},
+            {"term": "Silver Grove", "translation": "Silver Grove", "note": "yer adı", "add": True},
             {"term": "Sheriff", "translation": "Şerif", "note": "", "add": False},  # model gereksiz buldu
             {"term": "Ghost Town", "translation": "Hayalet Kasaba", "note": "", "add": True},  # listede yoktu
             {"term": "Old Mill", "translation": "  ", "note": "", "add": True},  # boş çeviri
@@ -78,7 +78,7 @@ def test_suggest_glossary_drops_terms_model_rejects_or_invents() -> None:
 
     server = FakeOllama(suggest=suggest)
     got = suggest_glossary(server.provider(), find_candidates(ROWS, [])[:3], "en", "", TaskContext())
-    assert got == [TermSuggestion("Silver Pines", "Silver Pines", "yer adı", 2)]
+    assert got == [TermSuggestion("Silver Grove", "Silver Grove", "yer adı", 2)]
 
 
 def test_suggest_glossary_can_be_cancelled() -> None:

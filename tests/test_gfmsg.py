@@ -1,4 +1,4 @@
-"""Game Freak mesaj biçimi: şifre, kontrol kodları, seçimler, round-trip ve aktarma akışı."""
+"""GFMSG mesaj biçimi: şifre, kontrol kodları, seçimler, round-trip ve aktarma akışı."""
 
 from __future__ import annotations
 
@@ -194,7 +194,7 @@ def gf_game(tmp_path: Path) -> tuple[Inputs, Path]:
         "bin/message/French/common/test.dat": french,
         "bin/message/French/common/test.tbl": build_ahtb(["msg_alive", "msg_max"]),
         "bin/message/grammar/table.dat": b"\x02\x00\x10\x00" + b"\x07" * 60,
-        "bin/pokemon/data.gfpak": b"GFLXPACK" + b"\0" * 40,
+        "bin/archive/data.gfpak": b"GFLXPACK" + b"\0" * 40,
     }
     pkg = nxbuild.build_package(
         keys,

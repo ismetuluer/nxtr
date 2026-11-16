@@ -20,7 +20,7 @@ PAGE = ("tag", 0, 4, b"")
 
 TEXTS: list[tuple[str, list[MsbtSegment]]] = [
     ("Menu_Start", ["Start Game"]),
-    ("Talk_Hello", ["Hello, ", PLAYER, "!\nWelcome to ", COLOR_RED, "Hyrule", COLOR_END, "."]),
+    ("Talk_Hello", ["Hello, ", PLAYER, "!\nWelcome to ", COLOR_RED, "Eldora", COLOR_END, "."]),
     ("Talk_Page", ["First page", PAGE, "Second page"]),
     ("Empty", []),
     ("Unicode", ["Çok güzel şey — ığİöü ✓"]),
@@ -43,7 +43,7 @@ def test_extract_entries_and_codes() -> None:
     by_key = {e.key: e for e in entries}
     assert [e.key for e in entries] == [k for k, _ in TEXTS]
     talk = by_key["Talk_Hello"]
-    assert talk.source == "Hello, ⟦1⟧!\nWelcome to ⟦2⟧Hyrule⟦3⟧."
+    assert talk.source == "Hello, ⟦1⟧!\nWelcome to ⟦2⟧Eldora⟦3⟧."
     assert [c.label for c in talk.codes] == ["Oyun etiketi 2:1", "Renk", "Etiket sonu (0:3)"]
     assert by_key["Talk_Page"].codes[0].label == "Sayfa sonu"
     assert by_key["Empty"].source == ""
@@ -68,16 +68,16 @@ def test_inject_translation(data: bytes) -> None:
     out = PLUGIN.inject(
         data,
         {
-            "Talk_Hello": "Merhaba ⟦1⟧!\n⟦2⟧Hyrule⟦3⟧'a hoş geldin.",
+            "Talk_Hello": "Merhaba ⟦1⟧!\n⟦2⟧Eldora⟦3⟧'a hoş geldin.",
             "Menu_Start": "Oyuna Başla",
             "Empty": "Artık boş değil: ğüşİöçı",
         }
         if read(data).labels
-        else {"#1": "Merhaba ⟦1⟧!\n⟦2⟧Hyrule⟦3⟧'a hoş geldin.", "#0": "Oyuna Başla", "#3": "Artık boş değil: ğüşİöçı"},
+        else {"#1": "Merhaba ⟦1⟧!\n⟦2⟧Eldora⟦3⟧'a hoş geldin.", "#0": "Oyuna Başla", "#3": "Artık boş değil: ğüşİöçı"},
     )
     entries = {e.index: e for e in PLUGIN.extract(out)}
     assert entries[0].source == "Oyuna Başla"
-    assert entries[1].source == "Merhaba ⟦1⟧!\n⟦2⟧Hyrule⟦3⟧'a hoş geldin."
+    assert entries[1].source == "Merhaba ⟦1⟧!\n⟦2⟧Eldora⟦3⟧'a hoş geldin."
     assert entries[1].codes == PLUGIN.extract(data)[1].codes  # kodlar bayt bayt korunur
     assert entries[2].source == "First page⟦1⟧Second page"  # dokunulmayan girdi aynı
     assert entries[3].source == "Artık boş değil: ğüşİöçı"

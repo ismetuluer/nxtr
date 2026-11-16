@@ -1,4 +1,4 @@
-"""Test için elle üretilmiş küçük Devil May Cry mesaj tabloları (gerçek oyun verisi içermez)."""
+"""Test için elle üretilmiş küçük `.fsd`/`.msg` mesaj tabloları (gerçek oyun verisi içermez)."""
 
 from __future__ import annotations
 

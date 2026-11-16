@@ -149,9 +149,9 @@ def test_full_flow_drop_scan_save_reopen(qtbot: QtBot, window: MainWindow, game:
     assert "Bozuk.msbt" in page.notice_text  # açılamayan dosya bildirildi
     hello = next(i for i, r in enumerate(page.model.rows) if r.key == "Menu_Hello")
     idx = page.model.index(hello, COL_TRANSLATION)
-    assert page.model.setData(idx, "Merhaba ⟦1⟧Link⟦2⟧!")
+    assert page.model.setData(idx, "Merhaba ⟦1⟧Kael⟦2⟧!")
     assert page.model.rows[hello].status == "approved"
-    assert page.model.setData(idx, "Merhaba Link!")  # kontrol kodları silindi
+    assert page.model.setData(idx, "Merhaba Kael!")  # kontrol kodları silindi
     assert page.model.rows[hello].status == "error"
     assert "Eksik kontrol kodu" in page.model.rows[hello].note
     page.search.setText("wait")
@@ -409,7 +409,7 @@ def test_machine_translation_flow(qtbot: QtBot, window: MainWindow, game: GameFi
     assert not page.run_panel.isVisibleTo(window)
     assert asked == [(6, 0, "translate", SCOPE_ALL)]
     after = {r.key: r for r in page.model.rows}
-    assert after["Menu_Hello"].translation == "tr-Hello ⟦1⟧tr-Link⟦2⟧!"
+    assert after["Menu_Hello"].translation == "tr-Hello ⟦1⟧tr-Kael⟦2⟧!"
     assert after["Menu_Hello"].status == "machine"
     assert after["Yes"].translation == "Evet"  # onaylanan satıra dokunulmadı
     assert window.notifier.history[0].title == "Otomatik çeviri bitti"
@@ -424,10 +424,10 @@ def test_machine_translation_flow(qtbot: QtBot, window: MainWindow, game: GameFi
     assert "bağlanılamadı" in last.title + last.text
 
     # Sözlük penceresi: boş satırlar kaydedilmez.
-    dialog = GlossaryDialog(window, [GlossaryTerm("Link", "Link", "ad")])
+    dialog = GlossaryDialog(window, [GlossaryTerm("Kael", "Kael", "ad")])
     dialog._add("Sheriff", "Şerif", "")
     dialog._add("", "boş", "")
-    assert dialog.terms() == [GlossaryTerm("Link", "Link", "ad"), GlossaryTerm("Sheriff", "Şerif", "")]
+    assert dialog.terms() == [GlossaryTerm("Kael", "Kael", "ad"), GlossaryTerm("Sheriff", "Şerif", "")]
     from nxceviri.core.secrets import DEEPL_API_KEY, MemoryStore
     from nxceviri.gui.machine_dialogs import PROVIDER_DEEPL
     from nxceviri.gui.settings_dialog import DeepLKeyPanel
@@ -625,7 +625,7 @@ def _imported_window(qtbot: QtBot, window: MainWindow, game: GameFiles) -> None:
     _wait_idle(qtbot, window)
     page = window.translate_page
     hello = next(i for i, r in enumerate(page.model.rows) if r.key == "Menu_Hello")
-    assert page.model.setData(page.model.index(hello, COL_TRANSLATION), "Merhaba ⟦1⟧Link⟦2⟧!")
+    assert page.model.setData(page.model.index(hello, COL_TRANSLATION), "Merhaba ⟦1⟧Kael⟦2⟧!")
     window.nav.setCurrentRow(STEP_SCAN)
 
 

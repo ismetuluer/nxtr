@@ -1,4 +1,4 @@
-"""Ys Origin: İngilizce yazı içeren resimlerin (DDS) kullanıcının hazırladığı Türkçe karşılıklarını yerleştirme.
+"""NNI biçimli oyun: İngilizce yazı içeren resimlerin (DDS) kullanıcının hazırladığı Türkçe karşılıklarını yerleştirme.
 
 Menü başlıkları, düğme yazıları, ara sahne ve rehber sayfaları metin değil resimdir. Klasör düzeni
 (`<oyun klasörü>/grafik_temizleme`, `NXCEVIRI_NNI_GRAFIK` ortam değişkeniyle değiştirilebilir):
@@ -50,8 +50,8 @@ LOOSE = {
 #: DDS'te baş aşağı saklanan resimler: PNG'de dik gösterilir, yazarken geri çevrilir.
 FLIPPED = frozenset({"demo_over"})
 _FORMATS = {77: ("DXT5", 16), 71: ("DXT1", 8)}  # DXGI_FORMAT_BC3_UNORM, BC1_UNORM → (Pillow kodu, blok baytı)
-README = """Ys Origin grafik çevirisi
-=========================
+README = """Grafik çevirisi
+===============
 
 orijinal\\   Oyundan çıkarılmış İngilizce resimler (değiştirmeyin).
 temiz\\      Yazısını Türkçe yaptığınız resimleri BURAYA, orijinal\\ içindeki ADIYLA kaydedin (PNG).
@@ -68,7 +68,7 @@ Hangi resim nerede görünür?
   MSGBOX_EN         "Return to title screen?" kutusu ve Yes / No düğmeleri
   ASK_DEL_EN, ASK_LOAD_EN, ASK_SAVE_EN, ASK_USE_EN   Kaydet / yükle / sil / kullan soruları ve düğmeleri
   TOPIC_BUTTONS_EN  Rehber sayfalarındaki PREV / NEXT / Select / Confirm düğmeleri
-  MAP_EN            Harita ekranındaki bölge adları (Tower Base, Flooded Prison ...)
+  MAP_EN            Harita ekranındaki bölge adları
   MAP_NAMEnn        Bölge adı başlıkları (Japonca adın altında İngilizce alt yazı)
   BOSS_NAMEnn       Patron adı başlıkları (Japonca adın altında İngilizce alt yazı)
   V_nnn             Hikâye sahnelerindeki yazılar ve rehber (Manual) sayfaları

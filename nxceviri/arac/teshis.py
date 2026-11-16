@@ -54,7 +54,7 @@ _IMZALAR: tuple[tuple[bytes, str], ...] = (
     (b"PK\x03\x04", "ZIP arşivi"),
     (b"\x1f\x8b", "GZIP sıkıştırma"),
     (b"\x7fELF", "ELF"),
-    (b"CPK ", "CRI CPK arşivi"),
+    (b"CPK ", "CPK arşivi"),
     (b"\xe1\x12\x6f\x5a", "Unreal PAK (alt bilgi imzası)"),
 )
 

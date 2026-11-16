@@ -1,4 +1,4 @@
-"""Spike Chunsoft WAD arşivi (Danganronpa: `dr1_data.wad`), imzası `AGAR`.
+"""WAD arşivi (`<ad>_data.wad`), imzası `AGAR`.
 
 Yapı (küçük sonlu):
 - Başlık: `AGAR` | sürüm u32 | alt sürüm u32 | ek başlık boyutu u32 | ek başlık.
@@ -25,7 +25,7 @@ SUFFIX = ".wad"
 _HEADER = struct.Struct("<4sIII")
 _U32 = struct.Struct("<I")
 _SIZE_OFFSET = struct.Struct("<QQ")
-#: Dizinin okunması için ilk denemede okunan bayt (DR1'de dizin ~580 KB); yetmezse ikiye katlanır.
+#: Dizinin okunması için ilk denemede okunan bayt (denenen oyunda dizin ~580 KB); yetmezse ikiye katlanır.
 _FIRST_READ = 1024 * 1024
 #: Yeniden kurulacak arşivin üst sınırı: tamamı bellekte kurulur.
 MAX_REBUILD = 1024 * 1024 * 1024

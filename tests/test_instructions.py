@@ -132,9 +132,9 @@ def test_notes_can_be_saved_to_and_used_from_library(qtbot: QtBot, monkeypatch: 
 
     dialog = _dialog(qtbot, [_row(1, "a.tsv", "k")])
     dialog.notes.setPlainText("1990'lar, Quito; çocuklar samimi konuşur.")
-    monkeypatch.setattr(QInputDialog, "getText", lambda *_a, **_k: ("Despelote", True))
+    monkeypatch.setattr(QInputDialog, "getText", lambda *_a, **_k: ("Örnek Oyun", True))
     dialog.notes_library.save()
-    assert [(i.name, i.kind) for i in load_library()] == [("Despelote", KIND_NOTES)]
+    assert [(i.name, i.kind) for i in load_library()] == [("Örnek Oyun", KIND_NOTES)]
     dialog.notes.setPlainText("")
-    dialog.notes_library.use("Despelote")
+    dialog.notes_library.use("Örnek Oyun")
     assert dialog.notes.toPlainText().startswith("1990'lar")

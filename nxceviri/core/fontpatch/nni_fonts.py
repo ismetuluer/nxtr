@@ -1,4 +1,4 @@
-"""Ys Origin'in Latin yazı tiplerine eksik Türkçe harfleri ekleme (`ğ Ğ ş Ş ı İ`).
+"""NNI biçimli oyunun Latin yazı tiplerine eksik Türkçe harfleri ekleme (`ğ Ğ ş Ş ı İ`).
 
 Oyunun metinleri `extension/font/` altındaki BMFont çiftleriyle (`*.fnt` + `*.png`) çizilir. Latin metin için kullanılan
 beş yazı tipi `ç ö ü` içerir, bu altı harfi içermez: `arial` (diyalog ve menü açıklamaları), `ysfont`, `linuxwhite`,

@@ -132,7 +132,7 @@ def msbt_project(game: GameFiles) -> tuple[Inputs, Project]:
     project.set_translations(
         [
             (rows["Menu_Start"].id, "Maceraya Başla"),
-            (rows["Menu_Hello"].id, "Merhaba ⟦1⟧Link⟦2⟧! Şimdi"),
+            (rows["Menu_Hello"].id, "Merhaba ⟦1⟧Kael⟦2⟧! Şimdi"),
             (rows["No"].id, "Hayır"),
             (rows["Wait"].id, "Lütfen bekleyin"),  # ⟦1⟧ eksik → hatalı, yazılmaz
         ]
@@ -176,7 +176,7 @@ def test_export_atmosphere(msbt_project: tuple[Inputs, Project], game: GameFiles
     )
     assert (result.rows_written, result.rows_error, result.rows_untranslated) == (4, 1, 1)
     menu = {e.key: e.source for e in MsbtPlugin().extract((dest / root / "Message/Ana_Menü.msbt").read_bytes())}
-    assert menu == {"Menu_Start": "Maceraya Basla", "Menu_Hello": "Merhaba ⟦1⟧Link⟦2⟧! Simdi", "Menu_New": "New option"}
+    assert menu == {"Menu_Start": "Maceraya Basla", "Menu_Hello": "Merhaba ⟦1⟧Kael⟦2⟧! Simdi", "Menu_New": "New option"}
     packed = (dest / root / "Mals/TRtr.Product.sarc.zs").read_bytes()
     inner = nested.split(NESTED_COMMON)[1:]
     common = {e.key: e.source for e in MsbtPlugin().extract(nested.open_inner(packed, inner))}

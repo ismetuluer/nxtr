@@ -1,4 +1,4 @@
-"""Unicorn Overlord: CRI CPK arşivi, CRILAYLA, FMSB MsgSheet, tarama ve dışa aktarma (elle üretilmiş örneklerle)."""
+"""CPK arşivi, CRILAYLA, FMSB MsgSheet, tarama ve dışa aktarma (elle üretilmiş örneklerle)."""
 
 from __future__ import annotations
 
@@ -42,15 +42,15 @@ LONG = SYS + [f"Line {i}: the Liberation marches on, and on, and on." for i in r
 
 def _tree(extra: dict[str, bytes] | None = None) -> ContentTree:
     files = {
-        "Unicorn_US.CPK": build_cpk(
+        "Game_US.CPK": build_cpk(
             {
                 "Debug/_Enum.inc": b"enum {}",
-                "MsgSheet/UcSysMsg.fms": build_fmsb(LONG),
-                "MsgSheet/UcNameList.fms": build_fmsb(["Alain", "Scarlett"]),
+                "MsgSheet/SysMsg.fms": build_fmsb(LONG),
+                "MsgSheet/NameList.fms": build_fmsb(["Alain", "Scarlett"]),
             },
-            compressed=frozenset({"MsgSheet/UcSysMsg.fms"}),
+            compressed=frozenset({"MsgSheet/SysMsg.fms"}),
         ),
-        "Unicorn.CPK": build_cpk({"MsgSheet/UcSysMsg.fms": build_fmsb(JA)}),
+        "Game.CPK": build_cpk({"MsgSheet/SysMsg.fms": build_fmsb(JA)}),
         **(extra or {}),
     }
     romfs = RomFs(MemoryStorage(build_romfs(files)))
@@ -79,7 +79,7 @@ def test_cpk_reads_members(masked: bool) -> None:
     data = build_cpk(
         {"MsgSheet/A.fms": sheet, "X/b.bin": b"raw"}, compressed=frozenset({"MsgSheet/A.fms"}), masked=masked
     )
-    arc = cpk.CpkFile(MemoryStorage(data), "Unicorn_US.CPK")
+    arc = cpk.CpkFile(MemoryStorage(data), "Game_US.CPK")
     assert set(arc.entries) == {"MsgSheet/A.fms", "X/b.bin"}
     assert arc.entries["MsgSheet/A.fms"].size < arc.entries["MsgSheet/A.fms"].extract_size
     assert arc.read("MsgSheet/A.fms") == sheet
@@ -124,7 +124,7 @@ def test_cpk_rejects_bad_header_and_unknown_member() -> None:
 
 def test_cpk_refuses_to_rebuild_huge_archive(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cpk, "MAX_REBUILD", 100)
-    arc = cpk.CpkFile(MemoryStorage(build_cpk({"A/b.bin": b"x"})), "Unicorn.CPK")
+    arc = cpk.CpkFile(MemoryStorage(build_cpk({"A/b.bin": b"x"})), "Game.CPK")
     with pytest.raises(UnsupportedFormatError, match="çok büyük"):
         arc.rebuild({"A/b.bin": b"y"})
 
@@ -178,51 +178,51 @@ def test_fmsb_corrupt_files() -> None:
 
 
 def test_fmsb_language_detection() -> None:
-    assert PLUGIN.language(build_fmsb([*JA, "PlayStation", "Nintendo Switch"])) == "ja"
+    assert PLUGIN.language(build_fmsb([*JA, "PlayStation", "Switch"])) == "ja"
     assert PLUGIN.language(build_fmsb(SYS)) is None  # `#FN(…町)` kodları sayılmaz
 
 
 def test_detection_and_paths() -> None:
     data = build_cpk({"A/b.bin": b"x"})
-    assert detect("Unicorn_US.CPK", data[:64]).detail == CPK_ARCHIVE_DETAIL
-    assert path_language("Unicorn_US.CPK>MsgSheet/UcSysMsg.fms") == "en"
-    assert path_language("Unicorn_DE.CPK>MsgSheet/UcSysMsg.fms") == "de"
-    assert path_language("Unicorn.CPK>MsgSheet/UcSysMsg.fms") is None
-    assert is_cpk_path("Unicorn_US.CPK>MsgSheet/UcSysMsg.fms")
-    assert is_member_path("Unicorn_US.CPK>MsgSheet/UcSysMsg.fms")
+    assert detect("Game_US.CPK", data[:64]).detail == CPK_ARCHIVE_DETAIL
+    assert path_language("Game_US.CPK>MsgSheet/SysMsg.fms") == "en"
+    assert path_language("Game_DE.CPK>MsgSheet/SysMsg.fms") == "de"
+    assert path_language("Game.CPK>MsgSheet/SysMsg.fms") is None
+    assert is_cpk_path("Game_US.CPK>MsgSheet/SysMsg.fms")
+    assert is_member_path("Game_US.CPK>MsgSheet/SysMsg.fms")
 
 
 def test_scan_lists_message_sheets() -> None:
-    report = scan_view(GameView(TID, "Unicorn Overlord", 0, None, [_tree()]))
+    report = scan_view(GameView(TID, "Örnek Oyun", 0, None, [_tree()]))
     sheets = sorted(e.path for e in report.entries if e.kind == "fmsb")
     assert sheets == [
-        "Unicorn.CPK>MsgSheet/UcSysMsg.fms",
-        "Unicorn_US.CPK>MsgSheet/UcNameList.fms",
-        "Unicorn_US.CPK>MsgSheet/UcSysMsg.fms",
+        "Game.CPK>MsgSheet/SysMsg.fms",
+        "Game_US.CPK>MsgSheet/NameList.fms",
+        "Game_US.CPK>MsgSheet/SysMsg.fms",
     ]
     assert report.engine.engine == "cpk"
     reader = MemberReader(_tree().view)
-    assert PLUGIN.language(reader.read("Unicorn.CPK>MsgSheet/UcSysMsg.fms")) == "ja"
+    assert PLUGIN.language(reader.read("Game.CPK>MsgSheet/SysMsg.fms")) == "ja"
 
 
 def test_export_rebuilds_language_archive() -> None:
     tree = _tree()
-    path = "Unicorn_US.CPK>MsgSheet/UcSysMsg.fms"
+    path = "Game_US.CPK>MsgSheet/SysMsg.fms"
     translations = {path: {"2": "Başlangıç Noktası", "3": "Bu birlik zaten dolu.\nYine de eklensin mi?"}}
     result = ExportResult(Path("x"))
     outputs = _export_member_archive(
         tree,
-        "Unicorn_US.CPK",
+        "Game_US.CPK",
         [TextFileRef(path, TID, "fmsb")],
         translations=translations,
         root=Path("romfs"),
         result=result,
     )
-    assert [rel.as_posix() for rel, _ in outputs] == ["romfs/Unicorn_US.CPK"]
-    arc = cpk.CpkFile(MemoryStorage(outputs[0][1]), "Unicorn_US.CPK")
-    got = {e.key: e.source for e in PLUGIN.extract(arc.read("MsgSheet/UcSysMsg.fms"))}
+    assert [rel.as_posix() for rel, _ in outputs] == ["romfs/Game_US.CPK"]
+    arc = cpk.CpkFile(MemoryStorage(outputs[0][1]), "Game_US.CPK")
+    got = {e.key: e.source for e in PLUGIN.extract(arc.read("MsgSheet/SysMsg.fms"))}
     assert got["2"] == "Başlangıç Noktası"
-    assert arc.read("MsgSheet/UcNameList.fms") == build_fmsb(["Alain", "Scarlett"])
+    assert arc.read("MsgSheet/NameList.fms") == build_fmsb(["Alain", "Scarlett"])
     assert arc.read("Debug/_Enum.inc") == b"enum {}"
 
 

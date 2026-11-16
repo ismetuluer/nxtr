@@ -1,4 +1,4 @@
-"""Vanillaware FMSB "MsgSheet" eklentisi (Unicorn Overlord `MsgSheet/*.fms`).
+"""FMSB "MsgSheet" eklentisi (`MsgSheet/*.fms`, CPK arşivi içinde).
 
 Yapı (küçük sonlu):
 - Başlık 0x20: `FMSB` | veri boyutu u32 (dosya − 0x30) | başlık boyutu u32 (0x20) | 0 | 0 |
@@ -144,7 +144,7 @@ def _decode(raw: bytes) -> str | None:
 
 class FmsbPlugin:
     name = "fmsb"
-    label = "Vanillaware MsgSheet (Unicorn Overlord)"
+    label = "FMSB MsgSheet (.fms)"
     candidates_only = True
     path_suffixes: tuple[str, ...] = (".fms",)
     #: Oyunun fontları yalnızca Batı Avrupa harflerini (Latin-1) içeriyor: Rusça topluluk yaması Kiril
@@ -159,7 +159,7 @@ class FmsbPlugin:
         return {}
 
     def language(self, data: bytes) -> str | None:
-        """Ana arşivlerdeki (`Unicorn.CPK`) sayfalar Japoncadır; dil CPK'larınınki yol adından anlaşılır.
+        """Ana arşivlerdeki (`<ad>.CPK`) sayfalar Japoncadır; dil CPK'larınınki yol adından anlaşılır.
 
         Japonca sayfalarda da Latin harfli satırlar (platform adları, kadro listesi) olduğundan ölçüt,
         dizgelerin %10'undan fazlasında kana/kanji bulunmasıdır (gerçek oyunda Japonca sayfalarda en az
