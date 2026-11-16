@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QEvent, QSettings, Qt
+from PySide6.QtCore import QEvent, QItemSelectionModel, QSettings, Qt
 from PySide6.QtGui import QKeyEvent, QKeySequence, QTextCursor
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QLineEdit, QMenu, QPlainTextEdit
@@ -226,16 +226,16 @@ def test_cell_editor_altgr_digit_types_the_character_and_inserts_no_code(qtbot: 
     assert "⟦" not in editor.toPlainText()
 
 
-def test_table_selection_without_editor_ignores_ctrl_digit(qtbot: QtBot) -> None:
+def test_table_selection_without_editor_opens_no_cell_editor(qtbot: QtBot) -> None:
     page = _page(qtbot, [_row()])
-    page.table.setCurrentIndex(page.proxy.index(0, COL_TRANSLATION))
+    _choose(page, 0)
     page.table.setFocus()
     qtbot.waitUntil(lambda: QApplication.focusWidget() is page.table)
     QTest.keyClick(page.table, Qt.Key.Key_1, CTRL)
     assert page.table.findChild(QPlainTextEdit) is None  # "herhangi bir tuş düzenlemeyi açar" kuralı tetiklenmedi
-    assert page.pane.translation_edit.toPlainText() == "Merhaba"
-    assert page.current_row() is not None
-    assert page.current_row().translation == "Merhaba"  # type: ignore[union-attr]
+    row = page.current_row()
+    assert row is not None
+    assert row.translation == "Merhaba"  # kayıtlı metne dokunulmadı; kod yalnızca panelin kutusuna yazıldı
 
 
 # --- sayfa geçişi ----------------------------------------------------------------------------
@@ -307,3 +307,104 @@ def test_main_window_code_shortcuts_have_no_menu_entries(window: MainWindow) -> 
     texts = [action.text() for menu in menus for action in menu.actions()]
     assert texts
     assert not any(t.startswith("Kod ") and t.endswith("Ekle") for t in texts)
+
+
+# --- tablo odaktayken (hücre düzenleyicisi kapalı) -------------------------------------------
+
+
+def _coded(row_id: int, file: str = "a.msbt", translation: str = "Merhaba", codes: int = 2) -> TranslationRow:
+    labels = tuple(f"Kod {i}" for i in range(1, codes + 1))
+    return TranslationRow(row_id, file, f"k{row_id}", "Hi ⟦1⟧ you ⟦2⟧", translation, Status.MACHINE, "", labels, None)
+
+
+def _choose(page: TranslatePage, view_row: int) -> None:
+    """Tek satırı seçip geçerli yapar. `select_row` kullanılmaz: önceki testin Ctrl tuşu kalıntısı seçimi tersler."""
+    index = page.proxy.index(view_row, COL_TRANSLATION)
+    page.table.selectionModel().setCurrentIndex(
+        index, QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows
+    )
+
+
+def _table_page(qtbot: QtBot, rows: list[TranslationRow] | None = None) -> TranslatePage:
+    page = _page(qtbot, rows if rows is not None else [_coded(1), _coded(2, translation="Selam", codes=1)])
+    _choose(page, 0)
+    qtbot.waitUntil(lambda: page.pane.row_id == 1 and len(page.selected_rows()) == 1)
+    page.table.setFocus()
+    qtbot.waitUntil(lambda: QApplication.focusWidget() is page.table)
+    return page
+
+
+def test_table_ctrl_digit_inserts_into_panel_and_focuses_it(qtbot: QtBot) -> None:
+    page = _table_page(qtbot)
+    page.pane.translation_edit.moveCursor(QTextCursor.MoveOperation.Start)
+    QTest.keyClick(page.table, Qt.Key.Key_2, CTRL)
+    assert page.pane.translation_edit.toPlainText() == "⟦2⟧Merhaba"  # tek tuş, tek ekleme
+    assert QApplication.focusWidget() is page.pane.translation_edit
+    assert page.table.findChild(QPlainTextEdit) is None
+
+
+def test_table_missing_code_changes_nothing_keeps_focus_and_hints(qtbot: QtBot) -> None:
+    page = _table_page(qtbot)
+    with qtbot.waitSignal(page.hint) as blocker:
+        QTest.keyClick(page.table, Qt.Key.Key_5, CTRL)
+    assert "5" in blocker.args[0]
+    assert page.pane.translation_edit.toPlainText() == "Merhaba"
+    assert QApplication.focusWidget() is page.table
+
+
+def test_table_shortcut_with_hidden_pane_hints_and_opens_no_editor(qtbot: QtBot) -> None:
+    page = _table_page(qtbot)
+    page.view_actions.pane_toggle.trigger()
+    assert not page.pane.isVisibleTo(page)
+    with qtbot.waitSignal(page.hint) as blocker:
+        QTest.keyClick(page.table, Qt.Key.Key_1, CTRL)
+    assert "paneli açın" in blocker.args[0]
+    assert page.table.findChild(QPlainTextEdit) is None
+    assert page.pane.translation_edit.toPlainText() == "Merhaba"
+
+
+def test_table_shortcut_with_multiple_selection_does_nothing(qtbot: QtBot) -> None:
+    page = _table_page(qtbot)
+    page.table.selectAll()
+    QTest.keyClick(page.table, Qt.Key.Key_1, CTRL)
+    assert page.pane.translation_edit.toPlainText() in ("Merhaba", "Selam")
+    assert "⟦" not in page.pane.translation_edit.toPlainText()
+    assert QApplication.focusWidget() is page.table
+
+
+def test_table_shortcut_right_after_row_change_writes_to_the_new_row(qtbot: QtBot) -> None:
+    page = _table_page(qtbot)
+    _choose(page, 1)  # panel eşzamanlaması beklenmeden tuşa basılır
+    QTest.keyClick(page.table, Qt.Key.Key_1, CTRL)
+    assert page.pane.row_id == 2
+    assert "⟦1⟧" in page.pane.translation_edit.toPlainText()
+    assert "Selam" in page.pane.translation_edit.toPlainText()
+    row = page.model.row_by_id(1)
+    assert row is not None
+    assert row.translation == "Merhaba"
+
+
+def test_table_altgr_digit_does_nothing(qtbot: QtBot) -> None:
+    page = _table_page(qtbot)
+    QTest.keyClick(page.table, Qt.Key.Key_2, ALTGR)
+    assert page.pane.translation_edit.toPlainText() == "Merhaba"
+    assert QApplication.focusWidget() is page.table
+
+
+def test_table_shortcut_in_grouped_view_targets_right_row_and_skips_headers(qtbot: QtBot) -> None:
+    rows = [_coded(1, "a.msbt"), _coded(2, "b.msbt", translation="Selam"), _coded(3, "b.msbt", translation="Dünya")]
+    page = _table_page(qtbot, rows)
+    page.group_action.trigger()
+    assert page.proxy is page.group_proxy
+    _choose(page, next(r for r in range(page.proxy.rowCount()) if (page._row_at(r) or _coded(0)).id == 3))
+    page.table.setFocus()
+    qtbot.waitUntil(lambda: page.pane.row_id == 3)
+    QTest.keyClick(page.table, Qt.Key.Key_1, CTRL)
+    assert page.pane.translation_edit.toPlainText().count("⟦1⟧") == 1
+    assert "Dünya" in page.pane.translation_edit.toPlainText()
+    header = next(r for r in range(page.proxy.rowCount()) if page.group_proxy.header_group(r) is not None)
+    page.table.setFocus()
+    page.table.setCurrentIndex(page.proxy.index(header, COL_TRANSLATION))
+    before = page.pane.translation_edit.toPlainText()
+    QTest.keyClick(page.table, Qt.Key.Key_2, CTRL)
+    assert page.pane.translation_edit.toPlainText() == before

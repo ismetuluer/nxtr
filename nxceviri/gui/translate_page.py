@@ -65,7 +65,7 @@ from nxceviri.core.translate.status import STATUS_LABELS, TRANSLATED_STATUSES, S
 from nxceviri.core.translate.textsearch import fold_search
 from nxceviri.core.translate.uppercase import UppercaseRules
 from nxceviri.gui.changes_dialog import HtmlDelegate, diff_html
-from nxceviri.gui.editor_pane import EditorPane, bind_code_shortcuts
+from nxceviri.gui.editor_pane import EditorPane, bind_code_keys, bind_code_shortcuts
 from nxceviri.gui.find_replace import (
     FIELD_SOURCE,
     FIND_SPANS_ROLE,
@@ -954,6 +954,7 @@ class TranslatePage(QWidget):
         copy_keys = QShortcut(QKeySequence(QKeySequence.StandardKey.Copy), self.table)
         copy_keys.setContext(Qt.ShortcutContext.WidgetShortcut)
         copy_keys.activated.connect(lambda: self.copy_to_clipboard("both"))
+        bind_code_keys(self.table, self.shortcuts, self._table_code_key)
         self.table.setAlternatingRowColors(True)
         self.table.setWordWrap(True)
         self.table.setTextElideMode(Qt.TextElideMode.ElideNone)
@@ -1183,6 +1184,20 @@ class TranslatePage(QWidget):
         layout = self.layout()
         if layout is not None:
             layout.activate()
+
+    def _table_code_key(self, number: int) -> None:
+        """Tabloda (düzenleyici kapalı) Ctrl+1…9: tek satır seçiliyse kodu panelin çeviri kutusuna ekler.
+
+        Hücre kendiliğinden düzenlemeye açılmaz; panel kapalıysa yalnızca ipucu verilir. Panel önce tablonun geçerli
+        satırına eşlenir, kod yanlış satıra yazılmaz."""
+        if not self.pane.isVisibleTo(self):
+            self.hint.emit("Kod eklemek için hücreyi düzenleyin ya da paneli açın.")
+            return
+        row = self.current_row()
+        if row is None or len(self.selected_rows()) != 1:
+            return
+        self._sync_pane()
+        self.pane.insert_code_for_row(row.id, number)
 
     def _apply_pane(self) -> None:
         layout = self._wanted_pane_layout()

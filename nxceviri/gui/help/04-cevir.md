@@ -14,8 +14,8 @@ Tablo her satırı gösterir: **No**, orijinal, çeviri, durum ve dosya. Binlerc
 
 - Hücreye çift tıklayın ya da `F2`. **Çeviri paneli** (`Ctrl+J`) uzun metin, karakter sınırı ve komşu satırlar için
   rahattır; `Alt+↑` / `Alt+↓` satırlar arasında gezer.
-- Yazarken `Ctrl+1` … `Ctrl+9` satırın 1. … 9. kontrol kodunu imlece ekler (hücrede ve panelde; panelde kod
-  düğmeleri de aynısını yapar).
+- `Ctrl+1` … `Ctrl+9` satırın 1. … 9. kontrol kodunu ekler: hücreyi ya da panelin çeviri kutusunu düzenlerken
+  imlece; tabloda tek satır seçiliyken panelin çeviri kutusuna (panel kapalıysa eklenmez).
 - **Orijinali Çeviri Olarak Yaz** (`Ctrl+Shift+O`): özel adları olduğu gibi bırakmak için.
 - Her değişiklik geri alınabilir (`Ctrl+Z`); geri aldığınızı **Yinele** (`Ctrl+Y`) geri getirir. Yeni bir düzenleme
   yinele listesini boşaltır. Bir satırın eski çevirileri **Çeviri Geçmişi**'nde.

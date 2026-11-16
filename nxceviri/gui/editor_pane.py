@@ -198,27 +198,33 @@ def insert_code(edit: QPlainTextEdit, labels: Sequence[str], number: int) -> str
     return None
 
 
+def bind_code_keys(owner: QWidget, registry: ShortcutRegistry, on_code: Callable[[int], None]) -> None:
+    """`owner` odaktayken Ctrl+1…9 (katalogdaki tuşlar) için `on_code(numara)` çağrılır.
+
+    Kısayollar yalnızca `owner` odaktayken çalışır (`WidgetShortcut`); odak başka yerdeyse tuş hiçbir şey yapmaz
+    ve yutulmaz. Tablo ile hücre düzenleyicisi ayrı nesnelerdir: düzenleyici açıkken odak onda olduğundan tuş tek
+    kez, düzenleyicinin kendi kısayoluyla işlenir. Ctrl+Alt (Türkçe klavyede AltGr) eşleşmez, karakter yazılır."""
+    for number, command_id in enumerate(CODE_COMMANDS, start=1):
+        shortcut = QShortcut(owner)
+        shortcut.setContext(Qt.ShortcutContext.WidgetShortcut)
+        shortcut.activated.connect(lambda n=number: on_code(n))
+        registry.bind(command_id, shortcut)
+
+
 def bind_code_shortcuts(
     edit: QPlainTextEdit,
     registry: ShortcutRegistry,
     labels_of: Callable[[], Sequence[str]],
     notify: Callable[[str], None],
 ) -> None:
-    """`edit` odaktayken Ctrl+1…9 (katalogdaki tuşlar) satırın koduna karşılık gelen yer tutucuyu ekler.
+    """`edit` odaktayken Ctrl+1…9 satırın koduna karşılık gelen yer tutucuyu imlece ekler (`bind_code_keys`)."""
 
-    Kısayollar yalnızca bu düzenleyici odaktayken çalışır (`WidgetShortcut`); odak başka yerdeyse tuş hiçbir şey
-    yapmaz ve yutulmaz. Ctrl+Alt (Türkçe klavyede AltGr) ile üretilen karakterler kısayolla eşleşmez, yazılır."""
-    for number, command_id in enumerate(CODE_COMMANDS, start=1):
-        shortcut = QShortcut(edit)
-        shortcut.setContext(Qt.ShortcutContext.WidgetShortcut)
-        shortcut.activated.connect(lambda n=number: _code_shortcut(edit, labels_of(), n, notify))
-        registry.bind(command_id, shortcut)
+    def insert(number: int) -> None:
+        message = insert_code(edit, labels_of(), number)
+        if message is not None:
+            notify(message)
 
-
-def _code_shortcut(edit: QPlainTextEdit, labels: Sequence[str], number: int, notify: Callable[[str], None]) -> None:
-    message = insert_code(edit, labels, number)
-    if message is not None:
-        notify(message)
+    bind_code_keys(edit, registry, insert)
 
 
 class _PuaHighlighter(QSyntaxHighlighter):
@@ -617,10 +623,17 @@ class EditorPane(QWidget):
                 chip.setToolTip(self._chip_tip(number, code_label))
 
     def _insert_code(self, number: int) -> None:
+        """Kodu çeviri kutusunun imlecine ekler ve kutuya odaklanır; satırda o kod yoksa odak yerinde kalır."""
         message = insert_code(self.translation_edit, self._code_labels(), number)
-        self.translation_edit.setFocus()
-        if message is not None:
+        if message is None:
+            self.translation_edit.setFocus()
+        else:
             self.notice.emit(message)
+
+    def insert_code_for_row(self, row_id: int, number: int) -> None:
+        """Dışarıdan (tablo kısayolu) kod ekler; panel o satırı göstermiyorsa hiçbir şey yapmaz."""
+        if self._row is not None and self._row.id == row_id:
+            self._insert_code(number)
 
     def _commit(self) -> None:
         if self._row is None:
