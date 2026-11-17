@@ -1257,6 +1257,12 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     kayıtlı olabiliyor ve dışa aktarma "Oyunda bulunamadı" diyordu. `export_mod` bu grupları (ağacı olmayan `…800`,
     ana oyunun `…000` ağacı varsa) ana oyunun ağacına taşır (`_merge_update_groups`); mod ana oyunun klasörüne yazılır.
     Proje kaydı değiştirilmez.
+230. **Eklentinin yol dili kancası `path_language(path)` (ürün sahibi, 2026-11-17):** `language(data)` yolu görmez,
+    genel `pipeline.path_language` ise oyuna özgü ad son eklerini (`…_text_de.cfg.bin`) tanımaz; genel kurala
+    oyuna özgü desen eklemek başka oyunların dil tespitini değiştirirdi. Eklenti isteğe bağlı `path_language` ile
+    bildirir; karar tek yerde, `pipeline.file_language` (eklenti bildirimi, yoksa ya da None ise genel kural).
+    Kullanan iki yer: `available_languages` (kaynak dil listesi) ve aktarmada dil süzgeci. Bildirmeyen eklentide
+    davranış değişmez. Test: `tests/test_plugin_archives.py` (arşiv üyelerinde dil listesi ve atlama).
 
 ## 5. Bilinen sınırlar
 

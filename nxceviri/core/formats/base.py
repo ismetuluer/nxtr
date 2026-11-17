@@ -33,6 +33,10 @@ Her metin formatı `FormatPlugin`'i uygular:
   taşıyamıyorsa (ör. tırnaksız TSV hücresi: satır sonu satırı böler) True. Bildiren eklentide çeviride satır sonu
   olan satır Kontrol Et'te hatadır ve dışa aktarılmaz (orijinal kalır, bildirilir); satır sonu kodu (`⟦n⟧`) sayılmaz.
   Bildirmeyen eklentide davranış değişmez. Yalnızca yazıcının satır sonunu kesinlikle taşıyamadığı biçimde bildirin.
+- `path_language(path) -> str | None`: dosyanın dili oyuna özgü bir adlandırmadan (ör. `…_text_de.cfg.bin`)
+  anlaşılıyorsa dil kodu. Genel yol kurallarından (`pipeline.path_language`) önce sorulur; kaynak dil listesi
+  ve aktarmada başka dildeki dosyanın atlanması buna göre yapılır. None ya da bildirmeyen eklentide davranış
+  değişmez. (`language(data)` yalnızca veriyi görür; bu kanca yolu görür.)
 - `archive_formats() -> tuple[ArchiveFormat, ...]`: eklenti kendi arşiv biçimini (oyunun büyük kapsayıcı dosyası)
   taşır. Tarama arşivin üyelerinden kullanıcı eklentilerinin tanıdıklarını `arşiv>üye` yoluyla listeler, okuma bu
   yolu `ArchiveFormat.open` ile çözer, dışa aktarma değişen üyeleri `ArchiveFormat.rebuild`'e verir ve dönen

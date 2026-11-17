@@ -387,6 +387,33 @@ class Patlayan(KutuBicimi):
         reader.read("veri/paket.kutu>a.satir")
 
 
+LANG_HOOK = """
+    def archive_formats(self):
+        return (KutuBicimi(),)
+
+    def path_language(self, path):
+        ad = path.rsplit("/", 1)[-1]
+        return ad.split("_")[-1].split(".")[0] if "_" in ad else None
+"""
+
+
+def test_plugin_path_language_lists_and_filters_languages(tmp_path: Path) -> None:
+    from nxceviri.core.pipeline import available_languages
+
+    install(tmp_path, hook=LANG_HOOK)
+    files = {
+        "veri/paket.kutu": kutu(
+            {"metin_en.satir": A_SATIR, "metin_de.satir": b"SATIR\nselam=Hallo\n", "ortak.satir": C_SATIR}
+        )
+    }
+    inputs = game(tmp_path, files)
+    report = scan_sources(inputs, TaskContext())
+    assert available_languages(report) == ["de", "en"]
+    result = extract_texts(inputs, report, TaskContext(), "en")
+    assert sorted(f.path for f in result.files) == ["veri/paket.kutu>metin_en.satir", "veri/paket.kutu>ortak.satir"]
+    assert result.skipped_languages == {"de": 1}
+
+
 def test_scan_survives_an_archive_detect_error(tmp_path: Path) -> None:
     hook = """
     def archive_formats(self):

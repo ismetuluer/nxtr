@@ -304,6 +304,14 @@ def path_language(path: str) -> str | None:
     return u.group(1).lower() if u else None
 
 
+def file_language(plugin: FormatPlugin | None, path: str) -> str | None:
+    """Dosyanın yolundan anlaşılan dil: önce eklentinin `path_language(path)` bildirimi (oyuna özgü adlandırma,
+    ör. `…_text_de.cfg.bin`), yoksa ya da None dönerse genel kurallar (`path_language`)."""
+    hook = getattr(plugin, "path_language", None)
+    code = hook(path) if hook is not None else None
+    return str(code).lower() if code else path_language(path)
+
+
 def unsupported_text_kinds(report: ScanReport) -> list[str]:
     """Raporda metin adayı olan ama henüz eklentisi olmayan türlerin Türkçe adları."""
     supported = supported_kinds()
@@ -324,7 +332,7 @@ def importable_entries(report: ScanReport) -> list[ScanEntry]:
 def available_languages(report: ScanReport) -> list[str]:
     """Aktarılabilecek dosyaların yolunda ve (eklenti bildiriyorsa) içinde görülen dil kodları (ör. ["en", "ja"])."""
     entries = importable_entries(report)
-    codes = {path_language(e.path) for e in entries}
+    codes = {file_language(plugin_for_kind(e.kind, e.title_id), e.path) for e in entries}
     codes.update(code.lower() for e in entries for code in detail_languages(e.detail))
     codes.discard(None)
     return sorted(c for c in codes if c is not None)
@@ -409,7 +417,7 @@ def extract_texts(
             tree = trees[entry.title_id]
             try:
                 data = _read(readers, cache, tree, entry.path)
-                lang = plugin.language(data) or path_language(entry.path)
+                lang = plugin.language(data) or file_language(plugin, entry.path)
                 if source_language and lang and not same_language(lang, source_language):
                     skipped[lang] = skipped.get(lang, 0) + 1
                     continue
