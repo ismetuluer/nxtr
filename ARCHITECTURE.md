@@ -1062,6 +1062,13 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
 217. **Yazım önerisi çevrimdışı ve dar:** Türkçe harf değişimi (iki yön, en çok 3 harf) ya da yalnızca bu boşsa fazla
     harf / yer değiştirmiş iki harf. Eksik ve değişmiş harf, Bloom süzgecinin uydurma isabeti doğru isabeti geçtiği
     için denenmez (ölçüm). Toplu düzeltme yalnızca tek harf-değişimi önerisi olan "güvenli" sınıfa ve onayla uygulanır.
+218. **Belirsiz Türkçe harf sözcüğünü kullanıcı çözer; hata olmayan bulgu yok sayılabilir (ürün sahibinin onayı):**
+    `repair_ascii_turkish` tireli sözcüğün parçalarını ayrı değerlendirir ve belirsiz sözcüklerin adaylarını
+    (`AsciiRepair.choices` → `QaIssue.choices`) bulguya taşır; sağ tıktaki seçim `apply_choice` ile projedeki bütün
+    satırlara tek iş olarak (`_replace_translations`) uygulanır. Yok sayma `core/qa/ignored.py`: proje ayarında
+    (satır, tür, çeviri özeti); özet tutmazsa bulgu geri gelir, hata bulguları yok sayılamaz. Süzgeç tek yerde
+    (`MainWindow._show_check_results` ve `_replace_board_rows`) uygulanır; panoda yalnızca gerçek bulgular sayılır,
+    yok sayılanlar "Yok sayılanlar" girişiyle ayrı görünür. Menü eylemleri planı 0 satır düzeltiyorsa hiç çıkmaz.
 
 ## 5. Bilinen sınırlar
 

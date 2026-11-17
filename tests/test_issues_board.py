@@ -230,8 +230,9 @@ def test_context_menu_by_kind(qtbot: QtBot, page: QaPage) -> None:
     _select(page, 2)
     assert _menu_texts(page) == [
         "Bu satırı düzelt",
-        "Bu türdeki tümünü düzelt",
+        "Tüm “Boşluk” bulgularını düzelt",
         "Çevir'de göster",
+        "Bulguyu yok say",
         "-",
         "Yazım sözlüğünü aç…",
         "-",
@@ -242,6 +243,7 @@ def test_context_menu_by_kind(qtbot: QtBot, page: QaPage) -> None:
     _select(page, 4)
     assert _menu_texts(page) == [
         "Çevir'de göster",
+        "Bulguyu yok say",
         "-",
         "Yazım sözlüğüne ekle…",
         "Yazım sözlüğünü aç…",
@@ -258,7 +260,7 @@ def test_context_menu_fix_actions(page: QaPage) -> None:
     _select(page, 3)  # iki bulgu: boşluk, sondaki noktalama
     actions = {a.text(): a for a in page.context_menu().actions()}
     actions["Bu satırı düzelt"].trigger()
-    actions["Bu türdeki tümünü düzelt"].trigger()
+    actions["Bu türlerdeki tüm bulguları düzelt"].trigger()
     actions["Çevir'de göster"].trigger()
     assert got == [(["spaces", "end_punctuation"], [3]), (["spaces", "end_punctuation"], [])]
     assert opened == [3]

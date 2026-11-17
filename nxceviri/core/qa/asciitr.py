@@ -69,7 +69,7 @@ def _turkish_upper(char: str) -> str:
 
 def fold(word: str) -> str:
     """Belirsiz sözcüğün anahtarı: küçük harf; ASCII `I` hem `i` hem `ı` olabileceği için `i` sayılır, `İ` kalır."""
-    return "".join("i" if c == "I" else c if c == "İ" else c.lower() for c in word)
+    return word.replace("İ", "").replace("I", "i").lower().replace("", "İ")
 
 
 def _wanted(text: str, start: int, word: str) -> bool:

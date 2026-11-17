@@ -97,7 +97,10 @@ Kod: `nxceviri/core/translate/` — `providers/base.py` (sözleşme), `providers
   türlerin bulguları; "Tüm bulgular"dayken yalnızca güvenli (yanılma riski olmayan) türler. Onaylı satırlar da
   düzeltilir ve onaylı kalır (makine çevirisi onaylıya yine yazmaz). Çubuktaki sayı, düğmenin değiştireceği satır
   sayısıdır (aynı plan); düzeltilemeyenler ayrıca söylenir. “Raporu Gör” önceki/yeni hâli ve uygulanan düzeltmeyi gösterir; Ctrl+Z hepsini geri
-  alır. Düzeltmeler programla yapılır, model kullanılmaz.
+  alır. Düzeltmeler programla yapılır, model kullanılmaz. Sağ tık menüsünde eylemler türün adını ve satır sayısını
+  söyler; hiçbir satırı düzeltmeyecek eylem hiç çıkmaz. Belirsiz Türkçe harf sözcüğü için **Şununla düzelt** adayları
+  listeler (seçim projedeki bütün satırlara uygulanır); hata olmayan bulgu **Bulguyu yok say** ile kalıcı gizlenir
+  (proje ayarı `qa/ignored_issues`: satır, tür ve çeviri özeti; çeviri değişirse bulgu geri gelir).
 - **Yazım denetimi (Türkçe):** çevirideki sözcükler paketlenen Türkçe sözlükle (hunspell-tr, MPL-2.0; ~6,1 milyon
   sözcük biçimi, `nxceviri/assets/spell/tr.bloom`) karşılaştırılır. Sözlükte olmayan sözcük **Çevir sayfasında çeviri
   kutusunda kırmızı dalgalı çizgiyle** işaretlenir; çizgili sözcüğe sağ tıklayıp **“… sözcüğünü yazım sözlüğüne

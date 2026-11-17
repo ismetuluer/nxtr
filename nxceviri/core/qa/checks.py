@@ -114,6 +114,8 @@ class QaIssue:
     message: str
     #: Yazım bulgusunda sözlükte olmayan sözcükler ("Sözlüğe ekle" bunları kullanır).
     words: tuple[str, ...] = ()
+    #: Türkçe harf bulgusunda dokunulmayan belirsiz sözcükler ve adayları: (anahtar, adaylar); sağ tık seçeneği.
+    choices: tuple[tuple[str, tuple[str, ...]], ...] = ()
 
 
 #: "Motel_Interior_TopFloor", "Misc_Church_Medallion" gibi, boşluksuz ve alt çizgili kod adları.
@@ -173,8 +175,14 @@ def check_row(
     """
     issues: list[QaIssue] = []
 
-    def add(kind: str, severity: str, message: str, words: tuple[str, ...] = ()) -> None:
-        issues.append(QaIssue(row.id, row.context or row.key, kind, severity, message, words))
+    def add(
+        kind: str,
+        severity: str,
+        message: str,
+        words: tuple[str, ...] = (),
+        choices: tuple[tuple[str, tuple[str, ...]], ...] = (),
+    ) -> None:
+        issues.append(QaIssue(row.id, row.context or row.key, kind, severity, message, words, choices))
 
     if not row.source.strip():
         return issues
@@ -272,7 +280,7 @@ def check_row(
     if spell is not None and row.translation.strip() != row.source.strip():
         repaired = repair_ascii_turkish(row.source, row.translation, spell, spell_extra)
         if repaired.changes or repaired.ambiguous:
-            add("ascii_turkish", SEVERITY_WARNING, _ascii_message(repaired))
+            add("ascii_turkish", SEVERITY_WARNING, _ascii_message(repaired), choices=repaired.choices)
     if not problems and row.translation.strip() != row.source.strip():
         doubts = translation_problems(row.source, row.translation, "tr", breaks=False)
         if doubts:

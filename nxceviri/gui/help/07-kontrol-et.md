@@ -24,6 +24,11 @@ seçilileri sayar. Soldan bir tür seçmek ya da listede satır seçmek, o bulgu
 düzeltmeler tek iş olarak kaydedilir ve `Ctrl+Z` ile geri alınır (`Ctrl+Y` geri getirir). Onaylı satırlar da
 düzeltilir ve onaylı kalır; çubuktaki sayı, düğmenin gerçekten değiştireceği satır sayısıdır. Denetim yapıldıktan sonra üstteki düğme **Yeniden Denetle** olur.
 
+**Türkçe harf eksik** bulgusunda program birden çok sözcük olasılığı görürse (hasarın / haşarın) sözcüğe dokunmaz:
+bulguya sağ tıklayıp **Şununla düzelt** altından doğru yazımı seçin, seçim o sözcüğün geçtiği bütün satırlara uygulanır.
+Hata olmayan bir bulgu için sağ tık → **Bulguyu yok say** der; bulgu listeden çıkar, çeviri değişirse geri gelir, soldaki
+**Yok sayılanlar**dan **Yok saymayı kaldır** ile geri alınır.
+
 ## Sığdırma
 
 Oyunun metin kutusuna sığmayan satırlar için satırda en çok karakter ve sayfada en çok satır sınırı verin; bilmiyorsanız
