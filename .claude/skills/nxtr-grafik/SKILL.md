@@ -5,12 +5,14 @@ description: NXTR'de oyundaki menü, düğme, başlık veya hikâye kartı gibi 
 
 # NXTR: grafik (resimlerdeki yazılar)
 
-1. `AGENTS.md`'yi baştan sona oku (oyun resimleri telifli: depoya konmaz, paylaşılmaz).
+1. `AGENTS.md`'yi baştan sona oku (oyun resimleri telifli: depoya konmaz, paylaşılmaz; ana koda yazma yasağı).
 2. `docs/rehber/grafik.md` rehberini baştan sona oku; örnekler için `docs/formats/nni.md` ("Grafikler") ve
    `docs/formats/fsd-msg.md`.
-3. Yazının gerçekten resimde olduğunu `python -m nxceviri.arac ara "<yazı>" …` ile kanıtla, resim biçimini ve sayısını
-   kullanıcıya söyle.
-4. `grafik_temizleme/orijinal` (uygulama çıkarır) ve `temiz` (kullanıcı Türkçeleştirir, aynı ad) düzenini kur. Kullanıcıyı
-   resim hazırlama konusunda yönlendir; çizimi ajan yapmaz.
-5. Geri yazmayı testle (aynı biçim, boyut, mip), moda yerleştir. Cihazda görsel doğrulamayı kullanıcıdan iste; BC7 gibi
-   kayıplı kodlama sınırlarını raporla.
+3. Yazı içeren resimleri tespit et, sayısını ve örnek adlarını kullanıcıya bildir. Yazının gerçekten resimde olduğunu
+   `python -m nxceviri.arac ara "<yazı>" …` ile kanıtla, resim biçimini söyle.
+4. Kullanıcı isterse `grafik_temizleme/orijinal` (eklenti çıkarır) ve `grafik_temizleme/turkce` (kullanıcı
+   Türkçeleştirir, aynı ad; eski `temiz` adı hâlâ okunur) düzenini kur. Kullanıcıyı resim hazırlama konusunda
+   yönlendir; çizimi ajan yapmaz.
+5. Resim kodu (çıkarma, çözme/kodlama, geri yazma) oyunun eklentisinin içinde yazılır, `nxceviri/` altına yazılmaz.
+   Geri yazmayı testle (aynı biçim, boyut, mip), moda yerleştir. Cihazda görsel doğrulamayı kullanıcıdan iste; BC7
+   gibi kayıplı kodlama sınırlarını raporla.

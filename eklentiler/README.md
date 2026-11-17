@@ -9,7 +9,12 @@ eklentiler/<ad>/
     plugin.py      detect / extract / inject (docs/rehber/eklenti-yazma.md)
     tests/         elle üretilmiş örnekle bayt bayt round-trip testi
     NOT.md         biçim notu
+    *.py           yardımcı modüller (arşiv, font, resim): plugin.py'de `from . import x`
 ```
+
+Yeni bir oyun için bütün kod bu klasörde durur; ana koda (`nxceviri/`) yazılmaz. Eklenti ana koddan yalnızca izinli
+modülleri içe aktarır (`docs/rehber/eklenti-yazma.md` "İzinli çekirdek modülleri"); `eklentiler` ve `dogrula`
+komutları izinsiz içe aktarmayı gösterir.
 
 ## Nasıl kullanılır
 - İskelet üretmek: `python -m nxceviri.arac eklenti-olustur <ad>`

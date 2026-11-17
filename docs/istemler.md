@@ -21,10 +21,15 @@ Oyun dosyaları (base, güncelleme, varsa DLC): <C:\...\oyun.nsz>, <C:\...\gunce
 prod.keys uygulamada seçili: <evet / hayır, dosya yolu C:\...\prod.keys>
 Oyunda ekranda gördüğüm ayırt edici bir cümle: "<oyundaki bir cümle>"
 
-Önce `python -m nxceviri.arac teshis` ile teşhis yap, sonuçları Türkçe ve kısaca anlat. Yeni kod gerekiyorsa önce test
-yaz; `python -m nxceviri.arac dogrula` geçmeden "bitti" deme. Ayrıca `python -m nxceviri.arac font` ile Türkçe harf
-durumunu (a: hepsi var / b: font yaması / c: harf dönüştürme) belirle, eklentiyi ona göre ayarla ve sonucu raporuna yaz. Anahtar içeriğini gösterme, oyun dosyası indirme. Her
-adımda ne yaptığını ve ne test ettiğini çıktısıyla göster.
+Önce `python -m nxceviri.arac teshis` ile teşhis yap, sonuçları Türkçe ve kısaca anlat. Yeni kod gerekiyorsa bütün
+kodu (metin, font, resim) tek bir eklenti klasörüne yaz; ana koda (`nxceviri/` klasörü) hiçbir dosya ekleme ya da
+değiştirme. "Eklenti oluşturamıyorum" deme: yapabildiğin her parçayı eklentide teslim et, imkânsız olanı komut
+çıktısıyla kanıtla. Önce test yaz; `python -m nxceviri.arac dogrula` geçmeden ve içe aktarma bulgusu kalmışken
+"bitti" deme. Teşhis raporundaki her metin dosyasını ya kapsa ya da neden kapsamadığını yaz; başka dil istemedikçe
+yalnızca İngilizce metni aktar. `python -m nxceviri.arac font` ile Türkçe harf durumunu (a/b/c) belirle; eksik harfleri
+önce font yamasıyla (gerekirse eklentinin içinde) kapat, harf dönüştürmeyi yalnızca son çare olarak kullan. Yazı
+içeren resimleri say ve bana örnek adlarla bildir. Anahtar içeriğini gösterme, oyun dosyası indirme. Her adımda ne
+yaptığını ve ne test ettiğini çıktısıyla göster.
 ```
 
 ## 2. Modda sorun var
@@ -54,8 +59,9 @@ Proje dosyası (.nxproj): <C:\...\proje.nxproj>
 Kutucuğu nerede görüyorum: <menü / diyalog / ayarlar ekranı>
 
 Önce `python -m nxceviri.arac font <oyun dosyaları>` çalıştır (uygulamadaki Fontları Tara ile aynı sonucu verir), sonra uygulamada Kontrol Et → Fontları Tara ile hangi fontlarda hangi harflerin eksik olduğunu bul ve tablodaki
-sayıları bana anlat. Font yaması uygulanabiliyorsa onu öner; uygulanamıyorsa harf dönüştürmeyi önerisiyle ve gerekçeyle
-anlat. Yeni bir font biçimiyse biçimi önce çöz, test yaz, yazılan dosyayı yeniden okuyup doğrula. Sonucu cihazda
+sayıları bana anlat. Font yaması uygulanabiliyorsa onu kullan; uygulamanın yaması fontu tanımıyorsa yamayı oyunun
+eklentisinin içinde yaz (ana koda yazma). Yeni bir font biçimiyse biçimi önce çöz, test yaz, yazılan dosyayı yeniden
+okuyup doğrula. Harf dönüştürmeyi yalnızca yamanın imkânsız olduğunu komut çıktısıyla gösterirsen öner. Sonucu cihazda
 ben deneyeceğim.
 ```
 
@@ -71,7 +77,7 @@ Oyun dosyaları: <C:\...\oyun.nsz>, <C:\...\guncelleme.nsp>
 Resimleri düzenleyeceğim klasör (yoksa oluştur): <C:\...\oyun klasörü\grafik_temizleme>
 
 Önce `python -m nxceviri.arac ara "<ekrandaki yazı>"` ile yazının gerçekten resimde olduğunu kanıtla; resim
-biçimini ve kaç resim olduğunu bana söyle. Resimleri `orijinal` klasörüne PNG olarak çıkar; ben yazıyı Türkçe
+biçimini, kaç resim olduğunu ve örnek adları bana söyle. Resim kodunu oyunun eklentisinin içine yaz, ana koda yazma. Resimleri `orijinal` klasörüne PNG olarak çıkar; ben yazıyı Türkçe
 yapıp aynı adla `turkce` klasörüne koyacağım. Sonra değişenleri moda yerleştir ve resimlerin biçim/boyut
 doğrulamasını göster.
 ```

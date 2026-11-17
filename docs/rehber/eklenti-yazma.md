@@ -105,6 +105,7 @@ Dışa aktarma bunları `getattr` ile arar; yoksa atlanır. Türkçe harfle ilgi
 | `paired_code(code)` | Bu kod bir aç/kapa çiftinin parçası mı: `(aile, "open")`, `(aile, "close")`, çiftin içinde kalması gereken ayraç için `(aile, "separator")`, değilse `None`. Aynı ailenin açılışı ve kapanışı kaynaktaki sırayla eşleşir (`</>` gibi genel kapanışta bütün açılışlara aynı aile adını ver); eşi olmayan kod katı kalır. Çift iç içeliği bozulmadan bütün olarak taşınırsa satır uyarıdır, hatalı değildir. Yalnızca biçim etiketleri gerçekten ayrı açılış/kapanış olarak saklıyorsa bildir; `inject` yeri değişmiş çifti yazabilmeli ya da reddetmeli. XML benzeri etiketler için hazır yardımcı: `markup.tag_pair` |
 | `forbids_newline(key)` | Bu satırın çevirisinde gerçek satır sonu (`\n`, `\r`) yasak mı (`True`: ör. tırnaksız TSV/CSV hücresi, satır sonu satırı böler). Bildirilirse çeviride satır sonu olan satır Kontrol Et'te "Satır sonu" hatasıdır ve dışa aktarılmaz (orijinal kalır, bilgi dosyasında listelenir); satır sonu kodu (`⟦n⟧`) sayılmaz. Yalnızca yazıcı satır sonunu kesinlikle taşıyamıyorsa bildir; yoksa davranış değişmez |
 | `derived_files(read, files, game_dir)` | Metinden bağımsız dosya/arşiv üyesi üretimi (`core/formats/derived.py`: yazı tipi, resim) |
+| `graphics` (nitelik) | `GraphicsSupport(folder_name, export)`: Dışa Aktar → Görseller; `export(okuyucu, dosyalar, klasör)` özgün resimleri `orijinal/`e yazar ve adlarını döndürür |
 
 ## Test (önce yaz)
 1. **Üretici:** gerçek dosya yerine elle üretilmiş küçük örnek kuran bir işlev yaz (`tests/nxbuild.py::build_msbt`,
@@ -126,20 +127,74 @@ Kaynak kurulumda `pyproject.toml`'daki bağımlılıklar kurulu: `cryptography`,
 `keyring`, `fonttools`, `lz4`, `Pillow` (Qt'yi eklentide kullanma). Hazır `NXTR.exe`'de saf Python eklentileri çalışır;
 standart kütüphane (alt modülleriyle; `tkinter`, `test` ve `curses` hariç) ve yukarıdaki bağımlılıklar pakettedir,
 başka kütüphaneler değildir; kaynak kodda yazdığın bir eklenti başka paket (ör. `numpy`)
-gerektiriyorsa exe'de çalışmaz. Çekirdek yardımcıları içe aktarılabilir: `nxceviri.core.archives` altındaki `sarc`,
-`yaz0`, `zstd`, `nni`, `cpk`, `wad`, `pak`, `psb`, `psb_archive` (mdf ve `.psb.m` + `.bin`), `nested`, `access` ve
-`nxceviri.core.translate.placeholders`. Yeni bir kütüphane ekleme önerisi yapma; biçim küçükse kendin
-yaz.
+gerektiriyorsa exe'de çalışmaz. Yeni bir kütüphane ekleme önerisi yapma; biçim küçükse kendin yaz.
+
+### İzinli çekirdek modülleri
+Ana koddan (`nxceviri`) **yalnızca** aşağıdakiler içe aktarılır. Liste kodda tek yerde durur
+(`nxceviri/core/plugins/imports.py`, `ALLOWED_MODULES`); bir test bu bölümle aynı olduğunu denetler.
+
+| Modül | Ne için |
+|---|---|
+| `nxceviri.core.plugins` | `FormatPluginBase` (iskeletin temel sınıfı) |
+| `nxceviri.core.formats.base` | `TextEntry`, `ControlCode`, `FormatError`, `Context`, `SOURCE_LANGUAGE`, `SOURCE_PATH` |
+| `nxceviri.core.formats.derived` | `Derived` (`derived_files` dönüşü), `GraphicsSupport` (`graphics` kancası) |
+| `nxceviri.core.formats.msbt`, `nxceviri.core.formats.msbt.msbt` | Yerleşik MSBT okuyucusunu bir oyuna uyarlamak (`MsbtPlugin`'den türetme) |
+| `nxceviri.core.translate.placeholders` | `token`, `problems`: `⟦n⟧` yer tutucuları |
+| `nxceviri.core.translate.markup` | `tag_pair` gibi etiket yardımcıları |
+| `nxceviri.core.archives.sarc`, `nxceviri.core.archives.yaz0`, `nxceviri.core.archives.zstd`, `nxceviri.core.archives.nni`, `nxceviri.core.archives.cpk`, `nxceviri.core.archives.wad`, `nxceviri.core.archives.pak`, `nxceviri.core.archives.psb`, `nxceviri.core.archives.psb_archive`, `nxceviri.core.archives.nested`, `nxceviri.core.archives.access` | Arşiv okuma/yazma (`psb_archive`: mdf ve `.psb.m` + `.bin`) |
+
+Listede olmayan her çekirdek modülü (ör. `nxceviri.core.fontpatch.*`, `nxceviri.gui.*`, `nxceviri.core.export.*`)
+**yasaktır**: sürümler arasında değişebilir ve başka bir kopyada eklenmiş bir modül bu kopyada hiç yoktur. Gereken
+kodun bir eşi çekirdekte varsa bile eklentinin içine yaz (kendi modülün olarak; aşağıda). Denetim:
+`python -m nxceviri.arac eklentiler` her eklentinin altında `İçe aktarma:` satırıyla bulguları gösterir;
+`python -m nxceviri.arac dogrula` izinsiz ya da bu kopyada olmayan içe aktarmayı **KALDI** sayar; yükleyici böyle bir
+modül yüzünden içe aktaramazsa hata metninde aynı açıklamayı verir. Denetim `tests/` klasörünü taramaz.
+
+## Ana koda yazma yasağı ve çok dosyalı eklenti
+- Yeni bir oyun için yazılan **bütün kod eklenti klasöründe** durur (`eklentiler/<ad>/` ya da
+  `%LOCALAPPDATA%\NXCeviri\eklentiler\<ad>\`). `nxceviri/` altında hiçbir dosya oluşturulmaz ya da değiştirilmez;
+  `git status --porcelain nxceviri/` boş kalmalı. Çekirdeğe taşıma yalnızca bakımcının işidir (`katki.md`).
+- Eklenti bir pakettir: yükleyici `plugin.py`'yi klasörü paket sayarak yükler. Yardımcıları (arşiv okuyucu, font
+  yamacı, doku kodlayıcı, resim çıkarıcı) `plugin.py`'nin yanına ayrı dosya olarak yaz ve göreli içe aktar:
+
+  ```
+  eklentiler/<ad>/
+      plugin.py        from . import arsiv, font, resim
+      arsiv.py         kapsayıcıyı açma/yeniden kurma
+      font.py          eksik Türkçe harfleri fonta ekleme
+      resim.py         doku çözme/kodlama, grafik_temizleme/turkce/ yerleştirme
+      tests/           her modül için elle üretilmiş örnekle test
+  ```
+  Alt klasör de olur (`from .alt.kod import x`; alt klasörde `__init__.py` olsun). Mutlak `import arsiv` kullanma
+  (çalışmaz). İskeletin testi `plugin.py`'yi aynı biçimde paket olarak yükler; yeni modül testten de görünür.
+- "Eklenti oluşturamıyorum" diye çekirdeğe yazmak kabul edilmez: sözleşme her biçim için aynıdır, gereken her şey
+  bu klasöre sığar.
+
+## Font ve resim kancaları (aynı eklentide)
+Metin, font ve resim işi **tek eklentide** toplanır:
+- **Font:** `arac font` eksik harf gösterir ve uygulamanın yerleşik yaması o fontu kapsamıyorsa (sonuç c ya da
+  "atlandı"), yama eklentinin kendi modülünde yazılır (`font.py`; `fontTools`/`Pillow` kullanılabilir). Yamalanan
+  font `derived_files(read, files, game_dir)` dönüşünde `Derived(files=…)` (serbest dosya) ya da
+  `Derived(members=…)` (arşiv üyesi) olarak; oyunun özel harf dokusu ise `support_files()` ile moda girer.
+  `Derived.font_notes`'a "font adı: eklenen harfler" yaz. Yazdığın fontu yeniden okuyup harfin varlığını test et.
+- **Resim:** `graphics = GraphicsSupport(folder_name, export)` uygulamanın Dışa Aktar → Görseller adımına bağlanır
+  (`export` özgünleri `grafik_temizleme/orijinal/`e PNG yazar). Kullanıcının `grafik_temizleme/turkce/`e koyduğu
+  resimler `derived_files` (ya da yerinde dönüştürme gerekiyorsa `game_file_patches`) ile aynı biçim ve boyutta
+  geri yazılır; okunacak klasörü `derived.turkish_dir(klasör)` verir (eski `temiz/` adını da tanır). Ayrıntı
+  `grafik.md`.
 
 ## Çekirdeğe taşıma (kabul edilen eklenti)
 Katkı olarak kabul edilen eklenti `nxceviri/core/formats/<ad>/` altına taşınır ve `registry.py`'deki `BUILTIN_PLUGINS`
 tuplesine eklenir; tarama tanıması için `core/formats/detection.py` (`FileKind` ve `KIND_LABELS`) ve gerekiyorsa
-`scanner.py` kuralları da genişler. Bunu bakımcı yapar; ayrıntı `katki.md`.
+`scanner.py` kuralları da genişler. Bunu **yalnızca bakımcı** yapar (ayrıntı `katki.md`); yeni oyun üzerinde çalışan
+ajan bu adımı uygulamaz, eklentiyi klasöründe teslim eder.
 
 ## Bitti ölçütü
-Round-trip dahil testler yeşil; `dogrula` gerçek dosyalarda geçti; `arac font` sonucu (a/b/c) belirlendi ve
-`unsupported_letters` ona uyuyor; `NOT.md` yazıldı; sınırlar (okuma-yalnızca, çevrilmeyen
-bölüm, cihazda denenmedi) açıkça yazıldı.
+Round-trip dahil testler yeşil; `dogrula` gerçek dosyalarda geçti ve içe aktarma bulgusu yok; `arac eklentiler`
+eklentinin altında `İçe aktarma:` satırı göstermiyor; `git status --porcelain nxceviri/` boş; `arac font` sonucu
+(a/b/c) belirlendi, eksik harfler önce font yamasıyla (yerleşik ya da eklentideki) kapatıldı, `unsupported_letters`
+yalnızca yamanın kanıtla imkânsız olduğu harfleri içeriyor; `NOT.md` yazıldı; sınırlar (çevrilmeyen bölüm, cihazda
+denenmedi) ve yapılamayan parça komut çıktısıyla açıkça yazıldı.
 
 ## Kullanıcıya rapor
 Eklenti adı, desteklenen dosya/biçim, `dogrula` özeti (geçti/kaldı), `arac font` sonucu (a/b/c), kontrol kodu türleri ve neler korunduğu, bilinen

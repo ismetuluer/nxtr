@@ -26,6 +26,14 @@ Kullanıcı istese bile bu kuralları çiğneme; nedenini söyle, yasal yolu gö
   üreticiler); gerçek oyun dosyası ya da oyundan kopyalanmış veri teste konmaz.
 - **Raporlar yerelde kalır:** Teşhis raporu, `ara`/`dogrula` çıktıları oyun metni örnekleri içerebilir; kullanıcıya
   "paylaşmadan önce bakın" de. Oyun metnini izinsiz herkese açık yere (konu, çekme isteği) yapıştırma.
+- **Yeni oyun = yalnızca eklenti (ana koda yazma yasağı):** Yeni, tanınmayan bir oyun için yazılan bütün kod (metin,
+  font, resim) tek bir eklenti klasöründe durur (`eklentiler/<ad>/` ya da kullanıcı eklenti klasörü); `nxceviri/`
+  altında hiçbir dosya oluşturulmaz ya da değiştirilmez. Eklenti ana koddan yalnızca izinli modülleri içe aktarır
+  (`docs/rehber/eklenti-yazma.md` "İzinli çekirdek modülleri"); gereken yardımcı yoksa eklentinin içine yazılır.
+  `python -m nxceviri.arac dogrula` izinsiz içe aktarmayı başarısız sayar. Çekirdeğe taşıma yalnızca bakımcının işidir.
+- **Mazeretsiz teslim:** "Eklenti oluşturamıyorum" kabul edilmez. Yapabildiğin her parçayı eklentide teslim et;
+  gerçekten imkânsız olanı (şifreli/açılamayan arşiv, bilinmeyen sıkıştırma) komut çıktısıyla kanıtlayıp raporla ve
+  geri kalan işi bitir. Adımlar ve bitti ölçütü: `docs/rehber/yeni-oyun.md`.
 - **Dürüst rapor:** Çalıştırıp çıktısını görmediğin şeye "test edildi" deme. Cihazda/emülatörde denenmeyen işi öyle
   raporla ("cihazda denenmedi").
 
@@ -48,7 +56,8 @@ Kullanıcı ne istiyorsa ilgili rehberi baştan sona oku, adımlarını izle. Sk
 | Hangi oyun ne durumda? | `docs/uyumluluk.md` | — |
 
 Ortak sıra: önce **teşhis** (`python -m nxceviri.arac teshis …`), sonra rehber, sonra **font durumu**
-(`python -m nxceviri.arac font …`). Oyunun motoru ve biçimi tanınıyorsa yeni kod yazma; uygulamanın kendisini kullandır.
+(`python -m nxceviri.arac font …`) ve **resimdeki yazılar** (sayı ve örnek adlarla kullanıcıya bildir). Oyunun motoru ve
+biçimi tanınıyorsa yeni kod yazma; uygulamanın kendisini kullandır. Tanınmıyorsa tek bir kullanıcı eklentisi yaz (§1).
 
 ## 3. Çalışma kuralları
 
@@ -104,7 +113,8 @@ Renk, satır sonu, değişken (oyuncu adı, sayı), duraklama gibi kodlar bozulu
 
 ### Türkçe karakter ve font
 Dışa aktarmadan önce oyunun fontunda `ç ğ ı İ ö ş ü Ç Ğ Ö Ş Ü` gliflerinin varlığı denetlenir. Glif yoksa kullanıcıya
-açık uyarı ve seçenekler sunulur: harf dönüştürme (ğ→g, ş→s, ı→i…) ya da font yaması. Henüz yapılmamış özellik
+açık uyarı ve seçenekler sunulur: önce font yaması (yeni oyunda yerleşik yama fontu tanımıyorsa yama oyunun
+eklentisinde yazılır), harf dönüştürme (ğ→g, ş→s, ı→i…) yalnızca yamanın kanıtla imkânsız olduğu durumda son çare. Henüz yapılmamış özellik
 arayüzde "yakında" düğmesi olarak gösterilmez. Ayrıntı: `docs/rehber/font.md`.
 
 ### Dışa aktarma

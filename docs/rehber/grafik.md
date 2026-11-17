@@ -17,11 +17,14 @@ Resmin içindeki yazı çeviri tablosuna girmez. İş akışı iki yarıdır:
 ```
 <oyun klasörü>/grafik_temizleme/
     orijinal/   ← uygulamanın çıkardığı özgün resimler (PNG); DEĞİŞTİRMEYİN
-    temiz/      ← kullanıcının yazısını Türkçeleştirdiği resimler, AYNI ADLA
+    turkce/     ← kullanıcının yazısını Türkçeleştirdiği resimler, AYNI ADLA
     OKUBENI.txt ← kullanıcıya kısa açıklama (NNI arşivli oyunda uygulama yazar)
 ```
 
-- Dışa aktarma yalnızca `temiz/` içinde `orijinal/` ile **gerçekten farklı** olan resimleri yerleştirir; aynı kalanlar
+- Klasörün adı `turkce/`dir. Eski sürümlerin `temiz/` klasörü, `turkce/` yokken okunmaya devam eder; ikisi birden
+  varsa `temiz/` yok sayılır ve uyarılır. Yeni kurulumda her zaman `turkce/` oluştur.
+
+- Dışa aktarma yalnızca `turkce/` içinde `orijinal/` ile **gerçekten farklı** olan resimleri yerleştirir; aynı kalanlar
   yok sayılır.
 - Boyut değişmişse özgün boya ölçeklenir. PNG saydamlık kaydetmediyse özgünün alfa kanalı korunur.
 - Oyunun resim biçimi korunur: NNI arşivli oyunun DDS'inde özgün başlık, biçim (BC3/BC1) ve mip sayısı aynen kalır, her mip
@@ -49,7 +52,7 @@ Resmin içindeki yazı çeviri tablosuna girmez. İş akışı iki yarıdır:
   olduğu için hepsi değişir.
 - Üç çizim yolu: (1) etiket çizimi (`labels.py`): koyu zemin üzerinde parlayan yazı silinir, Türkçesi aynı boy ve
   taban çizgisinde çizilir; (2) zemin dolgusu: zemin çevresinden yayılarak doldurulur, yazı özgünle doldurulmuş zemin
-  farkından bulunur; (3) kullanıcının hazır sayfası (`temiz/` yolu) etiket çiziminin yerine geçer.
+  farkından bulunur; (3) kullanıcının hazır sayfası (`turkce/` yolu) etiket çiziminin yerine geçer.
 - Yazıların bulunması: `ara` bulamaz; taramada ~150 farklı yazılı resim çıktı. Dil klasörü sırası `status_e` →
   `status_u` → `status` olduğundan birçok resim dilden bağımsız `status/` içindedir.
 - Görev girişi animasyonları (60 kare DXT1): kullanıcı yalnızca `*_son_kare.png` dosyasını Türkçeleştirir;
@@ -67,25 +70,36 @@ CPK/FMSB biçimli oyunun yazılı yardım resimleri (`Help/*.ftx`) çevrilmedi (
 (`unity-serializereference.md`) bu rehberde grafik örneği değildir: metni tek nesnededir, resim çevirisi yapılmadı.
 
 ## Yeni bir oyunda adımlar
+Bütün resim kodu (çıkarma, çözme, kodlama, geri yazma) **oyunun eklentisinin içinde** yazılır; metin ve font koduyla
+aynı eklentide (`eklentiler/<ad>/resim.py`, `plugin.py`'de `from . import resim`). Ana koda (`nxceviri/`) yazılmaz.
+Yukarıdaki çözülmüş örneklerin kodu (`fontpatch/…`) yerleşik biçimlere aittir ve eklentilere açık değildir
+(`eklenti-yazma.md` "İzinli çekirdek modülleri"); gerekirse benzerini eklentiye yaz.
+
+0. **Her oyunda tespit et ve bildir:** kullanıcı sormasa da teşhis raporundaki resim dosyalarına bak, yazı içerebilecek
+   olanları (menü, başlık, düğme, harita, hikâye kartı) say ve kullanıcıya **sayı ve birkaç örnek adla** bildir; ilgili
+   ekranları çevirmek isteyip istemediğini sor. İsterse aşağıdaki adımlar.
 1. **Ekranda yazıyı kanıtla:** `ara "<yazı>"` bulamadı; yazı resimdir (ya da sıkıştırılmıştır: farkı `yeni-oyun.md`
    adım 2).
 2. **Resim biçimini bul:** `python -m nxceviri.arac teshis …` raporunda uzantı dağılımına bak (`.dds`, `.png`, `.tex`,
    `.t32`, `.ftx`, Unity `Texture2D`…). İlgili dosya içindeki imza: `DDS ` (4 bayt), `\x89PNG`, UnityFS içindeki
    `Texture2D`. DDS'in `fourCC` ya da DX10 başlığındaki DXGI numarası sıkıştırma biçimini söyler (71 = BC1, 77 = BC3,
    98 = BC7).
-3. **Çıkar ve göster:** resimleri PNG olarak `orijinal/`e yaz (Pillow DDS'i BC1/BC3 için okur; BC7 için
-   `fontpatch/bc7.py` kodlayıcısı var). Sayfa/resim sayısını kullanıcıya söyle. Hepsi çevrilmez: kullanıcıdan hangi
+3. **Çıkar ve göster:** eklentide `graphics = GraphicsSupport(folder_name, export)` sun (`nxceviri.core.formats.derived`);
+   `export` resimleri PNG olarak `orijinal/`e yazar, uygulama bunu Dışa Aktar → Görseller'den çağırır ve `turkce/`
+   klasörünü kurar. Çözme: Pillow DDS'i BC1/BC3 için okur; BC7 ya da oyuna özgü doku biçimi için çözücü/kodlayıcıyı
+   eklentinin kendi modülü olarak yaz. Sayfa/resim sayısını kullanıcıya söyle. Hepsi çevrilmez: kullanıcıdan hangi
    ekranların önemli olduğunu sor.
-4. **Geri yazma işlevini yaz** (`game_file_patches` kancası, `eklenti-yazma.md`): özgün resmi içerik özetiyle tanı,
+4. **Geri yazma işlevini yaz** (`derived_files` ya da yerinde dönüştürme için `game_file_patches` kancası,
+   `eklenti-yazma.md`): okunacak klasörü `derived.turkish_dir(klasör)` verir; özgün resmi içerik özetiyle tanı,
    değişeni aynı biçim, boyut, mip ve başlıkla yaz. Test: değişikliksiz geri yazım bayt bayt aynı; bir resim
    değişince yalnızca o resim değişir; yazılan dosya yeniden okunur.
-5. **Kullanıcıya `temiz/` klasörünü ve adlandırma kuralını anlat:** aynı ad, aynı boyut, (mümkünse) saydamlık
+5. **Kullanıcıya `turkce/` klasörünü ve adlandırma kuralını anlat:** aynı ad, aynı boyut, (mümkünse) saydamlık
    kanalıyla PNG. Fırça/gotik gibi yazı tipi tutturmak istiyorsa uygulamayla gelen OFL yazı tipleri
    (`nxceviri/assets/fonts`: Kaushan Script, Pirata One) kullanılabilir.
 6. **Dışa aktar ve kullanıcı cihazda/emülatörde bakar.** Resimler çok yer kaplar; mod boyutunu söyle.
 
 ## Karar noktaları
-- **Yeni kod yazmadan önce:** yazı sayısı azsa (10-20 etiket) kullanıcının elle yaptığı `temiz/` yolu, çoksa ve düz
+- **Yeni kod yazmadan önce:** yazı sayısı azsa (10-20 etiket) kullanıcının elle yaptığı `turkce/` yolu, çoksa ve düz
   zeminse etiket çizimi daha verimli olabilir.
 - **Büyük arşiv:** resim 1 GB'lık bir arşivdeyse tamamını moda koymak gerekir; kullanıcıya boyutu sor (NNI arşivli oyunun ana
   arşivi bu yüzden kapsam dışı).
@@ -93,8 +107,9 @@ CPK/FMSB biçimli oyunun yazılı yardım resimleri (`Help/*.ftx`) çevrilmedi (
   ikinci grubu değiştirmek oyunun tüm dillerini etkiler.
 
 ## Bitti ölçütü
-`temiz/`deki her farklı resim moda yazıldı (uygulama sayıyı söyler), yazılan dosyalar yeniden okundu ve boyutları
-özgünle aynı, testler yeşil. Cihazda görsel doğrulama kullanıcıdadır; yapılmadıysa "cihazda denenmedi".
+Yazılı resimlerin sayısı ve örnek adları kullanıcıya bildirildi. Kullanıcı istediyse `turkce/`deki her farklı resim
+moda yazıldı (uygulama sayıyı söyler), yazılan dosyalar yeniden okundu ve boyutları özgünle aynı, testler yeşil; resim
+kodu eklentide, `git status --porcelain nxceviri/` boş. Cihazda görsel doğrulama kullanıcıdadır; yapılmadıysa "cihazda denenmedi".
 
 ## Kullanıcıya rapor
 Kaç resim çıkarıldı, kaç tanesi çevrildi, hangi ekranlar hâlâ İngilizce, mod boyutu, kullanıcının cihazda bakacağı

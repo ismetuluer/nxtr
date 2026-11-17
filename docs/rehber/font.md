@@ -20,8 +20,9 @@ oyunda görünmez. Üç çözüm vardır; bu sırayla düşün:
 1. **Fontta zaten var** (bazı oyunlarda; çoğu Latin font `ç ö ü` için): yapacak bir şey yok.
 2. **Font yaması:** uygulama eksik harfleri **fontun kendi glifleriyle** türetip fonta ekler (ı = i'nin noktasız
    gövdesi, İ = I + nokta, ş = s + ç'nin çengeli, ğ = g + üstte yay). Yazı tipi değişmez, dış çizgi ve gölge korunur.
+   Uygulamanın yerleşik yaması fontu tanımıyorsa yama oyunun eklentisinde yazılır ("Yeni font biçimi").
 3. **Harf dönüştürme:** eksik harf yakın karşılığa çevrilir (ğ→g, ş→s, ı→i, İ→I). Yalnızca üretilen moda uygulanır,
-   projedeki çeviriler değişmez. Font yaması hiç olmuyorsa son çare.
+   projedeki çeviriler değişmez. Font yamasının kanıtla imkânsız olduğu durumda son çare.
 
 ## Adımlar (uygulamadaki yol)
 1. **4. Kontrol Et → "Font ve harfler" sekmesi → Fontları Tara.** Tablo: Font, Tür, Eksik Türkçe harfler, Yamayla
@@ -57,13 +58,22 @@ dosyalar. Raporda "atlandı" gördüğünde o fontun gerçekten oyunda kullanıl
 ## Karar noktaları
 - **Yamayı açmalı mıyım?** Eksik harf ve "Yamayla eklenir" sütunu doluysa evet. Yama çıktısı kullanıcının cihazında
   denenmeden "çalışıyor" deme.
-- **Yama bir fonta uygulanamadı:** uyarı verilir, sessizce dönüştürmeye geçilmez. Kullanıcıya iki seçenek sun:
-  harf dönüştürme ya da (yeni bir biçimse) font biçimini çözüp `fontpatch/` altına yeni bir yama yazmak.
-- **Yeni font biçimi:** fontun glif tablosunu çözmeden başlama. Sırayla: (1) fontun hangi harfleri taşıdığını
-  `fontTools` ile / biçimin kendi tablosundan oku; (2) eksik harfi hangi parçalardan türeteceğini seç (i, I, s, ç, g…);
-  (3) yeni glifi biçimin kendi atlasına/tablosuna yaz; (4) yazılan dosyayı yeniden oku ve harfin gerçekten orada
-  olduğunu doğrula; (5) elle üretilmiş örnek fontla test yaz (`tests/test_fontpatch_*.py` örnektir);
-  (6) `unsupported_letters = ""` olan eklentiyle birlikte kullan (yama her zaman çalışır).
+- **Yama bir fonta uygulanamadı ya da font biçimi yeni:** uyarı verilir, sessizce dönüştürmeye geçilmez. Türkçe harfi
+  eksik her font ailesi Türkçe destekli hale getirilir: font biçimini çöz ve yamayı **oyunun eklentisinin içinde**
+  yaz (aşağıda). Ana koda (`nxceviri/`) yama yazılmaz; çekirdekteki yamacılar eklentilere açık değildir
+  (`eklenti-yazma.md` "İzinli çekirdek modülleri"), gerekirse benzer kodu eklentiye kendi modülü olarak yaz.
+- **Yeni font biçimi (eklentide):** fontun glif tablosunu çözmeden başlama. Sırayla: (1) fontun hangi harfleri
+  taşıdığını `fontTools` ile / biçimin kendi tablosundan oku; (2) eksik harfi hangi parçalardan türeteceğini seç (i, I,
+  s, ç, g…); (3) yeni glifi biçimin kendi atlasına/tablosuna yazan kodu eklenti klasöründe ayrı bir modüle yaz
+  (`eklentiler/<ad>/font.py`, `plugin.py`'de `from . import font`); (4) yamalanan dosyayı moda koy:
+  `derived_files(read, files, game_dir)` → `Derived(files=…)` (serbest dosya) ya da `Derived(members=…)` (arşiv
+  üyesi), oyunun özel harf dokusu için `support_files()`, yerinde dönüştürme için `game_file_patches()`;
+  `Derived.font_notes`'a eklenen harfleri yaz; (5) yazılan dosyayı yeniden oku ve harfin gerçekten orada olduğunu
+  doğrula; (6) elle üretilmiş örnek fontla eklentinin `tests/` klasöründe test yaz; (7) eklentide
+  `unsupported_letters = ""`.
+- **Harf dönüştürme ne zaman?** Yalnızca font yamasının **kanıtla** imkânsız olduğu harflerde (font şifreli ya da
+  okunamıyor, glif tablosu sabit ve büyütülemiyor; denemenin komut çıktısı raporda). O zaman yalnızca o harfler
+  `unsupported_letters`'a yazılır.
 - **Harf dönüştürme mi font yaması mı?** Yama görünümü korur ama gerçek cihaz testi ister; dönüştürme her zaman
   çalışır ama metin yazım kuralını bozar. Kullanıcıya önerini kısa gerekçeyle söyle.
 
@@ -77,7 +87,9 @@ dosyalar. Raporda "atlandı" gördüğünde o fontun gerçekten oyunda kullanıl
   "Addressables katalog CRC'si"); font bundle'ı yamalandıktan sonra oyun açılmıyorsa buna bak.
 
 ## Bitti ölçütü
-1. Fontları Tara tablosunda tüm Latin fontlar için eksik harf yok ya da "Yamayla eklenir" sütunu eksiği kapatıyor.
+1. Fontları Tara tablosunda tüm Latin fontlar için eksik harf yok ya da "Yamayla eklenir" sütunu eksiği kapatıyor;
+   yerleşik yamanın tanımadığı fontlar eklentideki yamayla kapatıldı (bilgi dosyasında listeleniyor). Yeni yama kodu
+   eklenti klasöründe; `git status --porcelain nxceviri/` boş, `arac dogrula` içe aktarma bulgusu vermiyor.
 2. Dışa aktarma hatasız bitti; `NXTR - Bilgi.txt` eklenen harfleri listeliyor.
 3. Kullanıcı cihazda/emülatörde Türkçe harfleri gördü. (Görmediyse rapor "cihazda denenmedi" der.)
 
