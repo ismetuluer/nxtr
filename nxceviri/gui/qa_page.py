@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
     QRadioButton,
     QScrollArea,
     QSpinBox,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -67,7 +68,7 @@ from nxceviri.gui.issue_rows import ROLE_NUMBER, ROLE_SEVERITY, ROLE_SOURCE, ROL
 from nxceviri.gui.limits_table import LimitsTable
 from nxceviri.gui.marked_delegate import ROW_ROLE
 from nxceviri.gui.theme import current_tokens
-from nxceviri.gui.widgets import ActionBar, Banner, Card, PageHeader, button, format_int, label, tip_html
+from nxceviri.gui.widgets import ActionBar, Banner, BusyState, Card, PageHeader, button, format_int, label, tip_html
 
 _Index = QModelIndex | QPersistentModelIndex
 #: Bu kadar bulguya kadar satırlar metne göre yükseltilir (üstünde ipucundan okunur).
@@ -86,6 +87,10 @@ _FIX_WARNING = "Bu düzeltmeler yanılabilir; sonucu gözden geçirin."
 _FIX_PLAN_ROWS = 1500
 _FIT_RESULT_EMPTY = "Henüz denetlenmedi. Önce Sorunlar sekmesinde “Denetle”ye basın."
 _FIT_RESULT_CHECKING = "Denetleniyor…"
+#: Denetim sürerken sağdaki liste yerine görünen bekleme: başlık (ardına "%N" gelir) ve ilk açıklama.
+_CHECKING_TITLE = "Denetleniyor…"
+_CHECKING_PREPARING = "Denetim hazırlanıyor…"
+_CHECK_STOPPED = "Denetim durduruldu."
 _FIT_RESULT_FAILED = "Denetim yenilenemedi. Sorunlar sekmesinde “Denetle”ye basarak yeniden deneyin."
 #: "Taşıyor" sayılan bulgu türleri: satır ya da sayfa sınırını aşanlar (kötü bölünme taşma değildir).
 _OVERFLOW_KINDS = (PROBLEM_LINE, PROBLEM_PAGE)
@@ -295,6 +300,7 @@ class QaPage(QWidget):
     translation_edited = Signal(int, str)  # satır kimliği, yeni çeviri (yerinde düzenleme)
     scan_fonts = Signal()
     run_checks = Signal()
+    stop_checks = Signal()  # Denetim sürerken düğme "Durdur" olur; tıklanınca bu yayılır
     transliterate_changed = Signal(str)
     font_patch_changed = Signal(bool)
     open_row = Signal(int)  # satır kimliği → çeviri tablosunda o satırı aç
@@ -446,7 +452,7 @@ class QaPage(QWidget):
         self.check_button.setToolTip(
             tip_html("Çevirileri kontrol kodu, uzunluk, terim ve yazım sorunlarına karşı tarar; çeviriler değişmez.")
         )
-        self.check_button.clicked.connect(lambda: self._commit_pending(self.run_checks.emit))
+        self.check_button.clicked.connect(self._check_clicked)
         self.check_bar.add_action(self.check_button)
         self.summary = self.check_bar.status
         self.summary.setText("Henüz denetlenmedi.")
@@ -457,6 +463,7 @@ class QaPage(QWidget):
         row.insertWidget(0, self.summary_icon)
         #: Son düzeltme sonucu (bildirim merkezine gönderilen metin).
         self.last_fix_text = ""
+        self._checking = False  # denetim sürüyor (bekleme görünür)
         self.kind_list = KindList()
         self.kind_list.selection_changed.connect(self._refilter)
         self._settings: QSettings | None = None
@@ -481,12 +488,20 @@ class QaPage(QWidget):
         self.table.setToolTip(OPEN_HINT)
         right = QVBoxLayout()
         right.setSpacing(10)
+        right.setContentsMargins(0, 0, 0, 0)
         right.addWidget(self._build_fix_bar())
         right.addWidget(self.table, 1)
+        results = QWidget()
+        results.setLayout(right)
+        # Denetim sürerken bulgu listesinin yerini maskotlu bekleme alır (boş liste "denetlenmedi" gibi görünmesin).
+        self.waiting = BusyState(_CHECKING_TITLE, _CHECKING_PREPARING)
+        self.stack = QStackedWidget()
+        self.stack.addWidget(results)
+        self.stack.addWidget(self.waiting)
         split = QHBoxLayout()
         split.setSpacing(12)
         split.addWidget(self.kind_list)
-        split.addLayout(right, 1)
+        split.addWidget(self.stack, 1)
         self.check_card.body.addLayout(split, 1)
         self.table.selectionModel().selectionChanged.connect(lambda *_a: self._selection_changed())
         check_lay.addWidget(self.check_bar)
@@ -667,16 +682,60 @@ class QaPage(QWidget):
         """Sığdırma sekmesinde sonuç özeti: denetim sürüyor."""
         self._show_fit_result(_FIT_RESULT_CHECKING)
 
+    @property
+    def checking(self) -> bool:
+        return self._checking
+
     def mark_checking(self) -> None:
-        """Bulgular eskidi, tam denetim arka planda sürüyor: sayılar "Denetleniyor…" olur, düzeltme çubuğu gizlenir."""
+        """Denetim arka planda sürüyor (Denetle ya da düzeltme sonrası tam denetim): bulgu listesinin yerini bekleme
+        alır, sayılar "—" olur, düzeltme çubuğu gizlenir, "Denetle" düğmesi "Durdur" olur."""
         self._plan_cache = None
-        self.summary.setText("Denetleniyor…")
+        self.summary.setText(_CHECKING_TITLE)
+        self.summary_icon.hide()
         self.fix_bar.hide()
+        self._show_fit_result(_FIT_RESULT_CHECKING)
+        self.waiting.update_progress(0, 0, _CHECKING_PREPARING)
+        self._set_checking(True)
+
+    def update_check_progress(self, done: int, total: int, message: str) -> None:
+        """Gerçek ilerleme (denetlenen / toplam); denetim sürmüyorsa (arka plan yenilemesi) bir şey yapmaz."""
+        if self._checking:
+            self.waiting.update_progress(done, total, message)
+
+    def stop_checking(self) -> None:
+        """Denetim durduruldu: önceki bulgular (varsa) ya da boş durum geri gelir."""
+        if not self._checking:
+            return
+        self._set_checking(False)
+        self.summary.setText(_CHECK_STOPPED)
+        self._update_fit_result_after_stop()
+        self._refilter()
+
+    def _set_checking(self, checking: bool) -> None:
+        self._checking = checking
+        self.stack.setCurrentIndex(1 if checking else 0)
+        self.kind_list.set_waiting(checking)
+        self._update_check_button()
+
+    def _update_fit_result_after_stop(self) -> None:
+        """Sığdırma özeti: denetim yarıda kaldı; önceki sonuç varsa o, yoksa "henüz denetlenmedi"."""
+        if self._checked:
+            self._update_fit_result(self.model.issues)
+        else:
+            self._show_fit_result(_FIT_RESULT_EMPTY)
+
+    def _check_clicked(self) -> None:
+        if self._checking:
+            self.stop_checks.emit()
+        else:
+            self._commit_pending(self.run_checks.emit)
 
     def show_check_failed(self, text: str) -> None:
         """Denetim çalışmadı: Sorunlar sekmesinde hata, Sığdırma sekmesinde "yenilenemedi" gösterilir."""
+        self._set_checking(False)
         self.show_fix_result("danger", text)
         self._show_fit_result(_FIT_RESULT_FAILED)
+        self._refilter()
 
     def _update_fit_result(self, issues: Sequence[QaIssue]) -> None:
         """Denetim sonucundan sığdırma özetini yazar: sınırı aşan (satır uzun, sayfa uzun) satırlar sayılır."""
@@ -1059,6 +1118,7 @@ class QaPage(QWidget):
 
     def show_issues(self, issues: list[QaIssue], rows: list[TranslationRow]) -> None:
         self.model.set_issues(issues, {r.id: r for r in rows})
+        self._set_checking(False)
         self._issues_changed()
 
     def set_code_kinds(self, kinds: CodeKinds) -> None:
@@ -1071,6 +1131,7 @@ class QaPage(QWidget):
         self.model.set_issues([])
         self.kind_list.set_counts({}, {}, 0)
         self._checked = False
+        self._set_checking(False)
         self._refilter()
         self.summary.setText("Henüz denetlenmedi.")
         self.summary_icon.hide()
@@ -1152,9 +1213,11 @@ class QaPage(QWidget):
         self._update_fix_bar()
 
     def _update_check_button(self) -> None:
-        """Denetim yapılmadıysa dolu "Denetle" (tek ana eylem); yapıldıysa ikincil "Yeniden Denetle"."""
-        done = self._checked
-        self.check_button.setText("Yeniden Denetle" if done else "Denetle")
+        """Denetim yapılmadıysa dolu "Denetle" (tek ana eylem); yapıldıysa ikincil "Yeniden Denetle"; sürerken
+        ikincil "Durdur"."""
+        done = self._checked or self._checking
+        self.check_button.setText("Durdur" if self._checking else "Yeniden Denetle" if done else "Denetle")
+        bind_icon(self.check_button, "x" if self._checking else "shield-check")
         self.check_button.setProperty("kind", None if done else "primary")
         style = self.check_button.style()
         style.unpolish(self.check_button)
@@ -1237,7 +1300,7 @@ class QaPage(QWidget):
         """
         scope, from_selection = self._compute_scope()
         self._fix_scope = scope
-        self.fix_bar.setVisible(bool(scope))
+        self.fix_bar.setVisible(bool(scope) and not self._checking)
         if not scope:
             return
         tips = {i.kind for i in scope}
