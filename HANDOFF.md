@@ -1,6 +1,15 @@
-# HANDOFF — oturum devri (2026-11-16, 0.61.0)
+# HANDOFF — oturum devri (2026-11-17, 0.62.0)
 
 ## Durum
+- **Sürüm 0.62.0** (2026-11-17; CHANGELOG 0.62.0): Düzelt (`core/qa/fixrun.py` `plan_for_issues`/`plan_for_rows`;
+  `main_window.apply_fixes`, `_recheck_board_rows(keep_terms)`, `_recheck_board_later` arka plan; `qa_page`
+  `_scope_plan`, `mark_checking`). Yazım önerisi (`core/spell/suggest.py`; `gui/spell_window.py` Öneri sütunu, toplu
+  düzeltme onay penceresi; `UnknownWordCache.row_ids`). Serbest kod sırası (`placeholders.check -> CodeCheck`,
+  eklenti `movable_code`, `registry.free_codes`/`judges_codes`, `TranslationRow.free_codes`, QA türü `code_order`,
+  `layeredfs.settle_rows`). Tam test seti 2714 geçti; Düzelt ve yazım süreleri gerçek proje kopyasında offscreen
+  ölçüldü. Bilinen: toplu yazım düzeltmesinin örneklemde ~%25 şüpheli önerisi var (onay penceresi + Geri Al; ürün
+  sahibi böyle kalsın dedi); Yazım penceresinin açılış taraması büyük projede ~3,5 sn; Unreal `{N}|plural` eki
+  serbest sayılmaz.
 - **Sürüm 0.61.0** (2026-11-16; CHANGELOG 0.61.0): Yinele (`core/project/store.py` `_redo`, `redo`, `redo_job`,
   ortak `_apply_step`; `main_window.redo_last`; yeni yazım `_push_undo` içinde yinele yığınını boşaltır; geçmişe işin
   kendi adıyla yazılır). Kod ekleme kısayolları (`gui/editor_pane.py` `insert_code`, `bind_code_keys`,

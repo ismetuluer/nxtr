@@ -1055,6 +1055,14 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     yenilenir (2000'den fazlasında arka planda tam denetim; bitene dek bulgu çubuğu gizlenir). Yerinde yenilemede satırın terim bulguları korunur
     (biçim düzeltmesi terim bulgusunu değiştirmez; tazesi sonraki tam denetimde gelir).
 
+216. **Serbest kod sırası (ürün sahibinin kararı, 2026-11-16):** kodun serbest olduğunu yalnızca biçim eklentisi
+    `movable_code` ile bildirir; karar tek yerde (`placeholders.check`) verilir, eklentilerin `inject` denetimi katı
+    kalır. Proje şeması değişmedi: kodların ham baytı ve etiketi zaten saklı, eklentiye okuma anında sorulur
+    (`registry.free_codes`, önbellekli; `movable_code` bildirmeyen biçimde hiç sorulmaz).
+217. **Yazım önerisi çevrimdışı ve dar:** Türkçe harf değişimi (iki yön, en çok 3 harf) ya da yalnızca bu boşsa fazla
+    harf / yer değiştirmiş iki harf. Eksik ve değişmiş harf, Bloom süzgecinin uydurma isabeti doğru isabeti geçtiği
+    için denenmez (ölçüm). Toplu düzeltme yalnızca tek harf-değişimi önerisi olan "güvenli" sınıfa ve onayla uygulanır.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

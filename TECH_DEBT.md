@@ -39,7 +39,7 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     "Sayı 0202"); yalnızca seçimler, renk ve sayfa kodları kesin olarak çözüldü. Kodlar her durumda
     aynen korunur.
 
-52. **Kontrol kodu sırası katıdır; Türkçe cümle yapısı bunu sık bozar.** Bir Unity oyununda 3.466
+52. **Kontrol kodu sırası katıdır; Türkçe cümle yapısı bunu sık bozar.** *Kısmen kapandı (0.62.0):* serbest kodlar (simge, adlı değişken) yer değiştirebilir, uyarı verilir; aç/kapa çiftleri hâlâ katı. Bir Unity oyununda 3.466
     satırın 14'ü (hepsi düğme ikonlu ipucu/talimat metinleri) "Hatalı" çıktı çünkü Türkçe fiil sona
     gittiğinde ikon ve kalın etiketlerin sırası değişiyor. Elle düzeltilebilir (kodları özgün sırada
     tutan bir cümle kurulur) ama sıkıcıdır. *Ne zaman:* ikon/değişken gibi bağımsız kodların, çift

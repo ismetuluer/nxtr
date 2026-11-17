@@ -14,6 +14,9 @@ tıklayarak (ya da `F2` ile) çeviriyi burada da düzeltebilirsiniz.
 Denetimler: kontrol kodu (sayı, tür, sıra), boş çeviri, taşma, terim tutarsızlığı, aynı metnin farklı çevirisi,
 noktalama, çift boşluk, yazım ve uydurma şüphesi. Satırlar düzenlenirken de anlık denetlenir.
 
+**Kod sırası** uyarısı: biçim izin veriyorsa tek başına duran simge ve adlı değişkenler (`{0}`, `{name}`) cümlede
+yer değiştirebilir; satır hatalı sayılmaz, dışa aktarılır. Eksik, fazla ya da sırası değişen öteki kodlar hatadır.
+
 Listenin üstündeki **düzeltme çubuğu** güvenli düzeltmeleri toplu uygular (fazla boşluk, kod sırası, satır
 sığdırma…). Çubuk, listede görünen bulgulardan kendiliğinden düzeltilebilenleri sayar; satır seçerseniz yalnızca
 seçilileri sayar. Soldan bir tür seçmek ya da listede satır seçmek, o bulguların düzeltilmesini istediğinizi gösterir

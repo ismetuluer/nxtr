@@ -97,6 +97,7 @@ Dışa aktarma bunları `getattr` ile arar; yoksa atlanır. Türkçe harfle ilgi
 | `support_files()` | Moda eklenecek ek dosyalar (RomFS yolu → içerik), ör. Türkçe harfli yazı dokusu |
 | `game_file_patches()` | Metin dışında değiştirilecek oyun dosyaları (yol → dönüştürücü), ör. resimdeki yazılar |
 | `exefs_patches(code)` | Program koduna IPS yaması (yapı kimliği → yama) |
+| `movable_code(code)` | Bu kod çeviride yer değiştirebilir mi (`True` = serbest: tek başına simge, adıyla/numarasıyla bağlanan değişken). Konumsal kodlar (`%s`), aç/kapa çiftleri, satır/sayfa sonu için `False`. Yoksa hiçbir kod serbest değildir; `inject` sırası değişmiş serbest kodu yazabilmeli ya da reddetmeli |
 | `derived_files(read, files, game_dir)` | Metinden bağımsız dosya/arşiv üyesi üretimi (`core/formats/derived.py`: yazı tipi, resim) |
 
 ## Test (önce yaz)

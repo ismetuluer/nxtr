@@ -2,6 +2,33 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.62.0] — 2026-11-17 — Düzelt gerçekten düzeltir, yazım önerisi, kod sırası uyarısı
+
+### Değişti
+- **Kontrol Et → Düzelt onaylı satırları da düzeltir; satır onaylı kalır.** Önceden onaylı satırlar atlanıyordu;
+  bütün satırları onaylı bir projede düğme neredeyse hiçbir şey yapmıyordu. Makine çevirisi onaylı satıra yine
+  yazmaz.
+- **Düzeltme çubuğundaki sayı gerçektir:** düğmenin değiştireceği satır sayısını gösterir; düzeltilemeyen satır
+  varsa ayrıca söyler, hiçbiri düzelmiyorsa düğme görünmez. Sonuç iletisi kaç satırın düzeldiğini ve kaçına elle
+  bakmanız gerektiğini yazar.
+- **Düzelt artık donmuyor:** tüm projeyi yeniden denetlemek yerine yalnızca bulgulu satırlara bakar; çok satırda
+  iş arka planda sürer. Büyük bir projede tek düzeltme 20 saniyeden 0,3 saniyeye indi.
+- **Kod sırası:** biçim izin veriyorsa tek başına duran simge ve adlı değişkenler (`{0}`, `{name}`) cümlede yer
+  değiştirebilir; satır hatalı sayılmaz, "Kod sırası" uyarısı verilir ve dışa aktarılır. Eksik, fazla ya da yeri
+  değişen öteki kodlar (konumsal `%s`, aç/kapa çiftleri, satır sonları) hata olmaya devam eder.
+
+### Eklendi
+- **Yazım Denetimi doğru yazımı önerir** (çevrimdışı): önce Türkçe harf hataları (ı/i, ş/s, ğ/g, ü/u, ö/o, ç/c),
+  yoksa çift basılmış ya da ters yazılmış harf. Yeni Öneri sütunu; seçili sözcükte öneri düğmeleri; tek önerisi
+  olan sözcükte değiştirme kutusu dolu gelir.
+- **Tek önerisi olanları düzelt:** harf hatasıyla tek önerisi olan sözcükleri, listeyi gösterip onayınızı aldıktan
+  sonra tek işte düzeltir (Geri Al hepsini geri alır). Öneriler sözlükte olmayan ek ve özel adlarda yanılabilir;
+  önce listeye bakın.
+
+### Düzeltildi
+- Yazım penceresinde "Hepsini Şununla Değiştir" birkaç saniye donuyordu; artık yalnızca sözcüğün geçtiği satırlara
+  bakar (0,3 saniye).
+
 ## [0.61.0] — 2026-11-16 — Yinele, kontrol kodlarını klavyeden ekleme
 
 ### Eklendi

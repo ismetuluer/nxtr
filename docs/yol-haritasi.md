@@ -100,6 +100,12 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 Görsel denetim listesi ve 0.57.2 sonrası geri bildirim kapandı. Sıradaki iş, yukarıdaki "Sonraki yapılacaklar"
 listesinden ürün sahibinin seçimiyle belirlenir.
 
+**Yapıldı (0.62.0)**
+- Düzelt onaylılarda da çalışır (`core/qa/fixrun.py`), bildirim = gerçek plan, yalnızca bulgulu satırlar denetlenir.
+  Ürün sahibinin şikâyeti ve kararı (2026-11-17); gerçek proje kopyasında ölçüldü.
+- Yazım önerisi (`core/spell/suggest.py`), tek önerililer için onaylı toplu düzeltme, hızlı değiştirme (TECH_DEBT 77).
+- Serbest kod sırası uyarıdır (`movable_code`, `placeholders.check`); TECH_DEBT 52 kısmen kapandı.
+
 **Yapıldı (0.61.0)**
 - Yinele (`Project.redo`, `edit.redo`, Ctrl+Y); geri al zaten vardı, borç kaydı eskimişti (TECH_DEBT 18 kapandı).
 - Kontrol kodunu klavyeden ekleme (`edit.code1`…`edit.code9`, Ctrl+1…9; `editor_pane.insert_code`,
