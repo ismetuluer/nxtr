@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from nxceviri.core.project import TranslationRow
-from nxceviri.core.qa.asciitr import repair_ascii_turkish
+from nxceviri.core.qa.asciitr import apply_choice, repair_ascii_turkish
 from nxceviri.core.qa.autofix import FIX_KINDS, local_fix, plan_fixes
 from nxceviri.core.qa.checks import KIND_LABELS, check_row
 from nxceviri.core.spell.bloom import BloomFilter
@@ -145,3 +145,35 @@ def test_real_dictionary_smoke() -> None:
     homograph = repair_ascii_turkish("Hi", "cok", spell)  # çok / çök: sözlükte iki aday
     assert homograph.text == "cok"
     assert homograph.ambiguous == ("cok",)
+
+
+def test_hyphenated_word_parts_are_judged_separately() -> None:
+    spell = SpellChecker(BloomFilter.build(["hızlı", "mün", "mermi"], error_rate=0.00001))
+    # "mun" orijinalde de geçer: dokunulmaz; öteki parça kendi kuralıyla düzelir.
+    assert repair_ascii_turkish("A mun shot", "mun-hizli mermi", spell).text == "mun-hızlı mermi"
+    # Orijinalde geçmiyorsa "mun" kendi başına aday arar (burada tek aday: mün).
+    assert repair_ascii_turkish("Hi", "mun-hizli mermi", spell).text == "mün-hızlı mermi"
+    assert repair_ascii_turkish("Hi", "mermi-hizli", spell).text == "mermi-hızlı"
+    assert (
+        repair_ascii_turkish("Hi", "Bu Mun-hizli", spell).text == "Bu Mun-hizli"
+    )  # cümle ortasında büyük harf: özel ad
+
+
+def test_choices_carry_candidates_for_ambiguous_words() -> None:
+    homograph = SpellChecker(BloomFilter.build(["sürat", "şurat", "burada"], error_rate=0.00001))
+    result = repair_ascii_turkish("Hi", "Iste surat-burada", homograph)
+    assert result.choices == (("surat", ("sürat", "şurat")),)
+    assert result.ambiguous == ("surat",)
+
+
+def test_apply_choice_replaces_word_keeping_case_pattern() -> None:
+    assert apply_choice("Hi", "surat. Surat SURAT surat-x", "surat", "sürat") == "sürat. Sürat SÜRAT sürat-x"
+    assert apply_choice("Hi", "Isik ISIK", "isik", "ışık") == "Işık IŞIK"
+    assert apply_choice("Hi", "isik", "isik", "ışık") == "ışık"
+
+
+def test_apply_choice_skips_source_words_mid_sentence_names_and_partial_matches() -> None:
+    assert apply_choice("A surat", "surat ve surat", "surat", "sürat") == "surat ve surat"  # orijinalde geçiyor
+    assert apply_choice("Hi", "Ali Surat gitti", "surat", "sürat") == "Ali Surat gitti"  # özel ad
+    assert apply_choice("Hi", "Surat gitti", "surat", "sürat") == "Sürat gitti"  # cümle başı
+    assert apply_choice("Hi", "⟦1⟧surat⟦2⟧ suratlar", "surat", "sürat") == "⟦1⟧sürat⟦2⟧ suratlar"  # tam sözcük
