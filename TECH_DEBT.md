@@ -322,7 +322,7 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 ## 3. Kapananlar
 
 12. ~~Python 3.12 ile test edilmedi.~~ — **Kapandı (2026-11-17):** python.org'un resmî 3.12.10 paketiyle ayrı bir
-    ortamda tam test seti çalıştırıldı: 2856/2856 geçti (3.13'te de aynı).
+    ortamda tam test seti çalıştırıldı: 2877/2877 geçti (3.13'te de aynı).
 
 1. ~~Seyrek ve sıkıştırılmış NCA bölümleri~~ — 0.9.0'da çözüldü.
    Kalan: sıkıştırma türü 2 ve 4 (gerçek oyunda görülmedi) açık hata verir.

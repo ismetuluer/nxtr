@@ -16,16 +16,22 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
 - **Beş adımda çeviri** kartı boş Oyunu Ekle ekranında; adım listesinde klavye odak halkası; bildirim kartı ve
   düzenleme paneli kısa solmayla açılır.
 - Riskli düzeltme türleri birden çok satıra uygulanmadan önce onay istenir.
+- **Satır sonu yasak kuralı:** satır sonu kabul etmeyen biçimde (Unity dil sütunlu TSV) çeviriye satır sonu girerse
+  Kontrol Et hata verir, satır dışa aktarılmaz.
 
 ### Değişti
+- **Dışa aktarma satır bazlı:** biçimin kabul etmediği bir satır artık bütün dosyanın yazılmasını engellemez; o satır
+  orijinal kalır, bildirimde ve bilgi dosyasında listelenir. Saklı kaynağı oyun dosyasıyla uyuşmayan (eski sürümde
+  taranmış) satırlar da yazılmaz, "Metinleri Tara ile yeniden tarayın" denir.
 - "Hata veya uyarılı" süzgeci büyük projede arayüzü dondurmaz (denetim arka planda).
 - Yazım penceresi tarama sürerken bekleme ekranı gösterir.
 - Kontrol Et'te yok sayılan bulgu Çevir'den de hemen kalkar; Durdur değişen satırların eski bulgularını getirmez;
   "Tüm bulgular" bilgi önerilerinin sayılmadığını söyler.
 - Türkçe harf onarımı yaygın yazım hatalarını (simdi → şimdi gibi) sözlükte geçse de onarır; terim denetimi uzun ek
   zincirlerini tanır; Ollama belirteç tahmini Japonca/Çince/Korece için daha doğru; CRILAYLA açma ~3 kat hızlı.
-- Arayüz aralık ve köşe ölçüsü tek ölçekte toplandı. Ana pencere kodu Kontrol Et ve Dışa Aktar denetleyicilerine
-  bölündü (davranış aynı).
+- Arayüz aralık ve köşe ölçüsü tek ölçekte toplandı. Ana pencere kodu Kontrol Et, Dışa Aktar, proje ve makine
+  işleri denetleyicilerine bölündü (davranış aynı).
+- Proje şeması 7: bu sürümde açılan proje eski sürümlerde açılmaz (yanında `.bak` yedeği kalır).
 
 ### Düzeltildi
 - Sorunlar'da iş sürerken yerinde düzenlenen metin kaybolmaz; iş bitince yazılır.
