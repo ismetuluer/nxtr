@@ -43,10 +43,10 @@ M6, M2'den hemen sonra yapılır. Güncel sıra: M1 → M2 → **M6** → M3 →
 
 Sırasız; her biri ayrı karar ve onay ister.
 
-1. **Adım listesinde klavye odağı.** Listenin çevresindeki mavi odak çerçevesi ürün sahibinin isteğiyle kaldırıldı
+1. ~~**Adım listesinde klavye odağı.**~~ *Yapıldı (2026-11-17): klavyeyle odak gelince seçili öğede ince halka, fare tıklamasında yok.* Eski not: Listenin çevresindeki mavi odak çerçevesi ürün sahibinin isteğiyle kaldırıldı
    (2026-11-14); seçili adımın vurgusu odağı gösterir. İstenirse öğe başına ince bir işaret `gui/step_nav.py`
    çiziminde yapılır.
-2. **Boşluk ve köşe ölçeği.** Arayüzde 10 farklı aralık ve 9 farklı köşe yarıçapı var; ilgili ekran elden geçerken
+2. ~~**Boşluk ve köşe ölçeği.**~~ *Yapıldı (2026-11-17): `gui/scale.py` (aralık 4/8/12/16/24, köşe 4/6/8/12); tema QSS'i ölçeğe indirildi. Python'daki yerleşim kenar payları ayrı, dokunulmadı.* Eski not: Arayüzde 10 farklı aralık ve 9 farklı köşe yarıçapı var; ilgili ekran elden geçerken
    sadeleştirilecek (topluca değil).
 
 ### Görsel denetim bulguları (2026-11-14, 0.57.1 ekran görüntüleri)
@@ -77,6 +77,8 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 14. Durum çubuğu simgeleri (anahtar, ¶, durum noktası, zil) etiketsiz; en az birkaçına kısa etiket.
 15. Boş "Oyunu Ekle" ekranı pencerenin yarısını boş bırakıyor; beş adımı anlatan kısa yol ya da son projeler.
 16. Koyu temada tablo satırlarının dönüşümlü zemini neredeyse ayırt edilmiyor.
+
+*Durum (2026-11-17): 8, 11, 12, 13, 16 kodda zaten yapılmıştı; 14 (kayıt noktası erişilebilir adı) ve 15 ("Beş adımda çeviri" kartı) bu turda kapandı.*
 
 ### Ürün sahibinin 0.57.2 sonrası geri bildirimi (2026-11-14)
 
