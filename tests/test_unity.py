@@ -60,17 +60,25 @@ def bundle(request: pytest.FixtureRequest) -> bytes:
     [
         ("<b>Hi</b>", "⟦1⟧Hi⟦2⟧", ["Kalın başı", "Kalın sonu"]),
         ("{0} and {input_1}", "⟦1⟧ and ⟦2⟧", ["Değişken {0}", "Değişken {input_1}"]),
-        ("{0:plural:{} a|{} b}", "⟦1⟧", ["Değişken {0:plural:{} a|{} b}"]),
+        (
+            "{0:plural:{} a|{} b}",
+            "⟦1⟧⟦2⟧ a⟦3⟧⟦4⟧ b⟦5⟧",
+            ["Çoğul ifadesi başı {0:plural:", "Değişken {}", "Çoğul dalı ayracı", "Değişken {}", "Çoğul ifadesi sonu"],
+        ),
+        ("{0:plural:item}", "⟦1⟧", ["Değişken {0:plural:item}"]),  # tek dal: ayrılacak sözcük yok
+        ("{0:choose(a|b):X|Y}", "⟦1⟧", ["Değişken {0:choose(a|b):X|Y}"]),  # yalnızca çoğul ifadesi ayrılır
+        ("{0:plural:<b>x</b>|y} ve {1}", "⟦1⟧⟦2⟧x⟦3⟧⟦4⟧y⟦5⟧ ve ⟦6⟧", None),
         ("a < b and <3 and {unclosed", "a < b and <3 and {unclosed", []),
         ('<sprite name="x"><color=red>R</color>', "⟦1⟧⟦2⟧R⟦3⟧", ["Simge (sprite)", "Renk başı", "Renk sonu"]),
         ("<blink>x</blink>", "⟦1⟧x⟦2⟧", ["Biçim etiketi <blink>", "Biçim etiketi </blink>"]),
         ("", "", []),
     ],
 )
-def test_tokenize(text: str, display: str, labels: list[str]) -> None:
+def test_tokenize(text: str, display: str, labels: list[str] | None) -> None:
     shown, codes = tokenize(text)
     assert shown == display
-    assert [c.label for c in codes] == labels
+    if labels is not None:
+        assert [c.label for c in codes] == labels
     assert detokenize(shown, codes) == text
 
 
@@ -321,3 +329,38 @@ def test_gui_source_language_choice(qtbot: Any, unity_game: tuple[Inputs, Path])
         window.dirty = False
         window.close()
         window.deleteLater()
+
+
+def test_plural_branches_are_translatable_and_round_trip() -> None:
+    """Smart String çoğul ifadesi: dalların sözcükleri çevrilebilir, ifade iskeleti kod olarak kalır."""
+    data = build_bundle(_objects())
+    entries = {e.key: e for e in PLUGIN.extract(data)}
+    assert entries["Dialogue_en/106"].source == "Smart ⟦1⟧one item⟦2⟧⟦3⟧ items⟦4⟧ left"
+    out = PLUGIN.inject(data, {"Dialogue_en/106": "Geriye ⟦1⟧bir öğe⟦2⟧⟦3⟧ öğe⟦4⟧ kaldı"})
+    raw = {
+        e["m_Id"]: e["m_Localized"]
+        for o in UnityPy.load(out).objects
+        if o.type.name == "MonoBehaviour"
+        for e in o.read_typetree().get("m_TableData", [])
+    }
+    assert raw[106] == "Geriye {0:plural:bir öğe|{} öğe} kaldı"
+    # Değişmeyen çeviri bayt bayt aynı dosyayı verir.
+    assert PLUGIN.inject(data, {k: e.source for k, e in entries.items()}) == data
+
+
+@pytest.mark.parametrize(
+    "translation",
+    [
+        "Geriye ⟦1⟧bir öğe⟦3⟧ öğe⟦4⟧ kaldı",  # ayraç düştü
+        "Geriye ⟦1⟧bir öğe⟦3⟧⟦2⟧ öğe⟦4⟧ kaldı",  # sıra bozuldu
+        "Geriye bir öğe kaldı",  # ifade iskeleti silindi
+    ],
+)
+def test_plural_skeleton_codes_are_strict(translation: str) -> None:
+    with pytest.raises(FormatError):
+        PLUGIN.inject(build_bundle(_objects()), {"Dialogue_en/106": translation})
+
+
+def test_plural_skeleton_codes_are_not_movable() -> None:
+    _shown, codes = tokenize("{0:plural:a|b} {1}")
+    assert [PLUGIN.movable_code(c) for c in codes] == [False, False, False, True]

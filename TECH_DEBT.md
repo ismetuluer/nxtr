@@ -9,11 +9,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     testler 3.13'te çalıştırıldı. Kod 3.12 özelliklerinin üstüne çıkmıyor (`StrEnum`,
     `datetime.UTC` 3.11+). *Ne zaman:* M9 paketlemede sabit sürüm seçilirken.
 
-21. **Smart String ifadeleri tek bir kontrol kodu sayılıyor.** `{0:plural:one item|{} items}`
-    gibi ifadelerin içindeki sözcükler çevrilemez. Bir Unity oyununda böyle ifade yok (yalnızca
-    `{0}`, `{input_0}`, `{ManualInput…}`). *Ne zaman:* Çoğul ifadeli bir oyunda; ifadenin içi
-    ayrıştırılıp sözcükler çevrilebilir yapılmalı.
-
 22. **AssetTable/StringTable ayrımı sezgisel** (tüm değerleri GUID olan tablo metin sayılmaz).
     Kesin ayrım için `Script_monoscripts` bundle'ındaki MonoScript sınıf adları okunabilir.
 
@@ -427,3 +422,5 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 92. ~~Türkçe harf onarımı sözlüğe bağlı~~ — **Kapandı:** ASCII biçimi sözlükte geçerli olsa da yaygın yazım hatası olan sözcükler (simdi, sey, aksam, buyuk, tum, basla, yasam) küçük bir listeyle (asciitr._ASCII_MISTAKES) onarılır. surat (sürat) gerçek bir sözcük olduğu için listede yoktur; eşyazımlılar (cok → çok/çök) seçime kalır. Kalan: hatalı satırlarda kod onarımı ile harf onarımı ayrı geçişlerde çalışır; düzeltme onay kutusu için arayüz testi yok.
 
 72. ~~CRILAYLA açma yavaş~~ — **Kapandı:** açma döngüsü hızlandırıldı: akış bir kez 0/1 dizgesine açılıp dilim + int(…, 2) ile okunuyor, geri başvurular dilimle kopyalanıyor. Elle üretilmiş 2 MB'lık rastgele geçerli akışta en iyi süre 0,649 sn -> 0,199 sn (~3,3 kat), çıktı bayt bayt aynı (testte bit bit başvuru açıcıyla karşılaştırılır). İlk geçişte dili yoldan belli dosyaları atlamak (pipeline değişikliği) yapılmadı.
+
+21. ~~Smart String ifadeleri tek bir kontrol kodu sayılıyor~~ — **Kapandı:** çoğul ifadesi (iki ya da daha çok dallı {0:plural:a|b}) artık ayrılıyor: iskeleti ({0:plural:, her |, kapanış }) sıralı ve katı kod, dalların sözcükleri çevrilebilir (markup.tokenize plural=True; yalnızca Unity kullanır). Yer tutucu sözleşmesi (sayı/sıra/tür) değişmedi; round-trip bayt bayt aynı. Tek dallı çoğul ve choose/cond/list gibi öteki ifadeler tek kod olarak kalır. Gerçek bir oyunda denenmedi; Türkçe çoğul dalı sayısı kaynak dilden azsa çeviride yine tüm ayraçlar bulunmalıdır.

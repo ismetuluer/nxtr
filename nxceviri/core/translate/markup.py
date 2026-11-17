@@ -3,7 +3,9 @@
 Unity (TextMeshPro) ve Unreal (UMG zengin metin) gibi biçimlerde kontrol kodları metnin
 kendisinde düz yazı olarak durur: `<b>`, `<color=…>`, `</>`, `{0}`, `{PlayerName}`.
 `tokenize` bunları sırayla `⟦n⟧` yer tutucularına çevirir; `detokenize` geri koyar.
-Süslü parantezler iç içe olabilir (`{0:plural:{} item|{} items}`); bütün ifade tek koddur.
+Süslü parantezler iç içe olabilir (`{0:plural:{} item|{} items}`); bütün ifade tek koddur. İstenirse
+(`plural=True`) çoğul ifadesi ayrılır: iskeleti (`{0:plural:`, dal ayracı `|`, kapanış `}`) kod olarak kalır, dalların
+metni çevrilebilir.
 """
 
 from __future__ import annotations
@@ -28,28 +30,71 @@ def brace_end(text: str, start: int) -> int:
     return -1
 
 
+#: Çoğul ifadesinin başı: `{0:plural:` (Smart Format); ardından dallar `|` ile ayrılır.
+_PLURAL_OPEN = re.compile(r"\{[^{}|:<>]*:plural:")
+
+
+def _plural_open_end(text: str, start: int, end: int) -> int:
+    """`text[start:end]` en az iki dallı bir çoğul ifadesiyse başlığının bir sonrasını; değilse -1.
+
+    Dal ayracı yalnızca iç içe parantezlerin dışındaki `|` sayılır; tek dallı ifade ayrılmaz (çevrilecek bir şey
+    değişmez), `choose`, `cond`, `list` gibi öteki ifadeler hiç ayrılmaz.
+    """
+    m = _PLURAL_OPEN.match(text, start)
+    if m is None:
+        return -1
+    i = m.end()
+    while i < end - 1:
+        if text[i] == "{":
+            nested = brace_end(text, i)
+            if nested < 0:
+                return -1
+            i = nested
+        elif text[i] == "|":
+            return m.end()
+        else:
+            i += 1
+    return -1
+
+
 def tokenize(
     text: str,
     tag_re: re.Pattern[str],
     label: Callable[[str], str],
     literals: tuple[str, ...] = (),
+    plural: bool = False,
 ) -> tuple[str, tuple[ControlCode, ...]]:
-    """`literals`: etiket olmayan ama aynen korunması gereken sabit yazılar (ör. metin içi `\\n`)."""
+    """`literals`: etiket olmayan ama aynen korunması gereken sabit yazılar (ör. metin içi `\\n`).
+
+    `plural`: Smart Format çoğul ifadesini (`{0:plural:bir|{} tane}`) tek kod yapmak yerine ayırır; böylece dallardaki
+    sözcükler çevrilebilir. İskelet kodları (başlık, her `|`, kapanış `}`) sırayla ve eksiksiz korunmak zorundadır.
+    """
     out: list[str] = []
     codes: list[ControlCode] = []
+    closers: list[int] = []  # açık çoğul ifadelerinin kapanış `}` konumları
     pos = 0
     plain_start = 0
     while pos < len(text):
         ch = text[pos]
         end = -1
-        if ch == "<":
+        limit = closers[-1] if closers else len(text)  # çoğul ifadesinin içindeki kod, ifadenin dışına taşamaz
+        if closers and pos == limit:
+            end = pos + 1  # çoğul ifadesinin kapanışı
+            closers.pop()
+        elif closers and ch == "|":
+            end = pos + 1  # dal ayracı (iç içe parantezler `brace_end` ile atlandığından hep bu ifadeye aittir)
+        elif ch == "<":
             m = tag_re.match(text, pos)
-            end = m.end() if m else -1
+            end = m.end() if m and m.end() <= limit else -1
         elif ch == "{":
             end = brace_end(text, pos)
+            head = _plural_open_end(text, pos, end) if plural and end > 0 else -1
+            if head > 0:
+                closers.append(end - 1)
+                end = head
         if end < 0:
             literal = next((lit for lit in literals if text.startswith(lit, pos)), None)
-            end = pos + len(literal) if literal else -1
+            end = pos + len(literal) if literal and pos + len(literal) <= limit else -1
         if end < 0:
             pos += 1
             continue
