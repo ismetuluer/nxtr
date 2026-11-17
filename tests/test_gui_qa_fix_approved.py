@@ -204,13 +204,22 @@ def test_large_fix_runs_in_background_and_hides_the_stale_bar(
     monkeypatch.setattr(main_window, "FIX_RECHECK_ROWS", 0)  # yazımdan sonra tam denetim arka planda
     w = make_window(_project())
     page = w.qa_page
+    bar_while_checking: list[bool] = []
+    real_mark = page.mark_checking
+
+    def mark_checking() -> None:
+        real_mark()
+        bar_while_checking.append(page.fix_bar.isVisibleTo(page))
+
+    monkeypatch.setattr(page, "mark_checking", mark_checking)
     page.kind_list.select_kinds(["spaces"])
     page.fix_button.click()
     assert w.busy  # plan hazırlanıyor: arayüz donmaz, iş sürüyor
-    qtbot.waitUntil(lambda: _rows(w)["sp_app"].translation == "Selam ", timeout=10000)
-    # Yazım bitti, tam denetim sürerken eski bulgu çubuğu görünmez (tıklayınca sessizce hiçbir şey olmazdı).
-    assert not page.fix_bar.isVisibleTo(page)
     qtbot.waitUntil(lambda: not w.busy, timeout=20000)
+    # Yazımdan sonra tam denetim sürerken eski bulgu çubuğu görünmez (tıklayınca sessizce hiçbir şey olmazdı).
+    # Durum işaretlendiği anda okunur: hızlı makinede denetim, test bakmadan bitebilir.
+    assert bar_while_checking == [False]
+    assert _rows(w)["sp_app"].translation == "Selam "
     assert page.kind_list.count_of("spaces") == 0
     assert _rows(w)["sp_mac"].translation == "Merhaba "
 
