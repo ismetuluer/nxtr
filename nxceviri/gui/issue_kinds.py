@@ -51,6 +51,9 @@ KIND_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
 OTHER_GROUP = "Diğer"
 ALL_TITLE = "Tüm bulgular"
 EMPTY_TEXT = "Bulunan sorunların türleri burada listelenir."
+#: "Yok sayılanlar" girişinin sahte türü: seçilince tablo yok sayılan bulguları gösterir (başka türle karışmaz).
+IGNORED_KIND = "ignored"
+IGNORED_TITLE = "Yok sayılanlar"
 LIST_WIDTH = 232
 
 _ROLE_TYPE = Qt.ItemDataRole.UserRole + 1
@@ -98,8 +101,13 @@ class KindList(QListWidget):
 
     # --- içerik -------------------------------------------------------------------------
 
-    def set_counts(self, counts: Mapping[str, int], severities: Mapping[str, str], total: int) -> None:
-        """Listeyi yeniden kurar; bulgusu kalmayan türün seçimi bırakılır, kalan seçim korunur."""
+    def set_counts(
+        self, counts: Mapping[str, int], severities: Mapping[str, str], total: int, ignored: int = 0
+    ) -> None:
+        """Listeyi yeniden kurar; bulgusu kalmayan türün seçimi bırakılır, kalan seçim korunur.
+
+        `ignored`: yok sayılan bulgu sayısı; sıfırdan büyükse listenin sonuna "Yok sayılanlar" girişi eklenir.
+        """
         previous = self._last
         scroll = self.verticalScrollBar().value()
         self._busy = True
@@ -123,7 +131,15 @@ class KindList(QListWidget):
                 self._group_kinds[title] = present
                 for kind in present:
                     self._kind_items[kind] = self._add(_label(kind), _TYPE_KIND, self._counts[kind], kind)
-            kept = previous & self._counts.keys()
+            selectable = set(self._counts)
+            if ignored > 0:
+                item = self._add(IGNORED_TITLE, _TYPE_KIND, ignored, IGNORED_KIND)
+                item.setToolTip(
+                    tip_html("Yok saydığınız bulgular. Birini seçip sağ tıklayarak yok saymayı kaldırabilirsiniz.")
+                )
+                self._kind_items[IGNORED_KIND] = item
+                selectable.add(IGNORED_KIND)
+            kept = previous & selectable
             self._apply(kept)
             self._all_was_selected = not kept
             self._last = frozenset(kept)
@@ -180,7 +196,7 @@ class KindList(QListWidget):
 
     def select_kinds(self, kinds: Collection[str]) -> None:
         """Seçimi verilen türlere ayarlar (listede olmayanlar yok sayılır; hiçbiri kalmazsa süzgeç kalkar)."""
-        wanted = frozenset(kinds) & self._counts.keys()
+        wanted = frozenset(kinds) & (self._counts.keys() | self._kind_items.keys() & {IGNORED_KIND})
         self._busy = True
         try:
             self._apply(wanted)
@@ -221,6 +237,9 @@ class KindList(QListWidget):
                 kinds.add(str(item.data(_ROLE_KIND)))
         if all_selected and kinds and not self._all_was_selected:
             kinds.clear()  # "Tüm bulgular" seçildi: öteki seçimler kalkar
+        if IGNORED_KIND in kinds and len(kinds) > 1:
+            # Yok sayılanlar öteki türlerle karışmaz: yeni seçilen kazanır.
+            kinds = {IGNORED_KIND} if IGNORED_KIND not in self._last else kinds - {IGNORED_KIND}
         self._all_was_selected = not kinds
         self._busy = True
         try:

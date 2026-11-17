@@ -62,7 +62,7 @@ from nxceviri.core.translate.fitconfig import EACH_GROUP, GROUP_PREFIX, FitConfi
 from nxceviri.core.translate.limits import SCOPE_GROUP, SCOPE_KEY
 from nxceviri.gui.icons import bind_icon, icon
 from nxceviri.gui.issue_chips import Disclosure
-from nxceviri.gui.issue_kinds import KIND_GROUPS, KindList
+from nxceviri.gui.issue_kinds import IGNORED_KIND, KIND_GROUPS, KindList
 from nxceviri.gui.issue_rows import ROLE_NUMBER, ROLE_SEVERITY, ROLE_SOURCE, ROLE_TRANSLATION, IssueRowView
 from nxceviri.gui.limits_table import LimitsTable
 from nxceviri.gui.marked_delegate import ROW_ROLE
@@ -314,6 +314,10 @@ class QaPage(QWidget):
     add_spelling_requested = Signal(list)  # seçili yazım bulgularındaki sözcükler
     not_term_requested = Signal(list)  # seçili terim bulgularındaki ifadeler: "terim değil"
     user_dictionary_requested = Signal()
+    #: Belirsiz bir sözcük için seçilen yazım: (sözcük anahtarı, seçilen aday); projedeki bütün satırlara uygulanır.
+    ascii_choice_requested = Signal(str, str)
+    ignore_requested = Signal(list)  # [(satır kimliği, tür)]: bulguları yok say
+    unignore_requested = Signal(list)  # [(satır kimliği, tür)]: yok saymayı kaldır
     fit_tab_shown = Signal()  # Sığdırma sekmesi görünür oldu (sınırlar tablosu ağır hesaplar ister)
 
     def __init__(self) -> None:
@@ -460,6 +464,11 @@ class QaPage(QWidget):
         self.kind_list = KindList()
         self.kind_list.selection_changed.connect(self._refilter)
         self._settings: QSettings | None = None
+        #: Yok sayılan bulgular; "Yok sayılanlar" seçiliyken tablo bunları, `_normal` de gerçek bulguları tutar.
+        self._ignored: list[QaIssue] = []
+        self._ignored_view = False
+        self._normal: list[QaIssue] = []
+        self._rows: dict[int, TranslationRow] = {}
         self.model = IssueModel()
         self.model.translation_edited.connect(self.translation_edited)
         self.proxy = IssueFilter()
@@ -1057,9 +1066,30 @@ class QaPage(QWidget):
 
     # --- satır denetimi -----------------------------------------------------------------
 
-    def show_issues(self, issues: list[QaIssue], rows: list[TranslationRow]) -> None:
-        self.model.set_issues(issues, {r.id: r for r in rows})
+    def show_issues(self, issues: list[QaIssue], rows: list[TranslationRow], ignored: Sequence[QaIssue] = ()) -> None:
+        """Denetim sonucunu gösterir; `ignored`: kullanıcının yok saydığı bulgular (listede ve sayaçta yer almaz)."""
+        self._rows = {r.id: r for r in rows}
+        self._ignored = list(ignored)
+        self._normal = list(issues)
+        self.model.set_issues(self._ignored if self._ignored_view else self._normal, self._rows)
         self._issues_changed()
+
+    def active_issues(self) -> list[QaIssue]:
+        """Listede, sayaçta ve düzeltmede sayılan bulgular (yok sayılanlar değil)."""
+        return self._normal if self._ignored_view else self.model.issues
+
+    def all_issues(self) -> list[QaIssue]:
+        """Yok sayılanlar dahil bütün bulgular."""
+        return [*self.active_issues(), *self._ignored]
+
+    def _set_ignored_view(self, show: bool) -> None:
+        """Tabloyu yok sayılan bulgulara ya da gerçek bulgulara çevirir."""
+        if show == self._ignored_view:
+            return
+        if show:
+            self._normal = list(self.model.issues)
+        self._ignored_view = show
+        self.model.set_issues(self._ignored if show else self._normal, self._rows)
 
     def set_code_kinds(self, kinds: CodeKinds) -> None:
         """Proje kod türü eşlemesi: bulgu satırlarındaki kod çiplerinin simgesi ve rengi."""
@@ -1068,6 +1098,7 @@ class QaPage(QWidget):
 
     def reset(self) -> None:
         """Denetim sonuçlarını siler (başka proje açıldı): liste, özet, tür listesi ve düzeltme sayıları boşalır."""
+        self._ignored, self._normal, self._rows, self._ignored_view = [], [], {}, False
         self.model.set_issues([])
         self.kind_list.set_counts({}, {}, 0)
         self._checked = False
@@ -1085,15 +1116,34 @@ class QaPage(QWidget):
         """
         self.replace_rows_issues({row_id: issues}, [row])
 
-    def replace_rows_issues(self, issues_by_row: dict[int, list[QaIssue]], rows: Sequence[TranslationRow]) -> None:
+    def replace_rows_issues(
+        self,
+        issues_by_row: dict[int, list[QaIssue]],
+        rows: Sequence[TranslationRow],
+        ignored_by_row: Mapping[int, list[QaIssue]] | None = None,
+    ) -> None:
         """Birkaç satırın bulgularını tek seferde yenisiyle değiştirir (düzenlenen satır ve eşdeşleri).
 
         Özet, tür listesi ve düzeltme sayıları yalnızca bir kez hesaplanır; seçim ve kaydırma konumu korunur.
+        `ignored_by_row`: aynı satırların yok sayılan bulguları.
         """
         selected = set(self._selected_row_ids())
         scroll = self.table.verticalScrollBar().value()
+        ids = {r.id for r in rows}
+        ignored = ignored_by_row or {}
+        self._ignored = [i for i in self._ignored if i.row_id not in ids] + [
+            i for r in rows for i in ignored.get(r.id, [])
+        ]
         for row in rows:
-            self.model.replace_row(row.id, issues_by_row.get(row.id, []), row)
+            self._rows[row.id] = row
+        if self._ignored_view:
+            self._normal = [i for i in self._normal if i.row_id not in ids] + [
+                i for r in rows for i in issues_by_row.get(r.id, [])
+            ]
+            self.model.set_issues(self._ignored, self._rows)
+        else:
+            for row in rows:
+                self.model.replace_row(row.id, issues_by_row.get(row.id, []), row)
         self._issues_changed()
         for row_id in selected & issues_by_row.keys():
             self._select_row_id(row_id)
@@ -1111,7 +1161,7 @@ class QaPage(QWidget):
     def _issues_changed(self) -> None:
         """Bulgu listesi değişti: özet, tür listesi ve düzeltme sayıları yeniden hesaplanır."""
         self._plan_cache = None  # bulgular ya da satır metinleri değişti: bildirim planı eskidi
-        issues = self.model.issues
+        issues = self.active_issues()
         errors = sum(1 for i in issues if i.severity == SEVERITY_ERROR)
         warnings = sum(1 for i in issues if i.severity == SEVERITY_WARNING)
         if errors or warnings:
@@ -1138,16 +1188,20 @@ class QaPage(QWidget):
         for i in issues:
             counts[i.kind] = counts.get(i.kind, 0) + 1
             severities[i.kind] = _worse(severities.get(i.kind, ""), i.severity)
-        self.kind_list.set_counts(counts, severities, sum(1 for i in issues if i.severity != SEVERITY_INFO))
+        self.kind_list.set_counts(
+            counts, severities, sum(1 for i in issues if i.severity != SEVERITY_INFO), len(self._ignored)
+        )
         self._refilter()
         self._update_check_button()
 
     def _refilter(self) -> None:
-        self.proxy.update(self.kind_list.selected_kinds(), show_info=False)
+        kinds = self.kind_list.selected_kinds()
+        self._set_ignored_view(IGNORED_KIND in kinds)
+        self.proxy.update(frozenset() if self._ignored_view else kinds, show_info=False)
         if not self._checked:
             self.table.empty_text = _EMPTY_UNCHECKED
         else:
-            self.table.empty_text = _EMPTY_FILTERED if self.model.issues else _EMPTY_CLEAN
+            self.table.empty_text = _EMPTY_FILTERED if self.active_issues() else _EMPTY_CLEAN
         self.table.viewport().update()
         self._update_fix_bar()
 
@@ -1203,6 +1257,8 @@ class QaPage(QWidget):
         Seçili satırlarda düzeltilebilir bulgu varsa hepsi (riskliler dahil: açık seçim onaydır); yoksa solda tür
         seçiliyse görünen düzeltilebilir bulguların hepsi; "Tüm bulgular"da yalnızca riskli olmayan türler.
         """
+        if self._ignored_view:
+            return [], False
         selected = [i for i in self._selected_issues() if i.kind in FIX_KINDS]
         if selected:
             return selected, True
@@ -1225,8 +1281,8 @@ class QaPage(QWidget):
         key = (tuple(kinds), tuple(sorted(row_ids)))
         if self._plan_cache is not None and self._plan_cache[0] == key:
             return self._plan_cache[1]
-        rows = [self.model.rows[r] for r in sorted(row_ids) if r in self.model.rows]
-        plan = planner(rows, [i for i in self.model.issues if i.row_id in row_ids], kinds)
+        rows = [self._rows[r] for r in sorted(row_ids) if r in self._rows]
+        plan = planner(rows, [i for i in self.active_issues() if i.row_id in row_ids], kinds)
         self._plan_cache = (key, plan)
         return plan
 
@@ -1319,19 +1375,29 @@ class QaPage(QWidget):
         """Seçili bulguya göre bağlam menüsü; her öğe kullanılabilir olduğunda görünür."""
         menu = QMenu(self)
         issues = self._selected_issues()
-        if issues:
-            present = {i.kind for i in issues}
-            kinds = [k for k in FIX_KINDS if k in present]
-            row_ids = sorted({i.row_id for i in issues})
-            if kinds:
-                fix_row = menu.addAction(
-                    icon("refresh-cw"), "Bu satırları düzelt" if len(row_ids) > 1 else "Bu satırı düzelt"
-                )
-                fix_row.triggered.connect(lambda: self._fix_now(kinds, row_ids))
-                fix_kind = menu.addAction(icon("replace-all"), "Bu türdeki tümünü düzelt")
-                fix_kind.triggered.connect(lambda: self._fix_now(kinds, []))
+        if issues and self._ignored_view:
+            pairs = [(i.row_id, i.kind) for i in issues]
+            restore = menu.addAction(
+                icon("undo-2"), "Yok saymayı kaldır" if len(issues) == 1 else "Yok saymayı kaldır (seçili bulgular)"
+            )
+            restore.triggered.connect(lambda: self.unignore_requested.emit(pairs))
             show = menu.addAction(icon("arrow-left-right"), "Çevir'de göster")
             show.triggered.connect(lambda: self.open_row.emit(issues[0].row_id))
+            menu.addSeparator()
+        elif issues:
+            self._add_fix_actions(menu, issues)
+            show = menu.addAction(icon("arrow-left-right"), "Çevir'de göster")
+            show.triggered.connect(lambda: self.open_row.emit(issues[0].row_id))
+            # Hata (oyunu bozabilecek) bulgular yok sayılamaz.
+            ignorable = [(i.row_id, i.kind) for i in issues if i.severity != SEVERITY_ERROR]
+            if ignorable:
+                ignore = menu.addAction(icon("x"), "Bulguyu yok say" if len(issues) == 1 else "Bu bulguları yok say")
+                ignore.setToolTip(
+                    tip_html(
+                        "Listeden çıkar; çeviri değişirse yeniden görünür. Soldaki “Yok sayılanlar”dan geri alınır."
+                    )
+                )
+                ignore.triggered.connect(lambda: self.ignore_requested.emit(ignorable))
             menu.addSeparator()
         if self.spell_add_button.isEnabled():
             menu.addAction(self.spell_add_button)
@@ -1351,6 +1417,62 @@ class QaPage(QWidget):
             group.addAction(action)
             action.triggered.connect(lambda _checked=False, m=mode: self.set_sort_mode(m))
         return menu
+
+    def _add_fix_actions(self, menu: QMenu, issues: list[QaIssue]) -> None:
+        """Düzeltme eylemleri: satır, tür ve belirsiz sözcük için aday seçenekleri.
+
+        Plan hesaplanabiliyorsa ve hiçbir satırı düzeltmeyecekse ilgili eylem hiç çıkmaz; tür eyleminin adı türü ve
+        düzeltilecek satır sayısını söyler.
+        """
+        present = {i.kind for i in issues}
+        kinds = [k for k in FIX_KINDS if k in present]
+        row_ids = sorted({i.row_id for i in issues})
+        if kinds:
+            row_plan = self._scope_plan([i for i in issues if i.kind in FIX_KINDS])
+            if row_plan is None or row_plan.changes:
+                fix_row = menu.addAction(
+                    icon("refresh-cw"), "Bu satırları düzelt" if len(row_ids) > 1 else "Bu satırı düzelt"
+                )
+                fix_row.triggered.connect(lambda: self._fix_now(kinds, row_ids))
+            kind_plan = self._kind_plan(kinds)
+            if kind_plan is None or kind_plan.changes:
+                title = self._kinds_title(kinds)
+                if kind_plan is not None:
+                    title += f" ({format_int(len(kind_plan.changes))} satır)"
+                fix_kind = menu.addAction(icon("replace-all"), title)
+                fix_kind.triggered.connect(lambda: self._fix_now(kinds, []))
+        choices: dict[str, tuple[str, ...]] = {}
+        for issue in issues:
+            for key, candidates in issue.choices:
+                choices.setdefault(key, candidates)
+        if choices:
+            choose = menu.addMenu(icon("spell-check"), "Şununla düzelt")
+            choose.setToolTip(tip_html("Seçtiğiniz yazım, bu sözcüğün geçtiği projedeki bütün çevirilere uygulanır."))
+            for key, candidates in choices.items():
+                target = choose if len(choices) == 1 else choose.addMenu(key)
+                for candidate in candidates:
+                    action = target.addAction(f"{key} → {candidate}")
+                    action.triggered.connect(lambda _c=False, k=key, c=candidate: self._choose(k, c))
+
+    def _choose(self, key: str, candidate: str) -> None:
+        self._commit_pending(lambda: self.ascii_choice_requested.emit(key, candidate))
+
+    @staticmethod
+    def _kinds_title(kinds: list[str]) -> str:
+        """ "Tüm “Türkçe harf eksik” bulgularını düzelt"; birkaç türde türler sayılır."""
+        if len(kinds) == 1:
+            return f"Tüm “{KIND_LABELS[kinds[0]]}” bulgularını düzelt"
+        return "Bu türlerdeki tüm bulguları düzelt"
+
+    def _kind_plan(self, kinds: list[str]) -> FixPlan | None:
+        """Türlerin bütün bulgularının planı (menüdeki satır sayısı); çok genişse ya da planlayıcı yoksa None."""
+        planner = self.fix_planner
+        issues = [i for i in self.active_issues() if i.kind in kinds]
+        row_ids = {i.row_id for i in issues}
+        if planner is None or len(row_ids) > _FIX_PLAN_ROWS:
+            return None
+        rows = [self._rows[r] for r in sorted(row_ids) if r in self._rows]
+        return planner(rows, [i for i in self.active_issues() if i.row_id in row_ids], kinds)
 
     def _show_context_menu(self, pos: QPoint) -> None:
         index = self.table.indexAt(pos)

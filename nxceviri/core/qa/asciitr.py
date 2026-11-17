@@ -10,6 +10,8 @@ sözlük destekli ve temkinlidir:
 - harf büyüklüğü harf harf korunur: üretilen aday, orijinalle aynı konumlarda büyük/küçük harf taşır
   ("Iste" → "İşte", "ISTE" → "İŞTE"), `I` hem `İ` hem `I` olabilir, `i` hem `i` hem `ı`;
 - orijinalde de geçen sözcükler (korunan adlar), cümle ortasındaki özel adlar, kodlar ve sayılı sözcükler atlanır;
+- tireli sözcüğün (`mun-hizli`) parçaları ayrı değerlendirilir: orijinalde geçen ya da sözlükte olan parçaya
+  dokunulmaz, öteki parça kendi kuralıyla düzelir;
 - ayrı yazılmış soru eki (mi/mı/mu/mü) önceki sözcüğün son ünlüsüne göre ünlü uyumuna sokulur.
 
 Kontrol kodlarına dokunulmaz; sonuç tekrar çalıştırılınca değişmez.
@@ -18,7 +20,7 @@ Kontrol kodlarına dokunulmaz; sonuç tekrar çalıştırılınca değişmez.
 from __future__ import annotations
 
 import itertools
-from collections.abc import Collection
+from collections.abc import Collection, Iterator
 from dataclasses import dataclass
 
 from nxceviri.core.spell.checker import SpellChecker, is_sentence_start, turkish_lower, words_of
@@ -51,12 +53,45 @@ class AsciiRepair:
     text: str
     #: Yapılan değişiklikler: (eski sözcük, yeni sözcük); soru ekleri de dahil.
     changes: tuple[tuple[str, str], ...] = ()
-    #: Birden çok sözlük adayı olduğu için dokunulmayan sözcükler (küçük harfle, tekrarsız).
-    ambiguous: tuple[str, ...] = ()
+    #: Birden çok sözlük adayı olduğu için dokunulmayan sözcükler ve adayları: (anahtar, adaylar); tekrarsız.
+    #: Anahtar `fold` ile küçültülmüş sözcüktür; seçilen aday `apply_choice` ile projeye uygulanır.
+    choices: tuple[tuple[str, tuple[str, ...]], ...] = ()
+
+    @property
+    def ambiguous(self) -> tuple[str, ...]:
+        """Dokunulmayan belirsiz sözcükler (küçük harfle, tekrarsız)."""
+        return tuple(word for word, _candidates in self.choices)
 
 
 def _turkish_upper(char: str) -> str:
     return {"i": "İ", "ı": "I"}.get(char, char.upper())
+
+
+def fold(word: str) -> str:
+    """Belirsiz sözcüğün anahtarı: küçük harf; ASCII `I` hem `i` hem `ı` olabileceği için `i` sayılır, `İ` kalır."""
+    return word.replace("İ", "").replace("I", "i").lower().replace("", "İ")
+
+
+def _wanted(text: str, start: int, word: str) -> bool:
+    """Onarıma aday sözcük mü: cümle ortasında büyük harfle başlayan (özel ad) sözcük aday değildir."""
+    return not (word[0].isupper() and not word.isupper() and not is_sentence_start(text, start))
+
+
+def _source_words(source: str) -> set[str]:
+    """Orijinaldeki sözcükler ve tireli sözcüklerin parçaları (küçük harfle)."""
+    found: set[str] = set()
+    for word, _start in words_of(source):
+        found.add(turkish_lower(word))
+        found.update(turkish_lower(part) for part in word.split("-"))
+    return found
+
+
+def _parts(word: str, start: int) -> Iterator[tuple[str, int]]:
+    """Tireli sözcüğün parçaları ve konumları (tiresiz sözcükte sözcüğün kendisi)."""
+    offset = 0
+    for part in word.split("-"):
+        yield part, start + offset
+        offset += len(part) + 1
 
 
 def _candidates(word: str) -> list[str]:
@@ -103,23 +138,45 @@ def repair_ascii_turkish(
     source: str, text: str, spell: SpellChecker, extra: Collection[str] = frozenset()
 ) -> AsciiRepair:
     """Çevirideki ASCII'ye çevrilmiş sözcükleri onarır; `extra`: ek kabul edilen sözcükler (oyun sözlüğü vb.)."""
-    from_source = {turkish_lower(w) for w, _ in words_of(source)}
+    from_source = _source_words(source)
     edits: list[tuple[int, int, str]] = []
     changes: list[tuple[str, str]] = []
-    ambiguous: dict[str, None] = {}
-    for word, start in words_of(text):
-        low = turkish_lower(word)
-        if low in from_source or spell.is_known(word, extra):
+    choices: dict[str, tuple[str, ...]] = {}
+    for word, word_start in words_of(text):
+        if turkish_lower(word) in from_source or spell.is_known(word, extra) or not _wanted(text, word_start, word):
             continue
-        if word[0].isupper() and not word.isupper() and not is_sentence_start(text, start):
-            continue  # cümle ortasında büyük harfle başlayan: özel ad
-        known = [c for c in _candidates(word) if spell.is_known(c, extra)]
-        if len(known) == 1:
-            edits.append((start, start + len(word), known[0]))
-            changes.append((word, known[0]))
-        elif known:
-            ambiguous[low] = None
+        for part, start in _parts(word, word_start):
+            if turkish_lower(part) in from_source or spell.is_known(part, extra):
+                continue
+            known = [c for c in _candidates(part) if spell.is_known(c, extra)]
+            if len(known) == 1:
+                edits.append((start, start + len(part), known[0]))
+                changes.append((part, known[0]))
+            elif known:
+                choices.setdefault(fold(part), tuple(turkish_lower(c) for c in known))
     for start, end, new in reversed(edits):
         text = text[:start] + new + text[end:]
     text = _repair_particles(text, changes)
-    return AsciiRepair(text, tuple(changes), tuple(ambiguous))
+    return AsciiRepair(text, tuple(changes), tuple(choices.items()))
+
+
+def apply_choice(source: str, text: str, key: str, new: str) -> str:
+    """Belirsiz sözcüğü (`fold` anahtarı `key`) seçilen yazımla (`new`, küçük harfli) değiştirir.
+
+    Yalnızca tam sözcükler (ve tireli sözcüğün tam parçaları) değişir; harf büyüklüğü harf harf korunur.
+    Orijinalde geçen sözcüklere, cümle ortasındaki özel adlara ve kodlara dokunulmaz (onarımdaki kurallar).
+    """
+    if len(new) != len(key) or key not in fold(text):
+        return text
+    from_source = _source_words(source)
+    edits: list[tuple[int, int, str]] = []
+    for word, word_start in words_of(text):
+        if not _wanted(text, word_start, word):
+            continue
+        for part, start in _parts(word, word_start):
+            if fold(part) == key and turkish_lower(part) not in from_source:
+                shaped = "".join(_turkish_upper(c) if o.isupper() else c for c, o in zip(new, part, strict=True))
+                edits.append((start, start + len(part), shaped))
+    for start, end, shaped in reversed(edits):
+        text = text[:start] + shaped + text[end:]
+    return text
