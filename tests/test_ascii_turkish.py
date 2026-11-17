@@ -177,3 +177,23 @@ def test_apply_choice_skips_source_words_mid_sentence_names_and_partial_matches(
     assert apply_choice("Hi", "Ali Surat gitti", "surat", "sürat") == "Ali Surat gitti"  # özel ad
     assert apply_choice("Hi", "Surat gitti", "surat", "sürat") == "Sürat gitti"  # cümle başı
     assert apply_choice("Hi", "⟦1⟧surat⟦2⟧ suratlar", "surat", "sürat") == "⟦1⟧sürat⟦2⟧ suratlar"  # tam sözcük
+
+
+def test_ascii_mistakes_listed_words_are_repaired_even_if_dictionary_knows_them() -> None:
+    # `simdi` paketli sözlükte geçerli sayılıyor; yaygın yazım hatası listesinde olduğu için onarılır.
+    spell = load_spell_checker()
+    assert spell is not None
+    assert spell.is_known("simdi")
+    assert repair_ascii_turkish("Now", "simdi gel", spell).text == "şimdi gel"
+    assert repair_ascii_turkish("Now", "Simdi gel", spell).text == "Şimdi gel"
+    assert repair_ascii_turkish("Now", "SIMDI", spell).text == "ŞİMDİ"
+
+
+def test_ascii_mistakes_respect_source_extra_and_real_words() -> None:
+    spell = load_spell_checker()
+    assert spell is not None
+    # Orijinalde aynen geçen sözcüğe (özel ad) ve oyun sözlüğündekine dokunulmaz.
+    assert repair_ascii_turkish("simdi", "simdi gel", spell).text == "simdi gel"
+    assert repair_ascii_turkish("Now", "simdi gel", spell, extra={"simdi"}).text == "simdi gel"
+    # Listede olmayan gerçek Türkçe sözcük (sürat/surat gibi) olduğu gibi kalır.
+    assert repair_ascii_turkish("Hi", "surat", spell).text == "surat"

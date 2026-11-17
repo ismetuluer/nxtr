@@ -107,8 +107,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 
 91. **Dışa aktarma geri okuması oyunun ayrıştırıcısından yumuşak olabilir (0.55.1).** Yapı denetimi eklentinin kendi `extract`ını kullanır; oyunun yerleşik okuyucusu daha katıysa (ör. tırnaksız satır sonu bölen basit CSV okuyucu) bizim okuyucumuz sorunu görmeyebilir. Savunmanın öteki katmanları (çeviriye karışan kod/satır sonu denetimi) bu boşluğu azaltır. Kalıcı çözüm: biçim eklentilerine "satır sonu yasak" gibi bir kural bildirimi. *Ne zaman:* yeni bir oyunda benzer bozulma görülürse.
 
-92. **Türkçe harf onarımı sözlüğe bağlı (0.57.0).** Paketli sözlük bazı ASCII biçimleri (`surat`, `simdi`) geçerli sözcük saydığı için bunlar onarılmaz; eşyazımlılar (`cok` → çok/çök) elle kalır. Hatalı satırlarda kod onarımı ile harf onarımı ayrı geçişlerde çalışır, tek geçişte birleşmez. Düzeltme onay kutusu için arayüz testi yok. *Ne zaman:* kullanıcı onarılmayan yaygın bir sözcük bildirirse sözlüğe istisna listesi eklenir.
-
 ## 2. Bilinen sınırlar (ihtiyaç doğunca)
 
 2. **Eski NCA0/NCA2 başlıkları desteklenmiyor.** 2017 öncesi geliştirme sürümlerine özgü;
@@ -430,3 +428,5 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     düzeltmeden çıkarmak (gerçek projede güvenli sınıfın 109/257'si).
 
 86. ~~Ollama belirteç tahmini kaba~~ — **Kapandı:** tahmin CJK (kana, Kanji/Çince, Hangul) karakterini ~1 belirteç, Latin metni karakter/3 sayar (estimate_tokens, prompt_weight; ollama.py). Gerçek sayı modele göre değişir; parti tahminden uzun çıkarsa num_ctx yine bir basamak yükselir.
+
+92. ~~Türkçe harf onarımı sözlüğe bağlı~~ — **Kapandı:** ASCII biçimi sözlükte geçerli olsa da yaygın yazım hatası olan sözcükler (simdi, sey, aksam, buyuk, tum, basla, yasam) küçük bir listeyle (asciitr._ASCII_MISTAKES) onarılır. surat (sürat) gerçek bir sözcük olduğu için listede yoktur; eşyazımlılar (cok → çok/çök) seçime kalır. Kalan: hatalı satırlarda kod onarımı ile harf onarımı ayrı geçişlerde çalışır; düzeltme onay kutusu için arayüz testi yok.
