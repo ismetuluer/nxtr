@@ -78,7 +78,8 @@ Her metin formatı aynı arayüzü uygular:
   verilmeyen girdiler olduğu gibi kalır.
 - İsteğe bağlı: `collect_context`, `language`, `normalize_text`, `unsupported_letters`, `support_files`,
   `game_file_patches`, `exefs_patches`, `derived_files`, `movable_code` (hangi kod serbest), `paired_code` (hangi
-  kod aç/kapa çiftinin parçası; ikisi için aşağıya ve `core/formats/base.py`'ye bak) (ayrıntı
+  kod aç/kapa çiftinin parçası; ikisi için aşağıya ve `core/formats/base.py`'ye bak), `languages` (dil dosyanın
+  içindeyse dil listesi, I2), `forbids_newline` (çeviride satır sonu yasak) (ayrıntı
   `docs/rehber/eklenti-yazma.md`).
 - **Zorunlu test:** değişiklik yapmadan `extract` → `inject` sonucu orijinalle **bayt bayt aynı** olmalı (round-trip).
   Bu test geçmeyen eklenti tamamlanmış sayılmaz. Gerçek dosyada denemek için `python -m nxceviri.arac dogrula`.

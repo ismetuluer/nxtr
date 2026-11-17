@@ -6,7 +6,8 @@ Unreal `.locres`, GFMSG mesajları ve bazı oyunlara özel biçimler.
 - Büyük oyunlarda tarama birkaç dakika sürebilir; işi istediğiniz an **İptal** edebilirsiniz. Bitince bildirim gelir.
 - Rapor, bulunan metin dosyalarını, satır sayılarını ve tanınmayan dosyaları gösterir.
 - **Kaynak dil:** Türkçe metin, seçtiğiniz dilin (çoğunlukla İngilizce) yerine yazılır. Oyunu da o dilde oynamanız
-  gerekir.
+  gerekir. Oyun dosyalarının içinde dil listesi taşıyan biçimlerde (ör. I2 Localization) o dosyadaki diller de bu
+  listede görünür.
 - **Hangi dosyalar aktarılır:** Yalnızca tablodaki **Aktar** kutusu işaretli dosyalar aktarılır; işaretli dosya
   sayısı tablonun altında görünür. Başka dildeki dosyaların kutusu kapalıdır. Dili anlaşılamayan dosyalar işaretli
   gelir; istemediklerinizin işaretini kaldırın. Seçim projeye kaydedilmez, her taramada yeniden kurulur. Başlıkların

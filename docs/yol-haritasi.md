@@ -43,11 +43,8 @@ M6, M2'den hemen sonra yapılır. Güncel sıra: M1 → M2 → **M6** → M3 →
 
 Sırasız; her biri ayrı karar ve onay ister.
 
-1. ~~**Adım listesinde klavye odağı.**~~ *Yapıldı (2026-11-17): klavyeyle odak gelince seçili öğede ince halka, fare tıklamasında yok.* Eski not: Listenin çevresindeki mavi odak çerçevesi ürün sahibinin isteğiyle kaldırıldı
-   (2026-11-14); seçili adımın vurgusu odağı gösterir. İstenirse öğe başına ince bir işaret `gui/step_nav.py`
-   çiziminde yapılır.
-2. ~~**Boşluk ve köşe ölçeği.**~~ *Yapıldı (2026-11-17): `gui/scale.py` (aralık 4/8/12/16/24, köşe 4/6/8/12); tema QSS'i ölçeğe indirildi. Python'daki yerleşim kenar payları ayrı, dokunulmadı.* Eski not: Arayüzde 10 farklı aralık ve 9 farklı köşe yarıçapı var; ilgili ekran elden geçerken
-   sadeleştirilecek (topluca değil).
+1. ~~**Adım listesinde klavye odağı.**~~ *Yapıldı (2026-11-17): klavyeyle odak gelince seçili öğede ince halka, fare tıklamasında yok.*
+2. ~~**Boşluk ve köşe ölçeği.**~~ *Yapıldı (2026-11-17): `gui/scale.py` (aralık 4/8/12/16/24, köşe 4/6/8/12); tema QSS'i ölçeğe indirildi. Python'daki yerleşim kenar payları ayrı, dokunulmadı.*
 
 ### Görsel denetim bulguları (2026-11-14, 0.57.1 ekran görüntüleri)
 
@@ -98,7 +95,13 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
   seçenekleri, Denetle, sığdırma alanları). Çevir sayfasında ipucusuz kalanlar yalnızca kendini anlatan düğmeler
   (Bul, Yerine, Onayla, İptal).
 
-**Yapıldı (0.64.0)** — aşağıdaki yol haritasının 1. ve 2. aşaması; "Koşula bağlı" listesi açık kalır.
+**Yapıldı (0.64.0)** — aşağıdaki yol haritasının 1. ve 2. aşaması; "Koşula bağlı" listesi açık kalır. Aşamaların
+dışında sonradan eklenenler:
+- Ana pencere bölmesinin 3. adımı: proje yaşam döngüsü `project_controller`'e, makine işleri `machine_controller`'e
+  taşındı (karar 221).
+- Dışa aktarma satır bazlıdır: biçimin reddettiği ya da kaynağı oyun dosyasıyla uyuşmayan (eski sürümde taranmış)
+  satır yalnızca kendisi orijinal kalır, bildirimde ve bilgi dosyasında listelenir (karar 224).
+- Satır sonu kuralı: biçim yasaklıyorsa çeviride satır sonu Kontrol Et'te hata olur ve dışa aktarılmaz (karar 225).
 
 **Kalan işlerin yol haritası (ürün sahibinin isteği, 2026-11-17)**
 Hedef: "şimdi yapılabilir" listesini boşaltmak; tek sürümle yayımlanır (0.63.1 düzeltmeleri dahil). Kararlar
@@ -122,8 +125,10 @@ Aşama 3: tam test, gerçek proje kopyasında ölçüm, istek-sonuç kıyası, s
 
 Koşula bağlı (burada yapılamaz; neyi beklediği yanında): 22, 47 gerçek oyun verisi · 33, 46 font ölçüsüyle
 gerçek kutu genişliği (oyunda görülmeli) · 54 nedeni bilinmiyor, veri yok · 55 mimari karar 51 · 68 gerçek model
-ölçümü · 75, 89 ilgili oyun yeniden çevrilirken · 83 gerçek Unity oyunu ölçümü · 87, 91'in genişletilmesi kullanıcı
-geri bildirimi · 88 gerçek Windows bildirimi · "Bilinen sınırlar" bölümü ihtiyaç doğunca.
+ölçümü · 69 kalanı (değişiklikler/geçmiş, terimler, yazım, redaksiyon, güncelleme, görseller bölümleri) o bölüme
+büyük özellik eklenirken · 75, 89 ilgili oyun yeniden çevrilirken · 83 gerçek Unity oyunu ölçümü · 87 kullanıcı
+geri bildirimi · 97 kalanı (seçenek denetimi Kontrol Et'te, tırnaklı çoğul ve `|gender` ekleri) bu eklerle bir
+Unreal oyunu çevrilince · "Bilinen sınırlar" bölümü ihtiyaç doğunca.
 
 **Yapıldı (0.63.0)**
 - Kontrol Et bekleme ekranı ve Durdur (`widgets.BusyState`, `run_checks(progress=)`, `qa_page.mark_checking`).

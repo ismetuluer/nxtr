@@ -6,16 +6,23 @@
   taşır, testler bunlara erişir). Kod çiftleri `paired_code` + `placeholders.CodeRoles` (219), Unreal çoğul (220),
   sağlayıcı kaydı şema 7 `mt_provider/mt_model` (222), pano eksikleri (223), `FormatPlugin.languages` (I2),
   `gui/scale.py` ölçek, `gui/motion.fade_in`. `tests/conftest.py` riskli düzeltme onayına kendiliğinden "Evet" der.
+  Ana pencere dört denetleyiciye bölündü (221): `checks_controller`, `export_controller`, `project_controller`,
+  `machine_controller`. Dışa aktarma satır bazlıdır (224): biçimin kabul etmediği ya da kaynağı oyun dosyasından
+  farklı okunan satır yalnızca kendisi orijinal kalır (`ExportResult.rejected_ids`, `STALE_SOURCE_REASON`; bildirim ve
+  bilgi dosyasında listelenir). Satır sonu kuralı (225): eklentinin `forbids_newline` bildirimi (Kontrol Et "Satır
+  sonu" hatası, dışa aktarılmaz). I2 dil listesi kaydın `detail` ekindedir; karşılaştıran kod `scanner.base_detail`
+  kullanır.
   Kalan borçlar koşula bağlı (gerçek oyun, cihaz, model); listesi yol haritasında.
 - **Sürüm 0.63.0** (2026-11-17; CHANGELOG 0.63.0): Kontrol Et bekleme görünümü (`widgets.BusyState`; `qa_page` yığın,
-  `mark_checking`/`stop_checking`; `main_window._run_full_check`, `_stop_checks`, `CHECK_PROGRESS_S`;
+  `mark_checking`/`stop_checking`; `checks_controller.run_full_check`, `stop_checks`, `CHECK_PROGRESS_S` (pencerede
+  yalnızca yönlendirmeler);
   `checks.run_checks(progress=)`). Aday seçimi (`asciitr.fold`/`apply_choice`, `QaIssue.choices`,
-  `apply_ascii_choice`) ve yok sayma (`core/qa/ignored.py`; süzgeç tek yerde `_show_check_results` ve
-  `_replace_board_rows`; `qa_page.active_issues`/`all_issues`, `issue_kinds.IGNORED_KIND`). Tam test seti 2748
-  geçti; gerçek proje kopyasında ölçüldü. Bilinen: yok sayılan bulgunun Çevir işareti sonraki tam denetime dek
-  kalır; Düzelt sonrası denetim durdurulursa eskimiş olabilecek bulgular geri gelir.
+  `checks_controller.apply_ascii_choice`) ve yok sayma (`core/qa/ignored.py`; süzgeç tek yerde
+  `checks_controller.show_check_results` ve `_replace_board_rows`; `qa_page.active_issues`/`all_issues`, `issue_kinds.IGNORED_KIND`). Tam test seti 2748
+  geçti; gerçek proje kopyasında ölçüldü. İki bilinen sorun (yok sayılan bulgunun Çevir işareti, Düzelt sonrası
+  denetim durdurulunca eskimiş bulgular) 0.64.0'da giderildi.
 - **Sürüm 0.62.0** (2026-11-17; CHANGELOG 0.62.0): Düzelt (`core/qa/fixrun.py` `plan_for_issues`/`plan_for_rows`;
-  `main_window.apply_fixes`, `_recheck_board_rows(keep_terms)`, `_recheck_board_later` arka plan; `qa_page`
+  `checks_controller.apply_fixes`, `recheck_board_rows(keep_terms)`, `recheck_board_later` arka plan; `qa_page`
   `_scope_plan`, `mark_checking`). Yazım önerisi (`core/spell/suggest.py`; `gui/spell_window.py` Öneri sütunu, toplu
   düzeltme onay penceresi; `UnknownWordCache.row_ids`). Serbest kod sırası (`placeholders.check -> CodeCheck`,
   eklenti `movable_code`, `registry.free_codes`/`judges_codes`, `TranslationRow.free_codes`, QA türü `code_order`,
@@ -145,5 +152,5 @@
 ## Önerilen sıradaki iş
 1. Kullanıcı paketi ve modları dener; çıkan sorunlar önceliklidir.
 2. Kayıt hatasında metin kaybı düzeltmesi (küçük).
-3. `gui/main_window.py` bölünmesi (TECH_DEBT 69, ~3.640 satır).
+3. `gui/main_window.py` bölünmesinin kalanı (TECH_DEBT 69, ~3.370 satır; dört denetleyici ayrıldı).
 4. Ürün sahibi yeni bir oyun isterse ilgili format eklentisi (kalanlar: `docs/uyumluluk.md`).

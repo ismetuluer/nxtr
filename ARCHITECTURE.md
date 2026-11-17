@@ -1,7 +1,7 @@
 # ARCHITECTURE — NX Çeviri Stüdyosu
 
-Güncel durum: **M8 kodu tamamlandı (0.14.0: hazır çeviriyi içe aktarma)**; M5 ve M8'in bitme ölçütü (modun cihazda/emülatörde Türkçe harflerle açılması) ürün sahibinin testini bekliyor. Sıra: M1 → M2 → M6 → M3 → M4 → M5 → M7 → **M8** → M9. Gerçek modelle çeviri testini ürün sahibi kendi makinesinde yapacak. Bu belge, yığını, katmanları, bağımlılıkları ve
-alınan kararları gerekçeleriyle kaydeder.
+Güncel sürüm ve durum için `CHANGELOG.md` ve `HANDOFF.md`'ye, aşama tablosu için `docs/yol-haritasi.md`'ye bakın.
+Bu belge, yığını, katmanları, bağımlılıkları ve alınan kararları gerekçeleriyle kaydeder.
 
 ## 1. Yığın
 

@@ -12,6 +12,10 @@ klasöre yazılıp denetlenir, sonra yerine taşınır. Bitince bildirim gelir; 
 Özet kartı kaç satırın yazılacağını, hatalı ve çevrilmemiş satırları gösterir. Hatalı satırlar yazılmaz; oyunda orijinal
 metin kalır.
 
+Biçimin kabul etmediği ya da kaynağı oyun dosyasıyla uyuşmayan satır da orijinal kalır; yalnızca o satır atlanır,
+dosyanın geri kalanı yazılır. Bu satırlar bildirimde ve bilgi dosyasında sayılır. Kaynak uyuşmazlığı çoğunlukla projenin
+eski bir sürümde taranmasından gelir: **Metinleri Tara** ile yeniden tarayın.
+
 ## Dolu klasör
 
 Hedefte daha önce NXTR'nin ürettiği bir mod varsa **Üzerine Yaz / Başka Klasör… / Vazgeç** sorulur. Üzerine yazarken

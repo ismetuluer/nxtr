@@ -10,6 +10,8 @@ Tablo her satırı gösterir: **No**, orijinal, çeviri, durum ve dosya. Binlerc
 - **Onaylandı:** son hâli; toplu işler dokunmaz (`Ctrl+Shift+A` onaylar).
 - **Hatalı:** kontrol kodu bozuk; bu satır dışa aktarılmaz, oyunda orijinal kalır.
 
+Durum hücresinin üzerine gelince çıkan ipucu satırı hangi hizmetin ya da modelin çevirdiğini de söyler ("Çeviren: …").
+
 ## Düzenleme
 
 - Hücreye çift tıklayın ya da `F2`. **Çeviri paneli** (`Ctrl+J`) uzun metin, karakter sınırı ve komşu satırlar için
@@ -22,7 +24,8 @@ Tablo her satırı gösterir: **No**, orijinal, çeviri, durum ve dosya. Binlerc
 
 ## Bulma ve süzme
 
-- **Tabloyu Süz** (`Ctrl+Shift+F`): duruma, dosyaya, gruba ya da anahtara göre.
+- **Tabloyu Süz** (`Ctrl+Shift+F`): duruma, dosyaya, gruba ya da anahtara göre. Büyük projede **Hata veya uyarılı**
+  süzgeci satırları önce arka planda denetler; liste birazdan süzülür, bu sırada bekleyin.
 - **Bul ve Değiştir** (`Ctrl+F` / `Ctrl+H`): küçük, taşınabilir pencere. Eşleşmeler tabloda boyanır, `F3` / `Shift+F3`
   gezinir. **Önizle** değişikliği yazmadan gösterir; **Tümünü Değiştir** tek iş olarak geri alınır. Kontrol kodunu
   bozacak değiştirme yapılmaz.

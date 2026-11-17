@@ -18,6 +18,9 @@ noktalama, çift boşluk, yazım ve uydurma şüphesi. Satırlar düzenlenirken 
 yer değiştirebilir; satır hatalı sayılmaz, dışa aktarılır. Biçim etiketi çiftleri (`<b>…</b>` gibi) de içindekilerle
 birlikte, bütün olarak taşınabilir. Eksik, fazla, çaprazlanan ya da sırası değişen öteki kodlar hatadır.
 
+**Satır sonu** hatası: bazı biçimler (ör. tırnaksız tablo hücreleri) çeviride satır sonunu taşıyamaz. Böyle bir satıra satır
+sonu girerseniz satır hatalı sayılır, dışa aktarılmaz ve oyunda orijinal kalır; satır sonunu kaldırın.
+
 Listenin üstündeki **düzeltme çubuğu** güvenli düzeltmeleri toplu uygular (fazla boşluk, kod sırası, satır
 sığdırma…). Çubuk, listede görünen bulgulardan kendiliğinden düzeltilebilenleri sayar; satır seçerseniz yalnızca
 seçilileri sayar. Soldan bir tür seçmek ya da listede satır seçmek, o bulguların düzeltilmesini istediğinizi gösterir

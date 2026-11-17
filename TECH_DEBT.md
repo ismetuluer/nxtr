@@ -69,17 +69,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     SARC/BFFNT) dışa/içe aktarılamaz; yalnızca serbest TTF/OTF. Gerçek oyunda Görseller kartı ve font
     içe alma elle denenmedi. *Ne zaman:* ilgili oyun yeniden çevrilirken.
 
-90. ~~**Kart ve panel açılış animasyonları yok (0.55.0).**~~ *Kapandı (2026-11-17): bildirim kartı ve düzenleme paneli 140 ms solarak açılır (`motion.fade_in`); `offscreen`de kapalı. Gerçek pencerede elle izlenmedi.* Eski not: İnceleme §2.10'daki "kısa, amaçlı
-    animasyonlar"dan yalnızca maskotunkiler ve kenar çubuğu daralması var; bildirim kartı ve panel
-    kayarak açılmıyor. Maskot animasyonu ekransız testte ve kare dökümüyle denendi; gerçek pencerede ve
-    yüksek DPI'da elle izlenmedi. *Ne zaman:* kullanıcı geri bildirimiyle.
-
-91. ~~**Dışa aktarma geri okuması oyunun ayrıştırıcısından yumuşak olabilir (0.55.1).**~~ *Kapandı (2026-11-17,
-    ARCHITECTURE 225): eklentiler `forbids_newline(key)` ile "satır sonu yasak" kuralı bildirir; çeviride satır sonu
-    olan satır Kontrol Et'te hata, dışa aktarmada orijinal kalır ve bildirilir. Bildiren yerleşik yalnızca Unity TSV
-    hücreleri; YCD (`.yc`) belirsiz olduğu için bildirilmedi. Satır sonu dışındaki ayraçlar (ör. sekme, CSV virgülü)
-    için genel bir kural yok; yeni bir biçimde gerekirse aynı düzenle eklenir.* Eski not: Yapı denetimi eklentinin kendi `extract`ını kullanır; oyunun yerleşik okuyucusu daha katıysa (ör. tırnaksız satır sonu bölen basit CSV okuyucu) bizim okuyucumuz sorunu görmeyebilir. Savunmanın öteki katmanları (çeviriye karışan kod/satır sonu denetimi) bu boşluğu azaltır. Kalıcı çözüm: biçim eklentilerine "satır sonu yasak" gibi bir kural bildirimi. *Ne zaman:* yeni bir oyunda benzer bozulma görülürse.
-
 97. **Unreal argüman ekleri kısmen çözüldü (2026-11-17).** Yalnızca yalın çoğul ifadesi (`{N}|plural(one=a,other=b)`)
     parçalanır (ARCHITECTURE 220). Tırnaklı ya da boş değerli çoğul ve başka ekler (`|gender(…)`, `|ordinal(…)`)
     çözülmez: değişken ile ekin başı tek, katı kod olur, ekin geri kalanı düz metin kalır (makine çevirisi `one=`
@@ -456,3 +445,12 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     önce onay istenir. Terim denetimi 4+ harfli terimde 14 harflik ek zincirini tanır. Kalan: kısa (≤ 3 harf) terimde
     8 harften, uzun terimde 14 harften uzun gerçek ek zinciri hâlâ uyarı verir; arka plan denetimi sürerken süzgeç
     düğmesi seçili görünür ama liste sonuç gelene dek eski süzgeçte kalır (bildirim söyler).
+
+90. ~~Kart ve panel açılış animasyonları yok (0.55.0).~~ — **Kapandı (2026-11-17):** bildirim kartı ve düzenleme
+    paneli 140 ms solarak açılır (`motion.fade_in`); `offscreen`de kapalı. Gerçek pencerede elle izlenmedi.
+
+91. ~~Dışa aktarma geri okuması oyunun ayrıştırıcısından yumuşak olabilir (0.55.1).~~ — **Kapandı (2026-11-17,
+    ARCHITECTURE 225):** eklentiler `forbids_newline(key)` ile "satır sonu yasak" kuralı bildirir; çeviride satır
+    sonu olan satır Kontrol Et'te hata, dışa aktarmada orijinal kalır ve bildirilir. Bildiren yerleşik yalnızca Unity
+    TSV hücreleri; YCD (`.yc`) belirsiz olduğu için bildirilmedi. Satır sonu dışındaki ayraçlar (ör. sekme, CSV
+    virgülü) için genel bir kural yok; yeni bir biçimde gerekirse aynı düzenle eklenir.
