@@ -68,7 +68,7 @@ from nxceviri.core.pipeline import (
 from nxceviri.core.plugins.loader import PluginInfo, PluginReport
 from nxceviri.core.plugins.record import plugin_warnings, record_extraction
 from nxceviri.core.plugins.trust import PluginTrust
-from nxceviri.core.progress import TaskContext
+from nxceviri.core.progress import ProgressCallback, TaskContext
 from nxceviri.core.project import PROJECT_SUFFIX, Change, Project, SourceRecord, TranslationRow, row_group
 from nxceviri.core.qa import ignored, transliterate
 from nxceviri.core.qa.asciitr import apply_choice
@@ -276,6 +276,9 @@ FIX_SYNC_ROWS = 200
 #: Düzeltmeden sonra değişen satırlar bu sayıya kadar panoda yerinde yenilenir; fazlası arka planda tam denetlenir.
 FIX_RECHECK_ROWS = 2000
 
+#: Denetim ilerlemesinin bekleme görünümüne en sık yansıtılma aralığı (saniye).
+CHECK_PROGRESS_S = 0.2
+
 _TASK_LABELS = {
     "Oyun dosyaları okunuyor": "Oyun dosyalarını okuma",
     "Dosyalar çıkarılıyor": "Dosya çıkarma",
@@ -409,6 +412,7 @@ class MainWindow(QMainWindow):
         self._spell_scan_ok = False
         #: Yazım düzeltmesinden sonra panoda yerinde yeniden denetim (arka planda; aynı anda tek).
         self._board_task: Task | None = None
+        self._check_task: Task | None = None  # Durdur'un iptal edeceği tam denetim işi
         self._board_pending: dict[int, TranslationRow] = {}
         self._recheck_pending = False
         #: Sığdırma ayarı değişince art arda değişiklikler tek denetimde toplanır.
@@ -610,6 +614,7 @@ class MainWindow(QMainWindow):
         self.qa_page.font_import_requested.connect(self.import_edited_font)
         self.qa_page.font_reset_requested.connect(self.reset_edited_font)
         self.qa_page.run_checks.connect(self.start_checks)
+        self.qa_page.stop_checks.connect(self._stop_checks)
         self.qa_page.transliterate_changed.connect(self._set_transliterate)
         self.qa_page.font_patch_changed.connect(self._set_font_patch)
         self.qa_page.open_row.connect(self._open_row)
@@ -961,7 +966,7 @@ class MainWindow(QMainWindow):
             else:
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
         self.nav.setEnabled(not self.busy)
-        self.qa_page.check_button.setEnabled(not self.busy)
+        self.qa_page.check_button.setEnabled(not self.busy or self.qa_page.checking)
         self._refresh_nav()
         self._refresh_status()
         self.update_menu_state()
@@ -1889,13 +1894,14 @@ class MainWindow(QMainWindow):
         self._mark_changed()
         self._refresh_qa()
 
-    def _checks_job(self, rows: list[TranslationRow]) -> Callable[[], list[QaIssue]]:
-        """Denetimi `rows` üzerinde çalıştıran işlev; ayarlar şimdi okunur (iş parçacığı veritabanına dokunmaz)."""
+    def _checks_job(self, rows: list[TranslationRow]) -> Callable[[ProgressCallback | None], list[QaIssue]]:
+        """Denetimi `rows` üzerinde çalıştıran işlev (isteğe bağlı ilerleme geri çağrısı alır); ayarlar şimdi okunur
+        (iş parçacığı veritabanına dokunmaz)."""
         missing, transliterated = self._missing_letters(), self._transliterate_letters()
         glossary, fit, spell = self.project.glossary(), self._fit_config(), self.spell
         ignored_terms, spell_ignored = self._terms_ignored(), self._spell_ignored()
 
-        def job() -> list[QaIssue]:
+        def job(progress: ProgressCallback | None = None) -> list[QaIssue]:
             return run_qa_checks(
                 rows,
                 missing,
@@ -1905,6 +1911,7 @@ class MainWindow(QMainWindow):
                 spell=spell,
                 ignored_terms=ignored_terms,
                 spell_ignored=spell_ignored,
+                progress=progress,
             )
 
         return job
@@ -1912,46 +1919,74 @@ class MainWindow(QMainWindow):
     def run_checks(self) -> None:
         """Denetimi hemen (bu iş parçacığında) yapar; düzeltmenin ardından ve testlerde kullanılır."""
         rows = self.project.translation_rows()
-        self._show_check_results(self._checks_job(rows)(), rows)
+        self._show_check_results(self._checks_job(rows)(None), rows)
 
     def start_checks(self) -> None:
         """Kontrol Et → Denetle: denetim arka plan işinde çalışır (büyük projede arayüz donmaz), bitince bildirilir."""
         if self.busy:
             return
         self._fit_recheck_timer.stop()
+        self.qa_page.mark_checking()
+        self._run_full_check("Denetim", self._announce_checks)
+
+    def _announce_checks(self, result: list[QaIssue]) -> None:
+        """Denetle bitince sonucu bildirir."""
+        errors = sum(1 for i in result if i.severity == SEVERITY_ERROR)
+        warnings = sum(1 for i in result if i.severity == SEVERITY_WARNING)
+        if errors or warnings:
+            # Bulgu uygulamanın değil oyun metinlerinin sorunudur; hata simgesi yanıltıp "çöktü" sanılmasın.
+            self.notify(
+                LEVEL_INFO,
+                "Denetim bitti",
+                f"{format_int(errors)} hata · {format_int(warnings)} uyarı",
+                (NoticeAction("Sorunları Gör", lambda: self.nav.setCurrentRow(STEP_QA)),),
+            )
+        else:
+            self.notify(LEVEL_SUCCESS, "Denetim bitti", "Sorun bulunmadı.")
+
+    def _run_full_check(self, description: str, finished: Callable[[list[QaIssue]], None] | None = None) -> None:
+        """Tüm satırların denetimini arka plan işinde çalıştırır (Denetle ve düzeltme sonrası yenileme ortak yolu).
+
+        İlerleme gerçektir (denetlenen / toplam) ve bekleme görünümüne yansır; iş Durdur ile iptal edilebilir.
+        """
         rows = self.project.translation_rows()
         project = self.project
         job = self._checks_job(rows)
+        detail = f"{format_int(len(rows))} satır denetleniyor"
 
-        def work(_ctx: TaskContext) -> object:
-            return job()
+        def work(ctx: TaskContext) -> object:
+            return job(ctx.report)
+
+        shown = [0.0]
+
+        def progress(done: int, total: int, message: str) -> None:
+            now = time.monotonic()
+            if now - shown[0] >= CHECK_PROGRESS_S or done >= total:  # arayüz saniyede birkaç kez tazelenir
+                shown[0] = now
+                self.qa_page.update_check_progress(done, total, message or detail)
 
         def done(result: object) -> None:
             if self.project is not project:
                 return
             assert isinstance(result, list)
-            shown = self._show_check_results(result, rows)
-            errors = sum(1 for i in shown if i.severity == SEVERITY_ERROR)
-            warnings = sum(1 for i in shown if i.severity == SEVERITY_WARNING)
-            if errors or warnings:
-                # Bulgu uygulamanın değil oyun metinlerinin sorunudur; hata simgesi yanıltıp "çöktü" sanılmasın.
-                self.notify(
-                    LEVEL_INFO,
-                    "Denetim bitti",
-                    f"{format_int(errors)} hata · {format_int(warnings)} uyarı",
-                    (NoticeAction("Sorunları Gör", lambda: self.nav.setCurrentRow(STEP_QA)),),
-                )
-            else:
-                self.notify(LEVEL_SUCCESS, "Denetim bitti", "Sorun bulunmadı.")
+            visible = self._show_check_results(result, rows)  # yok sayılanlar bildirime de girmez
+            if finished is not None:
+                finished(visible)
 
-        self.qa_page.summary.setText("Denetleniyor…")
-        self.qa_page.show_fit_checking()
         self._run(
             work,
-            "Denetim",
+            description,
             on_success=done,
             on_failure=self.qa_page.show_check_failed,
+            on_progress=progress,
+            on_cancel=self.qa_page.stop_checking,
         )
+        self._check_task = self.task
+
+    def _stop_checks(self) -> None:
+        """Durdur: sürmekte olan denetim işini iptal eder (başka bir iş sürüyorsa dokunmaz)."""
+        if self.task is not None and self.task is self._check_task:
+            self.task.cancel()
 
     def _show_check_results(self, issues: list[QaIssue], rows: list[TranslationRow]) -> list[QaIssue]:
         """Denetim sonucunu panoya verir (tek yer: yok sayılanlar burada ayrılır); gösterilen bulguları döndürür."""
@@ -2153,24 +2188,7 @@ class MainWindow(QMainWindow):
             return
         self._recheck_pending = False
         self._fit_recheck_timer.stop()
-        rows = self.project.translation_rows()
-        project = self.project
-        job = self._checks_job(rows)
-
-        def work(_ctx: TaskContext) -> object:
-            return job()
-
-        def done(result: object) -> None:
-            if self.project is project:
-                assert isinstance(result, list)
-                self._show_check_results(result, rows)
-
-        self._run(
-            work,
-            "Denetim yenileniyor",
-            on_success=done,
-            on_failure=self.qa_page.show_check_failed,
-        )
+        self._run_full_check("Denetim yenileniyor")
 
     def ignore_terms(self, phrases: list[str]) -> None:
         """Sorunlar panosunda "Terim değil": ifadeler projede terim sayılmaz, denetim yenilenir."""

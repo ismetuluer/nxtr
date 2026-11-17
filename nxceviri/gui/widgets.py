@@ -391,6 +391,36 @@ class EmptyState(QWidget):
             lay.addWidget(action, alignment=Qt.AlignmentFlag.AlignCenter)
 
 
+class BusyState(EmptyState):
+    """Bekleme durumu: çalışan maskot, "başlık %N" ve ilerleme çubuğu, altında kısa açıklama.
+
+    Maskot Ayarlar'dan kapalıysa yalnızca yazı ve çubuk görünür. Toplam bilinmiyorsa çubuk belirsiz kayar.
+    """
+
+    def __init__(self, title: str, text: str = "") -> None:
+        super().__init__(title, text, mood=MOOD_WORKING)
+        self._title = title
+        self.bar = QProgressBar()
+        self.bar.setMaximumWidth(360)
+        self.bar.setMinimumWidth(220)
+        self.bar.setTextVisible(False)
+        lay = self.layout()
+        assert isinstance(lay, QVBoxLayout)
+        lay.insertWidget(lay.indexOf(self.text), self.bar, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.update_progress(0, 0, text)
+
+    def update_progress(self, done: int, total: int, message: str) -> None:
+        if total > 0:
+            percent = min(100, done * 100 // total)
+            self.bar.setRange(0, 1000)
+            self.bar.setValue(min(1000, done * 1000 // total))
+            self.title.setText(f"{self._title} %{percent}")
+        else:
+            self.bar.setRange(0, 0)
+            self.title.setText(self._title)
+        self.text.setText(message)
+
+
 class ProgressPanel(QWidget):
     """Yükleniyor durumu: aşama, ilerleme çubuğu, ayrıntı ve iptal."""
 

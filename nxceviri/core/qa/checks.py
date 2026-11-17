@@ -39,6 +39,7 @@ import re
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 
+from nxceviri.core.progress import ProgressCallback
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa import codefix
 from nxceviri.core.qa.asciitr import AsciiRepair, repair_ascii_turkish
@@ -340,21 +341,38 @@ def run_checks(
     ignored_terms: Collection[str] = (),
     spell_ignored: Collection[str] = (),
     terms: Mapping[str, str] | None = None,
+    progress: ProgressCallback | None = None,
 ) -> list[QaIssue]:
     """Satırları denetler. `terms`: terim sözlüğü (`project_terms`); verilmezse `rows`tan çıkarılır.
 
     Birkaç satırı yeniden denetlerken (yerinde düzenleme) terimler tüm projeden çıkarılıp `terms` ile verilir.
+    `progress`: her satırdan sonra (denetlenen, toplam, açıklama) bildirilir; toplam, satırlara ek olarak satır
+    sonrası aşamaların (tutarlılık, terimler) payını da içerir. Geri çağrı istisna fırlatırsa (iptal) denetim durur.
     """
     from nxceviri.core.qa.terms import project_terms, term_issues  # noqa: PLC0415 - terms bu modülden QaIssue alır (döngüsel içe aktarma)
 
     patterns = glossary_patterns(glossary)
     extra = spell_extra_words(glossary, spell_ignored) if spell is not None else frozenset()
+    count = len(rows)
+    tail = max(count // _TAIL_SHARE, 2)  # satır sonrası aşamalar: tutarlılık ve terimler
+    total = count + tail
     out: list[QaIssue] = []
-    for row in rows:
+    for done, row in enumerate(rows, 1):
         out.extend(check_row(row, missing_letters, transliterated, patterns, fit, spell=spell, spell_extra=extra))
+        if progress is not None:
+            progress(done, total, "")
     out.extend(consistency_issues(rows))
+    if progress is not None:
+        progress(count + tail // 2, total, _TAIL_MESSAGE)
     out.extend(term_issues(rows, project_terms(rows, glossary, ignored_terms) if terms is None else terms))
+    if progress is not None:
+        progress(total, total, _TAIL_MESSAGE)
     return out
+
+
+#: Satır sonrası aşamaların (tutarlılık, terimler) ilerleme çubuğundaki payı: satır sayısının bu kadarda biri.
+_TAIL_SHARE = 20
+_TAIL_MESSAGE = "Tutarlılık ve terimler denetleniyor"
 
 
 #: Tutarsızlık iletisinde bir çevirinin gösterilen en çok karakter sayısı.

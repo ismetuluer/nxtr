@@ -63,6 +63,8 @@ _ROLE_ERROR = Qt.ItemDataRole.UserRole + 4
 _TYPE_ALL, _TYPE_GROUP, _TYPE_KIND = "all", "group", "kind"
 _ICON_SIZE = 14
 _SIDE = 10
+#: Denetim sürerken listenin soluklığı.
+_WAITING_OPACITY = 0.45
 
 
 def _label(kind: str) -> str:
@@ -87,6 +89,8 @@ class KindList(QListWidget):
         self.setFixedWidth(LIST_WIDTH)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
         self.empty_text = EMPTY_TEXT
+        #: Denetim sürüyor: sayılar henüz doğru değil, liste soluk ve tıklanamaz görünür.
+        self.waiting = False
         self._busy = False
         self._all_was_selected = True
         self._last: frozenset[str] = frozenset()
@@ -165,6 +169,12 @@ class KindList(QListWidget):
             item.setToolTip(tip_html(hint))
         self.addItem(item)
         return item
+
+    def set_waiting(self, waiting: bool) -> None:
+        """Denetim sürerken sayılar "—" olur, boş durum yazısı gizlenir, liste soluklaşır ve tıklanamaz."""
+        self.waiting = waiting
+        self.setEnabled(not waiting)
+        self.viewport().update()
 
     # --- sorgular -----------------------------------------------------------------------
 
@@ -252,7 +262,7 @@ class KindList(QListWidget):
 
     def paintEvent(self, event: QPaintEvent) -> None:
         super().paintEvent(event)
-        if not self.is_empty():
+        if not self.is_empty() or self.waiting:
             return
         tokens = current_tokens()
         painter = QPainter(self.viewport())
@@ -281,8 +291,11 @@ class _KindDelegate(QStyledItemDelegate):
     ) -> None:
         tokens = current_tokens()
         kind_type = index.data(_ROLE_TYPE)
+        waiting = isinstance(option.widget, KindList) and option.widget.waiting
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if waiting:
+            painter.setOpacity(_WAITING_OPACITY)
         rect = option.rect.adjusted(4, 1, -4, -1)
         if kind_type == _TYPE_GROUP:
             font = QFont(option.font)
@@ -305,7 +318,7 @@ class _KindDelegate(QStyledItemDelegate):
             mark = icon("circle-x", tokens["danger"], _ICON_SIZE)
             mark.paint(painter, QRect(left, rect.center().y() - _ICON_SIZE // 2 + 1, _ICON_SIZE, _ICON_SIZE))
         text_left = left + _ICON_SIZE + 6 if kind_type == _TYPE_KIND else left
-        count = f"{format_int(int(index.data(_ROLE_COUNT)))}"
+        count = "—" if waiting else f"{format_int(int(index.data(_ROLE_COUNT)))}"
         count_width = painter.fontMetrics().horizontalAdvance(count)
         right = rect.right() - _SIDE + 2
         painter.setPen(QColor(tokens["text"] if selected else tokens["muted"]))

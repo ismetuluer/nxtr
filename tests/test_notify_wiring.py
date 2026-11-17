@@ -144,7 +144,7 @@ def test_check_button_runs_in_background_and_notifies(qtbot: QtBot, window: Main
     window.qa_page.run_checks.connect(lambda: seen_busy.append(window.busy))
     window.qa_page.check_button.click()
     assert seen_busy == [True]  # düğmeye basınca iş başladı (eşzamanlı değil)
-    assert not window.qa_page.check_button.isEnabled()  # iş sürerken ikinci kez basılamaz
+    assert window.qa_page.check_button.text() == "Durdur"  # iş sürerken düğme işi durdurur, ikinci denetim başlamaz
     _wait_idle(qtbot, window)
     assert window.qa_page.summary.text() not in ("", "Denetleniyor…")  # sonuç özeti yazıldı
     assert window.notifier.history[0].title.startswith("Denetim")
