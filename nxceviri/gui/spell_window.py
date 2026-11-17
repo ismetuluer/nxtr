@@ -29,10 +29,11 @@ from PySide6.QtWidgets import (
 from nxceviri.core.languages import sort_key
 from nxceviri.core.spell.report import WordUse
 from nxceviri.core.spell.suggest import Suggestion
-from nxceviri.gui.widgets import button, format_int, label, title_row
+from nxceviri.gui.widgets import BusyState, button, format_int, label, title_row
 
 _EMPTY_TEXT = "Bilinmeyen sözcük yok"
-_SCANNING_TEXT = "Sözcükler taranıyor…"
+_SCANNING_TEXT = "Sözcükler taranıyor"
+_SCANNING_HINT = "Büyük projede birkaç saniye sürebilir; pencere hazır olunca liste dolar."
 _WORD_COLUMN = 0
 _COUNT_COLUMN = 1
 _SUGGEST_COLUMN = 2
@@ -83,6 +84,9 @@ class SpellWindow(QDialog):
         self.empty_label: QLabel = label(_EMPTY_TEXT, "emptyTitle")
         self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(self.empty_label, 1)
+        self.scanning = BusyState(_SCANNING_TEXT, _SCANNING_HINT)
+        self.scanning.setVisible(False)
+        lay.addWidget(self.scanning, 1)
         self.table = QTableWidget(0, 3)
         self.table.setHorizontalHeaderLabels(["Sözcük", "Sayı", "Öneri"])
         self.table.verticalHeader().hide()
@@ -153,12 +157,15 @@ class SpellWindow(QDialog):
         self.set_words([])
 
     def set_scanning(self, scanning: bool) -> None:
-        """Büyük projede tarama arka planda sürerken boş durum yerine "taranıyor" gösterilir."""
-        self.empty_label.setText(_SCANNING_TEXT if scanning else _EMPTY_TEXT)
+        """Büyük projede tarama arka planda sürerken boş durum yerine maskotlu "taranıyor" ekranı gösterilir."""
+        self.scanning.setVisible(scanning)
         if scanning:
-            self.empty_label.setVisible(True)
+            self.empty_label.setVisible(False)
             self.table.setVisible(False)
             self.search.setEnabled(False)
+        else:
+            self.empty_label.setText(_EMPTY_TEXT)
+            self.empty_label.setVisible(not self.table.isVisibleTo(self))
 
     def set_words(self, words: list[WordUse], previews: Mapping[int, str] | None = None) -> None:
         """Tabloyu tazeler; seçili sözcükler hâlâ varsa seçim korunur. `previews`: satır kimliği → kısa metin."""
@@ -179,6 +186,7 @@ class SpellWindow(QDialog):
             if use.word in keep:
                 word_item.setSelected(True)
         self.table.blockSignals(False)
+        self.scanning.setVisible(False)
         self.empty_label.setText(_EMPTY_TEXT)
         empty = not words
         self.empty_label.setVisible(empty)
