@@ -26,6 +26,7 @@ from nxceviri.core.formats.unity import UnityPlugin
 from nxceviri.core.progress import TaskContext
 from nxceviri.core.project import Project, TranslationRow
 from nxceviri.core.translate import placeholders
+from nxceviri.core.translate.origin import NO_ORIGIN
 from nxceviri.core.translate.status import Status
 
 #: Çok büyük dosyalar (ses/doku paketleri) metin tablosu içermez; okunmaz.
@@ -297,5 +298,6 @@ def port_translations(
             report.identical_to_source += 1
     report.applied = len(changes)
     if apply and changes:
-        project.set_translations(changes, machine=True, job="import")
+        # Hazır çeviri metni baştan değiştirir: satırın önceki makine çevirisi kaynağı artık geçerli değil.
+        project.set_translations(changes, machine=True, job="import", origin=NO_ORIGIN)
     return report

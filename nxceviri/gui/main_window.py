@@ -104,6 +104,7 @@ from nxceviri.core.translate.fitconfig import (
     separate_groups,
 )
 from nxceviri.core.translate.glossary_io import merge_terms, plan_terms_from_rows
+from nxceviri.core.translate.origin import MEMORY_ORIGIN, NO_ORIGIN, MachineOrigin
 from nxceviri.core.translate.port import ReadyTranslations, port_translations, read_ready_translations
 from nxceviri.core.translate.probe import deepl_summary, ollama_summary
 from nxceviri.core.translate.providers.base import ProviderError, TranslationProvider
@@ -115,6 +116,7 @@ from nxceviri.core.translate.runner import (
     ACTION_TRANSLATE,
     MachineJob,
     RunSummary,
+    memory_filled_ids,
     target_rows,
 )
 from nxceviri.core.translate.status import TRANSLATED_STATUSES, Status
@@ -2828,6 +2830,9 @@ class MainWindow(QMainWindow):
             return
         set_running(True)
         report("success", "")
+        # Satırın kaynağı olarak yalnızca sağlayıcı kimliği ve Ollama modeli yazılır (adres ya da anahtar asla).
+        origin = MachineOrigin(chosen.provider, chosen.model if chosen.provider == PROVIDER_OLLAMA else "")
+        memory_ids = frozenset(memory_filled_ids(job))
 
         def finish(level: str, title: str, text: str, details: str = "") -> None:
             set_running(False)
@@ -2861,7 +2866,9 @@ class MainWindow(QMainWindow):
             on_failure=lambda text: finish(LEVEL_ERROR, f"{name} durdu", f"{text} Yapılanlar kaydedildi. {resume}"),
             on_progress=on_progress,
             on_cancel=lambda: finish(LEVEL_WARNING, f"{name} durduruldu", f"Yapılanlar kaydedildi. {resume}"),
-            on_partial=lambda results: self._machine_results(results, chosen.include_approved, job_id),
+            on_partial=lambda results: self._machine_results(
+                results, chosen.include_approved, job_id, origin=origin, memory_ids=memory_ids
+            ),
         )
 
     # --- değişiklikler ve geçmiş -------------------------------------------------------------
@@ -3034,12 +3041,31 @@ class MainWindow(QMainWindow):
             return
         self._mark_changed()
 
-    def _machine_results(self, results: object, overwrite_approved: bool = False, job_id: str = "") -> None:
+    def _machine_results(
+        self,
+        results: object,
+        overwrite_approved: bool = False,
+        job_id: str = "",
+        *,
+        origin: MachineOrigin | None = None,
+        memory_ids: frozenset[int] = frozenset(),
+    ) -> None:
+        """Makine işinin bir partisini yazar; `origin` satırın kaynağı olarak kaydedilir, bellekten dolanlar
+        (`memory_ids`) "Çeviri belleği" olarak."""
         assert isinstance(results, list)
+        job = job_id or new_job_id("translate")
+        from_memory = [r for r in results if r[0] in memory_ids]
+        from_provider = [r for r in results if r[0] not in memory_ids]
         try:
-            rows = self.project.set_translations(
-                results, machine=True, overwrite_approved=overwrite_approved, job=job_id or new_job_id("translate")
-            )
+            rows = []
+            if from_memory:
+                rows += self.project.set_translations(
+                    from_memory, machine=True, overwrite_approved=overwrite_approved, job=job, origin=MEMORY_ORIGIN
+                )
+            if from_provider:
+                rows += self.project.set_translations(
+                    from_provider, machine=True, overwrite_approved=overwrite_approved, job=job, origin=origin
+                )
         except NxError as exc:
             self.translate_page.show_notice("danger", exc.user_text())
             self._cancel_task()
@@ -3336,6 +3362,8 @@ class MainWindow(QMainWindow):
                 machine=translation,
                 overwrite_approved=True,
                 job=job_id,
+                # Dış çeviri metni baştan değiştirir (makine kaynağı artık bilinmez); redaksiyon taslağı düzeltir.
+                origin=NO_ORIGIN if translation else None,
             )
         except NxError as exc:
             self.notify(LEVEL_ERROR, title, exc.user_text())

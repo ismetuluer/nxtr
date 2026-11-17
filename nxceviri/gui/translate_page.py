@@ -61,6 +61,7 @@ from nxceviri.core.qa.live import LIVE_KINDS, LiveChecker, LiveContext
 from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.translate.codekinds import CodeKinds
 from nxceviri.core.translate.fitconfig import FitConfig
+from nxceviri.core.translate.origin import origin_label
 from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_REVISE, ACTION_TRANSLATE, target_rows
 from nxceviri.core.translate.status import STATUS_LABELS, TRANSLATED_STATUSES, Status
 from nxceviri.core.translate.textsearch import fold_search
@@ -582,6 +583,9 @@ class TranslationModel(QAbstractTableModel):
                 parts.append("\n".join(f"{'✖' if i.severity == SEVERITY_ERROR else '⚠'} {i.message}" for i in found))
             if mark and r.status in _MARKED_STATUSES:
                 parts.append(f"Son değişiklik: {mark}. Önceki hâli için sağ tık → Çeviri geçmişi.")
+            translated_by = origin_label(r.mt_provider, r.mt_model) if r.translation else ""
+            if translated_by:
+                parts.append(f"Çeviren: {translated_by}")
             return "\n\n".join(parts) or None
         if col == COL_PREVIOUS:
             previous = self.previous.get(r.id)

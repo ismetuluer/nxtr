@@ -27,6 +27,7 @@ from nxceviri.core.errors import ProjectError
 from nxceviri.core.formats import legacy, registry
 from nxceviri.core.formats.base import ControlCode, TextEntry
 from nxceviri.core.formats.scanner import ENGINE_LABELS, EngineGuess, ScanEntry, ScanReport
+from nxceviri.core.translate.origin import MachineOrigin
 from nxceviri.core.translate.providers.base import GlossaryTerm
 from nxceviri.core.translate.status import SOURCE_CHANGED_NOTE, Status, evaluate
 from nxceviri.core.translate.uppercase import EXCEPT_KEY, GROUPS_KEY, ROWS_KEY, UppercaseRules
@@ -179,6 +180,13 @@ MIGRATIONS: tuple[str, ...] = (
     CREATE INDEX text_entries_by_file ON text_entries(file_id, idx);
     CREATE INDEX text_entries_by_status ON text_entries(status);
     """,
+    # 7: satırın makine çevirisini yapan sağlayıcı ve model (ARCHITECTURE 222); geçmiş de önceki değeri tutar
+    """
+    ALTER TABLE text_entries ADD COLUMN mt_provider TEXT NOT NULL DEFAULT '';
+    ALTER TABLE text_entries ADD COLUMN mt_model TEXT NOT NULL DEFAULT '';
+    ALTER TABLE history ADD COLUMN old_mt_provider TEXT NOT NULL DEFAULT '';
+    ALTER TABLE history ADD COLUMN old_mt_model TEXT NOT NULL DEFAULT '';
+    """,
 )
 SCHEMA_VERSION = len(MIGRATIONS)
 
@@ -295,7 +303,13 @@ class Change:
     new_text: str
     job: str
     created_at: str
+    #: Değişiklikten önceki makine çevirisi kaynağı (sağlayıcı kimliği, model); eski geçmişte boş.
+    old_mt_provider: str = ""
+    old_mt_model: str = ""
 
+
+#: Satırın geri alınabilir hâli: (metin, durum, açıklama, sağlayıcı, model).
+RowState = tuple[str, str, str, str, str]
 
 #: Geçmiş kaydında elle yapılan değişikliklerin iş adı.
 JOB_MANUAL = "elle"
@@ -309,10 +323,10 @@ UNDO_LIMIT = 100
 
 @dataclass(frozen=True)
 class UndoStep:
-    """Geri alınabilir ya da yinelenebilir işlem: iş adı ve satırların bir yandaki (metin, durum, açıklama) hâli."""
+    """Geri alınabilir ya da yinelenebilir işlem: iş adı ve satırların bir yandaki hâli (`RowState`)."""
 
     job: str
-    before: dict[int, tuple[str, str, str]]
+    before: dict[int, RowState]
 
 
 @dataclass(frozen=True)
@@ -331,6 +345,9 @@ class TranslationRow:
     #: Kod rolleri (`registry.free_codes`): küme olarak serbest kodların numaraları (çeviride yeri değişebilir);
     #: `placeholders.CodeRoles` ise `pairs` ile aç/kapa çifti kodları da (bütün olarak taşınabilir; `pairs_of`).
     free_codes: frozenset[int] = frozenset()
+    #: Makine çevirisini yapan sağlayıcı kimliği ve model (`core/translate/origin.py`); bilinmiyorsa boş.
+    mt_provider: str = ""
+    mt_model: str = ""
 
 
 def _codes_json(entry: TextEntry) -> str:
@@ -339,7 +356,7 @@ def _codes_json(entry: TextEntry) -> str:
 
 _ROW_SQL = (
     "SELECT e.id, f.path, e.key, e.source, e.translation, e.status, e.note, e.codes, e.max_length, e.context, "
-    "f.format, f.title_id FROM text_entries e JOIN text_files f ON f.id = e.file_id"
+    "f.format, f.title_id, e.mt_provider, e.mt_model FROM text_entries e JOIN text_files f ON f.id = e.file_id"
 )
 
 
@@ -367,6 +384,8 @@ def _row(r: tuple[object, ...]) -> TranslationRow:
         context=str(r[9]),
         format=fmt,
         free_codes=_free_codes(fmt, str(r[11]), codes),
+        mt_provider=sys.intern(str(r[12])),
+        mt_model=sys.intern(str(r[13])),
     )
 
 
@@ -753,6 +772,7 @@ class Project:
         overwrite_approved: bool = False,
         job: str = JOB_MANUAL,
         remember: bool = True,
+        origin: MachineOrigin | None = None,
     ) -> list[TranslationRow]:
         """Çevirileri tek işlemde yazar; her satırın durumu yer tutuculara göre belirlenir.
 
@@ -762,17 +782,20 @@ class Project:
         çeviri belleğine de yazılır; makine çevirisi bellekteki insan çevirisinin üzerine yazmaz.
         Metni değişen her satırın önceki hâli geçmişe `job` adıyla yazılır (geri alınabilsin).
         `remember=False` çeviri belleğine dokunmaz (yalnızca satır sonu yerleşimi değişen yeniden bölme gibi işler).
+        `origin` verilirse satırın makine çevirisi kaynağı (sağlayıcı, model) da yazılır; verilmezse eski kaynak
+        kalır (elle düzenleme ve düzeltmeler makine taslağının kaynağını değiştirmez; ARCHITECTURE 222).
         """
         now = _now()
         ids = []
-        before: dict[int, tuple[str, str, str]] = {}
+        before: dict[int, RowState] = {}
         ok_status = status if status is not None else (Status.MACHINE if machine else Status.APPROVED)
         # Redaksiyon insan denetiminden geçmiş sayılır: çeviri belleğinde makine çevirisinin önüne geçer.
-        origin = "human" if ok_status in (Status.APPROVED, Status.REDACTED) else "machine"
+        memory_origin = "human" if ok_status in (Status.APPROVED, Status.REDACTED) else "machine"
         with _Transaction(self._conn):
             for entry_id, text in changes:
                 row = self._conn.execute(
-                    "SELECT e.source, e.status, e.translation, e.note, e.codes, f.format, f.title_id "
+                    "SELECT e.source, e.status, e.translation, e.note, e.codes, f.format, f.title_id, "
+                    "e.mt_provider, e.mt_model "
                     "FROM text_entries e JOIN text_files f ON f.id = e.file_id WHERE e.id = ?",
                     (entry_id,),
                 ).fetchone()
@@ -782,13 +805,16 @@ class Project:
                     continue  # makine çevirisi/redaksiyon insanın onayladığı satıra kendiliğinden yazmaz
                 free = _free_codes(str(row[5]), str(row[6]), json.loads(str(row[4])))
                 new_status, note = evaluate(row[0], text, ok_status, free)
+                old: RowState = (row[2], row[1], row[3], row[7], row[8])
+                provider, model = (row[7], row[8]) if origin is None else (origin.provider, origin.model)
                 if row[2] != text:
-                    self._record(entry_id, (row[2], row[1], row[3]), text, job=job, now=now)
-                if (row[2], row[1], row[3]) != (text, new_status, note):
-                    before.setdefault(entry_id, (row[2], row[1], row[3]))
+                    self._record(entry_id, old, text, job=job, now=now)
+                if old != (text, new_status, note, provider, model):
+                    before.setdefault(entry_id, old)
                 self._conn.execute(
-                    "UPDATE text_entries SET translation = ?, status = ?, note = ?, updated_at = ? WHERE id = ?",
-                    (text, new_status, note, now, entry_id),
+                    "UPDATE text_entries SET translation = ?, status = ?, note = ?, mt_provider = ?, mt_model = ?, "
+                    "updated_at = ? WHERE id = ?",
+                    (text, new_status, note, provider, model, now, entry_id),
                 )
                 if remember and new_status == ok_status and row[0]:
                     self._conn.execute(
@@ -796,7 +822,7 @@ class Project:
                         "ON CONFLICT(source) DO UPDATE SET translation = excluded.translation, "
                         "origin = excluded.origin, updated_at = excluded.updated_at "
                         "WHERE excluded.origin = 'human' OR memory.origin = 'machine'",
-                        (row[0], text, origin, now),
+                        (row[0], text, memory_origin, now),
                     )
                 ids.append(entry_id)
             self._conn.execute("UPDATE project SET updated_at = ?", (now,))
@@ -815,12 +841,14 @@ class Project:
                 "UPDATE text_entries SET status = ?, updated_at = ? WHERE id = ?",
                 [(Status.MACHINE, _now(), r.id) for r in approved],
             )
-        self._push_undo(JOB_UNAPPROVE, {r.id: (r.translation, r.status, r.note) for r in approved})
+        self._push_undo(
+            JOB_UNAPPROVE, {r.id: (r.translation, r.status, r.note, r.mt_provider, r.mt_model) for r in approved}
+        )
         return [self.translation_row(r.id) for r in rows]
 
     # --- geri alma (Ctrl+Z) -------------------------------------------------------------------
 
-    def _push_undo(self, job: str, before: dict[int, tuple[str, str, str]]) -> None:
+    def _push_undo(self, job: str, before: dict[int, RowState]) -> None:
         """İşlemi geri alma yığınına ekler. Aynı makine işinin parça parça yazımları tek işlem sayılır."""
         if not before:
             return
@@ -841,7 +869,7 @@ class Project:
         return self._redo[-1].job if self._redo else None
 
     def undo(self) -> tuple[str, list[TranslationRow]] | None:
-        """Son işlemi geri alır: satırlar işlemden önceki metin, durum ve açıklamaya döner.
+        """Son işlemi geri alır: satırlar işlemden önceki metin, durum, açıklama ve makine kaynağına döner.
 
         Metni değişen satırlar geçmişe "geri alma" olarak yazılır. Geri alınan işlem `redo` ile geri getirilebilir.
         Geri alınacak işlem yoksa None.
@@ -858,7 +886,7 @@ class Project:
         return step.job, [self.translation_row(i) for i in ids]
 
     def redo(self) -> tuple[str, list[TranslationRow]] | None:
-        """Geri alınan son işlemi aynen geri getirir (metin, durum ve açıklama); yinelenecek işlem yoksa None.
+        """Geri alınan son işlemi aynen geri getirir (metin, durum, açıklama, kaynak); yinelenecek işlem yoksa None.
 
         Metni değişen satırlar geçmişe işin kendi adıyla yazılır: durum sütunundaki iş işareti ve "Son işte
         değişenler" süzgeci işin ilk yapıldığı hâle döner. Çeviri belleğine dokunulmaz (`undo` gibi).
@@ -874,26 +902,27 @@ class Project:
             del self._undo[:-UNDO_LIMIT]
         return step.job, [self.translation_row(i) for i in ids]
 
-    def _apply_step(self, step: UndoStep, history_job: str) -> tuple[dict[int, tuple[str, str, str]], list[int]]:
+    def _apply_step(self, step: UndoStep, history_job: str) -> tuple[dict[int, RowState], list[int]]:
         """Adımın satırlarını yazar (açık işlem içinde); (yazmadan önceki hâlleri, yazılan satır kimliklerini) verir.
 
         Bu arada kalkmış satır sessizce atlanır. Metni değişen satır geçmişe `history_job` adıyla yazılır.
         """
         now = _now()
-        previous: dict[int, tuple[str, str, str]] = {}
+        previous: dict[int, RowState] = {}
         ids = []
-        for entry_id, (text, status, note) in step.before.items():
+        for entry_id, (text, status, note, provider, model) in step.before.items():
             row = self._conn.execute(
-                "SELECT status, translation, note FROM text_entries WHERE id = ?", (entry_id,)
+                "SELECT status, translation, note, mt_provider, mt_model FROM text_entries WHERE id = ?", (entry_id,)
             ).fetchone()
             if row is None:
                 continue  # satır bu arada yeniden taramayla kalkmış
-            previous[entry_id] = (row[1], row[0], row[2])
+            previous[entry_id] = (row[1], row[0], row[2], row[3], row[4])
             if row[1] != text:
                 self._record(entry_id, previous[entry_id], text, job=history_job, now=now)
             self._conn.execute(
-                "UPDATE text_entries SET translation = ?, status = ?, note = ?, updated_at = ? WHERE id = ?",
-                (text, status, note, now, entry_id),
+                "UPDATE text_entries SET translation = ?, status = ?, note = ?, mt_provider = ?, mt_model = ?, "
+                "updated_at = ? WHERE id = ?",
+                (text, status, note, provider, model, now, entry_id),
             )
             ids.append(entry_id)
         self._conn.execute("UPDATE project SET updated_at = ?", (now,))
@@ -901,17 +930,18 @@ class Project:
 
     # --- çeviri geçmişi -----------------------------------------------------------------------
 
-    def _record(self, entry_id: int, before: tuple[str, str, str], new: str, *, job: str, now: str) -> None:
-        """Geçmişe yazar; `before` = (eski metin, eski durum, eski açıklama)."""
+    def _record(self, entry_id: int, before: RowState, new: str, *, job: str, now: str) -> None:
+        """Geçmişe yazar; `before` = (eski metin, eski durum, eski açıklama, eski sağlayıcı, eski model)."""
+        text, status, note, provider, model = before
         self._conn.execute(
-            "INSERT INTO history (entry_id, old_text, old_status, old_note, new_text, job, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (entry_id, *before, new, job, now),
+            "INSERT INTO history (entry_id, old_text, old_status, old_note, new_text, job, created_at, "
+            "old_mt_provider, old_mt_model) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (entry_id, text, status, note, new, job, now, provider, model),
         )
 
     _CHANGE_SQL = (
         "SELECT h.entry_id, CASE WHEN e.context != '' THEN e.context ELSE e.key END, e.source, h.old_text, "
-        "h.old_status, h.old_note, h.new_text, h.job, h.created_at "
+        "h.old_status, h.old_note, h.new_text, h.job, h.created_at, h.old_mt_provider, h.old_mt_model "
         "FROM history h JOIN text_entries e ON e.id = h.entry_id"
     )
 
@@ -969,26 +999,30 @@ class Project:
         return [Change(*r) for r in rows]
 
     def revert(self, changes: Iterable[Change]) -> list[TranslationRow]:
-        """Değişiklikleri geri alır: satırlar değişiklikten önceki metin, durum ve açıklamaya döner.
+        """Değişiklikleri geri alır: satırlar değişiklikten önceki metin, durum, açıklama ve makine kaynağına döner.
 
-        Geri alma da geçmişe yazılır (yeniden ileri alınabilsin). Çeviri belleğine dokunulmaz.
+        Geri alma da geçmişe yazılır (yeniden ileri alınabilsin). Çeviri belleğine dokunulmaz. Kaynak sütunlarından
+        önceki (şema 7 öncesi) geçmiş kaydında önceki kaynak bilinmez; geri alınca boş olur.
         """
         now = _now()
         ids = []
-        before: dict[int, tuple[str, str, str]] = {}
+        before: dict[int, RowState] = {}
         with _Transaction(self._conn):
             for c in changes:
                 row = self._conn.execute(
-                    "SELECT status, translation, note FROM text_entries WHERE id = ?", (c.entry_id,)
+                    "SELECT status, translation, note, mt_provider, mt_model FROM text_entries WHERE id = ?",
+                    (c.entry_id,),
                 ).fetchone()
                 if row is None:
                     continue  # satır bu arada oyundan kalkmış
-                before.setdefault(c.entry_id, (row[1], row[0], row[2]))
+                current: RowState = (row[1], row[0], row[2], row[3], row[4])
+                before.setdefault(c.entry_id, current)
                 if row[1] != c.old_text:
-                    self._record(c.entry_id, (row[1], row[0], row[2]), c.old_text, job=JOB_REVERT, now=now)
+                    self._record(c.entry_id, current, c.old_text, job=JOB_REVERT, now=now)
                 self._conn.execute(
-                    "UPDATE text_entries SET translation = ?, status = ?, note = ?, updated_at = ? WHERE id = ?",
-                    (c.old_text, c.old_status, c.old_note, now, c.entry_id),
+                    "UPDATE text_entries SET translation = ?, status = ?, note = ?, mt_provider = ?, mt_model = ?, "
+                    "updated_at = ? WHERE id = ?",
+                    (c.old_text, c.old_status, c.old_note, c.old_mt_provider, c.old_mt_model, now, c.entry_id),
                 )
                 ids.append(c.entry_id)
             self._conn.execute("UPDATE project SET updated_at = ?", (now,))

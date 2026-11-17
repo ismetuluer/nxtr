@@ -12,9 +12,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 22. **AssetTable/StringTable ayrımı sezgisel** (tüm değerleri GUID olan tablo metin sayılmaz).
     Kesin ayrım için `Script_monoscripts` bundle'ındaki MonoScript sınıf adları okunabilir.
 
-31. **Satırın hangi sağlayıcı/modelle çevrildiği kaydedilmiyor.** Karşılaştırma için ileride
-    `text_entries`'e sağlayıcı/model sütunu eklenebilir.
-
 33. **Taşma denetimi kaba.** Font ölçüsü/kutu genişliği bilinmediği için yalnızca uzunluk oranına
     bakılıyor; gerçek taşma oyunda görülür.
 
@@ -441,3 +438,9 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     bütün olarak taşınan aç/kapa çiftleri (2026-11-17, ARCHITECTURE 219) uyarıdır. Kalan: satır/sayfa sonu ve
     konumsal kodların (`%s`) sırası bilerek katıdır; MSBT'de rengi yeni bir renk etiketiyle sıfırlayan oyunlarda
     (0x0F kapanışı yok) renk kodları çift sayılmaz, katı kalır.
+
+31. ~~Satırın hangi sağlayıcı/modelle çevrildiği kaydedilmiyor.~~ — **Kapandı (2026-11-17, ARCHITECTURE 222):**
+    şema 7 `text_entries`'e sağlayıcı kimliği ve (Ollama'da) model adını ekler; makine işi yazar, bellekten dolan
+    satır "Çeviri belleği" olur, elle düzenleme ve düzeltmeler korur, dışarıdan gelen hazır çeviri siler. Geri
+    Al/Yinele ve geçmişten geri alma kaynağı da geri koyar. Çevir tablosunda Durum ipucunda "Çeviren: …" görünür.
+    Kalan: kaynağa göre süzme ya da karşılaştırma görünümü yok; şema 7'den önce çevrilmiş satırların kaynağı bilinmez.

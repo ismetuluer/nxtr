@@ -1107,6 +1107,26 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     değiştirmek artık yalnızca pencerede kalan yolları (ekleme, görseller, font) etkiler. Adım sabitleri
     `gui/step_nav.py`'dedir, `main_window` `__all__` ile yeniden verir.
 
+### 4.55 2026-11-17 kararları (çeviri kaynağı, Sorunlar panosu)
+
+222. **Satırın makine çevirisi kaynağı saklanır (TECH_DEBT 31):** şema 7, `text_entries`'e `mt_provider` (kalıcı
+    kimlik: `ollama`, `deepl`, `memory`) ve `mt_model` (yalnızca Ollama'da model adı; DeepL'de boş) ekler; `history`'ye
+    aynı değerlerin önceki hâli (`old_mt_provider`, `old_mt_model`). Göç yalnızca `ALTER TABLE ... ADD COLUMN`
+    (varsayılan boş = "bilinmiyor"); diğer göçler gibi tek işlemde, öncesinde `.bak` yedeği alınır. Adres, API
+    anahtarı ya da kişisel veri yazılmaz (`core/translate/origin.py`). Değer `Project.set_translations(origin=...)`
+    ile yalnızca açıkça verilince değişir; `machine=True`'dan türetilmez, çünkü bu bayrağı makine dışı yollar da
+    kullanır. Yazım yolları: makine işi (Çevir, Yeniden çevir, Talimatla düzelt) sağlayıcıyı ve modeli yazar; aynı
+    işte çeviri belleğinden dolan satırlar (`runner.memory_filled_ids`) `memory` olur. Elle düzenleme, onaylama/onay
+    kaldırma, Bul ve Değiştir, Kontrol Et'in Düzelt'i ve aday seçimi, satır sonu yeniden bölme ile dış redaksiyon
+    kaynağı **değiştirmez**: bunlar makine taslağını düzeltir, insanın dokunduğunu durum sütunu zaten gösterir;
+    sağlayıcıları karşılaştırmak için onaylanmış satırın taslağının nereden geldiği de gerekir. Metni dışarıdan
+    baştan değiştiren yollar (hazır çeviri aktarma `port.py`, dış çeviri içe aktarma) kaynağı **siler**. Yeniden
+    tarama satırın kaynağına dokunmaz. Geri Al/Yinele satırın tam hâlini (metin, durum, açıklama, sağlayıcı, model)
+    taşır; yalnızca kaynağı değişen yazım da geri alınabilir bir adımdır. Geçmişten geri alma (`revert`) önceki
+    kaynağı da geri koyar; şema 7'den önceki geçmiş kaydında önceki kaynak bilinmez, boş olur. Arayüzde yeni sütun
+    yok: Çevir tablosunda Durum hücresinin ipucuna "Çeviren: Ollama (model)" satırı eklenir (çeviri boşsa ya da kaynak
+    bilinmiyorsa eklenmez). Görünen adlar tek yerde (`origin.PROVIDER_NAMES`); durum çubuğu da onu kullanır.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

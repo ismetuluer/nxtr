@@ -189,7 +189,7 @@ def test_v1_project_migrates_to_latest(tmp_path: Path, monkeypatch: pytest.Monke
     project.close()
     assert (tmp_path / "eski.nxproj.bak").exists()
     conn = sqlite3.connect(tmp_path / "eski.nxproj")
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == store_module.SCHEMA_VERSION == 6
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == store_module.SCHEMA_VERSION == 7
     assert "context" in [c[1] for c in conn.execute("PRAGMA table_info(text_entries)")]
     conn.close()
 
