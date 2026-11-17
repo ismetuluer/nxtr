@@ -58,10 +58,10 @@ from nxceviri.core.pipeline import (
     scan_sources,
 )
 from nxceviri.core.plugins.loader import PluginInfo, PluginReport
-from nxceviri.core.plugins.record import plugin_warnings, record_extraction
+from nxceviri.core.plugins.record import record_extraction
 from nxceviri.core.plugins.trust import PluginTrust
 from nxceviri.core.progress import ProgressCallback, TaskContext
-from nxceviri.core.project import PROJECT_SUFFIX, Change, Project, SourceRecord, TranslationRow, row_group
+from nxceviri.core.project import Change, Project, SourceRecord, TranslationRow, row_group
 from nxceviri.core.qa import ignored, transliterate
 from nxceviri.core.qa.autofix import FixPlan, plan_reflow
 from nxceviri.core.qa.checks import (
@@ -186,10 +186,11 @@ from nxceviri.gui.notify import (
 )
 from nxceviri.gui.plugin_approval import ask_approval, offer_pending
 from nxceviri.gui.plugins_dialog import PluginsDialog
+from nxceviri.gui.project_controller import ProjectController
 from nxceviri.gui.provider_probe import ProviderProbe
 from nxceviri.gui.qa_page import QaPage
 from nxceviri.gui.recent import RecentProjects
-from nxceviri.gui.recovery import RecoveryFile, RecoveryKeeper, default_recovery_dir, discard, leftover_files
+from nxceviri.gui.recovery import RecoveryFile, RecoveryKeeper, default_recovery_dir
 from nxceviri.gui.scan_page import ScanPage
 from nxceviri.gui.settings_dialog import KEY_SPELL_COPIED, PAGE_PROVIDERS, PAGE_VIEW, SettingsDialog
 from nxceviri.gui.shortcuts import ShortcutRegistry
@@ -389,6 +390,8 @@ class MainWindow(QMainWindow):
         self.checks = ChecksController(self)
         #: Dışa Aktar adımının iş akışı (özet, hedef klasör, mod oluşturma); durum pencerede kalır.
         self.exporter = ExportController(self)
+        #: Proje yaşam döngüsü (yeni, aç, kaydet, son projeler, kurtarma); durum pencerede kalır.
+        self.projects = ProjectController(self)
         #: Çeviri satırları her yeniden kurulduğunda artar; satırlara bağlı ağır hesapların önbelleği buna bağlıdır.
         self._rows_version = 0
         self._fit_lists_cache: tuple[int, list[str], list[str], list[str]] | None = None
@@ -3412,12 +3415,7 @@ class MainWindow(QMainWindow):
 
     def _confirm_discard(self, closing: bool = False) -> bool:
         """Kaydedilmemiş değişiklik varsa kullanıcıya sorar. Devam edilebilirse True."""
-        if not self.dirty:
-            return True
-        answer = self.ask_save_changes(closing)
-        if answer == "save":
-            return self.save_project()
-        return answer == "discard"
+        return self.projects.confirm_discard(closing)
 
     def ask_save_changes(self, closing: bool) -> str:
         """ "save", "discard" ya da "cancel" (testlerde değiştirilir)."""
@@ -3427,114 +3425,26 @@ class MainWindow(QMainWindow):
         return "save" if clicked is save else "discard" if clicked is discard_button else "cancel"
 
     def new_project(self) -> None:
-        if self.busy or not self._confirm_discard():
-            return
-        self._replace_project(Project.new())
+        self.projects.new_project()
 
     def _replace_project(self, project: Project) -> bool:
         """Açık projeyi `project` ile değiştirir. Panel metni kaydedilemezse eski proje kalır, False döner."""
-        # Panelde bekleyen metin, satır kimlikleri başka projeye karışmasın diye eski projeye yazılır.
-        if not self.translate_page.flush_pending():
-            project.close()  # kullanılmayacak yeni proje dosyayı kilitli bırakmasın
-            return False
-        self.project.close()
-        self.recovery.clear()  # önceki proje kaydedildi ya da kullanıcı ondan vazgeçti
-        self._recovery_due = False
-        self.project = project
-        self.sources = project.sources()
-        self.report = project.latest_scan()
-        self.translate_page.set_uppercase(project.uppercase_rules())
-        self._last_job = None
-        self.translate_page.set_last_changes({})
-        self._refresh_marks()
-        self._push_fit_to_page()
-        self.translate_page.set_qa_issues([], [])  # önceki projenin denetim sonuçları taşınmaz
-        self._fit_recheck_timer.stop()  # bekleyen ayar yenilemesi eski projeye aitti
-        self.qa_page.reset()
-        self._qa_count = None
-        self._qa_errors = False
-        self.translate_page.set_project_key(
-            str(project.path) if project.path else None
-        )  # süzgeçler projeye göre hatırlanır
-        self.translate_page.set_rows(project.translation_rows())
-        self._sync_ignored_to_translate()
-        self._sync_spell()
-        self.font_report = None
-        self._sync_live()  # font raporu sıfırlandı: eksik harf bağlamı projenin kayıtlı değerinden gelir
-        self.last_export = None
-        self.dirty = False
-        self.add_page.set_files_message("warning", "")
-        self.nav.setCurrentRow(STEP_ADD)
-        self._refresh()
-        return True
+        return self.projects.replace_project(project)
 
     def _open_project_dialog(self) -> None:
-        if self.busy or not self._confirm_discard():
-            return
-        path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Proje aç",
-            str(self.settings.value("ui/project_dir", str(Path.home()))),
-            f"NXTR projesi (*{PROJECT_SUFFIX})",
-        )
-        if path:
-            self.open_project(Path(path))
+        self.projects.open_project_dialog()
 
     def open_project(self, path: Path) -> bool:
-        try:
-            project = Project.open(path)
-        except NxError as exc:
-            self.notify(LEVEL_ERROR, "Proje açılamadı", exc.user_text())
-            return False
-        if not self._replace_project(project):
-            return False
-        self.settings.setValue("ui/project_dir", str(path.parent))
-        self.recent.remember(path)
-        missing = [s.path.name for s in self.sources if not s.path.is_file()]
-        notes = []
-        if missing:
-            notes.append(
-                "Projedeki bazı oyun dosyaları bulunamadı: "
-                + ", ".join(missing)
-                + ". Dosyaları taşıdıysanız listeden kaldırıp yeniden ekleyin."
-            )
-        notes += plugin_warnings(self.project)
-        if notes:
-            self.add_page.set_files_message("warning", " ".join(notes))
-        self.statusBar().showMessage(f"Proje açıldı: {path.name}", 5000)
-        return True
+        return self.projects.open_project(path)
 
     def save_project(self) -> bool:
-        if self.project.path is None:
-            return self.save_project_as()
-        self.statusBar().showMessage("Tüm değişiklikler proje dosyasına kaydedildi.", 4000)
-        return True
+        return self.projects.save_project()
 
     def save_project_as(self) -> bool:
-        if self.busy:
-            return False
-        suggested = self.report.game_name if self.report and self.report.game_name else "Yeni Çeviri Projesi"
-        start = Path(str(self.settings.value("ui/project_dir", str(Path.home())))) / f"{suggested}{PROJECT_SUFFIX}"
-        path, _ = QFileDialog.getSaveFileName(self, "Projeyi kaydet", str(start), f"NXTR projesi (*{PROJECT_SUFFIX})")
-        if not path:
-            return False
-        return self.save_to(Path(path))
+        return self.projects.save_project_as()
 
     def save_to(self, path: Path) -> bool:
-        try:
-            self.project.save_as(path)
-        except NxError as exc:
-            self.notify(LEVEL_ERROR, "Proje kaydedilemedi", exc.user_text())
-            return False
-        assert self.project.path is not None
-        self.settings.setValue("ui/project_dir", str(self.project.path.parent))
-        self.recent.remember(self.project.path)
-        self.recovery.clear()
-        self._recovery_due = False
-        self.dirty = False
-        self._refresh()
-        self.statusBar().showMessage(f"Proje kaydedildi: {self.project.path}", 5000)
-        return True
+        return self.projects.save_to(path)
 
     def _clear_cache(self) -> None:
         cache = self._cache_dir()
@@ -3599,66 +3509,24 @@ class MainWindow(QMainWindow):
 
     def write_recovery(self) -> None:
         """Kaydedilmemiş projede değişiklik varsa kurtarma kopyasını yeniler (arayüz iş parçacığında, hızlı)."""
-        if self.project.path is not None or not self.dirty or not self._recovery_due:
-            return
-        if self.recovery.write(self.project):
-            self._recovery_due = False
+        self.projects.write_recovery()
 
     def offer_recovery(self) -> bool:
         """Önceki oturumdan kalmış kurtarma kopyası varsa kurtarılmasını önerir. Proje kurtarıldıysa True."""
-        files = leftover_files(self.recovery.folder)
-        if not files:
-            return False
-        choice = self.ask_recovery(files[0], len(files))
-        if choice == "recover":
-            return self.recover_from(files[0])
-        if choice == "discard":
-            discard(files[0].path)
-        return False
+        return self.projects.offer_recovery()
 
     def ask_recovery(self, newest: RecoveryFile, count: int) -> str:
         """ "recover", "discard" ya da "later" (testlerde değiştirilir)."""
-        box = QMessageBox(self)
-        box.setIcon(QMessageBox.Icon.Question)
-        box.setWindowTitle("Kaydedilmemiş proje bulundu")
-        more = f"\n\n(Toplam {count} kurtarma kopyası var; en yenisi önerildi.)" if count > 1 else ""
-        box.setText(
-            "Program önceki sefer kaydedilmeden kapanmış. Kaydedilmemiş projenin son kopyası duruyor:\n\n"
-            f"{newest.describe()}{more}\n\nKurtarmak ister misiniz? Kurtardıktan sonra “Kaydet” ile bir proje "
-            "dosyasına kaydedin."
-        )
-        recover = box.addButton("Kurtar", QMessageBox.ButtonRole.AcceptRole)
-        delete = box.addButton("Sil", QMessageBox.ButtonRole.DestructiveRole)
-        box.addButton("Sonra", QMessageBox.ButtonRole.RejectRole)
-        box.setDefaultButton(recover)
-        box.exec()
-        clicked = box.clickedButton()
-        return "recover" if clicked is recover else "discard" if clicked is delete else "later"
+        return self.projects.ask_recovery(newest, count)
 
     def recover_from(self, leftover: RecoveryFile) -> bool:
-        try:
-            project = Project.open_copy(leftover.path)
-        except NxError as exc:
-            self.notify(LEVEL_ERROR, "Proje kurtarılamadı", exc.user_text())
-            return False
-        if not self._replace_project(project):
-            return False
-        self.dirty = True
-        self._recovery_due = True
-        self.write_recovery()  # kopya artık bu pencerenin; eskisi silinebilir
-        if not self._recovery_due:  # yazım başarısızsa eski kopya kalır, zamanlayıcı yeniden dener
-            discard(leftover.path)
-        self._refresh()
-        self.statusBar().showMessage("Proje kurtarıldı. Kaydetmeyi unutmayın.", 8000)
-        return True
+        return self.projects.recover_from(leftover)
 
     def recent_projects(self) -> list[Path]:
         return self.recent.paths()
 
     def _fill_recent_menu(self) -> None:
-        self.recent.fill_menu(self.recent_menu, self.open_recent)
+        self.projects.fill_recent_menu()
 
     def open_recent(self, path: Path) -> None:
-        if self.busy or not self._confirm_discard():
-            return
-        self.open_project(path)
+        self.projects.open_recent(path)
