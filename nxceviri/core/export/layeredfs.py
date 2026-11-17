@@ -552,6 +552,8 @@ def export_mod(
     try:
         with opened_view(inputs, ctx) as view:
             trees = {t.title_id: t for t in view.trees}
+            groups = _merge_update_groups(groups, trees)
+            title_ids = {title_id for title_id, _top in groups}
             extra_patches = game_file_patches(list(refs.values()))
             for title_id, path in extra_patches:
                 tree = trees.get(title_id)
@@ -747,6 +749,21 @@ def export_mod(
         raise
     ctx.report(len(groups), len(groups), "Mod oluşturuldu")
     return result
+
+
+def _merge_update_groups(
+    groups: dict[tuple[str, str], list[TextFileRef]], trees: Mapping[str, ContentTree]
+) -> dict[tuple[str, str], list[TextFileRef]]:
+    """Güncelleme paketinin TitleID'siyle (…800) kayıtlı dosyaları ana oyunun ağacına taşır.
+
+    Birleşik görünümde güncelleme ana oyunun ağacına bindirilir (ayrı ağacı yoktur); eski sürümlerin projelerinde
+    güncellemeden aktarılan dosya güncellemenin TitleID'siyle kayıtlı olabilir. Mod ana oyunun klasörüne yazılır."""
+    merged: dict[tuple[str, str], list[TextFileRef]] = {}
+    for (title_id, top), group in groups.items():
+        base = f"{title_id[:-3]}000"
+        owner = base if title_id not in trees and title_id.upper().endswith("800") and base in trees else title_id
+        merged.setdefault((owner, top), []).extend(group)
+    return merged
 
 
 def _write_output(tmp: Path, rel: Path, data: bytes, result: ExportResult) -> None:

@@ -39,7 +39,7 @@ from nxceviri.core.qa.checks import check_row, run_checks
 from nxceviri.core.qa.fonts import KIND_TMP_DYNAMIC, KIND_TMP_STATIC, FontInfo, FontReport, scan_fonts
 from nxceviri.core.translate.status import Status
 from tests import nxbuild
-from tests.conftest import BASE_TID, UPDATE_FILES, GameFiles
+from tests.conftest import BASE_TID, UPDATE_FILES, UPDATE_TID, GameFiles
 from tests.unitybuild import (
     addressables_catalog,
     build_bundle,
@@ -538,6 +538,28 @@ def test_export_detects_missing_game_file(
             info=INFO,
         )
     assert not (tmp_path / "m").exists()
+
+
+def test_export_files_recorded_under_the_update_title_go_to_the_base_game(
+    msbt_project: tuple[Inputs, Project], tmp_path: Path
+) -> None:
+    """Eski sürümlerin projelerinde güncelleme paketinden aktarılan dosya güncellemenin TitleID'siyle (…800) kayıtlı
+    olabilir; birleşik görünümde o dosya ana oyunun ağacındadır ve mod ana oyunun klasörüne yazılır."""
+    inputs, project = msbt_project
+    refs = [
+        dataclasses.replace(r, title_id=f"{UPDATE_TID:016X}") if r.path.startswith("Mals/") else r
+        for r in _refs(project)
+    ]
+    result = export_mod(
+        inputs,
+        refs,
+        project.translation_rows(),
+        options=ExportOptions(LAYOUT_ATMOSPHERE, tmp_path / "m", "x"),
+        info=INFO,
+    )
+    root = Path("atmosphere", "contents", f"{BASE_TID:016X}", "romfs")
+    assert (root / "Mals/TRtr.Product.sarc.zs").as_posix() in result.files
+    assert _common_texts(tmp_path / "m")["Yes"] == "Evet"
 
 
 def test_version_warnings(tmp_path: Path) -> None:

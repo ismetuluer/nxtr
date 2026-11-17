@@ -1252,6 +1252,11 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     arşivlerde davranış değişmez. Test: `tests/test_plugin_archives.py` (uydurma "KUTU" arşivi ve "SATIR" metni:
     tarama → aktarma → dışa aktarma, `oyunlar` sınırı, `derived_files` üyesi, değişikliği yazmayan `rebuild`'in
     reddi, geçersiz biçim, korumalı hata, `dogrula`).
+229. **Güncellemenin TitleID'siyle kayıtlı dosya ana oyuna yazılır:** birleşik görünümde güncelleme ana oyunun ağacına
+    bindirilir, ayrı ağacı yoktur; eski sürümlerin projelerinde güncellemeden aktarılmış dosya `…800` TitleID'siyle
+    kayıtlı olabiliyor ve dışa aktarma "Oyunda bulunamadı" diyordu. `export_mod` bu grupları (ağacı olmayan `…800`,
+    ana oyunun `…000` ağacı varsa) ana oyunun ağacına taşır (`_merge_update_groups`); mod ana oyunun klasörüne yazılır.
+    Proje kaydı değiştirilmez.
 
 ## 5. Bilinen sınırlar
 
