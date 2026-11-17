@@ -15,7 +15,7 @@ from nxceviri.core.progress import ProgressCallback
 from nxceviri.core.project import ImportedFile, Project, TranslationRow
 from nxceviri.core.qa.checks import QaIssue
 from nxceviri.core.secrets import MemoryStore
-from nxceviri.gui import main_window
+from nxceviri.gui import checks_controller as main_window  # denetim sabitleri ve işlevi burada değiştirilir
 from nxceviri.gui.main_window import STEP_QA, MainWindow
 from nxceviri.gui.mascot import mascot_enabled, set_mascot_enabled
 from nxceviri.gui.qa_page import QaPage

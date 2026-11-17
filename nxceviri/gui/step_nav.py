@@ -23,7 +23,14 @@ from PySide6.QtWidgets import (
 from nxceviri.gui import icons
 from nxceviri.gui.theme import current_tokens
 
-#: (adım adı, simge adı); sıra `MainWindow.STEP_*` sabitleriyle aynıdır.
+#: Adımların sırası (gezgindeki satır numarası); `STEPS` bu sırayla tanımlıdır.
+STEP_ADD = 0
+STEP_SCAN = 1
+STEP_TRANSLATE = 2
+STEP_QA = 3
+STEP_EXPORT = 4
+
+#: (adım adı, simge adı); sıra yukarıdaki `STEP_*` sabitleriyle aynıdır.
 STEPS: tuple[tuple[str, str], ...] = (
     ("Oyunu Ekle", "circle-plus"),
     ("Metinleri Tara", "scan-search"),

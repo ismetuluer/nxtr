@@ -15,7 +15,7 @@ from nxceviri.core.project import ImportedFile, Project, TranslationRow
 from nxceviri.core.qa import checks
 from nxceviri.core.secrets import MemoryStore
 from nxceviri.core.translate.status import Status
-from nxceviri.gui import main_window
+from nxceviri.gui import checks_controller as main_window  # denetim sabitleri ve işlevi burada değiştirilir
 from nxceviri.gui.main_window import STEP_QA, MainWindow
 from tests.perf import best_time
 
