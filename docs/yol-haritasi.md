@@ -100,6 +100,11 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
 Görsel denetim listesi ve 0.57.2 sonrası geri bildirim kapandı. Sıradaki iş, yukarıdaki "Sonraki yapılacaklar"
 listesinden ürün sahibinin seçimiyle belirlenir.
 
+**Yapıldı (0.63.0)**
+- Kontrol Et bekleme ekranı ve Durdur (`widgets.BusyState`, `run_checks(progress=)`, `qa_page.mark_checking`).
+- Belirsiz Türkçe harf sözcüğünde aday seçimi (`AsciiRepair.choices`, `MainWindow.apply_ascii_choice`), bulguyu yok
+  sayma (`core/qa/ignored.py`, proje ayarı `qa/ignored_issues`), sayılı menü adları. Ürün sahibinin isteği (2026-11-17).
+
 **Yapıldı (0.62.0)**
 - Düzelt onaylılarda da çalışır (`core/qa/fixrun.py`), bildirim = gerçek plan, yalnızca bulgulu satırlar denetlenir.
   Ürün sahibinin şikâyeti ve kararı (2026-11-17); gerçek proje kopyasında ölçüldü.

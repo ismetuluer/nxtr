@@ -1,6 +1,13 @@
-# HANDOFF — oturum devri (2026-11-17, 0.62.0)
+# HANDOFF — oturum devri (2026-11-17, 0.63.0)
 
 ## Durum
+- **Sürüm 0.63.0** (2026-11-17; CHANGELOG 0.63.0): Kontrol Et bekleme görünümü (`widgets.BusyState`; `qa_page` yığın,
+  `mark_checking`/`stop_checking`; `main_window._run_full_check`, `_stop_checks`, `CHECK_PROGRESS_S`;
+  `checks.run_checks(progress=)`). Aday seçimi (`asciitr.fold`/`apply_choice`, `QaIssue.choices`,
+  `apply_ascii_choice`) ve yok sayma (`core/qa/ignored.py`; süzgeç tek yerde `_show_check_results` ve
+  `_replace_board_rows`; `qa_page.active_issues`/`all_issues`, `issue_kinds.IGNORED_KIND`). Tam test seti 2748
+  geçti; gerçek proje kopyasında ölçüldü. Bilinen: yok sayılan bulgunun Çevir işareti sonraki tam denetime dek
+  kalır; Düzelt sonrası denetim durdurulursa eskimiş olabilecek bulgular geri gelir.
 - **Sürüm 0.62.0** (2026-11-17; CHANGELOG 0.62.0): Düzelt (`core/qa/fixrun.py` `plan_for_issues`/`plan_for_rows`;
   `main_window.apply_fixes`, `_recheck_board_rows(keep_terms)`, `_recheck_board_later` arka plan; `qa_page`
   `_scope_plan`, `mark_checking`). Yazım önerisi (`core/spell/suggest.py`; `gui/spell_window.py` Öneri sütunu, toplu

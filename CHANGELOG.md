@@ -2,6 +2,27 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.63.0] — 2026-11-17 — Kontrol Et: bekleme ekranı, doğru yazımı seçme, bulguyu yok sayma
+
+### Eklendi
+- **Denetim sürerken bekleme ekranı:** liste alanında maskot, gerçek ilerleme yüzdesi ve kaç satırın denetlendiği
+  görünür; sayaçlar denetim bitene dek "—" gösterir. Denetle düğmesi denetim sürerken **Durdur** olur; durdurulunca
+  önceki bulgular geri gelir. Düzelt sonrası yeniden denetim de aynı ekranı kullanır.
+- **Doğru yazımı seçme:** "Türkçe harf eksik" bulgusunda sözlük birden çok yazım bulduğunda (ör. hasarın / haşarın)
+  sağ tık → **Şununla düzelt** seçenekleri sunar; seçilen yazım sözcüğün geçtiği bütün satırlara tek işte uygulanır
+  (Geri Al tek adım, onaylı satır onaylı kalır).
+- **Bulguyu yok say:** hata olmayan bulgu sağ tıkla listeden çıkarılır; kalıcıdır, çeviri değişirse yeniden
+  denetlenir. Sol listenin sonundaki **Yok sayılanlar** girişinden geri alınır. Oyunu bozabilecek hatalar
+  yok sayılamaz.
+
+### Değişti
+- "Bu türdeki tümünü düzelt" artık türü ve satır sayısını söyler: Tüm "Türkçe harf eksik" bulgularını düzelt
+  (N satır). Kendiliğinden düzeltilemeyen bulguda düzelt seçenekleri çıkmaz.
+- Tireli sözcüklerde Türkçe harf denetimi parçalara ayrı bakar (orijinalde geçen parçaya dokunulmaz).
+
+### Düzeltildi
+- Düzelt hiçbir satırı düzeltemediğinde bildirim kendisiyle çelişiyordu; artık ne yapmanız gerektiğini söyler.
+
 ## [0.62.0] — 2026-11-17 — Düzelt gerçekten düzeltir, yazım önerisi, kod sırası uyarısı
 
 ### Değişti
