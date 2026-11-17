@@ -2092,9 +2092,12 @@ class MainWindow(QMainWindow):
                 scanned |= UnknownWordCache.scan(stale[start : start + SPELL_SYNC_ROWS], spell, extra)
             return scanned
 
+        owner = self.project
+
         def done(result: object) -> None:
             assert isinstance(result, dict)
-            if spell is self.spell and extra == self._spell_extra_key:
+            # Tarama sürerken proje ya da sözlük değiştiyse sonuç atılır (satır kimlikleri başka projeye karışmaz).
+            if owner is self.project and spell is self.spell and extra == self._spell_extra_key:
                 self._spell_cache.store(result)
             self._spell_scan_ok = True
 
