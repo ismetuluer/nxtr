@@ -1078,11 +1078,14 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     durum tutmaz). Denetleyici Qt nesnesi değildir, pencereyi tutar ve her çağrıda pencereden okur; pencerede
     yönlendirmesi olan yöntemi pencere üzerinden çağırır (`self._win._recheck_if_done()`), bağlı yöntemi
     saklamaz: testler pencerenin yöntemlerini değiştirerek çalışır. Sinyal bağlantıları, kısayollar ve iş akışı
-    (`MainWindow._run`, `Task`) pencerede kalır; pencere eski adları ince yönlendirme ve okuma/yazma
-    property'si (`_qa_count`, `_board_task`…) olarak korur. Testlerin modül düzeyinde değiştirdiği adlar
-    (`choose_button`, `check_sources`, `opened_view`…) pencere modülünde kalır: dolu klasör sorusu
-    `MainWindow._ask_full_folder` üzerinden, görsel çıkarma pencerede. Adım sabitleri `gui/step_nav.py`'dedir,
-    `main_window` `__all__` ile yeniden verir.
+    (`MainWindow._run`, `Task`) pencerede kalır; pencere taşınan bütün eski adları (iç yardımcılar dahil) ince
+    yönlendirme ve okuma/yazma property'si (`_qa_count`, `_board_task`…) olarak korur. Taşınan modül adları
+    (`run_qa_checks`, `FIX_SYNC_ROWS`, `FIX_RECHECK_ROWS`, `KEPT_ROWS_SHOWN`) artık denetleyici modülündedir; onları
+    değiştiren testler denetleyici modülünü içe aktarır. Testlerin pencere modülünde değiştirdiği `choose_button`,
+    `opened_view`, `MemberReader` orada kalır: dolu klasör sorusu `MainWindow._ask_full_folder` üzerinden,
+    görsel çıkarma pencerede. Dışa aktarma `check_sources`'u kendi modülünden çağırır; pencere modülündeki adı
+    değiştirmek artık yalnızca pencerede kalan yolları (ekleme, görseller, font) etkiler. Adım sabitleri
+    `gui/step_nav.py`'dedir, `main_window` `__all__` ile yeniden verir.
 
 ## 5. Bilinen sınırlar
 

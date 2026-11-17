@@ -60,15 +60,16 @@ from nxceviri.core.pipeline import (
 from nxceviri.core.plugins.loader import PluginInfo, PluginReport
 from nxceviri.core.plugins.record import plugin_warnings, record_extraction
 from nxceviri.core.plugins.trust import PluginTrust
-from nxceviri.core.progress import TaskContext
+from nxceviri.core.progress import ProgressCallback, TaskContext
 from nxceviri.core.project import PROJECT_SUFFIX, Change, Project, SourceRecord, TranslationRow, row_group
-from nxceviri.core.qa import transliterate
+from nxceviri.core.qa import ignored, transliterate
 from nxceviri.core.qa.autofix import FixPlan, plan_reflow
 from nxceviri.core.qa.checks import (
     QaIssue,
     glossary_words,
     spell_extra_words,
 )
+from nxceviri.core.qa.fixrun import FixSettings
 from nxceviri.core.qa.fonts import FontReport, looks_like_font
 from nxceviri.core.qa.fonts import scan_fonts as scan_font_files
 from nxceviri.core.qa.live import SETTING_KEY as LIVE_KINDS_KEY
@@ -1987,6 +1988,46 @@ class MainWindow(QMainWindow):
     def apply_fixes(self, kinds: list[str], row_ids: list[int]) -> None:
         self.checks.apply_fixes(kinds, row_ids)
 
+    # Denetleyicinin iç yardımcıları da eski adlarıyla erişilebilir kalır (testler ve ölçüm betikleri için);
+    # denetleyici bunları kendi içinde doğrudan çağırır.
+
+    def _checks_job(self, rows: list[TranslationRow]) -> Callable[[ProgressCallback | None], list[QaIssue]]:
+        return self.checks._checks_job(rows)
+
+    def _announce_checks(self, result: list[QaIssue]) -> None:
+        self.checks._announce_checks(result)
+
+    def _board_recheck_job(
+        self, edited: Sequence[TranslationRow], *, keep_terms: bool = False
+    ) -> tuple[list[TranslationRow], Callable[[], dict[int, list[QaIssue]]]] | None:
+        return self.checks._board_recheck_job(edited, keep_terms=keep_terms)
+
+    def _show_board_recheck(self, group: list[TranslationRow], by_row: dict[int, list[QaIssue]]) -> None:
+        self.checks._show_board_recheck(group, by_row)
+
+    def _replace_board_rows(self, rows: list[TranslationRow], by_row: dict[int, list[QaIssue]]) -> None:
+        self.checks._replace_board_rows(rows, by_row)
+
+    def _split_ignored(
+        self, issues: list[QaIssue], rows: Sequence[TranslationRow]
+    ) -> tuple[list[QaIssue], list[QaIssue]]:
+        return self.checks._split_ignored(issues, rows)
+
+    def _store_ignored_issues(self, entries: set[ignored.Entry], row_ids: set[int]) -> None:
+        self.checks._store_ignored_issues(entries, row_ids)
+
+    def _recount_qa(self) -> None:
+        self.checks._recount_qa()
+
+    def _store_ignored(self, key: str, current: list[str], additions: list[str]) -> None:
+        self.checks._store_ignored(key, current, additions)
+
+    def _fix_settings(self) -> FixSettings:
+        return self.checks._fix_settings()
+
+    def _write_fixes(self, rows: list[TranslationRow], plan: FixPlan) -> None:
+        self.checks._write_fixes(rows, plan)
+
     # --- Yazım Denetimi penceresi ----------------------------------------------------------
 
     def open_spell_window(self) -> None:
@@ -2284,6 +2325,9 @@ class MainWindow(QMainWindow):
 
     def _refresh_export(self) -> None:
         self.exporter.refresh_export()
+
+    def _include_errors_on(self) -> bool:
+        return self.exporter._include_errors_on()
 
     def _set_include_errors(self, enabled: bool) -> None:
         self.exporter.set_include_errors(enabled)
