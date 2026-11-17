@@ -86,6 +86,7 @@ from nxceviri.gui.shortcuts import ShortcutRegistry, display_text
 from nxceviri.gui.status_cell import ISSUE_ICON, STATUS_ICONS, STATUS_ROLE, StatusDelegate, cell_width
 from nxceviri.gui.status_filter import FilterOption, StatusFilterBar
 from nxceviri.gui.table_columns import ColumnFitter, HeaderColumnMenu
+from nxceviri.gui.tasks import Task, release_thread
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.value_filter import FilterHeader, FilterPopup, ValueFilter
 from nxceviri.gui.view_actions import PANE_RIGHT, ViewActions
@@ -163,6 +164,9 @@ _GOTO_PASSES = 3
 #: Bu kadar satırdan büyük tabloda arama kutusu her tuşta değil, yazma durunca süzer (milisaniye / satır sayısı).
 SEARCH_DEBOUNCE_MS = 250
 SEARCH_DEBOUNCE_ROWS = 5000
+#: "Hata veya uyarılı" süzgecinde denetlenmemiş satır bundan çoksa denetim arka planda yapılır (satır başına ~1 ms:
+#: 35.000 satırda ilk süzme arayüzü ~30 sn donduruyordu; TECH_DEBT 85).
+ISSUES_PRECHECK_ROWS = 1000
 #: Görünür alan bilinmiyorken (yerleşim oturmadan) önizlenecek en çok satır sayısı.
 _VIEW_ROWS_CAP = 200
 
@@ -1057,6 +1061,8 @@ class TranslatePage(QWidget):
         cl.addWidget(self.splitter, 1)
         self.stack.addWidget(content)
         self.content = content
+        #: "Hata veya uyarılı" süzgeci için arka planda süren satır denetimi (büyük tabloda; yoksa None).
+        self.precheck_task: Task | None = None
 
         self._search_timer = QTimer(self)
         self._search_timer.setSingleShot(True)
@@ -1525,8 +1531,48 @@ class TranslatePage(QWidget):
             self._search_timer.stop()
             self._refilter()
 
+    def _start_issue_precheck(self) -> bool:
+        """Büyük tabloda “Hata veya uyarılı” süzgeci: denetlenmemiş satırlar arka planda denetlenir, süzgeç sonuç
+        gelince uygulanır (arayüz donmaz). İş başladıysa ya da zaten sürüyorsa True; süzgeç hemen uygulanabilirse
+        False."""
+        if self.precheck_task is not None:
+            return True
+        live = self.model.live
+        pending = live.pending(self.model.rows)
+        if len(pending) <= ISSUES_PRECHECK_ROWS:
+            return False
+        token, job = live.precheck_job(pending)
+        task = Task(lambda ctx: job(ctx.check), "Sorunlu satırlar denetleniyor")
+        results: list[object] = []
+        task.succeeded.connect(results.append)
+
+        def finished() -> None:
+            self.precheck_task = None
+            release_thread(task)
+            if results:
+                assert isinstance(results[0], list)
+                live.store(token, results[0])
+            if self.status_filter.current() == ISSUES_FILTER:
+                self._refilter()  # bağlam bu arada değiştiyse yeniden başlar
+
+        task.finished.connect(finished)
+        self.precheck_task = task
+        self.show_notice(
+            "info", f"{format_int(len(pending))} satır hata ve uyarı için denetleniyor; liste birazdan süzülecek."
+        )
+        task.start()
+        return True
+
+    def cancel_precheck(self) -> None:
+        """Süren arka plan denetimini durdurur ve bitmesini bekler (pencere kapanırken)."""
+        if self.precheck_task is not None:
+            self.precheck_task.cancel()
+            self.precheck_task.wait()
+
     def _refilter(self) -> None:
         self._search_timer.stop()  # bekleyen yazma süzgeci bu çağrıyla zaten uygulanır
+        if self.status_filter.current() == ISSUES_FILTER and self._start_issue_precheck():
+            return  # süzgeç denetim bitince uygulanır
         # Süzgeç gevşeyince görünüm başa dönmesin: seçili (geçerli) satır görünür kalırsa oraya dönülür.
         current = self.current_row()
         with self.group_proxy.source_change():  # gruplu görünümde düzen bir kez kurulur

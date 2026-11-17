@@ -1126,6 +1126,20 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     kaynağı da geri koyar; şema 7'den önceki geçmiş kaydında önceki kaynak bilinmez, boş olur. Arayüzde yeni sütun
     yok: Çevir tablosunda Durum hücresinin ipucuna "Çeviren: Ollama (model)" satırı eklenir (çeviri boşsa ya da kaynak
     bilinmiyorsa eklenmez). Görünen adlar tek yerde (`origin.PROVIDER_NAMES`); durum çubuğu da onu kullanır.
+223. **Sorunlar panosu ve "Hata veya uyarılı" süzgecinin pürüzleri (TECH_DEBT 85):** (a) Çevir'deki süzgeç her satırı
+    anlık denetimden geçirir; ölçüm (35.000 sentetik satır, yazım + terminoloji + sığdırma açık, tüm anlık türler):
+    ilk süzme 32 sn, önbellek dolunca 0,3 sn. Denetlenmemiş satır `ISSUES_PRECHECK_ROWS` (1.000, ≈1 sn) üstündeyse
+    `LiveChecker.precheck_job` arka planda (`Task`) çalışır, süzgeç sonuç gelince uygulanır; tıklama 0,01 sn'de döner.
+    İş bağlamın anlık görüntüsüyle çalışır; `store` bağlam değiştiyse sonucu atar, iş sürerken önbellek kaydı değişen
+    satıra dokunmaz. Pencere kapanırken iş durdurulup beklenir. (b) İş sürerken Sorunlar'da yerinde düzenleme
+    reddedilmez, saklanır (`ChecksController.pending_edits`) ve `_task_finished`'te yazılır; satırın proje dosyasındaki
+    çevirisi düzenleme anındakiyle aynı değilse (biten iş değiştirmiş) ezilmez: metin bildirimde gösterilir, "Yine de
+    Kaydet" ile yazılır. (c) Riskli türleri (`RISKY_FIX_KINDS`) birden çok satırda ya da türün bütün bulgularında
+    düzeltmeden önce `qa_page.ask_risky_fix` kısa onay sorar; tek satır sorulmaz (seçim onaydır). (d) Terim
+    denetiminde köke doğrudan eklenebilen harf sınırı son sözcüğü 4+ harfli terimde 14'tür ("Şövalye" +
+    "lerimizdekiler"); 3 harfe kadar kısa terimde 8 kalır, yoksa "Ev" → "Evcilleştirilmiş" gibi başka sözcükler terim
+    sayılırdı. Bedeli: kısa terimde uzun gerçek ek zinciri ("Evlerimizdekiler") ve uzun terimde 15+ harflik zincir
+    uyarı verir.
 
 ## 5. Bilinen sınırlar
 

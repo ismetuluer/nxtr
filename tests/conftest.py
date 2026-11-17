@@ -24,6 +24,15 @@ def _private_app_data(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pyt
 
 
 @pytest.fixture(autouse=True)
+def _accept_risky_fixes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Riskli toplu düzeltmenin onay sorusu kipli pencere açıp testi bekletmesin: kullanıcı "Evet" der.
+    Sorunun kendisini sınayan test bunu kendi yanıtıyla değiştirir."""
+    from nxceviri.gui import qa_page
+
+    monkeypatch.setattr(qa_page, "ask_risky_fix", lambda _parent, _text: True)
+
+
+@pytest.fixture(autouse=True)
 def _free_top_level_widgets() -> Iterator[None]:
     """Her testten sonra kalan üst düzey pencereleri gerçekten siler.
 

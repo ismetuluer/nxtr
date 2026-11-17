@@ -67,11 +67,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     `Localization`'ı barındırabilecek dosyaların adla sınırlanması. *Ne zaman:* kullanıcı beklemeyi
     sorun ettiğinde.
 
-85. **Sorunlar panosu küçük eksikleri (0.51.0):** "Sorunlu satırlar" süzgeci tüm satırları anlık
-    denetler (büyük projede ilk süzmede yavaş olabilir); iş sürerken yerinde düzenlenen metin
-    reddedilince kaybolur; riskli toplu düzeltmelerde ayrıca onay sorusu yok; 8 harften uzun Türkçe
-    ek zincirleri terim denetiminde tanınmaz. *Ne zaman:* kullanıcı geri bildirimiyle.
-
 87. **Sayfa içi durum bantları yerinde (0.52.0; 0.52.1'de iş sonuçları bildirime taşındı).** Oyunu Ekle,
     Metinleri Tara, Kontrol Et ve Dışa Aktar sayfalarının bağlamsal uyarı bantları (ör. anahtar dosyası,
     tarama hatası) sayfada durur; iş bittiğinde ya da hata olduğunda ayrıca bildirim kartı çıkar.
@@ -444,3 +439,11 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     satır "Çeviri belleği" olur, elle düzenleme ve düzeltmeler korur, dışarıdan gelen hazır çeviri siler. Geri
     Al/Yinele ve geçmişten geri alma kaynağı da geri koyar. Çevir tablosunda Durum ipucunda "Çeviren: …" görünür.
     Kalan: kaynağa göre süzme ya da karşılaştırma görünümü yok; şema 7'den önce çevrilmiş satırların kaynağı bilinmez.
+
+85. ~~Sorunlar panosu küçük eksikleri (0.51.0)~~ — **Kapandı (2026-11-17, ARCHITECTURE 223):** "Hata veya uyarılı"
+    süzgeci 35.000 sentetik satırda ilk süzmede 32 sn donduruyordu; 1.000'den çok denetlenmemiş satır varsa denetim
+    arka planda yapılır (tıklama 0,01 sn). İş sürerken Sorunlar'da yerinde düzenlenen metin saklanır, iş bitince
+    yazılır; iş satırı değiştirdiyse ezilmez, "Yine de Kaydet" sorulur. Riskli türler birden çok satırda düzeltilmeden
+    önce onay istenir. Terim denetimi 4+ harfli terimde 14 harflik ek zincirini tanır. Kalan: kısa (≤ 3 harf) terimde
+    8 harften, uzun terimde 14 harften uzun gerçek ek zinciri hâlâ uyarı verir; arka plan denetimi sürerken süzgeç
+    düğmesi seçili görünür ama liste sonuç gelene dek eski süzgeçte kalır (bildirim söyler).

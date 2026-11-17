@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QMenu,
+    QMessageBox,
     QRadioButton,
     QScrollArea,
     QSpinBox,
@@ -144,6 +145,14 @@ FIX_TIPS: dict[str, str] = {
 RISKY_FIX_KINDS = frozenset(
     {"ascii_turkish", "end_punctuation", "code_position", "newlines", "line_too_long", "page_too_tall", "bad_break"}
 )
+
+
+def ask_risky_fix(parent: QWidget, text: str) -> bool:
+    """Riskli toplu düzeltmenin onay sorusu (testler bu işlevi değiştirir; kipli pencere açmasın diye)."""
+    answer = QMessageBox.question(parent, "Toplu düzeltme", text)
+    return answer == QMessageBox.StandardButton.Yes
+
+
 #: Bulgu listesinin sıralama düzenleri (ayarda saklanan değer) ve sağ tık menüsündeki adları.
 SORT_SEVERITY, SORT_NUMBER, SORT_FINDING, SORT_FILE = "severity", "number", "finding", "file"
 SORT_LABELS = {
@@ -1325,7 +1334,24 @@ class QaPage(QWidget):
 
     def _request_fix(self) -> None:
         kinds, row_ids = self._fix_plan()
-        self.fix_requested.emit(kinds, row_ids)
+        if self._confirm_risky(kinds, row_ids):
+            self.fix_requested.emit(kinds, row_ids)
+
+    def _confirm_risky(self, kinds: list[str], row_ids: list[int]) -> bool:
+        """Riskli türleri birden çok satırda (ya da türün bütün bulgularında) düzeltmeden önce kısa onay ister.
+
+        Tek satırın düzeltmesi sorulmaz: satırı seçmek zaten açık onaydır. Geri Al işi bütünüyle geri alır.
+        """
+        risky = [k for k in kinds if k in RISKY_FIX_KINDS]
+        if not risky or len(row_ids) == 1:
+            return True
+        names = ", ".join(KIND_LABELS[k] for k in risky)
+        where = f"{format_int(len(row_ids))} satırda" if row_ids else "bu türün bütün bulgularında"
+        return ask_risky_fix(
+            self,
+            f"{names} düzeltmesi metni yeniden biçimler ve yanılabilir; {where} uygulanacak.\n\n"
+            "Sonucu “Raporu Gör” ile gözden geçirebilir, Geri Al ile bütünüyle geri alabilirsiniz. Sürdürülsün mü?",
+        )
 
     def _fix_plan(self) -> tuple[list[str], list[int]]:
         """Düğmenin uygulayacağı türler (liste sırasıyla) ve satır kimlikleri."""
@@ -1444,7 +1470,8 @@ class QaPage(QWidget):
         return [self.model.issues[r] for r in rows]
 
     def _fix_now(self, kinds: list[str], row_ids: list[int]) -> None:
-        self._commit_pending(lambda: self.fix_requested.emit(kinds, row_ids))
+        if self._confirm_risky(kinds, row_ids):
+            self._commit_pending(lambda: self.fix_requested.emit(kinds, row_ids))
 
     def bind_settings(self, settings: QSettings) -> None:
         """Kayıtlı sıralama düzenini geri yükler (bilinmeyen değer varsayılana düşer)."""

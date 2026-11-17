@@ -1223,6 +1223,8 @@ class MainWindow(QMainWindow):
             self._set_mascot(MOOD_IDLE)
         self.add_page.set_busy(False)
         self._refresh()
+        if self.checks.pending_edits:
+            self.checks.flush_pending_edits()  # iş sürerken Sorunlar'da yapılan düzenlemeler
         if self._recheck_pending:
             self._recheck_if_done()
 
@@ -3569,6 +3571,7 @@ class MainWindow(QMainWindow):
         # Tüm onaylar alındı: önce iptaller, sonra pencere gizlenir, ardından iş parçacıkları beklenir
         # (beklenmeden bırakılan iş parçacığı çökmeye yol açar; bkz. tasks.release_thread).
         self.translate_page.find_window.close()  # açık Bul penceresinin konumu kaybolmasın
+        self.translate_page.cancel_precheck()
         running = [t for t in (self.task, self._update_task, self._spell_scan, self._board_task) if t is not None]
         for thread in running:
             thread.cancel()

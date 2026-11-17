@@ -232,6 +232,7 @@ def window(qtbot: QtBot, tmp_path: Path) -> Iterator[MainWindow]:
     if w.task is not None:
         w.task.cancel()
         w.task.wait()
+        w.task = None  # kapanışta "iş sürüyor" sorusu açılmasın
     w.dirty = False
     w.close()
     w.deleteLater()
@@ -263,6 +264,39 @@ def test_o3_yerinde_duzenleme_esdes_satirlarin_tutarsizligini_yeniler(window: Ma
     window.qa_page.translation_edited.emit(_ids(window)["x1"], "Selam")
     assert "inconsistent" not in _board(window, "x1")
     assert "inconsistent" not in _board(window, "x2")  # düzenlenmeyen eşdeş satır da yenilenir
+
+
+def _translation(window: MainWindow, key: str) -> str:
+    return next(r.translation for r in window.project.translation_rows() if r.key == key)
+
+
+def test_is_surerken_yerinde_duzenleme_kaybolmaz_is_bitince_kaydedilir(window: MainWindow) -> None:
+    window.run_checks()
+    before = _translation(window, "x1")
+    window.task = Task(lambda _ctx: None, "Sahte iş")  # başlatılmamış iş: pencere meşgul
+    window.qa_page.translation_edited.emit(_ids(window)["x1"], "Selam")
+    assert _translation(window, "x1") == before  # iş sürerken yazılmadı
+    notice = window.notifier.history[0]
+    assert "iş bitince" in f"{notice.title} {notice.text}"
+    assert "saklandı" in f"{notice.title} {notice.text}"
+    window._task_finished()
+    assert _translation(window, "x1") == "Selam"  # metin kaybolmadı: iş bitince kaydedildi
+    assert "inconsistent" not in _board(window, "x1")  # panoda da yeniden denetlendi
+
+
+def test_is_satiri_degistirdiyse_bekleyen_duzenleme_ezmez_kullaniciya_sorar(window: MainWindow) -> None:
+    window.run_checks()
+    row_id = _ids(window)["x1"]
+    window.task = Task(lambda _ctx: None, "Sahte iş")
+    window.qa_page.translation_edited.emit(row_id, "Selam")
+    window.project.set_translations([(row_id, "Makinenin yazdığı")], machine=True, overwrite_approved=True)
+    window._task_finished()
+    assert _translation(window, "x1") == "Makinenin yazdığı"  # sessizce ezilmedi
+    notice = window.notifier.history[0]
+    assert "Selam" in notice.text  # kullanıcının metni bildirimde duruyor
+    (action,) = [a for a in notice.actions if a.label == "Yine de Kaydet"]
+    action.callback()
+    assert _translation(window, "x1") == "Selam"
 
 
 def test_o3_yerinde_duzenleme_sayaci_gunceller(window: MainWindow) -> None:

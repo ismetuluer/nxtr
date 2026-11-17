@@ -8,7 +8,8 @@ Hangi türlerin çalışacağı `LiveContext.kinds` ile seçilir.
 from __future__ import annotations
 
 import logging
-from collections.abc import Collection, Sequence
+import re
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 
 from nxceviri.core.project import TranslationRow
@@ -115,6 +116,36 @@ class LiveContext:
     spell_ignored: frozenset[str] = frozenset()
 
 
+@dataclass(frozen=True)
+class Precheck:
+    """Arka plan denetiminin başladığı andaki bağlam ve satırların önbellek kayıtları (eskiyen sonucu ayırmak için)."""
+
+    context: LiveContext
+    before: dict[int, tuple[TranslationRow, list[QaIssue]] | None]
+
+
+def _base_issues(
+    row: TranslationRow,
+    ctx: LiveContext,
+    patterns: list[tuple[GlossaryTerm, re.Pattern[str]]],
+    extra: frozenset[str],
+) -> list[QaIssue]:
+    """Satırın tutarlılık dışındaki anlık bulguları (seçili türler)."""
+    return [
+        i
+        for i in check_row(
+            row,
+            ctx.missing_letters,
+            ctx.transliterated,
+            patterns,
+            ctx.fit,
+            spell=ctx.spell,
+            spell_extra=extra,
+        )
+        if i.kind in ctx.kinds and i.kind in KIND_LABELS and i.kind != "untranslated"
+    ]
+
+
 class LiveChecker:
     def __init__(self) -> None:
         self._context = LiveContext()
@@ -191,26 +222,47 @@ class LiveChecker:
         cached = self._cache.get(row.id)
         return cached[1] if cached is not None and cached[0] is row else None
 
+    def pending(self, rows: Sequence[TranslationRow]) -> list[TranslationRow]:
+        """Önbellekte geçerli sonucu olmayan satırlar (denetlenmemiş ya da o zamandan beri değişmiş)."""
+        cache = self._cache
+        return [r for r in rows if (c := cache.get(r.id)) is None or c[0] is not r]
+
+    def precheck_job(
+        self, rows: Sequence[TranslationRow]
+    ) -> tuple[Precheck, Callable[[Callable[[], None]], list[tuple[TranslationRow, list[QaIssue]]]]]:
+        """Satırları şimdiki bağlamla denetleyen iş ve işin anlık görüntüsü (`store`'a verilir).
+
+        İş yalnızca okunan anlık görüntüyle çalışır, her iş parçacığında çalışabilir; her satırdan önce verilen
+        işlevi çağırır (iptal denetimi). Büyük tabloda "Hata veya uyarılı" süzgeci arayüzü dondurmasın diye.
+        """
+        ctx, patterns, extra, todo = self._context, self._patterns, self._extra, list(rows)
+        token = Precheck(ctx, {r.id: self._cache.get(r.id) for r in todo})
+
+        def job(check_cancelled: Callable[[], None]) -> list[tuple[TranslationRow, list[QaIssue]]]:
+            out = []
+            for row in todo:
+                check_cancelled()
+                out.append((row, _base_issues(row, ctx, patterns, extra)))
+            return out
+
+        return token, job
+
+    def store(self, token: Precheck, results: Sequence[tuple[TranslationRow, list[QaIssue]]]) -> None:
+        """`precheck_job` sonuçlarını önbelleğe yazar. Bağlam bu arada değiştiyse hiçbiri yazılmaz; önbellek kaydı
+        iş başladığından beri değişen satıra (bu arada düzenlenip denetlenmiş olabilir) dokunulmaz."""
+        if token.context is not self._context:
+            return
+        for row, base in results:
+            if self._cache.get(row.id) is token.before.get(row.id):
+                self._cache[row.id] = (row, base)
+
     def check(self, row: TranslationRow) -> list[QaIssue]:
         kinds = self._context.kinds
         cached = self._cache.get(row.id)
         if cached is not None and cached[0] is row:
             base = cached[1]
         else:
-            ctx = self._context
-            base = [
-                i
-                for i in check_row(
-                    row,
-                    ctx.missing_letters,
-                    ctx.transliterated,
-                    self._patterns,
-                    ctx.fit,
-                    spell=ctx.spell,
-                    spell_extra=self._extra,
-                )
-                if i.kind in kinds and i.kind in KIND_LABELS and i.kind != "untranslated"
-            ]
+            base = _base_issues(row, self._context, self._patterns, self._extra)
             self._cache[row.id] = (row, base)
         if "inconsistent" not in kinds:
             return base
