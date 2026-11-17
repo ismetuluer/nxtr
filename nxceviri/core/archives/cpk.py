@@ -185,50 +185,52 @@ def decompress_layla(src: bytes, limit: int = MAX_MEMBER) -> bytes:
     if size > limit or prefix_at + _LAYLA_PREFIX > len(src):
         raise ArchiveError("CRILAYLA verisi bozuk: boyutlar tutarsız.")
     out = bytearray(size)
-    pos = prefix_at - 1
-    pool = 0
-    left = 0
+    # Akış sondan başa okunur: ters çevrilmiş baytlar, en anlamlı bitten başlayarak tek bir 0/1 dizgesine açılır;
+    # bit bit Python döngüsü yerine dilim + `int(…, 2)` ile okunur (aynı bitler, çok daha hızlı).
+    rev = src[16:prefix_at][::-1]
+    stream = bin(int.from_bytes(rev, "big"))[2:].zfill(len(rev) * 8) if rev else ""
+    total = len(stream)
+    at = 0
 
     def bits(n: int) -> int:
-        nonlocal pos, pool, left
-        value = 0
-        while n:
-            if left == 0:
-                if pos < 16:
-                    raise ArchiveError("CRILAYLA verisi bozuk: veri erken bitti.")
-                pool = src[pos]
-                pos -= 1
-                left = 8
-            take = left if left < n else n
-            value = (value << take) | ((pool >> (left - take)) & ((1 << take) - 1))
-            left -= take
-            n -= take
+        nonlocal at
+        if at + n > total:
+            raise ArchiveError("CRILAYLA verisi bozuk: veri erken bitti.")
+        value = int(stream[at : at + n], 2)
+        at += n
         return value
 
     w = size - 1
     while w >= 0:
-        if bits(1):
-            distance = bits(13) + 3
-            length = 3
-            for level in (2, 3, 5):
-                v = bits(level)
-                length += v
-                if v != (1 << level) - 1:
-                    break
-            else:
-                while True:
-                    v = bits(8)
-                    length += v
-                    if v != 0xFF:
-                        break
-            if w + distance >= size or length > w + 1:
-                raise ArchiveError("CRILAYLA verisi bozuk: geçersiz geri başvuru.")
-            for _ in range(length):
-                out[w] = out[w + distance]
-                w -= 1
-        else:
-            out[w] = bits(8)
+        if at + 9 <= total and stream[at] == "0":  # düz bayt: bayrak biti + 8 bit (sık yol, satır içi)
+            out[w] = int(stream[at + 1 : at + 9], 2)
+            at += 9
             w -= 1
+            continue
+        if bits(1) == 0:  # yalnızca akış sonunda: düz bayt için bit yetmiyor
+            raise ArchiveError("CRILAYLA verisi bozuk: veri erken bitti.")
+        distance = bits(13) + 3
+        length = 3
+        for level in (2, 3, 5):
+            v = bits(level)
+            length += v
+            if v != (1 << level) - 1:
+                break
+        else:
+            while True:
+                v = bits(8)
+                length += v
+                if v != 0xFF:
+                    break
+        if w + distance >= size or length > w + 1:
+            raise ArchiveError("CRILAYLA verisi bozuk: geçersiz geri başvuru.")
+        # Kopya `distance` aralıklı örtüşebilir (tekrar deseni): her seferinde en çok `distance` bayt, dilimle.
+        remaining = length
+        while remaining:
+            n = remaining if remaining < distance else distance
+            out[w - n + 1 : w + 1] = out[w - n + 1 + distance : w + 1 + distance]
+            w -= n
+            remaining -= n
     return src[prefix_at : prefix_at + _LAYLA_PREFIX] + bytes(out)
 
 

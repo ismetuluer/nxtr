@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import struct
 from pathlib import Path
 
 import pytest
@@ -18,7 +19,7 @@ from nxceviri.core.formats.detection import CPK_ARCHIVE_DETAIL, detect
 from nxceviri.core.formats.fmsb import FmsbPlugin
 from nxceviri.core.formats.scanner import scan_view
 from nxceviri.core.pipeline import path_language
-from tests.nnicpkbuild import build_cpk, build_fmsb, layla_compress
+from tests.nnicpkbuild import build_cpk, build_fmsb, layla_compress, layla_random_stream
 from tests.nxbuild import build_romfs
 
 TID = "010069401ADB8000"
@@ -71,6 +72,65 @@ def test_layla_rejects_corrupt_data() -> None:
     packed[16:20] = b"\xff\xff\xff\xff"  # geri başvuruları anlamsızlaştır
     with pytest.raises(ArchiveError):
         cpk.decompress_layla(bytes(packed))
+
+
+def _layla_reference(src: bytes) -> bytes:
+    """Bit bit okuyan yavaş başvuru açıcı (hızlandırılmadan önceki davranış): çıktı bire bir aynı olmalı."""
+    size, header_off = struct.unpack_from("<II", src, 8)
+    prefix_at = 16 + header_off
+    out = bytearray(size)
+    pos, pool, left = prefix_at - 1, 0, 0
+
+    def bits(n: int) -> int:
+        nonlocal pos, pool, left
+        value = 0
+        while n:
+            if left == 0:
+                if pos < 16:
+                    raise ArchiveError("erken bitti")
+                pool, pos, left = src[pos], pos - 1, 8
+            take = min(left, n)
+            value = (value << take) | ((pool >> (left - take)) & ((1 << take) - 1))
+            left -= take
+            n -= take
+        return value
+
+    w = size - 1
+    while w >= 0:
+        if bits(1):
+            distance, length = bits(13) + 3, 3
+            for level in (2, 3, 5):
+                v = bits(level)
+                length += v
+                if v != (1 << level) - 1:
+                    break
+            else:
+                while True:
+                    v = bits(8)
+                    length += v
+                    if v != 0xFF:
+                        break
+            for _ in range(length):
+                out[w] = out[w + distance]
+                w -= 1
+        else:
+            out[w] = bits(8)
+            w -= 1
+    return src[prefix_at : prefix_at + 0x100] + bytes(out)
+
+
+@pytest.mark.parametrize("seed", [1, 2, 3])
+def test_layla_matches_bitwise_reference_on_random_streams(seed: int) -> None:
+    blob = layla_random_stream(20000, seed)
+    assert cpk.decompress_layla(blob) == _layla_reference(blob)
+
+
+def test_layla_truncated_stream_reports_error() -> None:
+    blob = bytearray(layla_random_stream(5000))
+    (size,) = struct.unpack_from("<I", blob, 8)
+    struct.pack_into("<I", blob, 8, size * 4)  # daha çok çıktı istenir: akış yetmez
+    with pytest.raises(ArchiveError, match=r"erken bitti|geri başvuru"):
+        cpk.decompress_layla(bytes(blob))
 
 
 @pytest.mark.parametrize("masked", [True, False])

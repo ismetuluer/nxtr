@@ -65,6 +65,33 @@ REPEAT_PENALTY = 1.1
 _CHARS_PER_TOKEN = 3
 _CTX_MARGIN = 1.15
 
+#: CJK (kana, Kanji/Çince, Hangul) karakterleri: yaygın alt sözcük sözlüklerinde bu yazılar sık geçmediğinden bir
+#: karakter çoğunlukla ~1 belirteç tutar (bazen bayt düzeyine bölünüp daha fazla); Latin için /3 kalır.
+_CJK_TOKENS_PER_CHAR = 1
+_CJK_RANGES = (
+    (0x3040, 0x30FF),  # Hiragana + Katakana
+    (0x3400, 0x4DBF),  # CJK Uzantı A
+    (0x4E00, 0x9FFF),  # CJK Birleşik İdeogramlar
+    (0xAC00, 0xD7AF),  # Hangul heceleri
+    (0xFF66, 0xFF9F),  # Yarım genişlikli katakana
+)
+
+
+def _count_cjk(text: str) -> int:
+    return sum(1 for ch in text if any(lo <= ord(ch) <= hi for lo, hi in _CJK_RANGES))
+
+
+def estimate_tokens(text: str) -> int:
+    """Metnin kaba belirteç sayısı: Latin karakter/3, CJK karakter başına ~1."""
+    cjk = _count_cjk(text)
+    return math.ceil((len(text) - cjk) / _CHARS_PER_TOKEN) + cjk * _CJK_TOKENS_PER_CHAR
+
+
+def prompt_weight(messages: Sequence[dict[str, str]]) -> int:
+    """İstemin `choose_num_ctx` için "eşdeğer karakter" sayısı (tahmini belirteç × 3)."""
+    return sum(estimate_tokens(m["content"]) for m in messages) * _CHARS_PER_TOKEN
+
+
 #: RTX A4000 (16 GB VRAM) için önerilen modeller, tercih sırasıyla (Ekim 2026 araştırması).
 RECOMMENDED_MODELS: tuple[tuple[str, str], ...] = (
     ("gemma4:12b", "Önerilen: Google'ın en yeni çok dilli modeli; 16 GB VRAM'e rahat sığar."),
@@ -613,10 +640,13 @@ class OllamaProvider:
         longest = 0
         for b in batches:
             messages = build_messages(b.items, source_lang, target_lang, context, b.glossary, scene=b.scene)
-            longest = max(longest, sum(len(m["content"]) for m in messages))
+            longest = max(longest, prompt_weight(messages))
         self._job_num_ctx = choose_num_ctx(longest, info.context_length)
         log.info(
-            "%s: bağlam penceresi (num_ctx) %d (en uzun istem ≈ %d karakter)", self.model, self._job_num_ctx, longest
+            "%s: bağlam penceresi (num_ctx) %d (en uzun istem ≈ %d karakter eşdeğeri)",
+            self.model,
+            self._job_num_ctx,
+            longest,
         )
 
     def chat_json(self, messages: list[dict[str, str]], schema: dict[str, Any]) -> str:
@@ -624,7 +654,7 @@ class OllamaProvider:
         info = self._model_info()
         if info.template_drops_system:
             messages = inline_system(messages)
-        num_ctx = choose_num_ctx(sum(len(m["content"]) for m in messages), info.context_length)
+        num_ctx = choose_num_ctx(prompt_weight(messages), info.context_length)
         if self._job_num_ctx:
             if num_ctx > self._job_num_ctx:  # bağlam satırlarındaki çeviriler beklenenden uzun çıktı
                 log.info("%s: istem beklenenden uzun; num_ctx %d → %d", self.model, self._job_num_ctx, num_ctx)

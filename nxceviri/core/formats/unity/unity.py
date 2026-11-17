@@ -78,6 +78,12 @@ _LITERAL_NEWLINE = "\\n"
 def _tag_label(tag: str) -> str:
     if tag == _LITERAL_NEWLINE:
         return "Satır sonu"
+    if tag.endswith(":plural:") and tag.startswith("{"):
+        return f"Çoğul ifadesi başı {tag}"
+    if tag == "|":
+        return "Çoğul dalı ayracı"
+    if tag == "}":
+        return "Çoğul ifadesi sonu"
     if tag.startswith("{"):
         return f"Değişken {tag}" if len(tag) <= 40 else "Değişken / biçim ifadesi"
     m = re.match(r"<(/?)([A-Za-z#]+)", tag)
@@ -96,7 +102,7 @@ def _tag_label(tag: str) -> str:
 
 def tokenize(text: str, literals: tuple[str, ...] = ()) -> tuple[str, tuple[ControlCode, ...]]:
     """Metni yer tutuculu biçime çevirir: TMP etiketleri ve Smart String değişkenleri ⟦n⟧ olur."""
-    return markup.tokenize(text, _TAG_RE, _tag_label, literals)
+    return markup.tokenize(text, _TAG_RE, _tag_label, literals, plural=True)
 
 
 def detokenize(display: str, codes: tuple[ControlCode, ...]) -> str:
@@ -583,9 +589,11 @@ class UnityPlugin:
         return result
 
     def movable_code(self, code: ControlCode) -> bool:
-        """Serbest: `<sprite …>` simgesi ve adıyla/numarasıyla bağlanan Smart String değişkeni (`{0}`, `{input_0}`,
-        `{0:plural:…}`). Adsız `{}`, satır sonu ve TextMeshPro biçim etiketleri (çoğu açma/kapama çifti) katıdır."""
-        return _MOVABLE_RE.match(code.raw.decode("utf-8", errors="replace")) is not None
+        """Serbest: `<sprite …>` simgesi ve adıyla/numarasıyla bağlanan Smart String değişkeni (`{0}`, `{input_0}`).
+        Çoğul ifadesinin iskeleti (`{0:plural:`, `|`, `}`), adsız `{}`, satır sonu ve TextMeshPro biçim etiketleri
+        (çoğu açma/kapama çifti) katıdır."""
+        raw = code.raw.decode("utf-8", errors="replace")
+        return not raw.endswith(":plural:") and _MOVABLE_RE.match(raw) is not None
 
     def language(self, data: bytes) -> str | None:
         env = _load(data)

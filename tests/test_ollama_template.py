@@ -18,6 +18,8 @@ from nxceviri.core.translate.providers.ollama import (
     MAX_NUM_CTX,
     MIN_NUM_CTX,
     choose_num_ctx,
+    estimate_tokens,
+    prompt_weight,
     template_drops_system,
 )
 from nxceviri.core.translate.runner import MachineJob, run_machine_translation
@@ -263,3 +265,23 @@ def test_num_ctx_rises_if_a_batch_is_longer_than_planned_and_errors_beyond_the_l
     assert server.requests[-1]["options"]["num_ctx"] == 24576
     with pytest.raises(ProviderError, match="çok uzun"):
         provider.translate_batch([BatchItem("0", "x" * 90_000)], "en", "tr", "", [])
+
+
+def test_estimate_tokens_latin_is_chars_over_three() -> None:
+    assert estimate_tokens("a" * 300) == 100
+    assert estimate_tokens("") == 0
+
+
+def test_estimate_tokens_cjk_is_about_one_per_char() -> None:
+    # Kana, Kanji ve Hangul karakter başına ~1 belirteç; Latin kısım /3.
+    assert estimate_tokens("こんにちは") == 5
+    assert estimate_tokens("勇者の剣") == 4
+    assert estimate_tokens("안녕하세요") == 5
+    assert estimate_tokens("勇者" + "a" * 30) == 2 + 10
+
+
+def test_prompt_weight_makes_cjk_prompt_choose_larger_context() -> None:
+    messages = [{"role": "user", "content": "あ" * 9000}]
+    assert prompt_weight(messages) == 27000
+    # Eski karakter/3 tahmini 3000 belirteç derdi (8192); CJK'de 9000 belirteç gerekir.
+    assert choose_num_ctx(prompt_weight(messages), None) == 16384
