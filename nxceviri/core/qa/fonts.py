@@ -32,7 +32,7 @@ from nxceviri.core.container.view import GameView
 from nxceviri.core.errors import NxError
 from nxceviri.core.fontpatch.ttf import is_cjk_chars
 from nxceviri.core.fontpatch.unity import patch_fonts
-from nxceviri.core.formats.scanner import ScanReport, scan_view
+from nxceviri.core.formats.scanner import ScanReport, base_detail, scan_view
 from nxceviri.core.pipeline import Inputs, opened_view
 from nxceviri.core.progress import TaskContext
 
@@ -263,10 +263,13 @@ def scan_fonts(view: GameView, report: ScanReport, ctx: TaskContext | None = Non
         e
         for e in report.entries
         if (
-            e.kind == "unity" and ">" not in e.path and e.detail in _UNITY_CONTAINERS and e.size <= _MAX_UNITY_SCAN_SIZE
+            e.kind == "unity"
+            and ">" not in e.path
+            and base_detail(e.detail) in _UNITY_CONTAINERS
+            and e.size <= _MAX_UNITY_SCAN_SIZE
         )
         or _FONT_FILE.search(e.path.split(">")[-1])
-        or e.detail in ("OpenType font", "Font")
+        or base_detail(e.detail) in ("OpenType font", "Font")
     ]
     pending: list[tuple[str, dict[str, Any]]] = []
     for i, entry in enumerate(targets):

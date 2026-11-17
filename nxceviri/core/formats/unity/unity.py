@@ -611,6 +611,11 @@ class UnityPlugin:
         codes.discard("")
         return sorted(codes)[0] if len(codes) == 1 else None
 
+    def languages(self, data: bytes) -> list[str]:
+        """Dosyanın içindeki I2 dil kodları (ör. ["en", "ja"]); I2 kaynağı yoksa boş."""
+        codes = [lang.code for _obj, source in _i2_sources(_load(data)) for lang in source.languages]
+        return list(dict.fromkeys(codes))
+
     def extract(self, data: bytes, context: Context | None = None) -> list[TextEntry]:
         env = _load(data)
         entries: list[TextEntry] = []

@@ -15,6 +15,9 @@ Her metin formatı `FormatPlugin`'i uygular:
   toplar; aktarma sırasında tüm adaylardan toplanıp `extract`'e verilir.
 - `language(data)`: dosyanın dili biliniyorsa dil kodu ("en", "ja"…). Aynı metnin birden çok
   dildeki kopyası varsa yalnızca kaynak dildeki dosya aktarılır.
+- `languages(data) -> list[str]`: diller dosyanın içindeyse (I2 Localization) dosyadaki dil kodları. Tarama sonunda
+  çağrılır ve kodlar Metinleri Tara'daki kaynak dil listesine eklenir; seçilen dil `SOURCE_LANGUAGE` ile `extract`'e
+  gelir. Dili dosya yolundan anlaşılan biçimler bildirmez; bildirmeyen eklentide davranış değişmez.
 - `movable_code(code) -> bool`: bu kontrol kodu "serbest" mi, yani çeviride yeri değişebilir mi? Yalnızca tek
   başına duran ve kendisi anlam taşıyan kodlar (simge, adıyla ya da numarasıyla bağlanan değişken: `{0}`,
   `{name}`) için True. Konumsal kodlar (`%s`, `%d`: oyun argümanları sırayla bağlar), açma/kapama çiftleri,

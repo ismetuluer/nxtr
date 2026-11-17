@@ -60,6 +60,22 @@ _MEMBER_TEXT: dict[str, tuple[Callable[[str], bool], FileKind, str]] = {
 }
 
 
+#: Dosyanın içindeki dillerin (eklentinin `languages` kancası) tarama kaydındaki `detail` ekinde yazıldığı biçim.
+#: Ek `detail` ile birlikte projeye kaydedildiği için proje yeniden açılınca dil listesi kaybolmaz.
+DETAIL_LANGUAGES = " · Diller: "
+
+
+def detail_languages(detail: str) -> list[str]:
+    """`detail` ekine yazılmış dosya içi dil kodları; yoksa boş."""
+    _, mark, tail = detail.partition(DETAIL_LANGUAGES)
+    return [c for c in (p.strip() for p in tail.split(",")) if c] if mark else []
+
+
+def base_detail(detail: str) -> str:
+    """`detail`'in dil eki olmadan hâli (türü tanımak için karşılaştırılan metin)."""
+    return detail.partition(DETAIL_LANGUAGES)[0]
+
+
 @dataclass(frozen=True)
 class ScanEntry:
     title_id: str

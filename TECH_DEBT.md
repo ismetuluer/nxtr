@@ -18,14 +18,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 33. **Taşma denetimi kaba.** Font ölçüsü/kutu genişliği bilinmediği için yalnızca uzunluk oranına
     bakılıyor; gerçek taşma oyunda görülür.
 
-43. **I2 kaynak dili dil listesinde görünmüyor.** Diller dosyanın içinde olduğundan tarama
-    aşamasında bilinmez; seçim yapılmazsa İngilizce sütunu aktarılır. *Ne zaman:* Kullanıcı başka bir
-    dilden çevirmek isterse, tarama sırasında I2 dil listesini okuyup açılır listeye eklemek.
-    *Neden yapılmadı:* liste `pipeline.available_languages(report)` ile yalnızca dosya yollarından üretiliyor
-    (içerik okunmuyor); I2 dillerini eklemek için ya bu işlev dosya içeriğine erişecek (çağrısı
-    `gui/scan_page.py`'de) ya da `FormatPlugin`'e yeni bir dil listesi kancası (`formats/base.py`) eklenecek;
-    ikisi de çekirdek dışına dokunur.
-
 46. **Metin kutusu genişliği denetlenmiyor.** GFMSG biçimi satırları elle `\n` ile bölünür; Türkçe
     metin uzun olursa kutudan taşabilir. *Ne zaman:* M5 QA'ya font ölçüsüyle satır genişliği denetimi.
 
@@ -441,3 +433,9 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     bütün olarak taşınan aç/kapa çiftleri (2026-11-17, ARCHITECTURE 219) uyarıdır. Kalan: satır/sayfa sonu ve
     konumsal kodların (`%s`) sırası bilerek katıdır; MSBT'de rengi yeni bir renk etiketiyle sıfırlayan oyunlarda
     (0x0F kapanışı yok) renk kodları çift sayılmaz, katı kalır.
+
+43. ~~I2 kaynak dili dil listesinde görünmüyor.~~ — **Kapandı (2026-11-17):** `FormatPlugin`'e isteğe bağlı
+    `languages(data)` kancası eklendi (I2 için Unity eklentisi uygular); `pipeline.scan_sources` tarama sonunda
+    kancayı uygulayan eklentilerin dosyalarını okur, dil kodlarını kaydın `detail` ekine yazar (proje yeniden açılınca
+    kalır) ve `available_languages` bunları toplar. Kalan: tarama, kancalı eklentinin dosyalarını (Unity
+    `.assets`/bundle) bir kez daha okuduğu için büyük oyunlarda tarama uzar.

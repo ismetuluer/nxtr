@@ -9,9 +9,10 @@ import UnityPy
 
 from nxceviri.core.export.layeredfs import LAYOUT_ATMOSPHERE, ExportInfo, ExportOptions, TextFileRef, export_mod
 from nxceviri.core.formats.base import SOURCE_LANGUAGE, FormatError
+from nxceviri.core.formats.scanner import DETAIL_LANGUAGES, base_detail, detail_languages
 from nxceviri.core.formats.unity import UnityPlugin, i2
 from nxceviri.core.keys import load_keys
-from nxceviri.core.pipeline import Inputs, extract_texts, scan_sources
+from nxceviri.core.pipeline import Inputs, available_languages, extract_texts, scan_sources
 from nxceviri.core.progress import TaskContext
 from nxceviri.core.project import Project
 from tests import nxbuild
@@ -199,3 +200,72 @@ def test_i2_game_import_and_export(i2_game: tuple[Inputs, Path]) -> None:
     assert texts["I2|100|en|UI/Yes"] == "Evet şimdi"
     assert texts["I2|100|en|UI/Points"] == "⟦1⟧ puan"
     assert texts["I2|100|es|UI/Yes"] == "Sí"
+
+
+# --- dosyanın içindeki dil listesi (tarama raporu → kaynak dil seçimi) -------------------------
+
+LANGS_EN_JA = [("English", "en"), ("Japanese", "ja")]
+TERMS_EN_JA: list[tuple[str, int, list[str]]] = [("UI/Yes", 0, ["Yes", "はい"]), ("UI/No", 0, ["No", "いいえ"])]
+
+
+@pytest.fixture
+def i2_two_languages(tmp_path: Path) -> Inputs:
+    keys = nxbuild.TestKeys.random()
+    files = {
+        "Data/globalgamemanagers": b"\0" * 8 + (22).to_bytes(4, "big") + b"\0" * 20,
+        "Data/resources.assets": serialized_without_typetree(
+            [i2_source_raw(TERMS_EN_JA, LANGS_EN_JA), b"\x05\x00\x00\x00" * 30]
+        ),
+    }
+    pkg = nxbuild.build_package(
+        keys,
+        kind="base",
+        title_id=0x0100BBBB00000000,
+        application_id=0x0100BBBB00000000,
+        version=0,
+        romfs_files=files,
+        name="I2 Oyunu",
+    )
+    nsp = tmp_path / "iki dil.nsp"
+    nsp.write_bytes(pkg.nsp)
+    return Inputs((nsp,), load_keys(keys.write(tmp_path / "prod.keys")))
+
+
+def test_plugin_languages_hook(assets: bytes) -> None:
+    assert PLUGIN.languages(assets) == ["es", "en", "fr", "pt-BR"]
+    assert PLUGIN.languages(serialized_without_typetree([b"\x05\x00\x00\x00" * 30])) == []
+
+
+def test_scan_lists_i2_languages_and_selected_one_is_imported(i2_two_languages: Inputs) -> None:
+    report = scan_sources(i2_two_languages, TaskContext())
+    assert available_languages(report) == ["en", "ja"]
+    result = extract_texts(i2_two_languages, report, TaskContext(), "ja")
+    assert {e.key: e.source for e in result.files[0].entries} == {
+        "I2|100|ja|UI/Yes": "はい",
+        "I2|100|ja|UI/No": "いいえ",
+    }
+
+
+def test_detail_language_helpers() -> None:
+    detail = "Unity serileştirilmiş dosya" + DETAIL_LANGUAGES + "en, pt-BR"
+    assert detail_languages(detail) == ["en", "pt-BR"]
+    assert base_detail(detail) == "Unity serileştirilmiş dosya"
+    assert detail_languages("Unity serileştirilmiş dosya") == []
+    assert base_detail("Font") == "Font"
+
+
+def test_scan_detail_keeps_unity_container_name_for_font_scan(i2_two_languages: Inputs) -> None:
+    report = scan_sources(i2_two_languages, TaskContext())
+    entry = next(e for e in report.entries if e.path == "Data/resources.assets")
+    assert detail_languages(entry.detail) == ["en", "ja"]
+    assert base_detail(entry.detail) == base_detail(entry.detail.split(DETAIL_LANGUAGES)[0])
+    assert DETAIL_LANGUAGES not in base_detail(entry.detail)
+
+
+def test_i2_languages_survive_project_round_trip(i2_two_languages: Inputs) -> None:
+    report = scan_sources(i2_two_languages, TaskContext())
+    project = Project.new()
+    project.save_scan(report)
+    saved = project.latest_scan()
+    assert saved is not None
+    assert available_languages(saved) == ["en", "ja"]

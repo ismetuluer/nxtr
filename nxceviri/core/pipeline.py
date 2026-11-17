@@ -12,7 +12,7 @@ import re
 import shutil
 from collections.abc import Collection, Iterator, Mapping
 from contextlib import ExitStack, contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from nxceviri.core.archives import nested
@@ -22,7 +22,14 @@ from nxceviri.core.container.view import ContentTree, GameView, LayeredRomFs, bu
 from nxceviri.core.errors import ContainerError, NxError
 from nxceviri.core.formats.base import SOURCE_LANGUAGE, SOURCE_PATH, FormatPlugin
 from nxceviri.core.formats.registry import all_plugins, kind_label, plugin_for_kind, supported_kinds
-from nxceviri.core.formats.scanner import NESTED_SEPARATOR, ScanEntry, ScanReport, scan_view
+from nxceviri.core.formats.scanner import (
+    DETAIL_LANGUAGES,
+    NESTED_SEPARATOR,
+    ScanEntry,
+    ScanReport,
+    detail_languages,
+    scan_view,
+)
 from nxceviri.core.keys import KeySet
 from nxceviri.core.languages import same_language
 from nxceviri.core.progress import TaskContext
@@ -99,9 +106,40 @@ def opened_view(inputs: Inputs, ctx: TaskContext) -> Iterator[GameView]:
         yield build_game_view(packages, ctx)
 
 
+def _annotate_content_languages(view: GameView, report: ScanReport, ctx: TaskContext) -> None:
+    """Eklentisi `languages` kancası bildiren dosyaları okuyup dil kodlarını kayıt ayrıntısına ekler.
+
+    Yalnızca kancayı uygulayan eklentilerin dosyaları okunur; diğer eklentilerde hiçbir şey değişmez. Bozuk bir dosya
+    taramayı durdurmaz, uyarı olarak raporlanır.
+    """
+    trees = {t.title_id: t for t in view.trees}
+    readers: dict[str, MemberReader] = {}
+    cache: dict[tuple[str, ...], bytes] = {}
+    importable = set(importable_entries(report))
+    for i, entry in enumerate(report.entries):
+        plugin = plugin_for_kind(entry.kind, entry.title_id)
+        hook = getattr(plugin, "languages", None) if plugin is not None else None
+        tree = trees.get(entry.title_id)
+        if plugin is None or hook is None or tree is None or entry not in importable:
+            continue
+        if plugin.path_suffixes and not entry.path.lower().endswith(plugin.path_suffixes):
+            continue
+        ctx.report(i, len(report.entries), f"Diller okunuyor: {entry.path}")
+        try:
+            data = _read(readers, cache, tree, entry.path)
+            codes = [str(c) for c in hook(data)] if plugin.detect(entry.path, data[:64]) else []
+        except NxError as exc:
+            report.warnings.append(f"{entry.path}: {exc.message}")
+            continue
+        if codes:
+            report.entries[i] = replace(entry, detail=f"{entry.detail}{DETAIL_LANGUAGES}{', '.join(codes)}")
+
+
 def scan_sources(inputs: Inputs, ctx: TaskContext) -> ScanReport:
     with opened_view(inputs, ctx) as view:
-        return scan_view(view, ctx)
+        report = scan_view(view, ctx)
+        _annotate_content_languages(view, report, ctx)
+        return report
 
 
 def extract_sources(inputs: Inputs, dest: Path, only: set[str] | None, ctx: TaskContext) -> int:
@@ -277,8 +315,10 @@ def importable_entries(report: ScanReport) -> list[ScanEntry]:
 
 
 def available_languages(report: ScanReport) -> list[str]:
-    """Aktarılabilecek dosyaların yollarında görülen dil kodları (ör. ["en", "ja"])."""
-    codes = {path_language(e.path) for e in importable_entries(report)}
+    """Aktarılabilecek dosyaların yolunda ve (eklenti bildiriyorsa) içinde görülen dil kodları (ör. ["en", "ja"])."""
+    entries = importable_entries(report)
+    codes = {path_language(e.path) for e in entries}
+    codes.update(code.lower() for e in entries for code in detail_languages(e.detail))
     codes.discard(None)
     return sorted(c for c in codes if c is not None)
 
