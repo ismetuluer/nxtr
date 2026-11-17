@@ -26,6 +26,10 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 43. **I2 kaynak dili dil listesinde görünmüyor.** Diller dosyanın içinde olduğundan tarama
     aşamasında bilinmez; seçim yapılmazsa İngilizce sütunu aktarılır. *Ne zaman:* Kullanıcı başka bir
     dilden çevirmek isterse, tarama sırasında I2 dil listesini okuyup açılır listeye eklemek.
+    *Neden yapılmadı:* liste `pipeline.available_languages(report)` ile yalnızca dosya yollarından üretiliyor
+    (içerik okunmuyor); I2 dillerini eklemek için ya bu işlev dosya içeriğine erişecek (çağrısı
+    `gui/scan_page.py`'de) ya da `FormatPlugin`'e yeni bir dil listesi kancası (`formats/base.py`) eklenecek;
+    ikisi de çekirdek dışına dokunur.
 
 46. **Metin kutusu genişliği denetlenmiyor.** GFMSG biçimi satırları elle `\n` ile bölünür; Türkçe
     metin uzun olursa kutudan taşabilir. *Ne zaman:* M5 QA'ya font ölçüsüyle satır genişliği denetimi.
