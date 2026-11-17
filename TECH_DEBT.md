@@ -5,10 +5,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 
 ## 1. Borçlar (düzeltilecek)
 
-12. **Python 3.12 ile test edilmedi.** Geliştirme makinesinde yalnızca 3.13/3.14 kurulu;
-    testler 3.13'te çalıştırıldı. Kod 3.12 özelliklerinin üstüne çıkmıyor (`StrEnum`,
-    `datetime.UTC` 3.11+). *Ne zaman:* M9 paketlemede sabit sürüm seçilirken.
-
 22. **AssetTable/StringTable ayrımı sezgisel** (tüm değerleri GUID olan tablo metin sayılmaz).
     Kesin ayrım için `Script_monoscripts` bundle'ındaki MonoScript sınıf adları okunabilir.
 
@@ -314,6 +310,9 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     bildirimi göstermez.
 
 ## 3. Kapananlar
+
+12. ~~Python 3.12 ile test edilmedi.~~ — **Kapandı (2026-11-17):** python.org'un resmî 3.12.10 paketiyle ayrı bir
+    ortamda tam test seti çalıştırıldı, hepsi geçti (sayı CHANGELOG 0.64.0 raporunda).
 
 1. ~~Seyrek ve sıkıştırılmış NCA bölümleri~~ — 0.9.0'da çözüldü.
    Kalan: sıkıştırma türü 2 ve 4 (gerçek oyunda görülmedi) açık hata verir.

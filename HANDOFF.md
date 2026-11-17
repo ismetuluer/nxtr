@@ -1,6 +1,12 @@
-# HANDOFF — oturum devri (2026-11-17, 0.63.0)
+# HANDOFF — oturum devri (2026-11-17, 0.64.0)
 
 ## Durum
+- **Sürüm 0.64.0** (2026-11-17; CHANGELOG 0.64.0): yol haritasının (docs/yol-haritasi.md) 1–2. aşaması. Ana pencere
+  `gui/checks_controller.py` ve `gui/export_controller.py`'ye bölündü (ARCHITECTURE 221; pencere ince yönlendirmeler
+  taşır, testler bunlara erişir). Kod çiftleri `paired_code` + `placeholders.CodeRoles` (219), Unreal çoğul (220),
+  sağlayıcı kaydı şema 7 `mt_provider/mt_model` (222), pano eksikleri (223), `FormatPlugin.languages` (I2),
+  `gui/scale.py` ölçek, `gui/motion.fade_in`. `tests/conftest.py` riskli düzeltme onayına kendiliğinden "Evet" der.
+  Kalan borçlar koşula bağlı (gerçek oyun, cihaz, model); listesi yol haritasında.
 - **Sürüm 0.63.0** (2026-11-17; CHANGELOG 0.63.0): Kontrol Et bekleme görünümü (`widgets.BusyState`; `qa_page` yığın,
   `mark_checking`/`stop_checking`; `main_window._run_full_check`, `_stop_checks`, `CHECK_PROGRESS_S`;
   `checks.run_checks(progress=)`). Aday seçimi (`asciitr.fold`/`apply_choice`, `QaIssue.choices`,

@@ -2,6 +2,36 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.64.0] — 2026-11-17 — Kalan işler: kod çiftleri, sağlayıcı kaydı, pano eksikleri, görsel cila
+
+### Eklendi
+- **Aç/kapa kod çiftleri taşınabilir:** biçim eklentisi bildirdiğinde (`paired_code`) kalın, renk gibi etiket
+  çiftleri iç içelik bozulmadan cümlede bütün olarak yer değiştirebilir; satır hatalı değil uyarıdır ve dışa
+  aktarılır. Çaprazlama, eksik/fazla kod her zaman hatadır. Unity, Unreal, MSBT ve birkaç oyun biçimi bildirir.
+- **Unreal çoğul ifadeleri:** `{N}|plural(one=…,other=…)` ifadesinin dalları çevrilebilir; Unity Smart String çoğul
+  ifadesinin (`{0:plural:…|…}`) dalları da.
+- **Satırı kim çevirdi:** makine çevirisi sağlayıcı ve modeli kaydeder (proje şeması 7, eski projeler yedek alınarak
+  kendiliğinden geçer); Çevir'de Durum ipucunda "Çeviren: …" görünür.
+- **I2 dilleri** Metinleri Tara'daki kaynak dil listesinde görünür.
+- **Beş adımda çeviri** kartı boş Oyunu Ekle ekranında; adım listesinde klavye odak halkası; bildirim kartı ve
+  düzenleme paneli kısa solmayla açılır.
+- Riskli düzeltme türleri birden çok satıra uygulanmadan önce onay istenir.
+
+### Değişti
+- "Hata veya uyarılı" süzgeci büyük projede arayüzü dondurmaz (denetim arka planda).
+- Yazım penceresi tarama sürerken bekleme ekranı gösterir.
+- Kontrol Et'te yok sayılan bulgu Çevir'den de hemen kalkar; Durdur değişen satırların eski bulgularını getirmez;
+  "Tüm bulgular" bilgi önerilerinin sayılmadığını söyler.
+- Türkçe harf onarımı yaygın yazım hatalarını (simdi → şimdi gibi) sözlükte geçse de onarır; terim denetimi uzun ek
+  zincirlerini tanır; Ollama belirteç tahmini Japonca/Çince/Korece için daha doğru; CRILAYLA açma ~3 kat hızlı.
+- Arayüz aralık ve köşe ölçüsü tek ölçekte toplandı. Ana pencere kodu Kontrol Et ve Dışa Aktar denetleyicilerine
+  bölündü (davranış aynı).
+
+### Düzeltildi
+- Sorunlar'da iş sürerken yerinde düzenlenen metin kaybolmaz; iş bitince yazılır.
+- Yazım taraması sürerken proje değişirse eski projenin sözcükleri yeni projeye karışıyordu.
+- Küçük pencerede bekleme ekranının alt yazısı ortalanır.
+
 ## [0.63.0] — 2026-11-17 — Kontrol Et: bekleme ekranı, doğru yazımı seçme, bulguyu yok sayma
 
 ### Eklendi

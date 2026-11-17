@@ -98,7 +98,9 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
   seçenekleri, Denetle, sığdırma alanları). Çevir sayfasında ipucusuz kalanlar yalnızca kendini anlatan düğmeler
   (Bul, Yerine, Onayla, İptal).
 
-**Sırada: kalan işlerin yol haritası (ürün sahibinin isteği, 2026-11-17)**
+**Yapıldı (0.64.0)** — aşağıdaki yol haritasının 1. ve 2. aşaması; "Koşula bağlı" listesi açık kalır.
+
+**Kalan işlerin yol haritası (ürün sahibinin isteği, 2026-11-17)**
 Hedef: "şimdi yapılabilir" listesini boşaltmak; tek sürümle yayımlanır (0.63.1 düzeltmeleri dahil). Kararlar
 (anket, 2026-11-17): aç/kapa kod çiftleri iç içelik korunarak bütün taşınabilir (uyarı); Python 3.12 indirilip
 denenir; ana pencere bölünür.
