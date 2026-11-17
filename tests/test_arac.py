@@ -292,7 +292,8 @@ def sahte_klasor(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         "BUILTIN_PLUGINS",
         (_SahteEklenti(), _KayipEklenti(), _YokSayanEklenti()),
     )
-    # Kullanıcı eklentisi olarak yüklenmiş bir eklenti de bulunmalı.
+    # Kullanıcı eklentisi olarak yüklenmiş bir eklenti de bulunmalı (`dogrula` diskten yeniden yüklemesin).
+    monkeypatch.setattr(registry, "load_user_plugins", lambda *_a, **_k: registry.user_plugin_report())
     monkeypatch.setattr(
         registry,
         "_user_report",

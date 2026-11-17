@@ -1211,6 +1211,23 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     okunur (yeniden adlandırılmaz, dosyalara dokunulmaz); ikisi de varsa `turkce/` kullanılır ve `temiz/` yok
     sayıldığı uyarılır (NNI: dışa aktarma uyarısı; FSD/MSG: günlük). Yeni kurulumda `export_originals` `turkce/`
     oluşturur; uyarı metinleri etkin klasörün gerçek adını söyler.
+227. **Yeni oyun yalnızca eklentiyle; eklentinin çekirdek içe aktarmaları denetlenir (ürün sahibi, 2026-11-17):**
+    yeni bir oyun için yazılan bütün kod (metin, font, resim) tek kullanıcı eklentisinde durur, ajan `nxceviri/`
+    altına yazmaz; "eklenti oluşturamıyorum" kabul edilmez (`AGENTS.md` §1, `yeni-oyun.md`). Neden: başka bir kopyada
+    çekirdeğe eklenmiş bir modülü içe aktaran eklenti bu kopyada yüklenemiyordu. Eklentiye açık çekirdek modülleri
+    tek yerde, `core/plugins/imports.py` `ALLOWED_MODULES` (tam adlar: `core.plugins`, `formats.base`,
+    `formats.derived`, `formats.msbt[.msbt]`, `translate.placeholders`, `translate.markup`, eklenti-yazma.md'deki
+    arşiv modülleri); `eklenti-yazma.md` "İzinli çekirdek modülleri" aynı listeyi verir, test ikisini karşılaştırır.
+    `msbt` listede: kurulu eklentiler yerleşik MSBT okuyucusundan türetiyor. `fontpatch.*` listede değil (iç
+    yapı; BC7 kodlayıcı gibi yardımcı gereken eklenti kendi kopyasını yazar). `audit_plugin(klasör)` `.py`
+    dosyalarını (`tests/`, `__pycache__` hariç) `ast` ile tarar, kod çalıştırmaz; `import`, `from … import` (paketten
+    alınan ad alt modül olarak değerlendirilir) ve sabit adlı `importlib.import_module`/`__import__` çağrılarını
+    `find_spec` ile çözer (paketlenmiş exe'de de çalışır). Göreli içe aktarma eklentinin kendi modülüdür, geçer.
+    Bağlantılar: `arac eklentiler` bulguları `İçe aktarma:` satırıyla gösterir (çıkış kodu değişmez; yükleme
+    engellenmez), `arac dogrula` bulguyu KALDI sayar, yükleyici `nxceviri` altından bir şey bulamayıp içe
+    aktaramazsa hata metnine bulguları ekler. Ayrıca `dogrula` artık kullanıcı eklentilerini kendisi yükler (önceden
+    yalnızca yerleşikleri görüyordu) ve adı verilen eklenti yüklenemediyse "yok" yerine yükleme hatasını söyler.
+    İskeletin testi `plugin.py`'yi paket olarak yükler; çok dosyalı eklentinin göreli içe aktarmaları testte de çalışır.
 
 ## 5. Bilinen sınırlar
 

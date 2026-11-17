@@ -6,7 +6,8 @@ import argparse
 from typing import Any
 
 from nxceviri.core.formats.registry import load_user_plugins
-from nxceviri.core.plugins.loader import user_plugin_dirs
+from nxceviri.core.plugins.imports import audit_plugin
+from nxceviri.core.plugins.loader import PluginInfo, user_plugin_dirs
 
 
 def ekle(sub: Any) -> None:
@@ -31,4 +32,13 @@ def calistir(_args: argparse.Namespace) -> int:
         print(f"[TAMAM] {info.ad} {info.surum} — {info.yazar} (tür: {info.tur}{games})")
         if info.uyari:
             print(f"        Uyarı: {info.uyari}")
+        _bulgulari_yaz(info)
     return 1 if report.errors else 0
+
+
+def _bulgulari_yaz(info: PluginInfo) -> None:
+    """Yüklenen eklentinin ana koddan izinsiz ya da var olmayan içe aktarmaları (yükleme hatasını hata söyler)."""
+    if info.yol is None:
+        return
+    for bulgu in audit_plugin(info.yol):
+        print(f"        İçe aktarma: {bulgu}")

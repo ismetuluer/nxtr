@@ -3,6 +3,8 @@
 1. Değişikliksiz `extract` -> `inject` sonucu orijinalle bayt bayt aynı olmalı.
 2. En çok 3 girdiye işaret metni yazılıp `inject` -> `extract` ile geri okunur; işaretli girdiler işareti
    taşımalı, diğerleri değişmemeli.
+3. Kullanıcı eklentisiyse ana koddan yalnızca izinli modülleri içe aktarmalı (`core.plugins.imports`); izinsiz ya da
+   bu kopyada olmayan bir modül başarısızlıktır.
 
 Orijinal dosyalara hiçbir zaman yazılmaz; her şey bellekte yapılır.
 """
@@ -19,6 +21,7 @@ from nxceviri.arac.ortak import EN_BUYUK_DOSYA, Dosya, IlerlemeYazici, ic_dosyal
 from nxceviri.core.errors import ContainerError
 from nxceviri.core.formats import legacy, registry
 from nxceviri.core.formats.base import SOURCE_LANGUAGE, SOURCE_PATH, FormatPlugin, TextEntry
+from nxceviri.core.plugins.imports import ImportFinding, audit_plugin
 
 ISARET_SAYISI = 3
 _YER_TUTUCU = re.compile(r"⟦\d+⟧")
@@ -42,6 +45,9 @@ def eklenti_bul(ad: str) -> FormatPlugin:
     for e in eklentiler:
         if e.name in {ad, bugunku}:
             return e
+    for info in registry.user_plugin_report().errors:
+        if ad in {info.ad, info.yol.name if info.yol else ""}:
+            raise ContainerError(f"'{info.ad}' eklentisi yüklenemedi ({info.yol}).", info.hata)
     raise ContainerError(
         f"'{ad}' adlı bir eklenti yok.",
         "Kayıtlı eklentiler: " + ", ".join(sorted(e.name for e in eklentiler)) + ".",
@@ -152,7 +158,14 @@ def dogrula(
     return sonuclar, [*atlanan, *uyarilar]
 
 
+def ice_aktarma_bulgulari(eklenti: FormatPlugin) -> list[ImportFinding]:
+    """Kullanıcı eklentisinin ana koddan izinsiz/var olmayan içe aktarmaları; yerleşik eklentide boş."""
+    info = registry.user_plugin_info(eklenti.name)
+    return [] if info is None or info.yol is None else audit_plugin(info.yol)
+
+
 def calistir(args: argparse.Namespace) -> int:
+    registry.load_user_plugins()
     eklenti = eklenti_bul(args.eklenti)
     with kaynak_ac(args.oyun, args.anahtar) as kaynak:
         sonuclar, uyarilar = dogrula(eklenti, kaynak.dosyalar, IlerlemeYazici())
@@ -164,10 +177,17 @@ def calistir(args: argparse.Namespace) -> int:
         print(f"Uyarı: {uyari}")
     kalan = [s for s in sonuclar if not s.gecti]
     print(f"\nÖzet: {len(sonuclar):,} dosya sınandı, {len(sonuclar) - len(kalan):,} geçti, {len(kalan):,} kaldı.")
+    bulgular = ice_aktarma_bulgulari(eklenti)
+    for bulgu in bulgular:
+        print(f"KALDI  İçe aktarma: {bulgu}")
+    if bulgular:
+        print(
+            f"{len(bulgular):,} izinsiz içe aktarma: eklenti ana koda bağımlı olmamalı (docs/rehber/eklenti-yazma.md)."
+        )
     if not sonuclar:
         print(f"'{eklenti.name}' eklentisi hiçbir dosyayı tanımadı; detect() işlevini kontrol edin.")
         return 1
-    return 1 if kalan else 0
+    return 1 if kalan or bulgular else 0
 
 
 def ekle(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:

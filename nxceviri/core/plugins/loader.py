@@ -34,6 +34,7 @@ from typing import Any
 
 from nxceviri.core.errors import NxError
 from nxceviri.core.formats.base import Context, FormatError, FormatPlugin, TextEntry
+from nxceviri.core.plugins.imports import audit_plugin
 
 log = logging.getLogger(__name__)
 
@@ -284,6 +285,16 @@ def _import_plugin(folder: Path, module_name: str) -> ModuleType:
     return module
 
 
+def _import_advice(folder: Path, exc: Exception) -> str:
+    """Yükleme hatasından sonraki öneri; ana koddan bir şey bulunamadıysa içe aktarma denetiminin bulguları."""
+    name = getattr(exc, "name", None) if isinstance(exc, ImportError) else None
+    if isinstance(name, str) and (name == "nxceviri" or name.startswith("nxceviri.")):
+        findings = audit_plugin(folder)
+        if findings:
+            return " ".join(f"{f}" for f in findings)
+    return "Eklentinin yazarına bildirin ya da klasörü silin."
+
+
 def _forget_modules(prefix: str) -> None:
     for name in [n for n in sys.modules if n == prefix or n.startswith(prefix + ".")]:
         del sys.modules[name]
@@ -376,8 +387,7 @@ def _load_one(
         return _failed(
             folder,
             data,
-            f"{ENTRY_NAME} yüklenemedi ({type(exc).__name__}: {exc}). "
-            "Eklentinin yazarına bildirin ya da klasörü silin.",
+            f"{ENTRY_NAME} yüklenemedi ({type(exc).__name__}: {exc}). " + _import_advice(folder, exc),
         )
     plugin = getattr(module, "PLUGIN", None)
     if plugin is None:

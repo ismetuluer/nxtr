@@ -30,6 +30,10 @@ _PLUGIN = '''"""__AD__ biçim eklentisi.
 İskelet, satır başına `anahtar=metin` tutan uydurma bir biçimi çözer. Kendi biçiminiz için `detect`,
 `extract` ve `inject` gövdelerini değiştirin; `tests/` içindeki round-trip testi (hiçbir şeyi
 değiştirmeden çıkar → geri yaz = bayt bayt aynı dosya) eklenti bitene kadar geçmelidir.
+
+Bütün kod bu klasörde durur; ana koda (`nxceviri/`) dosya eklenmez. Gereken yardımcıyı (arşiv okuyucu, font
+yamacı, doku kodlayıcı) bu dosyanın yanına ayrı modül olarak yazıp `from . import yardimci` ile alın. Ana koddan
+yalnızca docs/rehber/eklenti-yazma.md "İzinli çekirdek modülleri" listesindekiler içe aktarılır.
 """
 
 from __future__ import annotations
@@ -86,13 +90,19 @@ _TEST = '''"""__AD__ eklentisi testleri. Gerçek oyun dosyası kullanılmaz; ör
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
 
-SPEC = importlib.util.spec_from_file_location("eklenti_plugin", Path(__file__).resolve().parents[1] / "plugin.py")
+# plugin.py, uygulamadaki gibi paket olarak yüklenir: yanındaki modüller `from . import yardimci` ile alınabilir.
+KLASOR = Path(__file__).resolve().parents[1]
+SPEC = importlib.util.spec_from_file_location(
+    "eklenti___AD__", KLASOR / "plugin.py", submodule_search_locations=[str(KLASOR)]
+)
 assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
 PLUGIN = MODULE.PLUGIN
 
