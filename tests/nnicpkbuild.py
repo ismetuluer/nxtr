@@ -303,3 +303,43 @@ def build_dds(image: Image.Image, *, mips: int = 1, code: str = "BC3") -> bytes:
         w, h = max(1, image.width >> level), max(1, image.height >> level)
         data += bytes(max(1, (w + 3) // 4) * max(1, (h + 3) // 4) * block)
     return bytes(data)
+
+
+def layla_random_stream(size: int, seed: int = 7) -> bytes:
+    """Rastgele ama geçerli bir CRILAYLA akışı (aramasız, hızlı): harf ve üst üste binen/uzun geri başvurular."""
+    import random
+
+    rng = random.Random(seed)
+    bits: list[int] = []
+
+    def emit(value: int, n: int) -> None:
+        bits.extend((value >> (n - 1 - i)) & 1 for i in range(n))
+
+    w = size - 1
+    while w >= 0:
+        room = size - 1 - w
+        length = min(rng.choice([3, 3, 4, 5, 8, 12, 20, 40, 300, 700]), w + 1)
+        if room >= 3 and length >= 3 and rng.random() < 0.5:
+            emit(1, 1)
+            emit(rng.randint(3, min(0x2000 + 3, room)) - 3, 13)
+            v = length - 3
+            for width in (2, 3, 5):
+                top = (1 << width) - 1
+                emit(min(v, top), width)
+                if v < top:
+                    break
+                v -= top
+            else:
+                while v >= 0xFF:
+                    emit(0xFF, 8)
+                    v -= 0xFF
+                emit(v, 8)
+            w -= length
+        else:
+            emit(0, 1)
+            emit(rng.randrange(256), 8)
+            w -= 1
+    bits.extend([0] * ((-len(bits)) % 8))
+    packed = bytes(int("".join(map(str, bits[i : i + 8])), 2) for i in range(0, len(bits), 8))
+    stream = packed[::-1]
+    return b"CRILAYLA" + struct.pack("<II", size, len(stream)) + stream + bytes(range(256))

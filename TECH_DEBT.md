@@ -67,11 +67,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     değiştirerek çalıştığı için bölme, davranış değişmeden ve testler korunarak adım adım yapılmalı.
     *Ne zaman:* bu bölümlerden birine büyük bir özellik eklenirken o bölüm ayrı bir denetleyiciye taşınır.
 
-72. **CRILAYLA açma yavaş (0.36.0).** Saf Python bit okuyucu 6 MB'lık `UcScriptMsgConv.fms`'yi ~2 sn'de
-    açıyor; aktarmanın ilk geçişi tüm dillerin sayfalarını okuduğu için CPK/FMSB biçimli bir oyunda
-    metin aktarma ~27 sn sürüyor. *Ne zaman:* kullanıcı süreyi sorun ederse ilk geçişte dili yoldan
-    belli olan dosyalar okunmadan atlanabilir (pipeline değişikliği) veya açma döngüsü hızlandırılabilir.
-
 75. **NNI arşivli oyun: grafik klasörünü üretmek ve seçmek için arayüz yok (0.39.0).** `orijinal/`
     klasörü bir betikle (`export_originals`) üretildi; klasör oyun dosyalarının yanındaki
     `grafik_temizleme` ya da `NXCEVIRI_YS_GRAFIK` ortam değişkenidir. fsd biçimi grafikleriyle aynı
@@ -430,3 +425,5 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 86. ~~Ollama belirteç tahmini kaba~~ — **Kapandı:** tahmin CJK (kana, Kanji/Çince, Hangul) karakterini ~1 belirteç, Latin metni karakter/3 sayar (estimate_tokens, prompt_weight; ollama.py). Gerçek sayı modele göre değişir; parti tahminden uzun çıkarsa num_ctx yine bir basamak yükselir.
 
 92. ~~Türkçe harf onarımı sözlüğe bağlı~~ — **Kapandı:** ASCII biçimi sözlükte geçerli olsa da yaygın yazım hatası olan sözcükler (simdi, sey, aksam, buyuk, tum, basla, yasam) küçük bir listeyle (asciitr._ASCII_MISTAKES) onarılır. surat (sürat) gerçek bir sözcük olduğu için listede yoktur; eşyazımlılar (cok → çok/çök) seçime kalır. Kalan: hatalı satırlarda kod onarımı ile harf onarımı ayrı geçişlerde çalışır; düzeltme onay kutusu için arayüz testi yok.
+
+72. ~~CRILAYLA açma yavaş~~ — **Kapandı:** açma döngüsü hızlandırıldı: akış bir kez 0/1 dizgesine açılıp dilim + int(…, 2) ile okunuyor, geri başvurular dilimle kopyalanıyor. Elle üretilmiş 2 MB'lık rastgele geçerli akışta en iyi süre 0,649 sn -> 0,199 sn (~3,3 kat), çıktı bayt bayt aynı (testte bit bit başvuru açıcıyla karşılaştırılır). İlk geçişte dili yoldan belli dosyaları atlamak (pipeline değişikliği) yapılmadı.
