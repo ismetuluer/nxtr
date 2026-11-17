@@ -1,6 +1,10 @@
-# HANDOFF — oturum devri (2026-11-17, 0.64.1)
+# HANDOFF — oturum devri (2026-11-17, 0.65.0)
 
 ## Durum
+- **Sürüm 0.65.0** (2026-11-17; CHANGELOG 0.65.0): eklenti arşiv kancası `archive_formats()` → `ArchiveFormat`
+  (`core/formats/base.py`; `registry.archive_formats`, `registry.member_reader`, `GuardedArchiveFormat`; ARCHITECTURE
+  228), güncelleme TitleID'li dosyaların ana ağaca yazılması (229), `path_language` (230). Kullanıcının bir oyun
+  eklentisi bu kancalarla kendine yeterli hâle getirildi (eklenti depoda değil, kullanıcı klasöründe).
 - **Sürüm 0.64.1** (2026-11-17; CHANGELOG 0.64.1): eklenti içe aktarma denetimi `core/plugins/imports.py`
   (`ALLOWED_MODULES`, `audit_plugin`; ARCHITECTURE 227), grafik klasörü `derived.TURKISH_DIR`/`turkish_dir`
   (226), AGENTS.md §1 ana koda yazma yasağı ve mazeretsiz teslim; `yeni-oyun.md` "Bağlayıcı kurallar".

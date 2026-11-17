@@ -2,6 +2,21 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.65.0] — 2026-11-17 — Eklenti arşiv kancası, dosya adından dil
+
+### Eklendi
+- **Eklenti arşiv kancası (`archive_formats`):** kullanıcı eklentisi oyunun kendi arşiv biçimini (okuma, üye listesi,
+  dışa aktarmada yeniden kurma) kendi klasöründe taşıyabilir; tarama, okuma ve dışa aktarma yerleşik arşivlerle aynı
+  noktalardan bunu kullanır. Dönen arşiv yeniden okunarak doğrulanır; doğrulanmazsa mod üretilmez. Eklentinin arşiv
+  kodundaki beklenmeyen hata eklentinin adıyla bildirilir, tanıma hatası taramayı durdurmaz.
+- **Dosya adından dil (`path_language`):** dili yalnızca dosya adında (ör. `_text_en`) taşıyan biçimlerde eklenti dili
+  bildirir; kaynak dil listesi ve aktarma buna uyar.
+- `dogrula` eklenti arşivlerinin üyelerini de sınar; `eklentiler` eklentinin arşiv biçimlerini listeler.
+
+### Düzeltildi
+- Güncelleme paketinin TitleID'siyle kayıtlı dosyalar dışa aktarmada "oyunda bulunamadı" hatası veriyordu; ana oyunun
+  ağacına yazılır.
+
 ## [0.64.1] — 2026-11-17 — Eklenti kuralları, içe aktarma denetimi, turkce/ klasörü
 
 ### Eklendi
