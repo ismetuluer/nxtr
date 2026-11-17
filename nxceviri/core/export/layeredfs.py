@@ -650,6 +650,14 @@ def export_mod(
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
             result.files.append(rel.as_posix())
+        dropped = sorted((path, key) for path, keys in result.dropped_keys.items() for key in keys)
+        if not result.files and dropped:
+            listed = ", ".join(key for _path, key in dropped[:5]) + (" …" if len(dropped) > 5 else "")
+            raise ExportError(
+                f"Hiçbir dosya değişmedi: yazılacak {len(dropped)} satırın hepsi oyun dosyasına yazılamadı ({listed}).",
+                "Bu satırlar biçim kuralına uymuyor (ör. eski sürümde taranmış kod düzeni, satır sonu). Metinleri "
+                "yeniden tarayıp Kontrol Et'ten geçirin.",
+            )
         if not result.files:
             raise ExportError(
                 "Hiçbir dosya değişmedi; çeviriler orijinal metinlerle aynı.",

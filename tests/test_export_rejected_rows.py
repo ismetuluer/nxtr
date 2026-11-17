@@ -199,6 +199,18 @@ def test_unity_old_smart_string_row_stays_original(tmp_path: Path) -> None:
     assert "UI_en/2" in info
 
 
+def test_all_rows_rejected_says_so(tmp_path: Path) -> None:
+    """Yazılacak satırların hepsi reddedildiyse hata "çeviriler orijinalle aynı" demez; reddi ve satırları söyler."""
+    inputs, project = _unreal(tmp_path)
+    rows = {r.key: r for r in project.translation_rows()}
+    project.set_translations([(rows["Game/Plain"].id, "Hello"), (rows["Game/Start"].id, "Start")], machine=True)
+    with pytest.raises(ExportError) as caught:
+        _export(project, inputs, tmp_path / "hepsi", UNREAL_TID)
+    assert "2 satırın hepsi oyun dosyasına yazılamadı" in caught.value.message
+    assert "Game/Old" in caught.value.message
+    assert not (tmp_path / "hepsi").exists()
+
+
 def test_unattributable_failure_still_fails_the_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Çevirisiz (boş) yazım bile başarısızsa sorun satırlarda değildir: hata yutulmaz, mod üretilmez."""
     inputs, project = _unreal(tmp_path)
