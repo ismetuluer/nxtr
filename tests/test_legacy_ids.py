@@ -332,12 +332,12 @@ def test_graphics_folder_variable_new_name_wins_old_name_still_works(
 
 def test_graphics_folder_lookup_uses_the_old_variable(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     folder = tmp_path / "grafik"
-    (folder / "temiz").mkdir(parents=True)
+    (folder / "turkce").mkdir(parents=True)
     monkeypatch.delenv("NXCEVIRI_NNI_GRAFIK", raising=False)
     monkeypatch.setenv("NXCEVIRI_YS_GRAFIK", str(folder))
     assert nni_graphics.folder_for(None) == folder
     other = tmp_path / "diger"
-    (other / "temiz").mkdir(parents=True)
+    (other / "turkce").mkdir(parents=True)
     monkeypatch.setenv("NXCEVIRI_NNI_GRAFIK", str(other))
     assert nni_graphics.folder_for(None) == other
 

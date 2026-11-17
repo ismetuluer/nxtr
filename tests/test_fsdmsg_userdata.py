@@ -219,12 +219,12 @@ def test_only_one_file_names_only_the_missing_one(tmp_path: Path, monkeypatch: p
 
 
 def test_prepared_pages_work_without_image_texts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Hazır Türkçe sayfalar (`orijinal`/`temiz` + `dizin.json`) resim yazıları dosyası olmadan da çalışır."""
+    """Hazır Türkçe sayfalar (`orijinal`/`turkce` + `dizin.json`) resim yazıları dosyası olmadan da çalışır."""
     folder = _folder(tmp_path, monkeypatch)
     original = _label_page()
     turkish = original.copy()
     turkish.paste((250, 0, 0, 255), (60, 0, 127, 20))
-    for sub, image in (("orijinal", original), ("temiz", turkish)):
+    for sub, image in (("orijinal", original), ("turkce", turkish)):
         (folder / sub).mkdir()
         image.save(folder / sub / "a.png")
     (folder / "dizin.json").write_text(json.dumps({"dosyalar": [PAGE_PATH]}), encoding="utf-8")

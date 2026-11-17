@@ -89,7 +89,8 @@ Seçenek ekranı düğmeleri, onay kutuları, harita/patron adları, hikâye ve 
 (DDS: BC3 = DXGI 77 veya BC1; mip zincirli; DX10 başlığı). Çevrilebilen 150 resim: `data-en.ni` içinde
 `EXTENSION/STORY/EN/*.DDS` (140) ve `EXTENSION/MENU/*/*_EN.DDS` (8), serbest `menu/categories_atlas.dds` ve
 `demo/demo_over.dds` (baş aşağı saklanır; PNG'de dik gösterilir). Klasör düzeni ve kullanım `fontpatch/nni_graphics.py`
-başında ve klasördeki `OKUBENI.txt` dosyasında. Yazma: özgün başlık ve mip sayısı korunur, her mip seviyesi
+başında ve klasördeki `OKUBENI.txt` dosyasında; Türkçe resimler `turkce/` klasörüne konur (eski kurulumlardaki
+`temiz/` klasörü, `turkce/` yokken hâlâ okunur). Yazma: özgün başlık ve mip sayısı korunur, her mip seviyesi
 (saydam renkler önceden çarpılarak küçültülür) yeniden kodlanır, dosya boyu doğrulanır. Ana arşivdeki resimler
 (`MENU/CHRSELECT.DDS` "Character Select") kapsam dışı (TECH_DEBT 74).
 

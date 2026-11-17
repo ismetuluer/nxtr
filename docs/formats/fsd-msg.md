@@ -221,7 +221,7 @@ kullanıp kullanmadığı doğrulanmadı.
 ## Kullanıcının hazırladığı grafikler ve animasyonlar (Mod #19)
 Zor sayfalar (kontrol şemaları, hareket açıklamaları, görev kartları, zorluk ve sonuç ekranları) resim olarak
 `D:/Oyunlar/<oyun>/grafik_temizleme/orijinal` klasörüne çıkarılır; kullanıcı yazıyı silip Türkçeyi çizerek aynı adla
-`temiz` klasörüne koyar. `fontpatch/fsdmsg_graphics.py` değişmiş çiftleri okur (`NXCEVIRI_FSD_GRAFIK` ortam değişkeni
+`turkce` klasörüne koyar (eski kurulumlardaki `temiz` klasörü, `turkce` yokken hâlâ okunur). `fontpatch/fsdmsg_graphics.py` değişmiş çiftleri okur (`NXCEVIRI_FSD_GRAFIK` ortam değişkeni
 klasörü gösterir), özgün sayfanın içerik özetiyle oyundaki her kopyasını bulur (`dizin.json`: 22 dosya) ve hazır sayfayı
 yerinde yazar; hazır sayfa varsa etiket çizimi yerine geçer. Yazılan sayfalar BC7 kayıplı kodlandığı için sonuç hazır
 resme ~29–42 dB yakındır (özgüne 15–28 dB).

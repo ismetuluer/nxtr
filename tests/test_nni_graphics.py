@@ -91,11 +91,11 @@ def test_export_originals_load_and_replacements(tmp_path: Path) -> None:
     )
     assert names == ["V_1", "demo_over"]
     assert sorted(p.name for p in (tmp_path / "orijinal").iterdir()) == ["V_1.png", "demo_over.png"]
-    assert (tmp_path / "temiz").is_dir()
+    assert (tmp_path / "turkce").is_dir()
     assert "orijinal" in (tmp_path / "OKUBENI.txt").read_text(encoding="utf-8")
     assert nni_graphics.load(tmp_path) == ({}, [])  # hiçbir şey çevrilmedi
-    picture("zz").save(tmp_path / "temiz" / "V_1.png")
-    (tmp_path / "temiz" / "demo_over.png").write_bytes((tmp_path / "orijinal" / "demo_over.png").read_bytes())
+    picture("zz").save(tmp_path / "turkce" / "V_1.png")
+    (tmp_path / "turkce" / "demo_over.png").write_bytes((tmp_path / "orijinal" / "demo_over.png").read_bytes())
     images, warnings = nni_graphics.load(tmp_path)  # özgünle aynı kalan yok sayılır
     assert list(images) == ["V_1"]
     assert warnings == []
@@ -108,12 +108,12 @@ def test_export_originals_load_and_replacements(tmp_path: Path) -> None:
 
 def test_load_reports_problems_and_keeps_alpha_when_ready_image_has_none(tmp_path: Path) -> None:
     (tmp_path / "orijinal").mkdir()
-    (tmp_path / "temiz").mkdir()
+    (tmp_path / "turkce").mkdir()
     picture("xx").save(tmp_path / "orijinal" / "A.png")
-    picture("yy").convert("RGB").save(tmp_path / "temiz" / "A.png")  # saydamlık kaydedilmemiş
-    picture("xx", (128, 64)).save(tmp_path / "temiz" / "B.png")  # özgünü yok
-    (tmp_path / "temiz" / "notlar.txt").write_text("x", encoding="utf-8")
-    picture("zz", (32, 16)).save(tmp_path / "temiz" / "C.png")
+    picture("yy").convert("RGB").save(tmp_path / "turkce" / "A.png")  # saydamlık kaydedilmemiş
+    picture("xx", (128, 64)).save(tmp_path / "turkce" / "B.png")  # özgünü yok
+    (tmp_path / "turkce" / "notlar.txt").write_text("x", encoding="utf-8")
+    picture("zz", (32, 16)).save(tmp_path / "turkce" / "C.png")
     picture("xx").save(tmp_path / "orijinal" / "C.png")  # boyut farklı
     images, warnings = nni_graphics.load(tmp_path)
     assert sorted(images) == ["A", "C"]
@@ -124,9 +124,9 @@ def test_load_reports_problems_and_keeps_alpha_when_ready_image_has_none(tmp_pat
 
 def test_missing_game_file_is_skipped_with_a_warning(tmp_path: Path) -> None:
     (tmp_path / "orijinal").mkdir()
-    (tmp_path / "temiz").mkdir()
+    (tmp_path / "turkce").mkdir()
     picture("xx").save(tmp_path / "orijinal" / "V_1.png")
-    picture("zz").save(tmp_path / "temiz" / "V_1.png")
+    picture("zz").save(tmp_path / "turkce" / "V_1.png")
     out, notes, problems = nni_graphics.replacements(reader({}), set(), tmp_path)
     assert out == {}
     assert notes == []
@@ -138,10 +138,10 @@ def test_folder_for_prefers_environment_then_game_folder(tmp_path: Path, monkeyp
     monkeypatch.delenv("NXCEVIRI_YS_GRAFIK", raising=False)
     assert nni_graphics.folder_for(None) is None
     assert nni_graphics.folder_for(tmp_path) is None
-    (tmp_path / nni_graphics.FOLDER / "temiz").mkdir(parents=True)
+    (tmp_path / nni_graphics.FOLDER / "turkce").mkdir(parents=True)
     assert nni_graphics.folder_for(tmp_path) == tmp_path / nni_graphics.FOLDER
     other = tmp_path / "baska"
-    (other / "temiz").mkdir(parents=True)
+    (other / "turkce").mkdir(parents=True)
     monkeypatch.setenv(nni_graphics.ENV, str(other))
     assert nni_graphics.folder_for(tmp_path) == other
 
@@ -169,7 +169,7 @@ def test_extras_patch_fonts_and_place_translated_pictures(tmp_path: Path, monkey
     tree = _tree(_game())
     folder = tmp_path / nni_graphics.FOLDER
     nni_graphics.export_originals(reader({nni_graphics.member_path("V_1"): build_dds(picture("xx"))}), [MEMBER], folder)
-    picture("zz").save(folder / "temiz" / "V_1.png")
+    picture("zz").save(folder / "turkce" / "V_1.png")
     derived = extras.collect({(TID, "nnitext"), (TID, "srt")}, {TID: tree}, tmp_path)[TID]
     assert sorted(derived.members) == [nni_graphics.member_path("V_1")]
     assert f"{nni_fonts.FONT_DIR}ysfont.fnt" in derived.files

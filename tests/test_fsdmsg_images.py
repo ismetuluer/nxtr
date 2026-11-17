@@ -144,13 +144,13 @@ def test_user_graphics_replace_pages_and_are_matched_by_original(tmp_path) -> No
     turkish = original.copy()
     ImageDraw.Draw(turkish).rectangle((60, 0, 127, 20), fill=(250, 0, 0, 255))
     (tmp_path / "orijinal").mkdir()
-    (tmp_path / "temiz").mkdir()
+    (tmp_path / "turkce").mkdir()
     original.save(tmp_path / "orijinal" / "a.png")
-    turkish.save(tmp_path / "temiz" / "a.png")
+    turkish.save(tmp_path / "turkce" / "a.png")
     original.save(tmp_path / "orijinal" / "b.png")  # hiç değiştirilmemiş sayfa yok sayılır
-    original.save(tmp_path / "temiz" / "b.png")
+    original.save(tmp_path / "turkce" / "b.png")
     original.save(tmp_path / "orijinal" / "status_u__mssn_ips_01.ip2__son_kare.png")
-    turkish.save(tmp_path / "temiz" / "status_u__mssn_ips_01.ip2__son_kare.png")
+    turkish.save(tmp_path / "turkce" / "status_u__mssn_ips_01.ip2__son_kare.png")
     graphics = fsdmsg_graphics.load(tmp_path)
     assert list(graphics.pages) == [page_key(original)]
     assert list(graphics.animations) == ["data/dmc1/status_u/mssn_ips_01.ip2"]

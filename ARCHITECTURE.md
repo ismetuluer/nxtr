@@ -1205,6 +1205,12 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     olduğu ya da koda çevrildiği görülen: FMSB, WAD/LIN, NNI (XSO'da `\n` koduna), FSD/MSG (0x0C koduna), SRT (yalnızca
     boş satırı reddeder). Denenmedi, bildirilmedi: PSB metni, Unity I2 ve SerializeReference, YCD (`.yc`; biçim
     notlarında kural belirsiz).
+226. **Türkçe resim klasörü `turkce/` (ürün sahibi, 2026-11-17):** grafik çevirisinde kullanıcının Türkçe resimleri
+    koyduğu klasör `temiz/` yerine `turkce/` olur (`orijinal/` aynı). Ad tek yerde, `core/formats/derived.py`'de
+    (`TURKISH_DIR`, `LEGACY_TURKISH_DIR`, `turkish_dir`). Geriye uyum: `turkce/` yoksa ve `temiz/` varsa eski klasör
+    okunur (yeniden adlandırılmaz, dosyalara dokunulmaz); ikisi de varsa `turkce/` kullanılır ve `temiz/` yok
+    sayıldığı uyarılır (NNI: dışa aktarma uyarısı; FSD/MSG: günlük). Yeni kurulumda `export_originals` `turkce/`
+    oluşturur; uyarı metinleri etkin klasörün gerçek adını söyler.
 
 ## 5. Bilinen sınırlar
 

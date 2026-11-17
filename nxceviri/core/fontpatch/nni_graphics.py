@@ -4,7 +4,8 @@ Menü başlıkları, düğme yazıları, ara sahne ve rehber sayfaları metin de
 (`<oyun klasörü>/grafik_temizleme`, `NXCEVIRI_NNI_GRAFIK` ortam değişkeniyle değiştirilebilir):
 
 - `orijinal/<ad>.png`: oyundan çıkarılmış özgün resim (`export_originals` üretir; değiştirmeyin);
-- `temiz/<ad>.png` (veya `.dds`): aynı adlı, yazısı Türkçe olan hazır resim. Boyutu değişmişse özgün boya ölçeklenir;
+- `turkce/<ad>.png` (veya `.dds`): aynı adlı, yazısı Türkçe olan hazır resim (eski kurulumlarda `turkce/` yoksa
+  `temiz/` okunur). Boyutu değişmişse özgün boya ölçeklenir;
   saydamlık kaydedilmemişse özgünün alfa kanalı korunur. Özgünle aynı kalan dosyalar yok sayılır.
 
 Resimler üç yerden gelir: dil arşivi `data-en.ni` içindeki `EXTENSION/STORY/EN/*.DDS` (140 dosya: harita ve patron
@@ -26,6 +27,7 @@ from PIL import Image
 
 from nxceviri.core.errors import NxError
 from nxceviri.core.formats import legacy
+from nxceviri.core.formats.derived import legacy_ignored, legacy_ignored_warning, turkish_dir
 
 ENV = "NXCEVIRI_NNI_GRAFIK"
 FOLDER = "grafik_temizleme"
@@ -54,13 +56,13 @@ README = """Grafik çevirisi
 ===============
 
 orijinal\\   Oyundan çıkarılmış İngilizce resimler (değiştirmeyin).
-temiz\\      Yazısını Türkçe yaptığınız resimleri BURAYA, orijinal\\ içindeki ADIYLA kaydedin (PNG).
+turkce\\    Yazısını Türkçe yaptığınız resimleri BURAYA, orijinal\\ içindeki ADIYLA kaydedin (PNG).
 
 Photoshop'ta: orijinal\\ içindeki resmi açın, İngilizce yazıyı silin, Türkçesini yazın,
-temiz\\ içine aynı adla kaydedin.
+turkce\\ içine aynı adla kaydedin.
 Saydam arka planı koruyun (çoğu resim saydam zeminli yazıdır). Boyutu değiştirmeyin.
 
-Mod üretilirken temiz\\ içinde orijinalden farklı olan her resim otomatik olarak moda yerleştirilir.
+Mod üretilirken turkce\\ içinde orijinalden farklı olan her resim otomatik olarak moda yerleştirilir.
 Değişmeyen resimlere dokunulmaz. Dışa aktarma raporunda hangi resimlerin yerleştiği yazar.
 
 Hangi resim nerede görünür?
@@ -156,7 +158,7 @@ def folder_for(game_dir: Path | None) -> Path | None:
     """Grafik klasörü: ortam değişkeni, yoksa oyun dosyalarının yanındaki `grafik_temizleme`; yoksa None."""
     value = legacy.environ(ENV)
     folder = Path(value) if value else (game_dir / FOLDER if game_dir is not None else None)
-    return folder if folder is not None and (folder / "temiz").is_dir() else None
+    return folder if folder is not None and turkish_dir(folder).is_dir() else None
 
 
 def member_of(stem: str) -> str:
@@ -176,9 +178,9 @@ def source_path(stem: str) -> str:
 def export_originals(
     read: Callable[[str], bytes], members: Collection[str], folder: Path, loose_present: Collection[str] = ()
 ) -> list[str]:
-    """Çevrilebilir resimlerin PNG'lerini `orijinal/`e yazar, `temiz/` ve açıklamayı oluşturur; yazılan adlar."""
+    """Çevrilebilir resimlerin PNG'lerini `orijinal/`e yazar, `turkce/` ve açıklamayı oluşturur; yazılan adlar."""
     (folder / "orijinal").mkdir(parents=True, exist_ok=True)
-    (folder / "temiz").mkdir(exist_ok=True)
+    turkish_dir(folder).mkdir(exist_ok=True)
     (folder / "OKUBENI.txt").write_text(README, encoding="utf-8")
     stems = sorted(
         {m[len(MEMBER_DIR) : -len(".DDS")] for m in members if m.startswith(MEMBER_DIR) and m.upper().endswith(".DDS")}
@@ -205,25 +207,27 @@ def _read_ready(path: Path, original: Image.Image) -> Image.Image:
 
 
 def load(folder: Path) -> tuple[dict[str, Image.Image], list[str]]:
-    """`temiz/`deki, özgününden gerçekten farklı resimler ({ad → RGBA}) ve uyarılar."""
+    """`turkce/`deki (yoksa eski `temiz/`deki), özgününden gerçekten farklı resimler ({ad → RGBA}) ve uyarılar."""
     ready: dict[str, Image.Image] = {}
-    warnings: list[str] = []
-    for new in sorted((folder / "temiz").iterdir()):
+    warnings: list[str] = [legacy_ignored_warning()] if legacy_ignored(folder) else []
+    source = turkish_dir(folder)
+    name = source.name
+    for new in sorted(source.iterdir()):
         if new.suffix.lower() not in (".png", ".dds"):
             continue
         old = folder / "orijinal" / f"{new.stem}.png"
         if not old.is_file():
-            warnings.append(f"temiz/{new.name}: orijinal/ içinde aynı adlı resim yok; atlandı.")
+            warnings.append(f"{name}/{new.name}: orijinal/ içinde aynı adlı resim yok; atlandı.")
             continue
         before = Image.open(old).convert("RGBA")
         try:
             after = _read_ready(new, before)
         except (OSError, ValueError, SyntaxError):
-            warnings.append(f"temiz/{new.name}: resim açılamadı; atlandı.")
+            warnings.append(f"{name}/{new.name}: resim açılamadı; atlandı.")
             continue
         if before.size != Image.open(new).size:
             warnings.append(
-                f"temiz/{new.name}: boyutu özgünden farklı ({Image.open(new).size}); özgün boya ölçeklendi."
+                f"{name}/{new.name}: boyutu özgünden farklı ({Image.open(new).size}); özgün boya ölçeklendi."
             )
         if before.tobytes() != after.tobytes():
             ready[new.stem] = after
@@ -243,12 +247,12 @@ def replacements(
         path = source_path(stem)
         top = path.split(">")[0]
         if top not in files:
-            warnings.append(f"temiz/{stem}: oyunda {top} yok; atlandı.")
+            warnings.append(f"{turkish_dir(folder).name}/{stem}: oyunda {top} yok; atlandı.")
             continue
         try:
             out[path] = encode(read(path), image, stem)
         except NxError as exc:
-            warnings.append(f"temiz/{stem}: yerleştirilemedi: {exc.message}")
+            warnings.append(f"{turkish_dir(folder).name}/{stem}: yerleştirilemedi: {exc.message}")
             continue
         notes.append(stem)
     return out, notes, warnings

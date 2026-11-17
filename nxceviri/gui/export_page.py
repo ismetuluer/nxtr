@@ -136,7 +136,7 @@ class ExportPage(QWidget):
         self.graphics_extract.setToolTip("Yazı içeren resimleri klasöre PNG olarak çıkarır (orijinal/).")
         self.graphics_extract.clicked.connect(self.extract_graphics)
         self.graphics_open = button("Klasörü Aç", icon="folder-open")
-        self.graphics_open.setToolTip("Resimlerin durduğu klasörü açar (orijinal/ ve temiz/).")
+        self.graphics_open.setToolTip("Resimlerin durduğu klasörü açar (orijinal/ ve turkce/).")
         self.graphics_open.clicked.connect(self.open_graphics)
         graphics_row.addWidget(self.graphics_extract)
         graphics_row.addWidget(self.graphics_open)
@@ -168,7 +168,7 @@ class ExportPage(QWidget):
         originals, ready = status
         if originals:
             text = (
-                f"Türkçe resim: {ready} / {originals}. Yazısını çevirdiğiniz resmi temiz/ klasörüne aynı adla koyun; "
+                f"Türkçe resim: {ready} / {originals}. Yazısını çevirdiğiniz resmi turkce/ klasörüne aynı adla koyun; "
             )
             text += "mod oluşturulurken kendiliğinden yerleşir."
         else:

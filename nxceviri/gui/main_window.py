@@ -2318,7 +2318,7 @@ class MainWindow(QMainWindow):
             self.notify(
                 LEVEL_SUCCESS,
                 "Görseller çıkarıldı",
-                f"{format_int(len(result))} resim orijinal/ klasöründe. Türkçesini temiz/ klasörüne aynı adla koyun.",
+                f"{format_int(len(result))} resim orijinal/ klasöründe. Türkçesini turkce/ klasörüne aynı adla koyun.",
                 (NoticeAction("Klasörü Aç", self.open_graphics),),
             )
 

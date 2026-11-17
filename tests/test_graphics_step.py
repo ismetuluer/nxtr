@@ -16,11 +16,11 @@ from nxceviri.core.formats.derived import GraphicsSupport, graphics_status
 def test_status_counts_originals_and_ready(tmp_path: Path) -> None:
     assert graphics_status(tmp_path / "yok") == (0, 0)
     (tmp_path / "orijinal").mkdir()
-    (tmp_path / "temiz").mkdir()
+    (tmp_path / "turkce").mkdir()
     for name in ("a", "b", "c"):
         (tmp_path / "orijinal" / f"{name}.png").write_bytes(b"x")
-    (tmp_path / "temiz" / "a.png").write_bytes(b"y")
-    (tmp_path / "temiz" / "notlar.txt").write_text("-", encoding="utf-8")  # resim değil
+    (tmp_path / "turkce" / "a.png").write_bytes(b"y")
+    (tmp_path / "turkce" / "notlar.txt").write_text("-", encoding="utf-8")  # resim değil
     assert graphics_status(tmp_path) == (3, 1)
 
 

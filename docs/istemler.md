@@ -72,7 +72,7 @@ Resimleri düzenleyeceğim klasör (yoksa oluştur): <C:\...\oyun klasörü\graf
 
 Önce `python -m nxceviri.arac ara "<ekrandaki yazı>"` ile yazının gerçekten resimde olduğunu kanıtla; resim
 biçimini ve kaç resim olduğunu bana söyle. Resimleri `orijinal` klasörüne PNG olarak çıkar; ben yazıyı Türkçe
-yapıp aynı adla `temiz` klasörüne koyacağım. Sonra değişenleri moda yerleştir ve resimlerin biçim/boyut
+yapıp aynı adla `turkce` klasörüne koyacağım. Sonra değişenleri moda yerleştir ve resimlerin biçim/boyut
 doğrulamasını göster.
 ```
 

@@ -31,15 +31,40 @@ class Derived:
 
 #: Resim çevirisinde sayılan dosya türleri.
 _IMAGE_SUFFIXES = (".png", ".dds")
+#: Kullanıcının Türkçe resimleri koyduğu klasör (yeni kurulumda oluşturulan ad).
+TURKISH_DIR = "turkce"
+#: Eski ad: `turkce/` yoksa okunmaya devam eder; yeniden adlandırılmaz.
+LEGACY_TURKISH_DIR = "temiz"
+
+
+def turkish_dir(folder: Path) -> Path:
+    """Türkçe resim klasörü: `turkce/` varsa o, yoksa eski `temiz/` varsa o, hiçbiri yoksa (yeni) `turkce/` yolu."""
+    current = folder / TURKISH_DIR
+    legacy_dir = folder / LEGACY_TURKISH_DIR
+    return legacy_dir if not current.is_dir() and legacy_dir.is_dir() else current
+
+
+def legacy_ignored(folder: Path) -> bool:
+    """`turkce/` ve eski `temiz/` birlikte varsa True: `temiz/` yok sayılır."""
+    return (folder / TURKISH_DIR).is_dir() and (folder / LEGACY_TURKISH_DIR).is_dir()
+
+
+def legacy_ignored_warning() -> str:
+    """Her iki klasör de varken verilen uyarı."""
+    return (
+        f"{LEGACY_TURKISH_DIR}/ klasörü yok sayıldı: {TURKISH_DIR}/ klasörü de var ve o kullanılıyor. "
+        f"Resimleriniz {LEGACY_TURKISH_DIR}/ içindeyse {TURKISH_DIR}/ klasörüne taşıyın."
+    )
 
 
 @dataclass(frozen=True)
 class GraphicsSupport:
     """Resim çevirisi desteği (Dışa Aktar → Görseller). Eklenti `graphics = GraphicsSupport(...)` sunar.
 
-    Klasör düzeni: `<oyun dosyalarının klasörü>/<folder_name>/orijinal/` (uygulama çıkarır) ve `temiz/` (kullanıcı aynı
-    adla Türkçe resmini koyar). `export(okuyucu, RomFS dosyaları, klasör)` özgünleri `orijinal/`e yazar ve adlarını
-    döndürür; okuyucu `archives.access.MemberReader`dır. Hazır resimler dışa aktarmada `derived_files` ile moda girer.
+    Klasör düzeni: `<oyun dosyalarının klasörü>/<folder_name>/orijinal/` (uygulama çıkarır) ve `turkce/` (kullanıcı aynı
+    adla Türkçe resmini koyar; eski `temiz/` adı `turkce/` yokken okunur). `export(okuyucu, RomFS dosyaları, klasör)`
+    özgünleri `orijinal/`e yazar ve adlarını döndürür; okuyucu `archives.access.MemberReader`dır.
+    Hazır resimler dışa aktarmada `derived_files` ile moda girer.
     """
 
     folder_name: str
@@ -55,4 +80,4 @@ def graphics_status(folder: Path) -> tuple[int, int]:
             return 0
         return sum(1 for f in target.iterdir() if f.suffix.lower() in _IMAGE_SUFFIXES)
 
-    return count("orijinal"), count("temiz")
+    return count("orijinal"), count(turkish_dir(folder).name)

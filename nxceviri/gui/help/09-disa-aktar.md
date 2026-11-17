@@ -26,5 +26,5 @@ eski mod yedeğe alınır, sorun çıkarsa geri konur. NXTR'nin üretmediği dol
 Bazı oyunlarda (şimdilik NNI arşivi kullananlarda) yazılar resimlerin içindedir. **Görseller** kartı:
 
 1. **Orijinalleri Çıkar** yazı içeren resimleri oyun dosyalarınızın yanındaki klasöre PNG olarak koyar (`orijinal/`).
-2. Resmi bir resim programında Türkçeleştirip **aynı adla** `temiz/` klasörüne kaydedin.
+2. Resmi bir resim programında Türkçeleştirip **aynı adla** `turkce/` klasörüne kaydedin (eski kurulumlardaki `temiz/` klasörü, `turkce/` yoksa hâlâ okunur).
 3. Mod oluşturulurken hazır resimler kendiliğinden yerleşir. Kart "Türkçe resim: 12 / 148" gibi ilerlemeyi gösterir.

@@ -3,7 +3,8 @@
 Klasör düzeni (`<oyun klasörü>/grafik_temizleme`):
 
 - `orijinal/<ad>.png`: oyundan çıkarılmış özgün sayfa (uygulamanın `iter_pages` çözümüyle üretilir);
-- `temiz/<ad>.png`: aynı adlı, yazısı Türkçe olan hazır sayfa (aynı boyut; alfa kanalı özgünle aynı kalır);
+- `turkce/<ad>.png`: aynı adlı, yazısı Türkçe olan hazır sayfa (aynı boyut; alfa kanalı özgünle aynı kalır).
+  Eski kurulumlarda `turkce/` yoksa `temiz/` okunur;
 - `dizin.json` (isteğe bağlı): özgün sayfanın geçtiği tüm oyun dosyaları (`build_index` üretir);
 - `resim_yazilari.json`, `aciklamalar.json` (isteğe bağlı): ek çeviri verisi (`fsdmsg_userdata`).
 
@@ -15,6 +16,7 @@ değişkeniyle gösterilir (arayüzde ayar penceresi TECH_DEBT'te).
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -23,6 +25,9 @@ from PIL import Image
 
 from nxceviri.core.fontpatch.fsdmsg_images import iter_pages, page_key
 from nxceviri.core.formats import legacy
+from nxceviri.core.formats.derived import legacy_ignored, legacy_ignored_warning, turkish_dir
+
+log = logging.getLogger(__name__)
 
 ENV = "NXCEVIRI_FSD_GRAFIK"
 INDEX = "dizin.json"
@@ -40,10 +45,12 @@ class Graphics:
 
 
 def load(folder: Path) -> Graphics:
-    """`orijinal`/`temiz` çiftlerinden gerçekten değişmiş olanları okur."""
+    """`orijinal`/`turkce` çiftlerinden gerçekten değişmiş olanları okur."""
+    if legacy_ignored(folder):
+        log.warning("%s", legacy_ignored_warning())
     pages: dict[str, Image.Image] = {}
     animations: dict[str, tuple[Image.Image, Image.Image]] = {}
-    for new in sorted((folder / "temiz").glob("*.png")):
+    for new in sorted(turkish_dir(folder).glob("*.png")):
         old = folder / "orijinal" / new.name
         if not old.is_file():
             continue
