@@ -94,6 +94,19 @@ def test_qss_step_nav_has_no_focus_frame(scheme: str) -> None:
 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_qss_spacing_and_radius_use_the_scale(scheme: str) -> None:
+    """Stildeki dolgu/kenar payı ve köşe yarıçapı değerleri `gui/scale.py` basamaklarından gelir."""
+    from nxceviri.gui.scale import INDICATOR, RADIUS_STEPS, SPACE_STEPS
+
+    qss = _qss(TOKENS[scheme])
+    radii = {int(v) for decl in re.findall(r"border[a-z-]*radius:\s*([^;}]+)", qss) for v in re.findall(r"(\d+)px", decl)}
+    assert radii <= {*RADIUS_STEPS, INDICATOR // 2}
+    spaces = {int(v) for decl in re.findall(r"(?:padding|margin):\s*([^;}]+)", qss) for v in re.findall(r"(\d+)px", decl)}
+    # 0-2 px çizgi payları ölçeğin dışındadır.
+    assert {v for v in spaces if v > 2} <= set(SPACE_STEPS)
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
 def test_alternate_rows_are_distinguishable(scheme: str) -> None:
     """Tablolardaki dönüşümlü satır zemini, satır zemininden gözle ayrılır (koyu temada da)."""
     tokens = TOKENS[scheme]
@@ -167,9 +180,9 @@ def test_focus_keeps_line_edit_size(themed_app: QApplication, qtbot: QtBot, mode
 #: Odak kuralları eklenmeden önceki QSS'ten, kenarlık eklenen rollerin kuralları (boyut kıyası için).
 _LEGACY_TOOL_QSS = """
     QWidget { font-size: 10pt; }
-    QToolButton[role="statusChip"] { border: none; border-radius: 9px; padding: 3px 10px; font-weight: 600; }
+    QToolButton[role="statusChip"] { border: none; border-radius: 9px; padding: 3px 9px; font-weight: 600; }
     QToolButton[role="viewTool"] { border: none; border-radius: 6px; padding: 5px; }
-    QToolButton[role="link"] { border: none; background: transparent; padding: 2px 6px; }
+    QToolButton[role="link"] { border: none; background: transparent; padding: 2px 5px; }
     QStatusBar QToolButton[role="problems"] { border: none; padding: 0 2px; }
     QStatusBar QToolButton[role="keys"] { border: none; padding: 0 2px; }
 """
