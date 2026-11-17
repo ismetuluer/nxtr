@@ -190,6 +190,10 @@ class ExportResult:
     rejected_rows: list[tuple[str, str]] = field(default_factory=list)
     #: Dosya yolu → {anahtar → eklentinin ret iletisi} (satır tek tek sınandığında)
     reject_reasons: dict[str, dict[str, str]] = field(default_factory=dict, repr=False)
+    #: Dosya yolu → {anahtar → projede saklı kaynak metin}: yalnızca yazılacak (çevirisi olan) satırlar
+    expected_sources: dict[str, dict[str, str]] = field(default_factory=dict, repr=False)
+    #: Dosya yolu → yazımdan önce okunan orijinal dosyanın anahtarları (geri okuma denetimi yeniden ayrıştırmaz)
+    original_keys: dict[str, frozenset[str]] = field(default_factory=dict, repr=False)
     #: İptal denetimi (`TaskContext.check`); uzun ikili bölme döngüsü bunu çağırır.
     cancel_check: Callable[[], None] = field(default=lambda: None, repr=False)
 
@@ -292,6 +296,8 @@ def fold_unsupported_letters(translations: dict[str, dict[str, str]], files: lis
     return folded
 
 
+#: Saklı kaynağı oyun dosyasının bugünkü okumasıyla uyuşmayan satırın bilgi dosyasındaki nedeni.
+STALE_SOURCE_REASON = "kaynak değişmiş — Metinleri Tara ile yeniden tarayın"
 #: Satır sonu yasak biçimde çevirisinde satır sonu olan satırın bilgi dosyasındaki nedeni.
 NEWLINE_FORBIDDEN_REASON = "çeviride satır sonu var; bu dosya biçimi satır sonu kabul etmiyor"
 
@@ -312,14 +318,35 @@ def drop_forbidden_newlines(
             for key, text in texts.items()
             if ("\n" in text or "\r" in text) and forbids_newline(ref.format, key, ref.title_id)
         }
-        if not bad:
-            continue
         for key in bad:
             del texts[key]
-        result.dropped_keys[ref.path] = result.dropped_keys.get(ref.path, frozenset()) | bad
-        result.reject_reasons.setdefault(ref.path, {}).update(dict.fromkeys(bad, NEWLINE_FORBIDDEN_REASON))
-        if ref.path in result.reordered_keys:
-            result.reordered_keys[ref.path] = result.reordered_keys[ref.path] - bad
+        _drop_rows(result, ref.path, bad, NEWLINE_FORBIDDEN_REASON)
+
+
+def _drop_rows(result: ExportResult, path: str, keys: set[str], reason: str) -> None:
+    """Yazılmadan orijinal bırakılan satırları kaydeder (eklentinin reddettikleriyle aynı bildirim, `settle_rows`)."""
+    if not keys:
+        return
+    result.dropped_keys[path] = result.dropped_keys.get(path, frozenset()) | keys
+    result.reject_reasons.setdefault(path, {}).update(dict.fromkeys(keys, reason))
+    if path in result.reordered_keys:
+        result.reordered_keys[path] = result.reordered_keys[path] - keys
+
+
+def _stale_keys(
+    plugin: FormatPlugin, data: bytes, translations: Mapping[str, str], path: str, result: ExportResult
+) -> set[str]:
+    """Saklı kaynağı oyun dosyasının bugünkü okumasıyla (`extract`) uyuşmayan yazılacak satırlar.
+
+    Proje taramadan bu yana eklenti satırı başka okuyorsa (kod düzeni değişti: ör. ek ayrıştırması) ya da dosya başka
+    bir sürümdense eski çeviri yeni kodlarla yanlış yazılabilir; eklentinin yazım denetimi bunu her zaman görmez
+    (kod sayısı aynı kalabilir). Ölçüt yeniden taramayla aynıdır: kaynak metin (kodlar `⟦n⟧`) aynen eşit olmalı.
+    Bugünkü okumada bulunmayan anahtar burada değerlendirilmez (eklenti bilinmeyen anahtarı zaten reddeder).
+    Okunan anahtarlar geri okuma denetimi için saklanır."""
+    fresh = {e.key: e.source for e in plugin.extract(data)}
+    result.original_keys[path] = frozenset(fresh)
+    expected = result.expected_sources.get(path, {})
+    return {k for k in translations if k in fresh and k in expected and fresh[k] != expected[k]}
 
 
 def support_files(files: list[TextFileRef], layout: str, mod_name: str) -> list[tuple[Path, bytes]]:
@@ -442,7 +469,7 @@ def _rejected_text(result: ExportResult) -> str:
     """Eklentinin reddettiği satırların bilgi dosyası bölümü: sayı, sonra dosya, anahtar ve neden (oyun metni yok)."""
     if not result.rejected_rows:
         return ""
-    lines = [f"Biçim eklentisi reddettiği için orijinal bırakılan satır: {len(result.rejected_rows)}\n"]
+    lines = [f"Oyun dosyasına yazılamadığı için orijinal bırakılan satır: {len(result.rejected_rows)}\n"]
     for path, key in result.rejected_rows[:REJECTED_LISTED]:
         reason = result.reject_reasons.get(path, {}).get(key, "")
         lines.append(f"  {path} : {key}" + (f" — {reason}" if reason else "") + "\n")
@@ -491,6 +518,9 @@ def export_mod(
     result.cancel_check = ctx.check
     result.soft_keys = {path: frozenset(keys) for path, keys in soft.items()}
     result.reordered_keys = {path: frozenset(keys) for path, keys in reordered.items()}
+    for r in rows:
+        if r.key in translations.get(r.file, {}):
+            result.expected_sources.setdefault(r.file, {})[r.key] = r.source
     folded = fold_unsupported_letters(translations, files)
     drop_forbidden_newlines(translations, files, result)
     if folded:
@@ -712,9 +742,9 @@ def settle_rows(result: ExportResult, rows: list[TranslationRow], *, include_err
         result.rejected_rows = sorted((r.file, r.key) for r in found)
         result.rows_written -= len(found)
         result.warnings.append(
-            f"{len(found)} satır oyun dosyasına yazılamadı (biçim eklentisi reddetti); bu satırlar orijinal kaldı, "
-            "dosyanın geri kalanı yazıldı. Hangi satırlar olduğu bilgi dosyasında; metinleri yeniden tarayıp "
-            "Kontrol Et'ten geçirin."
+            f"{len(found)} satır oyun dosyasına yazılamadı (biçim kuralına uymuyor ya da kaynağı değişmiş); bu "
+            "satırlar orijinal kaldı, dosyanın geri kalanı yazıldı. Hangi satırlar olduğu bilgi dosyasında; "
+            "metinleri yeniden tarayıp Kontrol Et'ten geçirin."
         )
     if include_errors:
         attempted = {(path, key) for path, keys in result.attempted_keys.items() for key in keys} & errors
@@ -845,7 +875,11 @@ def _inject_tolerant(
     Önce yalnızca "yumuşak" satırlar (serbest kod sırası farklı ya da dışa aktarılan hatalı satırlar) ayıklanır;
     bunlar dışındakiler de yazılamıyorsa her satır tek tek sınanır (eski kod düzeniyle saklanmış ya da eklentinin
     yazım denetimine takılan satır bütün dosyayı düşürmez). Çevirisiz yazım bile başarısızsa sorun satırlarda
-    değildir; hata olduğu gibi çıkar."""
+    değildir; hata olduğu gibi çıkar. Kaynağı değişmiş satırlar (`_stale_keys`) hiç denenmez."""
+    stale = _stale_keys(plugin, data, translations, path, result)
+    if stale:
+        _drop_rows(result, path, stale, STALE_SOURCE_REASON)
+        translations = {k: v for k, v in translations.items() if k not in stale}
     soft = result.soft_keys.get(path, frozenset())
     result.attempted_keys[path] = frozenset(k for k in translations if k in soft)
     # Yalnızca kod sırası farklı satırlar varken eklentinin sıra denetimi gevşetilir; sayı/tür farkı olan satırlar
@@ -978,9 +1012,9 @@ def _verify_group(
         inner = nested.split(ref.path)[skip:]
         try:
             got = {e.key: e.source for e in plugin.extract(nested.open_inner(data, inner))}
-            before = (
-                {e.key for e in plugin.extract(nested.open_inner(original, inner))} if original is not None else None
-            )
+            before: frozenset[str] | set[str] | None = result.original_keys.get(ref.path)
+            if before is None and original is not None:
+                before = {e.key for e in plugin.extract(nested.open_inner(original, inner))}
         except NxError as exc:
             raise ExportError(f"'{ref.path}' yazıldıktan sonra okunamadı: {exc.message}") from None
         if before is not None and set(got) != before:

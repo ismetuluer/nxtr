@@ -1174,6 +1174,18 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     reddi önceden dosyayı düşürürdü, şimdi o satır orijinal kalır (`test_export_include_errors_rejected_good_row_*`).
     Yazılacak satırların hepsi reddedildiği için hiçbir dosya değişmediyse hata "çeviriler orijinalle aynı" demez;
     reddedilen satır sayısını ve ilk anahtarları söyler.
+    **Kaynak denetimi (bütün biçimler):** yazımdan önce `_stale_keys` dosyayı eklentinin `extract`iyle bir kez okur
+    ve yazılacak (çevirisi olan) her satırın projede saklı kaynağını (`ExportResult.expected_sources`, kodlar `⟦n⟧`
+    olarak) bugünkü okumayla karşılaştırır; ölçüt yeniden taramadaki "kaynak değişti" ölçütüyle aynıdır (kaynak metin
+    aynen eşit). Uyuşmayan satır denenmez, orijinal kalır, aynı ret düzeniyle bildirilir (`STALE_SOURCE_REASON`:
+    "kaynak değişmiş — Metinleri Tara ile yeniden tarayın"). Gerekçe: eklentinin okuma düzeni değişince (ör. Unreal ek
+    ayrıştırması, Unity Smart String çoğulu) eski çeviri kod sayısı aynı kaldığı için yazım denetimine takılmadan
+    yanlış yazılabiliyordu (`{G}|gender(|gender(o,o) …`). Çevrilmemiş satırlara ve bugünkü okumada bulunmayan anahtara
+    bakılmaz (onu eklenti zaten reddeder). Ek ayrıştırma maliyeti yoktur: okunan anahtar kümesi
+    (`ExportResult.original_keys`) geri okuma denetimindeki (`_verify_group`) orijinal satır kümesinin yerine
+    kullanılır; o okuma kaldırıldı. Kod ham baytı karşılaştırılmaz (etiketler sürümler arasında yalnızca yazı olarak
+    değişebilir; görünen kaynak aynıyken kod sınırları da aynıdır). Arayüz: Dışa Aktar bildirimi bu satırları
+    (`rejected_ids`) hatalı tutulanlarla aynı düzende listeler (`KEPT_ROWS_SHOWN`).
 225. **"Satır sonu yasak" biçim kuralı (TECH_DEBT 91):** biçim eklentisi isteğe bağlı `forbids_newline(key) -> bool`
     ile bildirir (satır başına, çünkü aynı eklenti hem satır sonu taşıyan hem taşıyamayan metin tutabilir). Karar
     `registry.forbids_newline`'da (eklenti bildirimi biçim+oyun başına önbellekli; eklenti hatası kuralı yok sayar,

@@ -88,12 +88,10 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     (2026-11-17, ARCHITECTURE 224):* eklentinin reddettiği satır (geçersiz seçenek; bu sürümden önce taranmış,
     kaynağı eski düzenle saklanmış yalın çoğul satırı; Unity'de eski düzenle saklanmış Smart String çoğul satırı)
     artık yalnızca kendisi orijinal kalır, bilgi dosyasında listelenir, dosyanın geri kalanı yazılır. **Kalan:**
-    (a) Seçenek denetimi Kontrol Et'te yok; satır ancak dışa aktarmada orijinal kaldığında fark edilir. (b) Eski
-    projede **tırnaklı çoğul ve `|gender(…)` gibi ekler sessizce bozulur:** eski düzende kod yalnızca `{G}`, ek düz
-    metindi; yeni düzende kod `{G}|gender(` olduğundan eski çeviri (`⟦1⟧|gender(o,o) kaldı`) eklentinin ret denetimine
-    takılmaz ve `{G}|gender(|gender(o,o) kaldı` yazılır (kod sayısı ikisinde de bir). Yeniden tarama kaynağı değişen
-    satırı "Hatalı" işaretlediği için yeniden taranmış projede olmaz; olası çözüm dışa aktarmada saklı kaynağı
-    eklentinin bugünkü `extract` çıktısıyla karşılaştırıp uymayan satırı orijinal bırakmak. Unreal'ın tırnaksız değer
+    (a) Seçenek denetimi Kontrol Et'te yok; satır ancak dışa aktarmada orijinal kaldığında fark edilir. (b) ~~Eski
+    projede tırnaklı çoğul ve `|gender(…)` gibi ekler sessizce bozulur~~ *Kapandı (2026-11-17, ARCHITECTURE 224
+    "Kaynak denetimi"): dışa aktarma saklı kaynağı eklentinin bugünkü okumasıyla karşılaştırır, uyuşmayan satır
+    orijinal kalır ve "kaynak değişmiş" diye bildirilir.* Unreal'ın tırnaksız değer
     kuralları (boşluk, Türkçe harf) gerçek oyunda doğrulanmadı. *Ne zaman:* bu eklerle bir Unreal oyunu çevrilince;
     ek ayrıştırması motorun belgesine göre genişletilir ve seçenek denetimi Kontrol Et'e taşınır.
 

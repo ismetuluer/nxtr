@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from PySide6.QtCore import QSettings
 from pytestqt.qtbot import QtBot
 
-from nxceviri.core.formats.base import ControlCode, TextEntry
+from nxceviri.core.formats.base import ControlCode, FormatError, TextEntry
+from nxceviri.core.formats.msbt import MsbtPlugin
 from nxceviri.core.project import ImportedFile, Project
 from nxceviri.core.secrets import MemoryStore
 from nxceviri.core.translate.status import Status
@@ -177,3 +179,39 @@ def test_kept_rows_text_names_number_and_texts(qtbot: QtBot, tmp_path: Path) -> 
     assert "… ve 5 satır daha" in many
     w.dirty = False
     w.close()
+
+
+def test_export_notice_lists_rows_the_format_refused(
+    qtbot: QtBot, window: MainWindow, game: GameFiles, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Biçim eklentisinin reddettiği (hatalı olmayan) satır, hatalı tutulanlar gibi bildirimde No ve metinleriyle
+    görünür."""
+    real = MsbtPlugin.inject
+
+    def picky(self: MsbtPlugin, data: bytes, translations: Any) -> bytes:
+        if "Menu_Start" in translations:
+            raise FormatError("'Menu_Start' çevirisi yazılamadı: deneme.", key="Menu_Start")
+        return real(self, data, translations)
+
+    monkeypatch.setattr(MsbtPlugin, "inject", picky)
+    window.load_keys_file(game.keys_path)
+    window.add_files([game.base_nsp, game.update_nsp])
+    qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
+    window.start_scan()
+    qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
+    window.scan_page.report.model.set_checked(range(window.scan_page.report.model.rowCount()), True)
+    window.ask_remove_files = lambda _files, _translated: True  # type: ignore[assignment]
+    window.import_texts()
+    qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
+    rows = {r.key: r for r in window.translate_page.model.rows}
+    window.translate_page.model.apply([(rows["Menu_Start"].id, "Maceraya Başla"), (rows["Yes"].id, "Evet")])
+    window.nav.setCurrentRow(STEP_EXPORT)
+    export = window.export_page
+    export.folder.setText(str(tmp_path / "Çıktılar"))
+    export.mod_name.setText("Ret")
+    export.export_button.click()
+    qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
+    text = window.notifier.history[0].text
+    assert "Oyun dosyasına yazılamadığı için orijinal kalan satırlar:" in text
+    assert f"No {window.translate_page.model.number(rows['Menu_Start'].id)}:" in text
+    assert "“Maceraya Başla”" in text

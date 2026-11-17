@@ -18,6 +18,7 @@ from nxceviri.core.container.storage import MemoryStorage
 from nxceviri.core.export.layeredfs import (
     INFO_FILE,
     LAYOUT_ATMOSPHERE,
+    STALE_SOURCE_REASON,
     ExportError,
     ExportInfo,
     ExportOptions,
@@ -29,6 +30,7 @@ from nxceviri.core.export.layeredfs import (
 from nxceviri.core.formats.base import ControlCode, FormatError
 from nxceviri.core.formats.unity import UnityPlugin
 from nxceviri.core.formats.unreal import LocresPlugin
+from nxceviri.core.formats.unreal import locres as locres_module
 from nxceviri.core.keys import load_keys
 from nxceviri.core.pipeline import Inputs, extract_texts, scan_sources
 from nxceviri.core.progress import TaskContext
@@ -155,12 +157,64 @@ def test_unreal_rejected_rows_stay_original_and_rest_of_file_is_written(tmp_path
     assert result.rows_written == 2
     assert any("yazılamadı" in w and "2 satır" in w for w in result.warnings)
     info = (dest / INFO_FILE).read_text(encoding="utf-8")
-    assert "Biçim eklentisi reddettiği için orijinal bırakılan satır: 2" in info
-    assert "Game/Old" in info
+    assert "Oyun dosyasına yazılamadığı için orijinal bırakılan satır: 2" in info
+    assert f"Game/Old — {STALE_SOURCE_REASON}" in info
     assert "Game/Bad" in info
     assert "kaldı" not in info  # oyun metni değil yalnızca anahtar yazılır
     assert "Orada" not in info
     assert "Yazılan çeviri satırı: 2" in info
+
+
+#: Eski düzende değişken tek koddu, ek düz metindi; yeni düzende de tek kod (`{G}|gender(`): kod sayısı aynı olduğundan
+#: eklentinin yazım denetimi farkı görmez, eski çeviri ekin başını iki kez yazardı (sessiz bozulma).
+OLD_GENDER = "{G}|gender(he,she) left"
+OLD_GENDER_ENTRY = ("⟦1⟧|gender(he,she) left", (ControlCode(b"{G}", "Değişken {G}"),))
+OLD_QUOTED = '{N}|plural(one="a cat",other="cats") left'
+OLD_QUOTED_ENTRY = ('⟦1⟧|plural(one="a cat",other="cats") left', (ControlCode(b"{N}", "Değişken {N}"),))
+
+
+def test_unreal_stale_source_rows_are_not_written_doubled(tmp_path: Path) -> None:
+    """Saklı kaynağı oyun dosyasının bugünkü okumasıyla uyuşmayan satır yazılmaz (ör. eski sürümde taranmış ekli
+    satır); orijinal kalır ve "kaynak değişmiş" diye bildirilir. Kaynağı uyuşan satırlar (yalın çoğul dahil) yazılır,
+    çevrilmemiş satırlara dokunulmaz."""
+    locres = build_locres(
+        [
+            ("Game", "Gender", OLD_GENDER),
+            ("Game", "Quoted", OLD_QUOTED),
+            ("Game", "Cats", "{N}|plural(one=cat,other=cats)"),
+            ("Game", "Plain", "Hello"),
+            ("Game", "Untouched", OLD_GENDER),
+        ]
+    )
+    inputs = _package(tmp_path, 0x0100BBBB00000000, {PAK_PATH: build_pak({LOCRES: locres}, version=11)}, "unreal")
+    project = _import_with_old_layout(
+        inputs, {"Game/Gender": OLD_GENDER_ENTRY, "Game/Quoted": OLD_QUOTED_ENTRY, "Game/Untouched": OLD_GENDER_ENTRY}
+    )
+    _translate(
+        project,
+        {
+            "Game/Gender": "⟦1⟧|gender(o,o) kaldı",
+            "Game/Quoted": '⟦1⟧|plural(one="kedi",other="kedi") kaldı',
+            "Game/Cats": "⟦1⟧kedi⟦2⟧kediler⟦3⟧",
+            "Game/Plain": "Merhaba",
+        },
+    )
+    _assert_not_error_and_not_soft(project, ("Game/Gender", "Game/Quoted"))
+    dest = tmp_path / "mod"
+    result = _export(project, inputs, dest, UNREAL_TID)
+    patch = dest / "atmosphere/contents" / UNREAL_TID / "romfs/Game/Content/Paks/pakchunk0-Switch_NXCeviri_P.pak"
+    raw = locres_module.read(PakFile(MemoryStorage(patch.read_bytes()), "yama").read(LOCRES))
+    written = {locres_module._entry_key(e): raw.strings[e.string_index] for e in raw.entries}
+    assert written["Game/Gender"] == OLD_GENDER  # orijinal kaldı; `{G}|gender(|gender(` yazılmadı
+    assert written["Game/Quoted"] == OLD_QUOTED
+    assert written["Game/Untouched"] == OLD_GENDER
+    assert written["Game/Cats"] == "{N}|plural(one=kedi,other=kediler)"
+    assert written["Game/Plain"] == "Merhaba"
+    ids = {r.key: r.id for r in project.translation_rows()}
+    assert sorted(result.rejected_ids) == sorted([ids["Game/Gender"], ids["Game/Quoted"]])
+    info = (dest / INFO_FILE).read_text(encoding="utf-8")
+    assert f"Game/Gender — {STALE_SOURCE_REASON}" in info
+    assert "Game/Untouched" not in info
 
 
 def test_unreal_rejected_rows_with_include_errors_too(tmp_path: Path) -> None:
@@ -196,7 +250,7 @@ def test_unity_old_smart_string_row_stays_original(tmp_path: Path) -> None:
     assert texts["UI_en/2"] == "Smart ⟦1⟧one item⟦2⟧⟦3⟧ items⟦4⟧ left"  # orijinal kaldı
     assert result.rejected_ids == [next(r.id for r in project.translation_rows() if r.key == "UI_en/2")]
     info = (dest / INFO_FILE).read_text(encoding="utf-8")
-    assert "UI_en/2" in info
+    assert f"UI_en/2 — {STALE_SOURCE_REASON}" in info  # kaynak denetimi yazımdan önce yakalar
 
 
 def test_all_rows_rejected_says_so(tmp_path: Path) -> None:

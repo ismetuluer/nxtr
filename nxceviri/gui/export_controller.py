@@ -182,6 +182,14 @@ class ExportController:
             kept = self._win._kept_rows_text(result.error_kept_ids, rows)
             if kept:
                 message += "\n\n" + kept
+            refused = self.kept_rows_text(
+                result.rejected_ids,
+                rows,
+                "Oyun dosyasına yazılamadığı için orijinal kalan satırlar",
+                f"ayrıntı klasördeki “{INFO_FILE}” dosyasında",
+            )
+            if refused:
+                message += "\n\n" + refused
             if result.font_patches:
                 message += f"\n\nFont yaması: {format_int(len(result.font_patches))} fonta Türkçe harf eklendi."
             if result.warnings:
@@ -213,8 +221,15 @@ class ExportController:
             on_cancel=cancelled,
         )
 
-    def kept_rows_text(self, ids: Sequence[int], rows: Sequence[TranslationRow]) -> str:
-        """Hatalı olduğu için modda orijinal kalan satırlar: tablodaki No, orijinal ve çeviri (en çok ilk birkaçı)."""
+    def kept_rows_text(
+        self,
+        ids: Sequence[int],
+        rows: Sequence[TranslationRow],
+        title: str = "Orijinal bırakılan hatalı satırlar",
+        rest_hint: str = "Kontrol Et → Sorunlar",
+    ) -> str:
+        """Modda orijinal kalan satırlar (varsayılan: hatalı oldukları için): tablodaki No, orijinal ve çeviri (en çok
+        ilk birkaçı); `rest_hint` listelenmeyenlerin nerede görüleceğini söyler."""
         if not ids:
             return ""
         by_id = {r.id: r for r in rows}
@@ -229,8 +244,8 @@ class ExportController:
             lines.append(f"  No {format_int(model.number(row_id))}: “{first}” → “{second}”")
         more = len(ids) - KEPT_ROWS_SHOWN
         if more > 0:
-            lines.append(f"  … ve {format_int(more)} satır daha (Kontrol Et → Sorunlar).")
-        return "Orijinal bırakılan hatalı satırlar:\n" + "\n".join(lines)
+            lines.append(f"  … ve {format_int(more)} satır daha ({rest_hint}).")
+        return f"{title}:\n" + "\n".join(lines)
 
     def open_export_folder(self) -> None:
         if self._win.last_export is not None:
