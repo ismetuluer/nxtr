@@ -269,3 +269,18 @@ def test_i2_languages_survive_project_round_trip(i2_two_languages: Inputs) -> No
     saved = project.latest_scan()
     assert saved is not None
     assert available_languages(saved) == ["en", "ja"]
+
+
+def test_engine_guess_ignores_language_suffix() -> None:
+    """Dil eki eklenmiş `detail` motor tahmininde kanıt sayılmaya devam eder."""
+    from nxceviri.core.formats.scanner import DETAIL_LANGUAGES, ScanEntry, guess_engine
+
+    plain = [
+        ScanEntry("0100000000000000", "Data/a.assets", 1, "unity", "Unity serileştirilmiş dosya", "high", "base"),
+        ScanEntry("0100000000000000", "Data/b.bundle", 1, "unity", "Unity AssetBundle", "high", "base"),
+    ]
+    tagged = [
+        ScanEntry(e.title_id, e.path, e.size, e.kind, e.detail + DETAIL_LANGUAGES + "en, ja", e.likelihood, e.origin)
+        for e in plain
+    ]
+    assert guess_engine(tagged).evidence == guess_engine(plain).evidence

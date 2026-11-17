@@ -312,7 +312,7 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 ## 3. Kapananlar
 
 12. ~~Python 3.12 ile test edilmedi.~~ — **Kapandı (2026-11-17):** python.org'un resmî 3.12.10 paketiyle ayrı bir
-    ortamda tam test seti çalıştırıldı, hepsi geçti (sayı CHANGELOG 0.64.0 raporunda).
+    ortamda tam test seti çalıştırıldı: 2856/2856 geçti (3.13'te de aynı).
 
 1. ~~Seyrek ve sıkıştırılmış NCA bölümleri~~ — 0.9.0'da çözüldü.
    Kalan: sıkıştırma türü 2 ve 4 (gerçek oyunda görülmedi) açık hata verir.
@@ -429,7 +429,9 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     `languages(data)` kancası eklendi (I2 için Unity eklentisi uygular); `pipeline.scan_sources` tarama sonunda
     kancayı uygulayan eklentilerin dosyalarını okur, dil kodlarını kaydın `detail` ekine yazar (proje yeniden açılınca
     kalır) ve `available_languages` bunları toplar. Kalan: tarama, kancalı eklentinin dosyalarını (Unity
-    `.assets`/bundle) bir kez daha okuduğu için büyük oyunlarda tarama uzar.
+    `.assets`/bundle) bir kez daha okuduğu için büyük oyunlarda tarama uzar. Dil listesi ayrı bir alan değil, görünen
+    `detail` metnine ` · Diller: …` eki olarak yazılır (şemaya dokunmamak için); `detail`'i karşılaştıran kod
+    `scanner.base_detail` kullanmalıdır (font taraması ve motor tahmini öyle). Kalıcı çözüm: tarama kaydına ayrı sütun.
 
 31. ~~Satırın hangi sağlayıcı/modelle çevrildiği kaydedilmiyor.~~ — **Kapandı (2026-11-17, ARCHITECTURE 222):**
     şema 7 `text_entries`'e sağlayıcı kimliği ve (Ollama'da) model adını ekler; makine işi yazar, bellekten dolan

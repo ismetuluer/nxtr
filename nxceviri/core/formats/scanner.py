@@ -388,9 +388,13 @@ def _count(pred: Callable[[ScanEntry], bool]) -> Callable[[list[ScanEntry]], int
 
 _RULES: tuple[_Rule, ...] = (
     ("unity", "Unity yönetici dosyası (globalgamemanagers)", _count(lambda e: e.path.endswith("globalgamemanagers"))),
-    ("unity", "IL2CPP meta verisi", _count(lambda e: e.detail == "Unity IL2CPP meta verisi")),
-    ("unity", "Unity AssetBundle dosyaları", _count(lambda e: e.detail == "Unity AssetBundle")),
-    ("unity", "Unity serileştirilmiş dosyaları", _count(lambda e: e.detail == "Unity serileştirilmiş dosya")),
+    ("unity", "IL2CPP meta verisi", _count(lambda e: base_detail(e.detail) == "Unity IL2CPP meta verisi")),
+    ("unity", "Unity AssetBundle dosyaları", _count(lambda e: base_detail(e.detail) == "Unity AssetBundle")),
+    (
+        "unity",
+        "Unity serileştirilmiş dosyaları",
+        _count(lambda e: base_detail(e.detail) == "Unity serileştirilmiş dosya"),
+    ),
     ("unity", "Unity Managed klasörü", _count(lambda e: "/Managed/" in e.path or e.path.startswith("Managed/"))),
     (
         "unreal",
