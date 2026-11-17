@@ -94,6 +94,11 @@ class SrtPlugin:
             entries.append(TextEntry(key, len(entries), source, codes, context=m.group(2).split("\n")[0].strip()))
         return entries
 
+    def paired_code(self, code: ControlCode) -> tuple[str, str] | None:
+        """Altyazı etiketi çifti: `<i>` … `</i>`, `<b>`, `<u>`, `<font …>` … `</font>`. Etiketler düz yazı olarak
+        durduğundan yeri değişen çift aynen yazılır; konum kodu (`{\\an8}`) çift değildir."""
+        return markup.tag_pair(code.raw)
+
     def inject(self, data: bytes, translations: Mapping[str, str]) -> bytes:
         if not translations:
             return data

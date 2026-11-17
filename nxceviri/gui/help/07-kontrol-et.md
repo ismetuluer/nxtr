@@ -4,7 +4,7 @@
 
 **Denetle** bütün satırları arka planda tarar; bitince bildirim gelir. Soldaki listeden türe göre süzün: en üstte
 oyunu bozabilecek sorunlar durur. Bir türe tıklayın; birkaç tür için Ctrl'ye basılı tutun; grup başlığına tıklayınca
-grubun hepsi seçilir; **Tüm bulgular** süzgeci kaldırır.
+grubun hepsi seçilir; **Tüm bulgular** süzgeci kaldırır (bilgi düzeyindeki öneriler, örneğin yazım, bu sayıya girmez; görmek için türünü soldan seçin).
 
 Her bulgu üç satırlık bir kart olarak listelenir: üstte açıklama (sağda çeviri tablosundaki **No**), altında soluk
 orijinal metin, en altta çeviri. Sıra önemden başlar (hata, uyarı, bilgi), sonra türe ve satır numarasına göre gider.
@@ -15,7 +15,8 @@ Denetimler: kontrol kodu (sayı, tür, sıra), boş çeviri, taşma, terim tutar
 noktalama, çift boşluk, yazım ve uydurma şüphesi. Satırlar düzenlenirken de anlık denetlenir.
 
 **Kod sırası** uyarısı: biçim izin veriyorsa tek başına duran simge ve adlı değişkenler (`{0}`, `{name}`) cümlede
-yer değiştirebilir; satır hatalı sayılmaz, dışa aktarılır. Eksik, fazla ya da sırası değişen öteki kodlar hatadır.
+yer değiştirebilir; satır hatalı sayılmaz, dışa aktarılır. Biçim etiketi çiftleri (`<b>…</b>` gibi) de içindekilerle
+birlikte, bütün olarak taşınabilir. Eksik, fazla, çaprazlanan ya da sırası değişen öteki kodlar hatadır.
 
 Listenin üstündeki **düzeltme çubuğu** güvenli düzeltmeleri toplu uygular (fazla boşluk, kod sırası, satır
 sığdırma…). Çubuk, listede görünen bulgulardan kendiliğinden düzeltilebilenleri sayar; satır seçerseniz yalnızca

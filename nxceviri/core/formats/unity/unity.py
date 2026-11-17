@@ -53,6 +53,8 @@ BUNDLE_MAGIC = b"UnityFS\0"
 _TAG_RE = re.compile(r"</?[A-Za-z#][^<>\n]{0,200}>")
 #: Serbest kodlar (`movable_code`): simge etiketi ve adlı/numaralı değişken.
 _MOVABLE_RE = re.compile(r"<sprite[\s=>]|\{[A-Za-z0-9_]", re.IGNORECASE)
+#: Eşi olmayan TextMeshPro etiketleri (`paired_code` bunları çift saymaz): simge, satır ve sayfa sonu.
+_SINGLE_TAGS = frozenset({"sprite", "br", "page"})
 _SIMPLE_TAGS = {
     "b": "Kalın",
     "i": "İtalik",
@@ -78,6 +80,12 @@ _LITERAL_NEWLINE = "\\n"
 def _tag_label(tag: str) -> str:
     if tag == _LITERAL_NEWLINE:
         return "Satır sonu"
+    if tag.endswith(":plural:") and tag.startswith("{"):
+        return f"Çoğul ifadesi başı {tag}"
+    if tag == "|":
+        return "Çoğul dalı ayracı"
+    if tag == "}":
+        return "Çoğul ifadesi sonu"
     if tag.startswith("{"):
         return f"Değişken {tag}" if len(tag) <= 40 else "Değişken / biçim ifadesi"
     m = re.match(r"<(/?)([A-Za-z#]+)", tag)
@@ -96,7 +104,7 @@ def _tag_label(tag: str) -> str:
 
 def tokenize(text: str, literals: tuple[str, ...] = ()) -> tuple[str, tuple[ControlCode, ...]]:
     """Metni yer tutuculu biçime çevirir: TMP etiketleri ve Smart String değişkenleri ⟦n⟧ olur."""
-    return markup.tokenize(text, _TAG_RE, _tag_label, literals)
+    return markup.tokenize(text, _TAG_RE, _tag_label, literals, plural=True)
 
 
 def detokenize(display: str, codes: tuple[ControlCode, ...]) -> str:
@@ -583,9 +591,17 @@ class UnityPlugin:
         return result
 
     def movable_code(self, code: ControlCode) -> bool:
-        """Serbest: `<sprite …>` simgesi ve adıyla/numarasıyla bağlanan Smart String değişkeni (`{0}`, `{input_0}`,
-        `{0:plural:…}`). Adsız `{}`, satır sonu ve TextMeshPro biçim etiketleri (çoğu açma/kapama çifti) katıdır."""
-        return _MOVABLE_RE.match(code.raw.decode("utf-8", errors="replace")) is not None
+        """Serbest: `<sprite …>` simgesi ve adıyla/numarasıyla bağlanan Smart String değişkeni (`{0}`, `{input_0}`).
+        Çoğul ifadesinin iskeleti (`{0:plural:`, `|`, `}`), adsız `{}` ve satır sonu katıdır; TextMeshPro biçim
+        etiketlerinin çiftleri `paired_code` ile bütün olarak taşınabilir."""
+        raw = code.raw.decode("utf-8", errors="replace")
+        return not raw.endswith(":plural:") and _MOVABLE_RE.match(raw) is not None
+
+    def paired_code(self, code: ControlCode) -> tuple[str, str] | None:
+        """TextMeshPro biçim etiketi çifti: `<b>` … `</b>`, `<color=…>` … `</color>` (ad büyük/küçük harf duyarsız).
+        Etiketler metnin içinde düz yazı olarak durduğundan yeri değişen çift aynen yazılır. Simge, satır/sayfa sonu
+        ve kendini kapatan etiket çift değildir; kaynakta eşi olmayan açılış (`<space=4>`) katı kalır."""
+        return markup.tag_pair(code.raw, _SINGLE_TAGS)
 
     def language(self, data: bytes) -> str | None:
         env = _load(data)

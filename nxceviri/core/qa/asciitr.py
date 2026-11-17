@@ -3,8 +3,8 @@
 Eski yazı tipi Türkçe harfleri taşımadığı için çevirileri ASCII'ye çevrilmiş yamalar var ("tesekkur ederim"). Onarım
 sözlük destekli ve temkinlidir:
 
-- yalnızca yazım sözlüğünde olmayan sözcüklere bakılır; harfler tek tek değiştirilerek aday sözcükler üretilir
-  (var olan bir Türkçe harf asla geri alınmaz);
+- yalnızca yazım sözlüğünde olmayan (ya da `_ASCII_MISTAKES` listesindeki) sözcüklere bakılır; harfler tek tek
+  değiştirilerek aday sözcükler üretilir (var olan bir Türkçe harf asla geri alınmaz);
 - sözlükte olan aday tam bir tane ise sözcük değiştirilir; hiç ya da birden çok ise (sürat/surat gibi eşyazımlılar)
   dokunulmaz, birden çok olan bulguda "inceleme gerekli" diye bildirilir;
 - harf büyüklüğü harf harf korunur: üretilen aday, orijinalle aynı konumlarda büyük/küçük harf taşır
@@ -42,6 +42,10 @@ _OPTIONS: dict[str, tuple[str, ...]] = {
 }
 #: Bir sözcükte bundan çok değiştirilebilir harf varsa aday üretilmez (2^n büyür; uzun yabancı sözcükler).
 _MAX_TOGGLES = 10
+#: Sözlükte ASCII biçimi geçerli sayılsa da çevirilerde neredeyse hep Türkçe harfleri düşmüş yazım hatası olan,
+#: belirsiz olmayan yaygın sözcükler (yalnızca tek Türkçe karşılığı olanlar). `surat`/`sürat` gibi ASCII biçimi de
+#: gerçek bir sözcük olanlar, `oldu`/`öldü` gibi ikisi de yaygın olanlar ve eşyazımlılar (cok → çok/çök) KONMAZ.
+_ASCII_MISTAKES = frozenset({"simdi", "sey", "aksam", "buyuk", "tum", "basla", "yasam"})
 _PARTICLES = frozenset({"mi", "mı", "mu", "mü"})
 #: Soru ekinin ünlüsü, önceki sözcüğün son ünlüsüne göre.
 _HARMONY = {"a": "ı", "ı": "ı", "e": "i", "i": "i", "o": "u", "u": "u", "ö": "ü", "ü": "ü"}
@@ -94,6 +98,15 @@ def _parts(word: str, start: int) -> Iterator[tuple[str, int]]:
         offset += len(part) + 1
 
 
+def _known(spell: SpellChecker, word: str, extra: Collection[str]) -> bool:
+    """Sözcük geçerli mi: ASCII yazım hatası listesindeki sözcük (`extra`dakiler hariç) sözlükte olsa da geçersizdir."""
+    # `I` hem `i` hem `ı` sayılabildiği için büyük ASCII sözcük iki küçültmeyle de denenir ("SIMDI", "SİMDİ").
+    forms = {word.lower(), turkish_lower(word)}
+    if forms & _ASCII_MISTAKES and not forms & {e.lower() for e in extra}:
+        return False
+    return spell.is_known(word, extra)
+
+
 def _candidates(word: str) -> list[str]:
     """Sözcüğün değiştirilebilir harflerinin tüm kombinasyonları (kendisi hariç); çoksa boş."""
     spots = [n for n, c in enumerate(word) if c in _OPTIONS]
@@ -143,12 +156,12 @@ def repair_ascii_turkish(
     changes: list[tuple[str, str]] = []
     choices: dict[str, tuple[str, ...]] = {}
     for word, word_start in words_of(text):
-        if turkish_lower(word) in from_source or spell.is_known(word, extra) or not _wanted(text, word_start, word):
+        if turkish_lower(word) in from_source or _known(spell, word, extra) or not _wanted(text, word_start, word):
             continue
         for part, start in _parts(word, word_start):
-            if turkish_lower(part) in from_source or spell.is_known(part, extra):
+            if turkish_lower(part) in from_source or _known(spell, part, extra):
                 continue
-            known = [c for c in _candidates(part) if spell.is_known(c, extra)]
+            known = [c for c in _candidates(part) if _known(spell, c, extra)]
             if len(known) == 1:
                 edits.append((start, start + len(part), known[0]))
                 changes.append((part, known[0]))

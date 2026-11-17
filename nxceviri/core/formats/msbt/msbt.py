@@ -16,6 +16,7 @@ metin sonlarından sonra kalan baytlar aynen korunur.
 
 from __future__ import annotations
 
+import re
 import struct
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -31,6 +32,10 @@ _ENCODINGS = {0: ("utf-8", 1), 1: ("utf-16", 2)}
 
 #: Bilinen sistem etiketleri (grup 0). Diğerleri oyuna özgüdür.
 _SYSTEM_TAGS = {0: "Okunuş (ruby)", 1: "Yazı tipi", 2: "Yazı boyutu", 3: "Renk", 4: "Sayfa sonu"}
+_SYSTEM_BY_LABEL = {label: tag for tag, label in _SYSTEM_TAGS.items()}
+#: `paired_code`: etiketin grup:tür'ü kendi etiket adından okunur (ham baytın genişliği/bayt sırası dosyaya bağlı).
+_OPEN_LABEL = re.compile(r"Oyun etiketi (\d+):(\d+)")
+_CLOSE_LABEL = re.compile(r"Etiket sonu \((\d+):(\d+)\)")
 
 
 @dataclass
@@ -269,6 +274,32 @@ class MsbtPlugin:
             source, codes = _display(text)
             entries.append(TextEntry(key, i, source, codes))
         return entries
+
+    def paired_code(self, code: ControlCode) -> tuple[str, str] | None:
+        """Açık kapanışlı etiket çifti: 0x0E etiketi … aynı grup:türün 0x0F kapanış etiketi. Kodlar metne ham bayt
+        olarak, çevirideki sırayla yazıldığından yeri değişen çift aynen yazılır. Kapanışı 0x0F olmayan etiketler
+        (ör. rengi yeni bir renk etiketiyle sıfırlayan oyunlar) eşleşmez, katı kalır; sayfa sonu hiçbir zaman çift
+        değildir. Ham bayt bir MSBT etiketi gibi değilse None."""
+        raw, label = code.raw, code.label
+        if raw[:1] == b"\x0f" or raw[:2] == b"\x00\x0f":
+            m = _CLOSE_LABEL.fullmatch(label)
+            if m is None or len(raw) not in (5, 6):
+                return None
+            name, kind = f"{int(m[1])}:{int(m[2])}", "close"
+        elif raw[:1] == b"\x0e" or raw[:2] == b"\x00\x0e":
+            m = _OPEN_LABEL.fullmatch(label)
+            if len(raw) < 7:
+                return None
+            if m is not None:
+                name = f"{int(m[1])}:{int(m[2])}"
+            elif label in _SYSTEM_BY_LABEL:
+                name = f"0:{_SYSTEM_BY_LABEL[label]}"
+            else:
+                return None
+            kind = "open"
+        else:
+            return None
+        return None if name == "0:4" else (name, kind)
 
     def inject(self, data: bytes, translations: Mapping[str, str]) -> bytes:
         f = read(data)

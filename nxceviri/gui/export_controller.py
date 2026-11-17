@@ -1,6 +1,6 @@
 """Dışa Aktar denetleyicisi: özet ve uyarılar, hedef klasör, hatalı satır seçeneği, mod oluşturma.
 
-Ana pencereden ayrılmıştır (`ARCHITECTURE.md` karar 219). Denetleyici durum tutmaz; pencerenin durumunu
+Ana pencereden ayrılmıştır (`ARCHITECTURE.md` karar 221). Denetleyici durum tutmaz; pencerenin durumunu
 (proje, kaynaklar, anahtar, son çıktı) her çağrıda pencereden okur ve pencerede yönlendirmesi olan bir
 yöntemi pencere üzerinden çağırır (`self._win.<ad>`), testlerin değiştirdiği yollar böylece sınanır.
 Görsel çıkarma (Görseller) ve dolu klasör sorusu (`main_window.ask_full_folder`) pencerede kalır.

@@ -86,6 +86,11 @@ class PakYcPlugin:
                 entries.append(TextEntry(key, len(entries), source, codes, context=who))
         return entries
 
+    def paired_code(self, code: ControlCode) -> tuple[str, str] | None:
+        """Metin etiketi çifti: `<f cn=…>` … `</f>`, `<w>` … `</w>`, `<b action=…></b>`. Etiketler hücrede düz yazı
+        olarak durduğundan yeri değişen çift aynen yazılır; `{…}` değişkenleri çift değildir."""
+        return markup.tag_pair(code.raw)
+
     def inject(self, data: bytes, translations: Mapping[str, str]) -> bytes:
         """Çevirileri, ilgili satırların tüm dil sütunlarına yazar; dosya boyutu değişmez."""
         if not translations:

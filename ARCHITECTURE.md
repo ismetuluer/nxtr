@@ -118,8 +118,8 @@ nxceviri/
     export/layeredfs.py    # Atmosphère / emülatör mod klasörü, atomik ve doğrulamalı
   gui/                     # PySide6; iş mantığı içermez
     main_window.py         # adımlar arası akış, menüler, arka plan işleri
-    checks_controller.py   # Kontrol Et iş akışı: denetim, pano yenileme, yok sayma, Düzelt (karar 219)
-    export_controller.py   # Dışa Aktar iş akışı: özet, hedef klasör, mod oluşturma (karar 219)
+    checks_controller.py   # Kontrol Et iş akışı: denetim, pano yenileme, yok sayma, Düzelt (karar 221)
+    export_controller.py   # Dışa Aktar iş akışı: özet, hedef klasör, mod oluşturma (karar 221)
     icons.py + icons/*.svg # Lucide simgeleri; temaya uyan QIcon, bind_icon/refresh_icons
     appicon/               # uygulama simgesi: nxtr.svg + nxtr-kucuk.svg (kaynak) → .ico/.png (packaging/make_icon.py)
     step_nav.py            # simgeli kenar çubuğu (StepNav) ve proje başlığı
@@ -1071,7 +1071,27 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     (satır, tür, çeviri özeti); özet tutmazsa bulgu geri gelir, hata bulguları yok sayılamaz. Süzgeç tek yerde
     (`ChecksController.show_check_results` ve `_replace_board_rows`, `gui/checks_controller.py`) uygulanır; panoda yalnızca gerçek bulgular sayılır,
     yok sayılanlar "Yok sayılanlar" girişiyle ayrı görünür. Menü eylemleri planı 0 satır düzeltiyorsa hiç çıkmaz.
-219. **Ana pencere denetleyicilere bölünür (ürün sahibinin onayı, 2026-11-17; TECH_DEBT 69):** Kontrol Et iş akışı
+219. **Aç/kapa çiftleri bütün olarak taşınabilir (ürün sahibinin kararı, 2026-11-17):** biçim eklentisi isteğe bağlı
+    `paired_code(code) -> (aile, "open"|"close"|"separator") | None` ile bildirir; bildirmeyen eklentide çiftler katı
+    kalır. Karar yine tek yerde (`placeholders.check`): kaynakta aynı ailenin açılışı ile kapanışı yığınla eşlenir
+    (eşi olmayan kod katı); çift açılışı kapanışından önce, çaprazlanmadan ve aynı üst çiftin içinde kalarak yer
+    değiştirdiyse uyarıdır. Katı kodların kendi aralarındaki sırası ve içinde durdukları çift değişmez (`%s` içeren
+    bir çift başka bir `%s`'nin öbür yanına geçemez); ayraç kendi çiftinin içinde, sırasıyla kalır. Rolleri taşımak
+    için `TranslationRow.free_codes` artık `placeholders.CodeRoles` (`frozenset[int]` alt sınıfı, `pairs` özniteliği)
+    taşır; böylece arayüz dahil bütün çağıranlar değişmeden aynı kararı verir. Boş kümenin doğruluk değeri yanlış
+    olduğundan çift varlığına `pairs_of` ile bakılır; makine çevirisinde aynı kaynaklı satırların ortak rolü
+    `common_roles`. Dışa aktarma uyarılı satırı `tolerate_reorder` içinde yazar; Düzelt uyarılı sıra farkını özgün
+    sıraya dizmez. Bildiren yerleşikler: Unity (TextMeshPro), Unreal (UMG `<X>…</>`), PSB metni, YCD paketi, SRT,
+    FMSB, MSBT (yalnızca 0x0F kapanışlı etiketler), NNI metni (`<color:…>…<color:>`), WAD/LIN (`<CLT n>…<CLT>`).
+    GFMSG seçimleri ve fsd kodları bildirilmez (seçim üçlüdür, fsd kodlarının anlamı çözülmedi).
+220. **Unreal çoğul ifadesi parçalanır:** yalnızca yalın biçim (`{Count}|plural(one=cat,other=cats)`: tırnaksız,
+    boşluksuz, boş olmayan değerler) baş (`{Count}|plural(one=`, açılış), ayraç (`,other=`, ayraç) ve son (`)`,
+    kapanış) kodlarına ayrılır; seçenek sözcükleri çevrilir, ifade bütün olarak taşınır. Başka biçimde ya da başka
+    bir ek (`|gender(`, tırnaklı değer) geldiğinde değişken ile ekin başı tek, katı kod olur (önceden `{N}` serbestti
+    ve ek düz metindi; değişken ekinden ayrılabiliyordu). `inject` çoğul içeren satırı yazdıktan sonra yeniden okur;
+    seçeneğe ayraç, boşluk ya da boş değer yazılmışsa reddeder. Eski projelerde bu satırların kaynak metni değişir
+    (yeniden taramada "orijinal değişti"); eski çeviri yeni kodlarla yazılamaz, sessizce bozulmaz.
+221. **Ana pencere denetleyicilere bölünür (ürün sahibinin onayı, 2026-11-17; TECH_DEBT 69):** Kontrol Et iş akışı
     `gui/checks_controller.py` `ChecksController`'da (denetim, pano yenileme, yok sayma, Düzelt, aday seçimi,
     yazım/terim yok sayma; durumu `qa_count`, `board_task`… da orada), Dışa Aktar iş akışı
     `gui/export_controller.py` `ExportController`'da (özet, hedef klasör, hatalı satır seçeneği, mod oluşturma;

@@ -1,6 +1,6 @@
 """Kontrol Et denetleyicisi: denetim, pano yenileme, yok sayma, Düzelt ve aday seçimi.
 
-Ana pencereden ayrılmıştır (`ARCHITECTURE.md` karar 219). Denetleyici pencereyi bilir; pencerenin
+Ana pencereden ayrılmıştır (`ARCHITECTURE.md` karar 221). Denetleyici pencereyi bilir; pencerenin
 durumunu (proje, sayfalar, iş) her çağrıda pencereden okur ve pencerede yönlendirmesi olan bir yöntemi
 pencere üzerinden çağırır (`self._win.<ad>`): testler pencerenin yöntemlerini değiştirerek çalışır,
 bağlı yöntem önceden saklanırsa değiştirilen yol sınanmaz. Sinyal bağlantıları ve kısayollar pencerede kalır.
@@ -143,9 +143,15 @@ class ChecksController:
             on_success=done,
             on_failure=self._win.qa_page.show_check_failed,
             on_progress=progress,
-            on_cancel=self._win.qa_page.stop_checking,
+            on_cancel=self._win._on_check_cancelled,
         )
         self.check_task = self._win.task
+
+    def on_check_cancelled(self) -> None:
+        """Denetim durduruldu: düzeltme/düzenlemeyle çevirisi değişen satırların eski bulguları geri getirilmez."""
+        changed = self._win.qa_page.changed_rows(self._win.translate_page.model.rows)
+        self._win.qa_page.stop_checking(changed)
+        self._recount_qa()
 
     def stop_checks(self) -> None:
         """Durdur: sürmekte olan denetim işini iptal eder (başka bir iş sürüyorsa dokunmaz)."""
@@ -157,6 +163,7 @@ class ChecksController:
         self._win._sync_live()  # Çevir'deki anlık denetim bağlamı Kontrol Et'in kullandığı güncel ayarlarla aynı olsun
         self._win.qa_page.set_code_kinds(self._win._fit_config().kinds)
         issues, hidden = self._split_ignored(issues, rows)  # yok sayılanlar listeye, sayaca ve Çevir'e girmez
+        self._win._sync_ignored_to_translate()
         self._win.qa_page.show_issues(issues, rows, hidden)
         self._win.translate_page.set_qa_issues(issues, rows)
         counted = [i for i in issues if i.severity in (SEVERITY_ERROR, SEVERITY_WARNING)]
@@ -253,6 +260,10 @@ class ChecksController:
             shown[row_id], hidden[row_id] = ignored.split(found, by_id, entries)
         self._win.qa_page.replace_rows_issues(shown, rows, hidden)
 
+    def sync_ignored_to_translate(self) -> None:
+        """Projedeki yok sayılan bulguları Çevir tablosuna bildirir (anlık denetim de onları göstermesin)."""
+        self._win.translate_page.set_ignored(ignored.load(self._win.project.setting(ignored.IGNORED_KEY)))
+
     def _split_ignored(
         self, issues: list[QaIssue], rows: Sequence[TranslationRow]
     ) -> tuple[list[QaIssue], list[QaIssue]]:
@@ -276,6 +287,7 @@ class ChecksController:
     def _store_ignored_issues(self, entries: set[ignored.Entry], row_ids: set[int]) -> None:
         self._win.project.set_setting(ignored.IGNORED_KEY, ignored.dump(entries))
         self._win._mark_changed()
+        self._win.translate_page.set_ignored(entries)  # Çevir'deki işaret de hemen kalkar (ya da geri gelir)
         rows = [r for r in self._win.translate_page.model.rows if r.id in row_ids]
         by_row: dict[int, list[QaIssue]] = {}
         for issue in self._win.qa_page.all_issues():

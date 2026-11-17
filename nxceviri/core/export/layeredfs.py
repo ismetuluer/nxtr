@@ -217,7 +217,8 @@ def collect_translations(
 
     Kontrol kodu sorunu olan hatalı satırlar (eksik, fazla, kodun sayısı farklı) biçim eklentisi zaten reddedeceği
     için hiç denenmez; tabloya girmez, orijinal kalır. Tek farkı kod sırası olan satır, yalnızca serbest kodların
-    (biçim eklentisinin bildirdiği simge, adlı değişken; `TranslationRow.free_codes`) yeri değiştiyse denenir;
+    (biçim eklentisinin bildirdiği simge, adlı değişken; `TranslationRow.free_codes`) ya da bütün olarak taşınan
+    aç/kapa çiftlerinin yeri değiştiyse denenir;
     konumsal kodlar (`%s`) asla. Bu satırların anahtarı `reordered` sözlüğüne yazılır. Durumu iyi olan (varsayılan
     ayarda yazılan) serbest sıra farklı satırlar da `soft` ve `reordered` sözlüklerine girer: reddedilirlerse
     orijinal kalırlar.
@@ -257,8 +258,9 @@ def collect_translations(
 
 
 def _free_reorder(row: TranslationRow) -> bool:
-    """Çevirinin tek kod sorunu, serbest kodların (`row.free_codes`) yer değiştirmesi mi?"""
-    return placeholders.order_only_problem(row.source, row.translation, row.free_codes.__contains__)
+    """Çevirinin tek kod sorunu izin verilen bir sıra farkı mı: serbest kodlar ya da bütün olarak taşınan aç/kapa
+    çiftleri (`row.free_codes`; karar `placeholders.check`)?"""
+    return bool(placeholders.check(row.source, row.translation, row.free_codes).warnings)
 
 
 def fold_unsupported_letters(translations: dict[str, dict[str, str]], files: list[TextFileRef]) -> str:

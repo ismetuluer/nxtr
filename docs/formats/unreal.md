@@ -28,7 +28,16 @@ korunur; yeni metin dizinin sonuna eklenir; paylaşılan bir metin yalnızca çe
 Referans sayıları yeniden hesaplanır.
 
 **Kontrol kodları:** `{PlayerName}`, `{0}` (iç içe süslü parantez dahil), UMG zengin metin
-etiketleri `<Bold>`, `</>`, `<img id="X"/>`.
+etiketleri `<Bold>`, `</>`, `<img id="X"/>`. Adlı/numaralı argüman ve `<img …/>` serbesttir (yer değiştirebilir);
+`<X>` … `</>` bir aç/kapa çiftidir (bütün olarak taşınabilir; `</>` en yakın açık etiketi kapatır).
+
+**Argüman ekleri:** yalın çoğul ifadesi `{Count}|plural(one=cat,other=cats)` (tırnaksız, boşluksuz, boş olmayan
+değerler) üç tür koda ayrılır: baş `{Count}|plural(one=` (açılış), ayraç `,other=` (çiftin içinde kalır), son `)`
+(kapanış). Seçenek sözcükleri (`cat`, `cats`) çevrilir; ifade bütün olarak taşınabilir. Yazarken metin yeniden okunur:
+seçeneğe boşluk, virgül, parantez, eşittir, tırnak ya da süslü parantez yazılmışsa ya da seçenek boşsa satır
+yazılmaz. Başka biçimler (tırnaklı ya da boş değerli çoğul, `|gender(…)` gibi başka ekler) çözülmez: değişken ile ekin
+başı (`{G}|gender(`) tek, katı kod olur, ekin geri kalanı düz metin kalır (çevirmen dokunmamalı). Bu ekler gerçek bir
+oyunda görülmedi; yalnızca elle üretilmiş örneklerle denendi.
 
 ## .pak
 

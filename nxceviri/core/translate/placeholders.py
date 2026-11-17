@@ -6,15 +6,16 @@ yer tutucuları görür. Geri yazmadan önce yer tutucuların **sayısı, türü
 orijinalle karşılaştırılır; uymayan satır "hatalı" sayılır ve dosyaya yazılmaz.
 Aynı numara her zaman aynı kodu gösterdiğinden "tür" denetimi numara denetimiyle yapılır.
 
-Tek istisna (ürün sahibinin kararı, 2026-11-16): yalnızca serbest kodların (biçim eklentisinin `movable_code` ile
-bildirdiği simge ve adlı değişkenler) yeri değiştiyse satır hatalı değildir, uyarıdır (`check`). Biçim
-eklentilerinin `inject` denetimi (`problems`) katı kalır; dışa aktarma bu satırları `tolerate_reorder` içinde yazar.
+İstisnalar (ürün sahibinin kararları, 2026-11-16 ve 2026-11-17): yalnızca serbest kodların (biçim eklentisinin
+`movable_code` ile bildirdiği simge ve adlı değişkenler) ya da bütün olarak taşınan aç/kapa çiftlerinin
+(`paired_code`) yeri değiştiyse satır hatalı değildir, uyarıdır (`check`). Biçim eklentilerinin `inject` denetimi
+(`problems`) katı kalır; dışa aktarma bu satırları `tolerate_reorder` içinde yazar.
 """
 
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Collection, Iterator
+from collections.abc import Collection, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -81,25 +82,59 @@ def problems(source: str, translation: str) -> list[str]:
     return issues
 
 
-def order_only_problem(source: str, translation: str, is_free: Callable[[int], bool]) -> bool:
-    """Tek sorun kod sırası farkı mı ve bu fark güvenle yazılabilir mi?
-
-    Güvenli: serbest sayılan kodlar (`is_free`: ör. değişken, simge; tek başına durur, eşi yoktur) yer değiştirmiş,
-    diğer kodların (renk açma/kapama gibi çiftler) kendi aralarındaki sırası aynı kalmış.
-    """
-    if not problems(source, translation):
-        return False
-    with tolerate_reorder():
-        if problems(source, translation):
-            return False
-    fixed = [n for n in tokens_in(source) if not is_free(n)]
-    return fixed == [n for n in tokens_in(translation) if not is_free(n)]
-
-
 #: Yalnızca serbest kodların yeri değiştiğinde verilen uyarı (satır hatalı sayılmaz, dışa aktarılır).
 FREE_REORDER_WARNING = (
     "Değişken veya simge kodlarının yeri orijinalden farklı; oyunda doğru yerde göründüğünü denetleyin."
 )
+#: Bir aç/kapa çifti bütün olarak yer değiştirdiğinde verilen uyarı (satır hatalı sayılmaz, dışa aktarılır).
+PAIR_REORDER_WARNING = (
+    "Biçim etiketi çiftlerinin (açılış/kapanış) yeri orijinalden farklı; oyunda doğru göründüğünü denetleyin."
+)
+
+#: Çift kodunun rolleri (`paired_code` yanıtının ikinci öğesi).
+PAIR_OPEN = "open"
+PAIR_CLOSE = "close"
+#: Çiftin içinde durması gereken ayraç (ör. çoğul seçenek ayracı `,other=`): çiftle birlikte taşınır, çiftten
+#: çıkamaz, aynı çiftteki öteki ayraçlarla sırası değişmez.
+PAIR_SEPARATOR = "separator"
+PAIR_KINDS = frozenset({PAIR_OPEN, PAIR_CLOSE, PAIR_SEPARATOR})
+
+#: Çift kodunun rolü: (aile adı, `PAIR_OPEN` | `PAIR_CLOSE` | `PAIR_SEPARATOR`). Aynı ailenin açılışı ile kapanışı
+#: eşleşir; genel bir kapanış (Unreal `</>`) için eklenti bütün açılışlara aynı aile adını verir.
+PairRole = tuple[str, str]
+
+
+class CodeRoles(frozenset[int]):
+    """Satırın kod rolleri: küme olarak serbest kodların numaralarıdır (eski `frozenset[int]` kullanımıyla aynı);
+    `pairs` aç/kapa çifti bildirilen kodları (numara → rol) taşır. Serbest kodu olmayan satırda küme boştur ve
+    doğruluk değeri yanlıştır; çift olup olmadığına `pairs` ile bakılır."""
+
+    __slots__ = ("pairs",)
+    pairs: Mapping[int, PairRole]
+
+    def __new__(cls, free: Iterable[int] = (), pairs: Mapping[int, PairRole] | None = None) -> CodeRoles:
+        self = super().__new__(cls, free)
+        self.pairs = dict(pairs or {})
+        return self
+
+    def __repr__(self) -> str:
+        return f"CodeRoles({set(self) or '{}'}, pairs={self.pairs})"
+
+
+def pairs_of(free: Collection[int]) -> Mapping[int, PairRole]:
+    """`free` bir `CodeRoles` ise çift rolleri, değilse boş."""
+    return free.pairs if isinstance(free, CodeRoles) else {}
+
+
+def common_roles(items: Iterable[Collection[int]]) -> CodeRoles:
+    """Hepsinde ortak olan roller: hepsinde serbest kodlar ve hepsinde aynı rolle bildirilmiş çift kodları."""
+    roles = [(frozenset(i), pairs_of(i)) for i in items]
+    if not roles:
+        return CodeRoles()
+    free = frozenset.intersection(*(f for f, _p in roles))
+    first = roles[0][1]
+    pairs = {n: r for n, r in first.items() if all(p.get(n) == r for _f, p in roles[1:])}
+    return CodeRoles(free, pairs)
 
 
 @dataclass(frozen=True)
@@ -110,19 +145,101 @@ class CodeCheck:
     warnings: tuple[str, ...] = ()
 
 
+def _match_pairs(order: list[int], pairs: Mapping[int, PairRole]) -> dict[int, int]:
+    """Kaynakta eşleşen çiftler (açılış → kapanış). Kapanış, yığındaki aynı ailenin en yakın açılışına bağlanır;
+    aradaki kapanmamış açılışlar ve eşi bulunmayan kapanışlar çift sayılmaz (katı kalır)."""
+    stack: list[int] = []
+    matched: dict[int, int] = {}
+    for n in order:
+        role = pairs.get(n)
+        if role is None or role[1] == PAIR_SEPARATOR:
+            continue
+        family, kind = role
+        if kind == PAIR_OPEN:
+            stack.append(n)
+            continue
+        for i in range(len(stack) - 1, -1, -1):
+            if pairs[stack[i]][0] == family:
+                matched[stack[i]] = n
+                del stack[i:]
+                break
+    return matched
+
+
+def _parents(order: list[int], opens: Mapping[int, int]) -> dict[int, int] | None:
+    """Her kodun içinde durduğu en yakın çiftin açılışı (0 = hiçbiri). Bir kapanış kendi açılışından önce gelir ya
+    da çiftler çaprazlanırsa None. `opens`: kapanış → açılış."""
+    stack: list[int] = []
+    parent: dict[int, int] = {}
+    closes = set(opens)
+    for n in order:
+        if n in closes:
+            if not stack or stack[-1] != opens[n]:
+                return None
+            stack.pop()
+            parent[n] = stack[-1] if stack else 0
+            continue
+        parent[n] = stack[-1] if stack else 0
+        if n in opens.values():
+            stack.append(n)
+    return parent if not stack else None
+
+
+def _reorder_warning(source: str, translation: str, free: Collection[int]) -> str | None:
+    """Tek sorun sıra farkıysa ve bu fark kurala uyuyorsa uyarı metni, değilse None.
+
+    Kural: serbest kodlar (çift bildirilmemiş) her yere gidebilir; kaynakta eşleşen her çift, açılışı kapanışından
+    önce, çaprazlanmadan ve aynı üst çiftin içinde kalarak yer değiştirebilir; çiftin ayraçları çiftin içinde ve
+    kendi aralarındaki sırada kalır; geri kalan (katı) kodların kendi aralarındaki sırası ve içinde durdukları çift
+    değişmez."""
+    with tolerate_reorder():
+        if problems(source, translation):
+            return None
+    expected, got = tokens_in(source), tokens_in(translation)
+    pairs = pairs_of(free)
+    loose = {n for n in free if n not in pairs}
+    matched = _match_pairs(expected, pairs)
+    opens = {c: o for o, c in matched.items()}
+    members = set(matched) | set(opens)
+    before = _parents([n for n in expected if n not in loose], opens)
+    after = _parents([n for n in got if n not in loose], opens)
+    if before is None or after is None:
+        return None
+    # Ayraç yalnızca kaynakta kendi ailesinden bir çiftin içindeyse çifte bağlıdır; değilse katı bir koddur.
+    bound = {
+        n for n, role in pairs.items() if role[1] == PAIR_SEPARATOR and before.get(n) and pairs[before[n]][0] == role[0]
+    }
+    strict = [n for n in expected if n not in loose and n not in members and n not in bound]
+    if strict != [n for n in got if n not in loose and n not in members and n not in bound]:
+        return None
+    if any(before[n] != after[n] for n in before if n not in opens):
+        return None  # katı kod, ayraç ya da çift, içinde durduğu çiftten çıkmış/başkasına girmiş
+    for parent in {before[n] for n in bound}:
+        inside = [n for n in expected if n in bound and before[n] == parent]
+        if inside != [n for n in got if n in bound and after[n] == parent]:
+            return None
+    fixed_before = [n for n in expected if n not in loose]
+    fixed_after = [n for n in got if n not in loose]
+    return FREE_REORDER_WARNING if fixed_before == fixed_after else PAIR_REORDER_WARNING
+
+
 def check(source: str, translation: str, free: Collection[int] = frozenset()) -> CodeCheck:
-    """Kontrol kodu kararının tek yeri: sorun yok / yalnızca serbest kod sırası farkı (uyarı) / hata.
+    """Kontrol kodu kararının tek yeri: sorun yok / yalnızca izin verilen sıra farkı (uyarı) / hata.
 
     `free`: satırın serbest kodlarının numaraları (biçim eklentisinin `movable_code` bildirimi; tek başına durur,
-    adıyla ya da kendisi anlam taşır). Eksik, fazla, yinelenen kod ve serbest olmayan kodların (çiftler, satır/sayfa
-    sonu, konumsal `%s`) kendi aralarındaki sıra farkı her zaman hatadır. Biçim eklentilerinin `inject` denetimi
-    katı kalır (`problems`); dışa aktarma uyarılı satırları `tolerate_reorder` içinde yazar.
+    adıyla ya da kendisi anlam taşır). `CodeRoles` ise ayrıca aç/kapa çiftleri (`paired_code` bildirimi): bir çift
+    iç içeliği bozulmadan bütün olarak yer değiştirebilir (ürün sahibinin kararı, 2026-11-17). Eksik, fazla,
+    yinelenen kod, çaprazlanan ya da ters dönen çift ve katı kodların (satır/sayfa sonu, konumsal `%s`, eşi olmayan
+    etiket) kendi aralarındaki sıra farkı her zaman hatadır. Biçim eklentilerinin `inject` denetimi katı kalır
+    (`problems`); dışa aktarma uyarılı satırları `tolerate_reorder` içinde yazar.
     """
     issues = problems(source, translation)
     if not issues:
         return CodeCheck()
-    if free and order_only_problem(source, translation, free.__contains__):
-        return CodeCheck(warnings=(FREE_REORDER_WARNING,))
+    if free or pairs_of(free):
+        warning = _reorder_warning(source, translation, free)
+        if warning is not None:
+            return CodeCheck(warnings=(warning,))
     return CodeCheck(errors=tuple(issues))
 
 

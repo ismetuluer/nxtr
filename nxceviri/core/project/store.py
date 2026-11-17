@@ -328,7 +328,8 @@ class TranslationRow:
     max_length: int | None
     context: str = ""
     format: str = ""  # dosyanın biçim eklentisi (ör. "unity"); grubun nereden geldiğini belirler
-    #: Serbest kodların numaraları (çeviride yeri değişebilir; biçim eklentisinin bildirimi, `registry.free_codes`)
+    #: Kod rolleri (`registry.free_codes`): küme olarak serbest kodların numaraları (çeviride yeri değişebilir);
+    #: `placeholders.CodeRoles` ise `pairs` ile aç/kapa çifti kodları da (bütün olarak taşınabilir; `pairs_of`).
     free_codes: frozenset[int] = frozenset()
 
 
@@ -343,7 +344,8 @@ _ROW_SQL = (
 
 
 def _free_codes(fmt: str, title_id: str, codes: list[list[str]]) -> frozenset[int]:
-    """Saklı kodların (ham bayt onaltılık, etiket) serbest olanları; biçim eklentisine sorulur (şema değişmez)."""
+    """Saklı kodların (ham bayt onaltılık, etiket) rolleri: serbest olanlar ve aç/kapa çiftleri (`CodeRoles`); biçim
+    eklentisine sorulur (şema değişmez)."""
     if not codes or not registry.judges_codes(fmt, title_id):
         return frozenset()
     return registry.free_codes(fmt, [ControlCode(bytes.fromhex(str(c[0])), str(c[1])) for c in codes], title_id)

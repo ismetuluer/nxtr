@@ -33,6 +33,8 @@ _MAX_CONTEXT = 3
 #: Oyun metninin içindeki kodlar: `#{color,FF0000FF}`, `<br>`, `<size=24>`, `%s`, `%02d`, `{…}`.
 _CODE_RE = re.compile(r"#\{[^{}]*\}|</?[A-Za-z][^<>\n]{0,80}>|%[-+0-9.]*[sdfxX]|\{[^{}]*\}")
 _TAG_NAME = re.compile(r"</?([A-Za-z]+)")
+#: Eşi olmayan etiketler (`paired_code` bunları çift saymaz).
+_SINGLE_TAGS = frozenset({"br"})
 
 
 def _code_label(code: str) -> str:
@@ -155,6 +157,12 @@ class PsbTextPlugin:
                 shown += f" (+{len(row.contexts) - _MAX_CONTEXT})"
             entries.append(TextEntry(row.key, len(entries), source, codes, context=shown))
         return entries
+
+    def paired_code(self, code: ControlCode) -> tuple[str, str] | None:
+        """Zengin metin etiketi çifti: `<b>` … `</b>`, `<size=24>` … `</size>`, `<voffset=…>` … `</voffset>`.
+        Etiketler dizgede düz yazı olarak durduğundan yeri değişen çift aynen yazılır. `<br>`, renk kodu
+        `#{color,…}` (kapanışı da aynı biçimde bir renk kodudur) ve değişkenler çift değildir."""
+        return markup.tag_pair(code.raw, _SINGLE_TAGS)
 
     def inject(self, data: bytes, translations: Mapping[str, str]) -> bytes:
         if not translations:

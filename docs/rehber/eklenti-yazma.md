@@ -98,6 +98,7 @@ Dışa aktarma bunları `getattr` ile arar; yoksa atlanır. Türkçe harfle ilgi
 | `game_file_patches()` | Metin dışında değiştirilecek oyun dosyaları (yol → dönüştürücü), ör. resimdeki yazılar |
 | `exefs_patches(code)` | Program koduna IPS yaması (yapı kimliği → yama) |
 | `movable_code(code)` | Bu kod çeviride yer değiştirebilir mi (`True` = serbest: tek başına simge, adıyla/numarasıyla bağlanan değişken). Konumsal kodlar (`%s`), aç/kapa çiftleri, satır/sayfa sonu için `False`. Yoksa hiçbir kod serbest değildir; `inject` sırası değişmiş serbest kodu yazabilmeli ya da reddetmeli |
+| `paired_code(code)` | Bu kod bir aç/kapa çiftinin parçası mı: `(aile, "open")`, `(aile, "close")`, çiftin içinde kalması gereken ayraç için `(aile, "separator")`, değilse `None`. Aynı ailenin açılışı ve kapanışı kaynaktaki sırayla eşleşir (`</>` gibi genel kapanışta bütün açılışlara aynı aile adını ver); eşi olmayan kod katı kalır. Çift iç içeliği bozulmadan bütün olarak taşınırsa satır uyarıdır, hatalı değildir. Yalnızca biçim etiketleri gerçekten ayrı açılış/kapanış olarak saklıyorsa bildir; `inject` yeri değişmiş çifti yazabilmeli ya da reddetmeli. XML benzeri etiketler için hazır yardımcı: `markup.tag_pair` |
 | `derived_files(read, files, game_dir)` | Metinden bağımsız dosya/arşiv üyesi üretimi (`core/formats/derived.py`: yazı tipi, resim) |
 
 ## Test (önce yaz)

@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, Qt, Signal
-from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDropEvent, QGuiApplication, QIcon
+from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDropEvent, QGuiApplication, QIcon, QResizeEvent
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -30,6 +30,8 @@ TITLE_ICON_SIZE = 22
 
 #: Ipucu balonunun piksel genişliği: uzun açıklamalar bu genişlikte kaydırılır.
 TIP_WIDTH = 380
+#: Boş/bekleme durumunun alt yazısının normal genişliği (px).
+_EMPTY_TEXT_WIDTH = 320
 
 
 def repolish(w: QWidget) -> None:
@@ -382,13 +384,27 @@ class EmptyState(QWidget):
         self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.text = label(text, "muted", wrap=True)
         self.text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.text.setMinimumWidth(320)
-        self.text.setMaximumWidth(520)
+        self._fit_text_width()
         lay.addWidget(self.title)
         lay.addWidget(self.text, alignment=Qt.AlignmentFlag.AlignCenter)
         if action is not None:
             lay.addSpacing(6)
             lay.addWidget(action, alignment=Qt.AlignmentFlag.AlignCenter)
+
+    def _fit_text_width(self) -> None:
+        """Alt yazı normalde 320 px genişliktedir; alan daralınca sığacağı kadar daralır ve sözcük kaydırır.
+
+        Sabit bir en az genişlik, dar pencerede yazıyı kapsayıcıdan taşırıp ortadan kaydırıyordu.
+        """
+        lay = self.layout()
+        assert lay is not None
+        margins = lay.contentsMargins()
+        available = self.width() - margins.left() - margins.right()
+        self.text.setFixedWidth(_EMPTY_TEXT_WIDTH if self.width() <= 0 else max(80, min(_EMPTY_TEXT_WIDTH, available)))
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._fit_text_width()
 
 
 class BusyState(EmptyState):

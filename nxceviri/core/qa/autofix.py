@@ -21,7 +21,8 @@ bağlıdır (`FIX_KINDS`); kullanıcı hangi türlerin düzeltileceğini seçer 
   satırda "satır sonu sayısı özgünle aynı olmalı" kuralı uygulanmaz; satır sayısını sınır belirler.
 
 Olası taşma, uzunluk sınırı aşımı, güvenle onarılamayan eksik kontrol kodu, şüpheli çeviri, eksik harf (font) ve
-kod adı uyarıları düzeltilmez: anlam gerektirir ya da kararı insan verir. Onaylanmış satırlara dokunulmaz.
+kod adı uyarıları düzeltilmez: anlam gerektirir ya da kararı insan verir. Onaylı satırlar da düzeltilir ve onaylı
+kalır (`fixrun`, `include_approved=True`).
 """
 
 from __future__ import annotations
@@ -138,6 +139,7 @@ def reorder_codes(source: str, text: str, labels: Sequence[str], free: Collectio
     (oyuncu adı, sayı, eşya adı …) ve tanınmayan kodlar yerinde ve aynı sırada kalmalıdır; kalmıyorsa hiçbir şey
     yapılmaz. Serbest kodlar (`free`: biçim eklentisinin bildirdiği, yeri değişebilen simge/değişken) çevirmenin
     koyduğu yerde bırakılır, özgünün sırasına dizilmez. Çevirideki açılış/kapanış çiftleri de iç içe geçerli olmalı.
+    Bütün olarak taşınmış çift (`placeholders.check` uyarısı) çağıranlar tarafından buraya hiç gönderilmez.
     Metin aynı kalır. Sorun yoksa, kümeler farklıysa (eksik/fazla kod) ya da düzeltilemiyorsa None.
     """
     expected = placeholders.tokens_in(source)
@@ -280,7 +282,8 @@ def local_fix(
             text = " ".join(part.strip() for part in text.split("\n") if part.strip())
         else:
             text = rebalance_lines(text, source_breaks + 1) or text
-    if "placeholder" in want:
+    if "placeholder" in want and not placeholders.check(source, text, row.free_codes).warnings:
+        # İzin verilen sıra farkı (serbest kod, bütün taşınan çift) çevirmenin seçimidir; özgün sıraya dizilmez.
         text = reorder_codes(source, text, row.code_labels, row.free_codes) or text
         text = repair_codes(source, text, row.code_labels) or text
     if "glossary" in want:
@@ -354,12 +357,14 @@ def plan_fixes(
         if row.status == Status.ERROR:
             reordered = None
             if "placeholder" in row_kinds:
-                reordered = reorder_codes(row.source, row.translation, row.code_labels, row.free_codes) or repair_codes(
-                    row.source, row.translation, row.code_labels
-                )
-                if reordered is None and placeholders.check(row.source, row.translation, row.free_codes).warnings:
-                    # Bugünkü kurala göre yalnızca serbest kod sırası farkı (uyarı): yeniden yazılınca durumu düzelir.
+                if placeholders.check(row.source, row.translation, row.free_codes).warnings:
+                    # Bugünkü kurala göre izin verilen sıra farkı (serbest kod, bütün taşınan çift; uyarı): çeviri
+                    # olduğu gibi yeniden yazılınca durumu düzelir, kodlar özgün sıraya dizilmez.
                     reordered = row.translation
+                else:
+                    reordered = reorder_codes(
+                        row.source, row.translation, row.code_labels, row.free_codes
+                    ) or repair_codes(row.source, row.translation, row.code_labels)
             if reordered is None or placeholders.check(row.source, reordered, row.free_codes).errors:
                 plan.unfixed += 1
                 continue

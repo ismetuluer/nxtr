@@ -1938,6 +1938,9 @@ class MainWindow(QMainWindow):
     def _run_full_check(self, description: str, finished: Callable[[list[QaIssue]], None] | None = None) -> None:
         self.checks.run_full_check(description, finished)
 
+    def _on_check_cancelled(self) -> None:
+        self.checks.on_check_cancelled()
+
     def _stop_checks(self) -> None:
         self.checks.stop_checks()
 
@@ -2007,6 +2010,9 @@ class MainWindow(QMainWindow):
 
     def _replace_board_rows(self, rows: list[TranslationRow], by_row: dict[int, list[QaIssue]]) -> None:
         self.checks._replace_board_rows(rows, by_row)
+
+    def _sync_ignored_to_translate(self) -> None:
+        self.checks.sync_ignored_to_translate()
 
     def _split_ignored(
         self, issues: list[QaIssue], rows: Sequence[TranslationRow]
@@ -3418,6 +3424,7 @@ class MainWindow(QMainWindow):
             str(project.path) if project.path else None
         )  # süzgeçler projeye göre hatırlanır
         self.translate_page.set_rows(project.translation_rows())
+        self._sync_ignored_to_translate()
         self._sync_spell()
         self.font_report = None
         self._sync_live()  # font raporu sıfırlandı: eksik harf bağlamı projenin kayıtlı değerinden gelir

@@ -9,18 +9,8 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     testler 3.13'te çalıştırıldı. Kod 3.12 özelliklerinin üstüne çıkmıyor (`StrEnum`,
     `datetime.UTC` 3.11+). *Ne zaman:* M9 paketlemede sabit sürüm seçilirken.
 
-21. **Smart String ifadeleri tek bir kontrol kodu sayılıyor.** `{0:plural:one item|{} items}`
-    gibi ifadelerin içindeki sözcükler çevrilemez. Bir Unity oyununda böyle ifade yok (yalnızca
-    `{0}`, `{input_0}`, `{ManualInput…}`). *Ne zaman:* Çoğul ifadeli bir oyunda; ifadenin içi
-    ayrıştırılıp sözcükler çevrilebilir yapılmalı.
-
 22. **AssetTable/StringTable ayrımı sezgisel** (tüm değerleri GUID olan tablo metin sayılmaz).
     Kesin ayrım için `Script_monoscripts` bundle'ındaki MonoScript sınıf adları okunabilir.
-
-26. **Yer tutucu sırası katı denetleniyor.** Türkçe söz dizimi bazen etiketlerin (ör. `<b>…</b>`
-    çiftinin) cümlede başka yere taşınmasını gerektirir; şu an sıra değişirse satır "Hatalı" olur.
-    *Ne zaman:* Gerçek çeviri denemesinde bu çok sık olursa, eşleşen aç/kapa çiftlerinin bütün
-    olarak taşınmasına izin veren bir kural eklenmeli (biçimin desteklediği doğrulanarak).
 
 31. **Satırın hangi sağlayıcı/modelle çevrildiği kaydedilmiyor.** Karşılaştırma için ileride
     `text_entries`'e sağlayıcı/model sütunu eklenebilir.
@@ -31,6 +21,10 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 43. **I2 kaynak dili dil listesinde görünmüyor.** Diller dosyanın içinde olduğundan tarama
     aşamasında bilinmez; seçim yapılmazsa İngilizce sütunu aktarılır. *Ne zaman:* Kullanıcı başka bir
     dilden çevirmek isterse, tarama sırasında I2 dil listesini okuyup açılır listeye eklemek.
+    *Neden yapılmadı:* liste `pipeline.available_languages(report)` ile yalnızca dosya yollarından üretiliyor
+    (içerik okunmuyor); I2 dillerini eklemek için ya bu işlev dosya içeriğine erişecek (çağrısı
+    `gui/scan_page.py`'de) ya da `FormatPlugin`'e yeni bir dil listesi kancası (`formats/base.py`) eklenecek;
+    ikisi de çekirdek dışına dokunur.
 
 46. **Metin kutusu genişliği denetlenmiyor.** GFMSG biçimi satırları elle `\n` ile bölünür; Türkçe
     metin uzun olursa kutudan taşabilir. *Ne zaman:* M5 QA'ya font ölçüsüyle satır genişliği denetimi.
@@ -39,12 +33,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     "Sayı 0202"); yalnızca seçimler, renk ve sayfa kodları kesin olarak çözüldü. Kodlar her durumda
     aynen korunur.
 
-52. **Kontrol kodu sırası katıdır; Türkçe cümle yapısı bunu sık bozar.** *Kısmen kapandı (0.62.0):* serbest kodlar (simge, adlı değişken) yer değiştirebilir, uyarı verilir; aç/kapa çiftleri hâlâ katı. Bir Unity oyununda 3.466
-    satırın 14'ü (hepsi düğme ikonlu ipucu/talimat metinleri) "Hatalı" çıktı çünkü Türkçe fiil sona
-    gittiğinde ikon ve kalın etiketlerin sırası değişiyor. Elle düzeltilebilir (kodları özgün sırada
-    tutan bir cümle kurulur) ama sıkıcıdır. *Ne zaman:* ikon/değişken gibi bağımsız kodların, çift
-    etiketlerin (açılış/kapanış) iç içeliği korunarak serbest sıralanmasına izin veren bir kural
-    düşünülebilir (CLAUDE.md §4.3 "sıra" kuralının gevşetilmesi ürün sahibinin kararıdır).
 
 54. **DeepL sözlüğü çok sözcüklü terimlerde uygulanmadı (nedeni bilinmiyor).** İki sözcüklü iki terim
     (5 ve 2 satır) sözlükte olduğu hâlde çeviride kullanılmadı; tek
@@ -62,19 +50,14 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 
 69. **`gui/main_window.py` hâlâ büyük (0.57.0, ~3.700 satır; 0.63.0'da ~4.100).** Denetimdeki M1'in ilk adımı:
     makine işi iletileri `gui/jobs.py`'ye, son projeler `gui/recent.py`'ye, kurtarma kopyası
-    `gui/recovery.py`'ye taşındı. İkinci adım (2026-11-17, ARCHITECTURE karar 219): Kontrol Et
+    `gui/recovery.py`'ye taşındı. İkinci adım (2026-11-17, ARCHITECTURE karar 221): Kontrol Et
     `gui/checks_controller.py`'ye, Dışa Aktar `gui/export_controller.py`'ye taşındı; pencere ~3.600 satır.
     Kalan: proje yaşam döngüsü (yeni/aç/kaydet/kurtarma), makine işleri (çeviri, redaksiyon, değişiklikler,
     terimler), yazım denetimi penceresi, dış redaksiyon içe/dışa aktarma ve görseller hâlâ pencere sınıfında.
     Testler pencerenin yöntemlerini ve modülün adlarını (`ask_machine_settings`, `provider_factory`,
-    `_launch_machine`, `UpdateDialog`, `implicit_terms` …) değiştirerek çalıştığı için aynı düzenle (karar 219:
+    `_launch_machine`, `UpdateDialog`, `implicit_terms` …) değiştirerek çalıştığı için aynı düzenle (karar 221:
     yönlendirme + pencere üzerinden çağrı) adım adım taşınmalı.
     *Ne zaman:* bu bölümlerden birine büyük bir özellik eklenirken o bölüm ayrı bir denetleyiciye taşınır.
-
-72. **CRILAYLA açma yavaş (0.36.0).** Saf Python bit okuyucu 6 MB'lık `UcScriptMsgConv.fms`'yi ~2 sn'de
-    açıyor; aktarmanın ilk geçişi tüm dillerin sayfalarını okuduğu için CPK/FMSB biçimli bir oyunda
-    metin aktarma ~27 sn sürüyor. *Ne zaman:* kullanıcı süreyi sorun ederse ilk geçişte dili yoldan
-    belli olan dosyalar okunmadan atlanabilir (pipeline değişikliği) veya açma döngüsü hızlandırılabilir.
 
 75. **NNI arşivli oyun: grafik klasörünü üretmek ve seçmek için arayüz yok (0.39.0).** `orijinal/`
     klasörü bir betikle (`export_originals`) üretildi; klasör oyun dosyalarının yanındaki
@@ -91,10 +74,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     denetler (büyük projede ilk süzmede yavaş olabilir); iş sürerken yerinde düzenlenen metin
     reddedilince kaybolur; riskli toplu düzeltmelerde ayrıca onay sorusu yok; 8 harften uzun Türkçe
     ek zincirleri terim denetiminde tanınmaz. *Ne zaman:* kullanıcı geri bildirimiyle.
-
-86. **Ollama belirteç tahmini kaba (karakter/3, 0.51.0).** Japonca/Çince kaynakta gerçek belirteç
-    sayısı daha yüksek olabilir; parti tahminden uzun çıkarsa `num_ctx` bir basamak yükselir (model bir
-    kez yeniden yüklenir).
 
 87. **Sayfa içi durum bantları yerinde (0.52.0; 0.52.1'de iş sonuçları bildirime taşındı).** Oyunu Ekle,
     Metinleri Tara, Kontrol Et ve Dışa Aktar sayfalarının bağlamsal uyarı bantları (ör. anahtar dosyası,
@@ -115,7 +94,16 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 
 91. **Dışa aktarma geri okuması oyunun ayrıştırıcısından yumuşak olabilir (0.55.1).** Yapı denetimi eklentinin kendi `extract`ını kullanır; oyunun yerleşik okuyucusu daha katıysa (ör. tırnaksız satır sonu bölen basit CSV okuyucu) bizim okuyucumuz sorunu görmeyebilir. Savunmanın öteki katmanları (çeviriye karışan kod/satır sonu denetimi) bu boşluğu azaltır. Kalıcı çözüm: biçim eklentilerine "satır sonu yasak" gibi bir kural bildirimi. *Ne zaman:* yeni bir oyunda benzer bozulma görülürse.
 
-92. **Türkçe harf onarımı sözlüğe bağlı (0.57.0).** Paketli sözlük bazı ASCII biçimleri (`surat`, `simdi`) geçerli sözcük saydığı için bunlar onarılmaz; eşyazımlılar (`cok` → çok/çök) elle kalır. Hatalı satırlarda kod onarımı ile harf onarımı ayrı geçişlerde çalışır, tek geçişte birleşmez. Düzeltme onay kutusu için arayüz testi yok. *Ne zaman:* kullanıcı onarılmayan yaygın bir sözcük bildirirse sözlüğe istisna listesi eklenir.
+97. **Unreal argüman ekleri kısmen çözüldü (2026-11-17).** Yalnızca yalın çoğul ifadesi (`{N}|plural(one=a,other=b)`)
+    parçalanır (ARCHITECTURE 220). Tırnaklı ya da boş değerli çoğul ve başka ekler (`|gender(…)`, `|ordinal(…)`)
+    çözülmez: değişken ile ekin başı tek, katı kod olur, ekin geri kalanı düz metin kalır (makine çevirisi `one=`
+    gibi anahtar sözcükleri çevirirse bozulur; denetim bunu görmez) ve ekin içindeki argümanlar serbest sayılır.
+    Çoğul seçeneğine boşluk, virgül vb. yazılması Kontrol Et'te görünmez; dışa aktarmada eklenti reddeder ve satır
+    "Hatalı" değilse bütün `.locres` dosyası, satırın anahtarını söyleyen hatayla yazılamaz. Bu sürümden önce
+    taranmış projede çoğul satırları yeniden taranana dek aynı hatayı verir (yeniden tarama kaynağı değişmiş
+    satırları "Hatalı" işaretler). Unreal'ın tırnaksız değer kuralları (boşluk, Türkçe harf) gerçek oyunda
+    doğrulanmadı. *Ne zaman:* bu eklerle bir Unreal oyunu çevrilince; ek ayrıştırması motorun belgesine göre
+    genişletilir ve seçenek denetimi Kontrol Et'e taşınır.
 
 ## 2. Bilinen sınırlar (ihtiyaç doğunca)
 
@@ -436,3 +424,20 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     düzeltme önce Öneri sütunundan gözden geçirilir ve Geri Al ile döner. Önerilerin sırası olasılığa değil değişen
     harf sayısına dayanır (sözcük sıklığı bilinmiyor). *Olası iyileştirme:* Türkçe harf silen önerileri toplu
     düzeltmeden çıkarmak (gerçek projede güvenli sınıfın 109/257'si).
+
+86. ~~Ollama belirteç tahmini kaba~~ — **Kapandı:** tahmin CJK (kana, Kanji/Çince, Hangul) karakterini ~1 belirteç, Latin metni karakter/3 sayar (estimate_tokens, prompt_weight; ollama.py). Gerçek sayı modele göre değişir; parti tahminden uzun çıkarsa num_ctx yine bir basamak yükselir.
+
+92. ~~Türkçe harf onarımı sözlüğe bağlı~~ — **Kapandı:** ASCII biçimi sözlükte geçerli olsa da yaygın yazım hatası olan sözcükler (simdi, sey, aksam, buyuk, tum, basla, yasam) küçük bir listeyle (asciitr._ASCII_MISTAKES) onarılır. surat (sürat) gerçek bir sözcük olduğu için listede yoktur; eşyazımlılar (cok → çok/çök) seçime kalır. Kalan: hatalı satırlarda kod onarımı ile harf onarımı ayrı geçişlerde çalışır; düzeltme onay kutusu için arayüz testi yok.
+
+72. ~~CRILAYLA açma yavaş~~ — **Kapandı:** açma döngüsü hızlandırıldı: akış bir kez 0/1 dizgesine açılıp dilim + int(…, 2) ile okunuyor, geri başvurular dilimle kopyalanıyor. Elle üretilmiş 2 MB'lık rastgele geçerli akışta en iyi süre 0,649 sn -> 0,199 sn (~3,3 kat), çıktı bayt bayt aynı (testte bit bit başvuru açıcıyla karşılaştırılır). İlk geçişte dili yoldan belli dosyaları atlamak (pipeline değişikliği) yapılmadı.
+
+21. ~~Smart String ifadeleri tek bir kontrol kodu sayılıyor~~ — **Kapandı:** çoğul ifadesi (iki ya da daha çok dallı {0:plural:a|b}) artık ayrılıyor: iskeleti ({0:plural:, her |, kapanış }) sıralı ve katı kod, dalların sözcükleri çevrilebilir (markup.tokenize plural=True; yalnızca Unity kullanır). Yer tutucu sözleşmesi (sayı/sıra/tür) değişmedi; round-trip bayt bayt aynı. Tek dallı çoğul ve choose/cond/list gibi öteki ifadeler tek kod olarak kalır. Gerçek bir oyunda denenmedi; Türkçe çoğul dalı sayısı kaynak dilden azsa çeviride yine tüm ayraçlar bulunmalıdır.
+
+26. ~~Yer tutucu sırası katı denetleniyor.~~ — **Kapandı (ürün sahibinin kararı, 2026-11-17):** biçim eklentisi
+    `paired_code` ile bildirdiğinde aç/kapa çifti iç içeliği bozulmadan bütün olarak taşınabilir; satır uyarıdır,
+    dışa aktarılır (ARCHITECTURE 219). Bildirmeyen eklentide (GFMSG, fsd, kullanıcı eklentileri) çiftler katı kalır.
+
+52. ~~Kontrol kodu sırası katıdır; Türkçe cümle yapısı bunu sık bozar.~~ — **Kapandı:** serbest kodlar (0.62.0) ve
+    bütün olarak taşınan aç/kapa çiftleri (2026-11-17, ARCHITECTURE 219) uyarıdır. Kalan: satır/sayfa sonu ve
+    konumsal kodların (`%s`) sırası bilerek katıdır; MSBT'de rengi yeni bir renk etiketiyle sıfırlayan oyunlarda
+    (0x0F kapanışı yok) renk kodları çift sayılmaz, katı kalır.

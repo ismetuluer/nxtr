@@ -1,8 +1,9 @@
 """Serbest kontrol kodları (ürün sahibinin kararı, 2026-11-16).
 
 Yalnızca tek başına duran kodların (simge, adıyla bağlanan değişken) yeri değiştiyse satır hatalı sayılmaz: uyarıdır
-ve dışa aktarılır. Konumsal kodlar (`%s`, `%d`), çiftler (renk aç/kapa) ve satır sonları katıdır. Hangi kodun serbest
-olduğunu biçim eklentisi bildirir (`movable_code`); bildirmeyen eklentide hiçbir kod serbest değildir.
+ve dışa aktarılır. Konumsal kodlar (`%s`, `%d`) ve satır sonları katıdır; aç/kapa çiftleri yalnızca bütün olarak
+taşınabilir (`test_paired_codes.py`). Hangi kodun serbest olduğunu biçim eklentisi bildirir (`movable_code`);
+bildirmeyen eklentide hiçbir kod serbest değildir.
 """
 
 from __future__ import annotations
@@ -108,7 +109,8 @@ def test_builtin_free_code_table() -> None:
     _s, codes = nnitext.tokenize("%s %d <ext:17> <color:0xffff3232>x<color:> <scale:1.3>")
     assert _free("nnitext", codes) == ["<ext:17>"]
     _s, codes = unity.tokenize('{0} {input_0} {0:plural:{} a|{} b} {} <sprite name="x"> <sprite=2> <b>x</b> <br>')
-    assert _free("unity", codes) == ["{0}", "{input_0}", "{0:plural:{} a|{} b}", '<sprite name="x">', "<sprite=2>"]
+    # Çoğul ifadesi ayrılır (iskeleti `{0:plural:`, `|`, `}` katı kalır; dalların sözcükleri çevrilir).
+    assert _free("unity", codes) == ["{0}", "{input_0}", '<sprite name="x">', "<sprite=2>"]
     _s, codes = locres.tokenize('{PlayerName} {0} {} <img id="A"/> <Bold>x</>')
     assert _free("unreal", codes) == ["{PlayerName}", "{0}", '<img id="A"/>']
     gf = (
