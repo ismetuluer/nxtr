@@ -280,7 +280,8 @@ def local_fix(
             text = " ".join(part.strip() for part in text.split("\n") if part.strip())
         else:
             text = rebalance_lines(text, source_breaks + 1) or text
-    if "placeholder" in want:
+    if "placeholder" in want and not placeholders.check(source, text, row.free_codes).warnings:
+        # İzin verilen sıra farkı (serbest kod, bütün taşınan çift) çevirmenin seçimidir; özgün sıraya dizilmez.
         text = reorder_codes(source, text, row.code_labels, row.free_codes) or text
         text = repair_codes(source, text, row.code_labels) or text
     if "glossary" in want:
@@ -354,12 +355,14 @@ def plan_fixes(
         if row.status == Status.ERROR:
             reordered = None
             if "placeholder" in row_kinds:
-                reordered = reorder_codes(row.source, row.translation, row.code_labels, row.free_codes) or repair_codes(
-                    row.source, row.translation, row.code_labels
-                )
-                if reordered is None and placeholders.check(row.source, row.translation, row.free_codes).warnings:
-                    # Bugünkü kurala göre yalnızca serbest kod sırası farkı (uyarı): yeniden yazılınca durumu düzelir.
+                if placeholders.check(row.source, row.translation, row.free_codes).warnings:
+                    # Bugünkü kurala göre izin verilen sıra farkı (serbest kod, bütün taşınan çift; uyarı): çeviri
+                    # olduğu gibi yeniden yazılınca durumu düzelir, kodlar özgün sıraya dizilmez.
                     reordered = row.translation
+                else:
+                    reordered = reorder_codes(
+                        row.source, row.translation, row.code_labels, row.free_codes
+                    ) or repair_codes(row.source, row.translation, row.code_labels)
             if reordered is None or placeholders.check(row.source, reordered, row.free_codes).errors:
                 plan.unfixed += 1
                 continue

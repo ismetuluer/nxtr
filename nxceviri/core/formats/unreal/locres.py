@@ -35,6 +35,16 @@ _TAG_RE = re.compile(r"</?[A-Za-z0-9_.\-]*(?:\s[^<>\n]{0,200})?/?>")
 #: Serbest kodlar (`movable_code`): adlı/numaralı argüman ve simge.
 _MOVABLE_BRACE = re.compile(r"\{[A-Za-z0-9_]")
 _IMG = re.compile(r"<img[\s/]", re.IGNORECASE)
+#: Yalın çoğul ifadesi (`{Count}|plural(one=cat,other=cats)`): ad=değer seçenekleri; değerler tırnaksız, boşluksuz,
+#: boş değil ve ayraç içermez. Bu biçim seçenek metinleri çevrilebilsin diye parçalanır; başkası parçalanmaz.
+_PLURAL_VALUE = r"[^\s,()=\"'{}<>|`\\]+"
+_PLURAL = re.compile(rf"(\{{[A-Za-z0-9_]+\}})\|plural\(([A-Za-z]+={_PLURAL_VALUE}(?:,[A-Za-z]+={_PLURAL_VALUE})*)\)")
+_PLURAL_HEAD = re.compile(r"\{[A-Za-z0-9_]+\}\|plural\([A-Za-z]+=")
+_PLURAL_SEPARATOR = re.compile(r",[A-Za-z]+=")
+#: Argümana bağlı başka bir ek (`|gender(`, tırnaklı `|plural(`): değişken ile ekin başı tek, katı kod olur.
+_MODIFIER = re.compile(r"\{[A-Za-z0-9_]+\}\|[A-Za-z]+\(")
+#: UMG zengin metin açılışı (`<Bold>`, `<RichText.Emph>`, öznitelikli); kapanışı her zaman genel `</>`.
+_RICH_OPEN = re.compile(r"<[A-Za-z0-9_.\-]+(?:\s[^<>\n]*)?>")
 
 
 def _tag_label(tag: str) -> str:
@@ -203,8 +213,30 @@ def _unique_keys(f: LocresFile) -> list[str]:
     return keys
 
 
+def _expression(text: str, pos: int) -> tuple[list[tuple[str, str | None]], int] | None:
+    """`{` konumunda argüman eki: yalın çoğul ifadesi baş/ayraç/son kodlarına ve seçenek metinlerine ayrılır; başka
+    biçimdeki ek (`|gender(…)`, tırnaklı çoğul) için değişken ile ekin başı tek bir kod olur; ek yoksa None."""
+    m = _PLURAL.match(text, pos)
+    if m is not None:
+        arg = m.group(1)
+        pieces: list[tuple[str, str | None]] = []
+        for i, option in enumerate(m.group(2).split(",")):
+            name, value = option.split("=", 1)
+            if i == 0:
+                pieces.append((f"{arg}|plural({name}=", f"Çoğul başı {arg} ({name}=)"))
+            else:
+                pieces.append((f",{name}=", f"Çoğul seçeneği ({name}=)"))
+            pieces.append((value, None))
+        pieces.append((")", "Çoğul sonu"))
+        return pieces, m.end()
+    m = _MODIFIER.match(text, pos)
+    if m is not None:
+        return [(m.group(), f"Değişken ve biçim eki {m.group()}")], m.end()
+    return None
+
+
 def tokenize(text: str) -> tuple[str, tuple[ControlCode, ...]]:
-    return markup.tokenize(text, _TAG_RE, _tag_label)
+    return markup.tokenize(text, _TAG_RE, _tag_label, expression=_expression)
 
 
 class LocresPlugin:
@@ -221,9 +253,30 @@ class LocresPlugin:
 
     def movable_code(self, code: ControlCode) -> bool:
         """Serbest: adlı/numaralı biçim argümanı (`{PlayerName}`, `{0}`) ve kendini kapatan `<img …/>` simgesi.
-        Argümanın ardındaki `|plural(…)` düz metindir; çevirmen onu argümanla birlikte taşımalıdır."""
+        Eki olan argüman (`{N}|plural(…`) tek başına serbest değildir: yalın çoğul ifadesi çift olarak bütünüyle
+        taşınır (`paired_code`), tanınmayan ekin başı katıdır."""
         text = code.raw.decode("utf-8", errors="replace")
+        if "|" in text:
+            return False
         return _MOVABLE_BRACE.match(text) is not None or (_IMG.match(text) is not None and text.endswith("/>"))
+
+    def paired_code(self, code: ControlCode) -> tuple[str, str] | None:
+        """UMG zengin metin çifti: `<Bold>` … `</>`. Kapanış genel olduğundan bütün açılışlar tek aileye girer (`</>`
+        en yakın açık etiketi kapatır). Etiketler metnin içinde düz yazı olarak durduğundan yeri değişen çift aynen
+        yazılır. Kendini kapatan `<img …/>` simgedir, çift değildir. Yalın çoğul ifadesi de bir çifttir:
+        `{N}|plural(one=` … `)`; aradaki seçenek ayracı (`,other=`) katıdır, böylece ifade bütün olarak taşınır."""
+        text = code.raw.decode("utf-8", errors="replace")
+        if text == "</>":
+            return ("", "close")
+        if _PLURAL_HEAD.fullmatch(text):
+            return ("plural", "open")
+        if text == ")":
+            return ("plural", "close")
+        if _PLURAL_SEPARATOR.fullmatch(text):
+            return ("plural", "separator")
+        if _RICH_OPEN.fullmatch(text) and not text.endswith("/>"):
+            return ("", "open")
+        return None
 
     def language(self, data: bytes) -> str | None:
         return None  # dil, dosyanın yolundan (…/Localization/Game/<dil>/Game.locres) anlaşılır
@@ -257,11 +310,24 @@ class LocresPlugin:
             if issues:
                 raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}")
             text = markup.detokenize(new, codes)
+            if any(b"|" in c.raw for c in codes):
+                _check_modifier(key, new, codes, text)
             changed |= text != original
             new_texts.append(text)
         if not changed:
             return data
         return _build_legacy(data, f, new_texts) if f.version == 0 else _build_compact(data, f, new_texts)
+
+
+def _check_modifier(key: str, new: str, codes: tuple[ControlCode, ...], text: str) -> None:
+    """Çoğul seçeneklerine yazılan metin ifadeyi bozmamalı: yazılan metin aynı kodlarla geri okunmalı."""
+    again, again_codes = tokenize(text)
+    expected = [codes[n - 1].raw for n in placeholders.tokens_in(new)]
+    if again != placeholders.renumber(new) or [c.raw for c in again_codes] != expected:
+        raise FormatError(
+            f"'{key}' çevirisi yazılamadı: çoğul ifadesinin seçenekleri boş olamaz; boşluk, virgül, parantez, "
+            "eşittir, tırnak ya da süslü parantez içeremez (her seçeneğe tek sözcük yazın)."
+        )
 
 
 def _build_legacy(data: bytes, f: LocresFile, texts: list[str]) -> bytes:

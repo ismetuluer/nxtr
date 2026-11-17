@@ -17,11 +17,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 22. **AssetTable/StringTable ayrımı sezgisel** (tüm değerleri GUID olan tablo metin sayılmaz).
     Kesin ayrım için `Script_monoscripts` bundle'ındaki MonoScript sınıf adları okunabilir.
 
-26. **Yer tutucu sırası katı denetleniyor.** Türkçe söz dizimi bazen etiketlerin (ör. `<b>…</b>`
-    çiftinin) cümlede başka yere taşınmasını gerektirir; şu an sıra değişirse satır "Hatalı" olur.
-    *Ne zaman:* Gerçek çeviri denemesinde bu çok sık olursa, eşleşen aç/kapa çiftlerinin bütün
-    olarak taşınmasına izin veren bir kural eklenmeli (biçimin desteklediği doğrulanarak).
-
 31. **Satırın hangi sağlayıcı/modelle çevrildiği kaydedilmiyor.** Karşılaştırma için ileride
     `text_entries`'e sağlayıcı/model sütunu eklenebilir.
 
@@ -39,12 +34,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     "Sayı 0202"); yalnızca seçimler, renk ve sayfa kodları kesin olarak çözüldü. Kodlar her durumda
     aynen korunur.
 
-52. **Kontrol kodu sırası katıdır; Türkçe cümle yapısı bunu sık bozar.** *Kısmen kapandı (0.62.0):* serbest kodlar (simge, adlı değişken) yer değiştirebilir, uyarı verilir; aç/kapa çiftleri hâlâ katı. Bir Unity oyununda 3.466
-    satırın 14'ü (hepsi düğme ikonlu ipucu/talimat metinleri) "Hatalı" çıktı çünkü Türkçe fiil sona
-    gittiğinde ikon ve kalın etiketlerin sırası değişiyor. Elle düzeltilebilir (kodları özgün sırada
-    tutan bir cümle kurulur) ama sıkıcıdır. *Ne zaman:* ikon/değişken gibi bağımsız kodların, çift
-    etiketlerin (açılış/kapanış) iç içeliği korunarak serbest sıralanmasına izin veren bir kural
-    düşünülebilir (CLAUDE.md §4.3 "sıra" kuralının gevşetilmesi ürün sahibinin kararıdır).
 
 54. **DeepL sözlüğü çok sözcüklü terimlerde uygulanmadı (nedeni bilinmiyor).** İki sözcüklü iki terim
     (5 ve 2 satır) sözlükte olduğu hâlde çeviride kullanılmadı; tek
@@ -432,3 +421,12 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     düzeltme önce Öneri sütunundan gözden geçirilir ve Geri Al ile döner. Önerilerin sırası olasılığa değil değişen
     harf sayısına dayanır (sözcük sıklığı bilinmiyor). *Olası iyileştirme:* Türkçe harf silen önerileri toplu
     düzeltmeden çıkarmak (gerçek projede güvenli sınıfın 109/257'si).
+
+26. ~~Yer tutucu sırası katı denetleniyor.~~ — **Kapandı (ürün sahibinin kararı, 2026-11-17):** biçim eklentisi
+    `paired_code` ile bildirdiğinde aç/kapa çifti iç içeliği bozulmadan bütün olarak taşınabilir; satır uyarıdır,
+    dışa aktarılır (ARCHITECTURE 219). Bildirmeyen eklentide (GFMSG, fsd, kullanıcı eklentileri) çiftler katı kalır.
+
+52. ~~Kontrol kodu sırası katıdır; Türkçe cümle yapısı bunu sık bozar.~~ — **Kapandı:** serbest kodlar (0.62.0) ve
+    bütün olarak taşınan aç/kapa çiftleri (2026-11-17, ARCHITECTURE 219) uyarıdır. Kalan: satır/sayfa sonu ve
+    konumsal kodların (`%s`) sırası bilerek katıdır; MSBT'de rengi yeni bir renk etiketiyle sıfırlayan oyunlarda
+    (0x0F kapanışı yok) renk kodları çift sayılmaz, katı kalır. Cihazda denenmedi.

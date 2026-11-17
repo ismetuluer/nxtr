@@ -20,6 +20,12 @@ Her metin formatı `FormatPlugin`'i uygular:
   `{name}`) için True. Konumsal kodlar (`%s`, `%d`: oyun argümanları sırayla bağlar), açma/kapama çiftleri,
   satır/sayfa sonları ve anlamı bilinmeyen kodlar için False. Bildirmeyen eklentide hiçbir kod serbest değildir.
   Serbest kodların yeri değişmiş çeviri hatalı sayılmaz (uyarı; `placeholders.check`).
+- `paired_code(code) -> (aile, rol) | None`: bu kod bir aç/kapa çiftinin parçası mı? Rol `"open"` (`<b>`),
+  `"close"` (`</b>`) ya da `"separator"` (çiftin içinde kalması gereken ayraç, ör. Unreal çoğul seçenek ayracı).
+  Aynı ailenin açılışı ile kapanışı, kaynaktaki sırayla (yığınla) eşleşir; eşi bulunmayan kod katı kalır. Yalnızca
+  biçim etiketleri gerçekten ayrı açılış/kapanış olarak saklıyorsa ve `inject` yeri değişen çifti doğru yazabiliyorsa
+  bildirilir. Bildirmeyen eklentide çift yoktur (katı). Bütün olarak, iç içeliği bozulmadan taşınan çift hatalı
+  sayılmaz (uyarı; `placeholders.check`, ürün sahibinin kararı 2026-11-17).
 """
 
 from __future__ import annotations

@@ -25,6 +25,7 @@ from nxceviri.core.formats.unity import UnityPlugin
 from nxceviri.core.formats.unreal import LocresPlugin
 from nxceviri.core.formats.wadlin import WadLinPlugin
 from nxceviri.core.plugins.loader import PluginInfo, PluginReport, TrustCheck, load_plugins
+from nxceviri.core.translate.placeholders import PAIR_KINDS, CodeRoles, PairRole
 
 log = logging.getLogger(__name__)
 
@@ -49,7 +50,9 @@ _user_report = PluginReport()
 _failed_detect: set[str] = set()
 #: (biçim, oyun, ham kod, etiket) → eklentinin `movable_code` yanıtı; kullanıcı eklentileri yeniden yüklenince silinir.
 _movable: dict[tuple[str, str | None, bytes, str], bool] = {}
-#: (biçim, oyun) → eklenti `movable_code` bildiriyor mu; aynı anda silinir.
+#: (biçim, oyun, ham kod, etiket) → eklentinin `paired_code` yanıtı (geçersiz yanıt None); aynı anda silinir.
+_paired: dict[tuple[str, str | None, bytes, str], PairRole | None] = {}
+#: (biçim, oyun) → eklenti `movable_code` ya da `paired_code` bildiriyor mu; aynı anda silinir.
 _judges: dict[tuple[str, str | None], bool] = {}
 
 
@@ -61,6 +64,7 @@ def load_user_plugins(dirs: Sequence[Path] | None = None, trusted: TrustCheck | 
     global _user_report  # noqa: PLW0603 - uygulama genelinde tek kayıt defteri
     _failed_detect.clear()
     _movable.clear()
+    _paired.clear()
     _judges.clear()
     _user_report = load_plugins(dirs, {p.name for p in BUILTIN_PLUGINS}, trusted)
     for info in _user_report.errors:
@@ -77,6 +81,8 @@ def reset_user_plugins() -> None:
     _user_report = PluginReport()
     _failed_detect.clear()
     _movable.clear()
+    _paired.clear()
+    _judges.clear()
 
 
 def user_plugin_report() -> PluginReport:
@@ -139,32 +145,41 @@ def kind_label(kind: str) -> str:
         return plugin.label if plugin is not None else kind
 
 
-def free_codes(kind: str, codes: Sequence[ControlCode], title_id: str | None = None) -> frozenset[int]:
-    """Satırın serbest kodlarının numaraları (`⟦n⟧`, 1'den): çeviride yeri değişebilen, tek başına duran kodlar.
+def free_codes(kind: str, codes: Sequence[ControlCode], title_id: str | None = None) -> CodeRoles:
+    """Satırın kod rolleri (`⟦n⟧`, 1'den): küme olarak serbest kodların numaraları (çeviride yeri değişebilen, tek
+    başına duran kodlar), `pairs` olarak aç/kapa çifti kodlarının rolleri (bütün olarak taşınabilir).
 
-    Biçim eklentisi isteğe bağlı `movable_code(code) -> bool` bildirimiyle söyler; bildirmeyen eklentide (ve tanınmayan
-    biçimde) hiçbir kod serbest değildir. Projede kodların ham baytı ve etiketi saklandığından eski projelerde de
-    eklentiye sorulur; şema değişmez. `title_id`: dosyayı yazan eklentinin seçimi için (`plugin_for_kind`)."""
+    Biçim eklentisi isteğe bağlı `movable_code(code) -> bool` ve
+    `paired_code(code) -> (aile, "open"|"close"|"separator") | None` bildirimleriyle söyler; bildirmeyen eklentide
+    (ve tanınmayan biçimde) hiçbir kod serbest ya da çift değildir.
+    Projede kodların ham baytı ve etiketi saklandığından eski projelerde de eklentiye sorulur; şema değişmez.
+    `title_id`: dosyayı yazan eklentinin seçimi için (`plugin_for_kind`)."""
     kind = legacy.format_id(kind)
     found: set[int] = set()
+    pairs: dict[int, PairRole] = {}
     for n, code in enumerate(codes, 1):
         key = (kind, title_id, code.raw, code.label)
         movable = _movable.get(key)
         if movable is None:
             movable = _movable[key] = _ask_movable(kind, title_id, code)
-        if movable:
+        if key not in _paired:
+            _paired[key] = _ask_paired(kind, title_id, code)
+        role = _paired[key]
+        if role is not None:
+            pairs[n] = role
+        elif movable:
             found.add(n)
-    return frozenset(found)
+    return CodeRoles(found, pairs)
 
 
 def judges_codes(kind: str, title_id: str | None = None) -> bool:
-    """Biçimin eklentisi `movable_code` bildiriyor mu (bildirmiyorsa satır başına kod sorgusu gereksiz)."""
+    """Biçimin eklentisi `movable_code` ya da `paired_code` bildiriyor mu (bildirmiyorsa satır başına kod sorgusu
+    gereksiz)."""
     key = (kind, title_id)
     known = _judges.get(key)
     if known is None:
-        known = _judges[key] = (
-            getattr(plugin_for_kind(legacy.format_id(kind), title_id), "movable_code", None) is not None
-        )
+        plugin = plugin_for_kind(legacy.format_id(kind), title_id)
+        known = _judges[key] = any(getattr(plugin, hook, None) is not None for hook in ("movable_code", "paired_code"))
     return known
 
 
@@ -177,3 +192,20 @@ def _ask_movable(kind: str, title_id: str | None, code: ControlCode) -> bool:
     except Exception as exc:  # kullanıcı eklentisinin hatası projenin açılmasını engellememeli; kod katı sayılır
         log.warning("Eklentinin kod bildirimi hata verdi (%s, %s): %s", kind, code.label, exc)
         return False
+
+
+def _ask_paired(kind: str, title_id: str | None, code: ControlCode) -> PairRole | None:
+    judge = getattr(plugin_for_kind(kind, title_id), "paired_code", None)
+    if judge is None:
+        return None
+    try:
+        role = judge(code)
+    except Exception as exc:  # kullanıcı eklentisinin hatası projenin açılmasını engellememeli; kod katı sayılır
+        log.warning("Eklentinin çift bildirimi hata verdi (%s, %s): %s", kind, code.label, exc)
+        return None
+    if role is None:
+        return None
+    if isinstance(role, tuple) and len(role) == 2 and isinstance(role[0], str) and role[1] in PAIR_KINDS:
+        return (role[0], role[1])
+    log.warning("Eklentinin çift bildirimi geçersiz (%s, %s): %r", kind, code.label, role)
+    return None

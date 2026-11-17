@@ -28,13 +28,39 @@ def brace_end(text: str, start: int) -> int:
     return -1
 
 
+#: `tokenize`'ın biçime özgü ifade tanıyıcısı: (parçalar [(metin, kod etiketi | None)], bitiş konumu) ya da None.
+Expression = Callable[[str, int], tuple[list[tuple[str, str | None]], int] | None]
+
+_XML_TAG = re.compile(r"<(/?)([A-Za-z][A-Za-z0-9_.\-]*)(?:[\s=][^<>]*)?>\Z")
+
+
+def tag_pair(raw: bytes, single: frozenset[str] = frozenset()) -> tuple[str, str] | None:
+    """XML benzeri etiketin aç/kapa rolü (`paired_code` için): `<ad …>` → (ad, "open"), `</ad>` → (ad, "close").
+
+    Aile adı küçük harfe çevrilir (`<B>` … `</b>`). Kendini kapatan `<ad/>`, `single` içindeki adlar (ör. `br`,
+    `sprite`: eşi olmayan etiketler) ve etiket olmayan kodlar için None. Kaynakta eşi bulunmayan açılış ya da kapanış
+    `placeholders.check` içinde zaten katı sayılır."""
+    text = raw.decode("utf-8", errors="replace")
+    m = _XML_TAG.match(text)
+    if m is None or text.endswith("/>"):
+        return None
+    name = m.group(2).lower()
+    if name in single or (m.group(1) and text != f"</{m.group(2)}>"):
+        return None  # kapanışta öznitelik olmaz; `</b x>` gibi bir şey tanınmaz
+    return (name, "close" if m.group(1) else "open")
+
+
 def tokenize(
     text: str,
     tag_re: re.Pattern[str],
     label: Callable[[str], str],
     literals: tuple[str, ...] = (),
+    expression: Expression | None = None,
 ) -> tuple[str, tuple[ControlCode, ...]]:
-    """`literals`: etiket olmayan ama aynen korunması gereken sabit yazılar (ör. metin içi `\\n`)."""
+    """`literals`: etiket olmayan ama aynen korunması gereken sabit yazılar (ör. metin içi `\\n`).
+
+    `expression(text, pos)`: `{` konumunda biçime özgü bir ifade (ör. Unreal çoğul ifadesi) tanınırsa parçaları
+    (sırayla; etiket None ise düz metin, değilse o etiketle kod) ve ifadenin bittiği konum; tanınmazsa None."""
     out: list[str] = []
     codes: list[ControlCode] = []
     pos = 0
@@ -42,6 +68,19 @@ def tokenize(
     while pos < len(text):
         ch = text[pos]
         end = -1
+        if ch == "{" and expression is not None:
+            found = expression(text, pos)
+            if found is not None:
+                pieces, end = found
+                out.append(text[plain_start:pos])
+                for piece, piece_label in pieces:
+                    if piece_label is None:
+                        out.append(piece)
+                    else:
+                        codes.append(ControlCode(piece.encode("utf-8"), piece_label))
+                        out.append(placeholders.token(len(codes)))
+                pos = plain_start = end
+                continue
         if ch == "<":
             m = tag_re.match(text, pos)
             end = m.end() if m else -1

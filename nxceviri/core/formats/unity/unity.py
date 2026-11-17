@@ -53,6 +53,8 @@ BUNDLE_MAGIC = b"UnityFS\0"
 _TAG_RE = re.compile(r"</?[A-Za-z#][^<>\n]{0,200}>")
 #: Serbest kodlar (`movable_code`): simge etiketi ve adlı/numaralı değişken.
 _MOVABLE_RE = re.compile(r"<sprite[\s=>]|\{[A-Za-z0-9_]", re.IGNORECASE)
+#: Eşi olmayan TextMeshPro etiketleri (`paired_code` bunları çift saymaz): simge, satır ve sayfa sonu.
+_SINGLE_TAGS = frozenset({"sprite", "br", "page"})
 _SIMPLE_TAGS = {
     "b": "Kalın",
     "i": "İtalik",
@@ -584,8 +586,14 @@ class UnityPlugin:
 
     def movable_code(self, code: ControlCode) -> bool:
         """Serbest: `<sprite …>` simgesi ve adıyla/numarasıyla bağlanan Smart String değişkeni (`{0}`, `{input_0}`,
-        `{0:plural:…}`). Adsız `{}`, satır sonu ve TextMeshPro biçim etiketleri (çoğu açma/kapama çifti) katıdır."""
+        `{0:plural:…}`). Adsız `{}`, satır sonu ve TextMeshPro biçim etiketleri katıdır (çiftler `paired_code`)."""
         return _MOVABLE_RE.match(code.raw.decode("utf-8", errors="replace")) is not None
+
+    def paired_code(self, code: ControlCode) -> tuple[str, str] | None:
+        """TextMeshPro biçim etiketi çifti: `<b>` … `</b>`, `<color=…>` … `</color>` (ad büyük/küçük harf duyarsız).
+        Etiketler metnin içinde düz yazı olarak durduğundan yeri değişen çift aynen yazılır. Simge, satır/sayfa sonu
+        ve kendini kapatan etiket çift değildir; kaynakta eşi olmayan açılış (`<space=4>`) katı kalır."""
+        return markup.tag_pair(code.raw, _SINGLE_TAGS)
 
     def language(self, data: bytes) -> str | None:
         env = _load(data)

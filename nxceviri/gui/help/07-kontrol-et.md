@@ -15,7 +15,8 @@ Denetimler: kontrol kodu (sayı, tür, sıra), boş çeviri, taşma, terim tutar
 noktalama, çift boşluk, yazım ve uydurma şüphesi. Satırlar düzenlenirken de anlık denetlenir.
 
 **Kod sırası** uyarısı: biçim izin veriyorsa tek başına duran simge ve adlı değişkenler (`{0}`, `{name}`) cümlede
-yer değiştirebilir; satır hatalı sayılmaz, dışa aktarılır. Eksik, fazla ya da sırası değişen öteki kodlar hatadır.
+yer değiştirebilir; satır hatalı sayılmaz, dışa aktarılır. Biçim etiketi çiftleri (`<b>…</b>` gibi) de içindekilerle
+birlikte, bütün olarak taşınabilir. Eksik, fazla, çaprazlanan ya da sırası değişen öteki kodlar hatadır.
 
 Listenin üstündeki **düzeltme çubuğu** güvenli düzeltmeleri toplu uygular (fazla boşluk, kod sırası, satır
 sığdırma…). Çubuk, listede görünen bulgulardan kendiliğinden düzeltilebilenleri sayar; satır seçerseniz yalnızca
