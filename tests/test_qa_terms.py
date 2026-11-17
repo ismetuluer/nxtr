@@ -97,6 +97,20 @@ def test_prefix_of_a_longer_word_is_not_a_match() -> None:
     assert [i.row_id for i in term_issues(rows, canon)] == [1]
 
 
+def test_long_suffix_chains_on_longer_terms() -> None:
+    """8 harften uzun ek zincirleri (çokluk + iyelik + hâl + ki + çokluk) uzun terimde tanınır; kısa terimde (≤ 3
+    harf) eski sınır kalır, başka sözcüğün başı terim sayılmaz."""
+    canon = {"Knight": "Şövalye", "King": "Kral", "Home": "Ev", "Moon": "Ay"}
+    rows = [
+        _row(1, "The Knight's men.", "Şövalyelerimizdekiler geldi."),  # +lerimizdekiler (14)
+        _row(2, "Ask the King.", "Krallarımızdakiler bilir."),  # +larımızdakiler (14)
+        _row(3, "Ask the Knight.", "Şövalyelerimizdekilerden sor."),  # +17 harf: sınır dışı
+        _row(4, "Go Home.", "Evlerimizdekiler gitti."),  # kısa terim, +12: eski sınır (8) aşılıyor
+        _row(5, "The Moon.", "Ayrıştırılamayanlar."),  # kısa terim, başka sözcük
+    ]
+    assert [i.row_id for i in term_issues(rows, canon)] == [3, 4, 5]
+
+
 def test_phrase_needs_word_boundary_in_source_and_untranslated_rows_skipped() -> None:
     canon = {"Mill": "Değirmen"}
     rows = [

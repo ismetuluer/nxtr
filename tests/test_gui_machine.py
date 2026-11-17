@@ -34,6 +34,7 @@ from nxceviri.gui.machine_dialogs import (
     MachineSettings,
 )
 from nxceviri.gui.main_window import STEP_TRANSLATE, MainWindow
+from nxceviri.gui.translate_page import COL_STATUS
 from nxceviri.gui.update_dialog import AUTO_CHECK_KEY, UpdateDialog, auto_check_enabled
 from tests.fake_ollama import FakeOllama
 from tests.test_update import TOKEN, FakeGitHub
@@ -464,6 +465,7 @@ def test_changes_dialog_after_retranslate_and_revert(qtbot: QtBot, window: MainW
     _select(window, {"s03"})
     window.start_machine_translation("retranslate", from_selection=True)
     _wait_idle(qtbot, window)
+    assert _rows(window)["s03"].mt_provider == "ollama"
     page = window.translate_page
     assert page.changes_button.isEnabled()
     assert page.changes_button.text() == "Son İşin Değişiklikleri (1)…"
@@ -486,6 +488,7 @@ def test_changes_dialog_after_retranslate_and_revert(qtbot: QtBot, window: MainW
     dialog.revert_button.click()
     assert _rows(window)["s03"].translation == "Ben değil."
     assert _rows(window)["s03"].status == Status.MACHINE
+    assert _rows(window)["s03"].mt_provider == ""  # pencereden geri alma kaynağı da geri koyar (önceden bilinmiyordu)
     assert not page.changes_button.isEnabled()  # geri alınınca değişiklik kalmadı
     assert "1 satır önceki çevirisine" in page.notice_text
 
@@ -500,6 +503,7 @@ def test_changes_dialog_after_retranslate_and_revert(qtbot: QtBot, window: MainW
     history.table.selectRow(0)
     history.revert_button.click()
     assert _rows(window)["s03"].translation == "Ben içmem."
+    assert _rows(window)["s03"].mt_provider == "ollama"  # geri almayı geri almak kaynağı da getirir
 
 
 def test_instruction_presets_fill_the_box(window: MainWindow) -> None:
@@ -657,3 +661,43 @@ def test_machine_dialog_warns_when_model_template_ignores_system(
     dialog.model.setCurrentIndex(dialog.model.findText("gemma4:12b"))
     assert dialog.template_note.isHidden()
     dialog.close()
+
+
+def _status_tip(w: MainWindow, key: str) -> str:
+    model = w.translate_page.model
+    n = next(i for i, r in enumerate(model.rows) if r.key == key)
+    return str(model.data(model.index(n, COL_STATUS), Qt.ItemDataRole.ToolTipRole) or "")
+
+
+def test_machine_translation_records_provider_and_shows_it_in_status_tip(qtbot: QtBot, window: MainWindow) -> None:
+    server = FakeOllama(translate=lambda t: "tr-" + t)
+    window.provider_factory = lambda s: server.provider(s.model)
+    window.project._conn.execute(  # "Start" çeviri belleğinde: sağlayıcıya gitmeden doldurulur
+        "INSERT INTO memory (source, translation, origin, updated_at) VALUES ('Start', 'Başla', 'human', 'x')"
+    )
+    window.ask_machine_settings = lambda *a, **k: MachineSettings(  # type: ignore[method-assign]
+        "ollama", "", "gemma4:12b", "", SCOPE_ALL, "translate"
+    )
+    window.start_machine_translation("translate")
+    _wait_idle(qtbot, window)
+    rows = _rows(window)
+    assert (rows["s04"].mt_provider, rows["s04"].mt_model) == ("ollama", "gemma4:12b")
+    assert (rows["m01"].translation, rows["m01"].mt_provider) == ("Başla", "memory")
+    assert rows["s01"].mt_provider == ""  # bu işte yazılmayan satır: kaynağı bilinmiyor
+    assert "Çeviren: Ollama (gemma4:12b)" in _status_tip(window, "s04")
+    assert "Çeviren: Çeviri belleği" in _status_tip(window, "m01")
+    assert "Çeviren" not in _status_tip(window, "s01")
+
+    # DeepL'de model adı yazılmaz (ayarlardaki Ollama modeli DeepL'e ait değildir).
+    deepl = FakeOllama(translate=lambda t: "dl-" + t)
+    window.provider_factory = lambda s: deepl.provider("gemma4:12b")  # DeepL yerine sahte sunucu
+    window.ask_machine_settings = lambda *a, **k: MachineSettings(  # type: ignore[method-assign]
+        "deepl", "", "gemma4:12b", "", SCOPE_ALL, "retranslate"
+    )
+    window.start_machine_translation("retranslate")
+    _wait_idle(qtbot, window)
+    assert (_rows(window)["s03"].mt_provider, _rows(window)["s03"].mt_model) == ("deepl", "")
+    assert "Çeviren: DeepL" in _status_tip(window, "s03")
+    window.undo_last()
+    assert _rows(window)["s03"].mt_provider == ""  # Geri Al kaynağı da geri alır
+    assert "Çeviren" not in _status_tip(window, "s03")

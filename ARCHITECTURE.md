@@ -1107,6 +1107,44 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     değiştirmek artık yalnızca pencerede kalan yolları (ekleme, görseller, font) etkiler. Adım sabitleri
     `gui/step_nav.py`'dedir, `main_window` `__all__` ile yeniden verir.
 
+### 4.55 2026-11-17 kararları (çeviri kaynağı, Sorunlar panosu)
+
+222. **Satırın makine çevirisi kaynağı saklanır (TECH_DEBT 31):** şema 7, `text_entries`'e `mt_provider` (kalıcı
+    kimlik: `ollama`, `deepl`, `memory`) ve `mt_model` (yalnızca Ollama'da model adı; DeepL'de boş) ekler; `history`'ye
+    aynı değerlerin önceki hâli (`old_mt_provider`, `old_mt_model`). Göç yalnızca `ALTER TABLE ... ADD COLUMN`
+    (varsayılan boş = "bilinmiyor"); diğer göçler gibi tek işlemde, öncesinde `.bak` yedeği alınır. Adres, API
+    anahtarı ya da kişisel veri yazılmaz (`core/translate/origin.py`). Değer `Project.set_translations(origin=...)`
+    ile yalnızca açıkça verilince değişir; `machine=True`'dan türetilmez, çünkü bu bayrağı makine dışı yollar da
+    kullanır. Yazım yolları: makine işi (Çevir, Yeniden çevir, Talimatla düzelt) sağlayıcıyı ve modeli yazar; aynı
+    işte çeviri belleğinden dolan satırlar (`runner.memory_filled_ids`) `memory` olur. Elle düzenleme, onaylama/onay
+    kaldırma, Bul ve Değiştir, Kontrol Et'in Düzelt'i ve aday seçimi, satır sonu yeniden bölme ile dış redaksiyon
+    kaynağı **değiştirmez**: bunlar makine taslağını düzeltir, insanın dokunduğunu durum sütunu zaten gösterir;
+    sağlayıcıları karşılaştırmak için onaylanmış satırın taslağının nereden geldiği de gerekir. Metni dışarıdan
+    baştan değiştiren yollar (hazır çeviri aktarma `port.py`, dış çeviri içe aktarma) kaynağı **siler**. Yeniden
+    tarama satırın kaynağına dokunmaz. Geri Al/Yinele satırın tam hâlini (metin, durum, açıklama, sağlayıcı, model)
+    taşır; yalnızca kaynağı değişen yazım da geri alınabilir bir adımdır. Geçmişten geri alma (`revert`) önceki
+    kaynağı da geri koyar; şema 7'den önceki geçmiş kaydında önceki kaynak bilinmez, boş olur. Arayüzde yeni sütun
+    yok: Çevir tablosunda Durum hücresinin ipucuna "Çeviren: Ollama (model)" satırı eklenir (çeviri boşsa ya da kaynak
+    bilinmiyorsa eklenmez). Görünen adlar tek yerde (`origin.PROVIDER_NAMES`); durum çubuğu da onu kullanır.
+223. **Sorunlar panosu ve "Hata veya uyarılı" süzgecinin pürüzleri (TECH_DEBT 85):** (a) Çevir'deki süzgeç her satırı
+    anlık denetimden geçirir; ölçüm (35.000 sentetik satır, yazım + terminoloji + sığdırma açık, tüm anlık türler):
+    ilk süzme 32 sn, önbellek dolunca 0,3 sn. Denetlenmemiş satır `ISSUES_PRECHECK_ROWS` (1.000, ≈1 sn) üstündeyse
+    `LiveChecker.precheck_job` arka planda (`Task`) çalışır, süzgeç sonuç gelince uygulanır; tıklama 0,01 sn'de döner.
+    İş bağlamın anlık görüntüsüyle çalışır; `store` bağlam değiştiyse sonucu atar, iş sürerken önbellek kaydı değişen
+    satıra dokunmaz. Pencere kapanırken iş durdurulup beklenir. (b) İş sürerken Sorunlar'da yerinde düzenleme
+    reddedilmez, saklanır (`ChecksController.pending_edits`) ve `_task_finished`'te yazılır; satırın proje dosyasındaki
+    çevirisi düzenleme anındakiyle aynı değilse (biten iş değiştirmiş) ezilmez: metin bildirimde gösterilir, "Yine de
+    Kaydet" ile yazılır. (c) Riskli türleri (`RISKY_FIX_KINDS`) birden çok satırda ya da türün bütün bulgularında
+    düzeltmeden önce `qa_page.ask_risky_fix` kısa onay sorar; tek satır sorulmaz (seçim onaydır). (d) Terim
+    denetiminde köke doğrudan eklenebilen harf sınırı son sözcüğü 4+ harfli terimde 14'tür ("Şövalye" +
+    "lerimizdekiler"); 3 harfe kadar kısa terimde 8 kalır, yoksa "Ev" → "Evcilleştirilmiş" gibi başka sözcükler terim
+    sayılırdı. Bedeli: kısa terimde uzun gerçek ek zinciri ("Evlerimizdekiler") ve uzun terimde 15+ harflik zincir
+    uyarı verir; uzun terimle başlayan ilgisiz bir sözcük de (14 harfe kadar devamıyla) terim sayılabilir, o satır
+    uyarı vermez. (e) Büyük tabloda süzgeç açıkken satırlar yeniden yüklenince (`set_rows`, ör. makine işinden sonra)
+    süzgeç denetlenmemiş satırı denetlemez, gösterir (`TranslationFilter.lazy_issues`); arka plan denetimi bitince
+    süzgeç yeniden uygulanır. Arka plan işi iptal edilirse yeniden başlamaz, hata verirse bildirir ve yeniden denemez.
+    Saklanan düzenleme varken pencere kapatılırsa "İşlem sürüyor" sorusu bunu söyler; vazgeçilirse saklananlar atılır.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

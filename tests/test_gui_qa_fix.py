@@ -153,3 +153,29 @@ def test_ollama_fix_is_gone(window: MainWindow) -> None:
     assert not hasattr(window, "auto_fix")
     assert not hasattr(window, "program_fix")
     assert [a.text() for a in page.context_menu().actions()] == ["Yazım sözlüğünü aç…", "", "Sırala"]
+
+
+def test_risky_bulk_fix_asks_first(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    from nxceviri.gui import qa_page as qa_page_module
+
+    asked: list[str] = []
+    answer = [False]
+
+    def ask(_parent: object, text: str) -> bool:
+        asked.append(text)
+        return answer[0]
+
+    monkeypatch.setattr(qa_page_module, "ask_risky_fix", ask)
+    page = window.qa_page
+    page._fix_now(["end_punctuation"], [])  # türün bütün bulguları: toplu ve riskli
+    assert len(asked) == 1
+    assert "Sondaki noktalama" in asked[0]
+    assert _rows(window)["a"].translation == "Oyunu Başlat."  # vazgeçildi: dokunulmadı
+    answer[0] = True
+    page._fix_now(["end_punctuation"], [])
+    assert _rows(window)["a"].translation == "Oyunu Başlat"
+    asked.clear()
+    page._fix_now(["repeated_word"], [])  # riskli olmayan tür: sorulmaz
+    assert asked == []
+    page._fix_now(["end_punctuation"], [_rows(window)["a"].id])  # tek satır: açık seçim yeter, sorulmaz
+    assert asked == []

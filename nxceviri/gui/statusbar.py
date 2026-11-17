@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from nxceviri.core.translate.origin import PROVIDER_NAMES
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.widgets import format_int, repolish
 
@@ -34,7 +35,6 @@ BAR_SLACK = 80
 _KEYS_TOKENS = {"success": "success", "danger": "danger", "neutral": "muted"}
 #: Sağlayıcı türü → simge (Lucide'de marka simgesi yok: bulut = DeepL, işlemci = yerel Ollama).
 _PROVIDER_ICONS = {"deepl": "cloud", "ollama": "cpu"}
-_PROVIDER_NAMES = {"deepl": "DeepL", "ollama": "Ollama"}
 
 
 class _Segment(QFrame):
@@ -236,7 +236,7 @@ class StatusSegments(QObject):
         self._provider.setVisible(bool(provider))
         if provider:
             bind_icon(self.provider_icon, _PROVIDER_ICONS.get(provider, "cpu"), size=14, tone="muted")
-            self._set_text(self.provider_label, _PROVIDER_NAMES.get(provider, provider))
+            self._set_text(self.provider_label, PROVIDER_NAMES.get(provider, provider))
         self.save_dot.setProperty("state", "success" if saved else "warning")
         state_text = "Kaydedildi" if saved else "Kaydedilmedi"
         self._save.setToolTip(state_text)

@@ -91,6 +91,16 @@ class MachineJob:
     all_rows: Sequence[TranslationRow] = ()
 
 
+def memory_filled_ids(job: MachineJob) -> set[int]:
+    """Sağlayıcıya gitmeden çeviri belleğinden doldurulacak satırlar (yalnızca "Çevir" işinde bellek kullanılır).
+
+    Bellekte karşılığı olan kaynak hiç sağlayıcıya gönderilmez; bu satırların sonucu bellektendir.
+    """
+    if job.action != ACTION_TRANSLATE:
+        return set()
+    return {r.id for r in job.rows if r.source.strip() and r.source in job.memory}
+
+
 @dataclass
 class RunSummary:
     rows: int = 0

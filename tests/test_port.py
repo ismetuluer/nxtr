@@ -13,6 +13,7 @@ from pytestqt.qtbot import QtBot
 from nxceviri.core.formats.base import ControlCode, TextEntry
 from nxceviri.core.progress import CancelToken, TaskContext
 from nxceviri.core.project import ImportedFile, Project
+from nxceviri.core.translate.origin import MachineOrigin
 from nxceviri.core.translate.port import PortError, port_translations, read_unity_translations
 from nxceviri.core.translate.status import Status
 from nxceviri.gui.main_window import MainWindow
@@ -101,8 +102,11 @@ def test_port_matches_by_normalized_key_and_protects_approved(tmp_path: Path) ->
     assert preview.applied == 6 - 1  # kodu uyuşmayan satır hariç
     assert {r.translation for r in p.translation_rows()} >= {"Benim onayladığım", "Makine eski"}  # önizleme yazmaz
 
+    eight = next(r for r in p.translation_rows() if r.key == "Dialogue_en/8")
+    p.set_translations([(eight.id, "Makine eski")], machine=True, origin=MachineOrigin("deepl"))
     report = port_translations(p, translations)
     rows = {r.key: r for r in p.translation_rows()}
+    assert rows["Dialogue_en/8"].mt_provider == ""  # hazır çeviri metni değiştirdi: eski makine kaynağı silindi
     assert report.found == 9
     assert report.matched == 8
     assert report.unmatched_rows == 1  # "Not in patch"

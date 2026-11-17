@@ -11,9 +11,11 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Callable, Sequence
+from contextlib import suppress
+from functools import partial
 from typing import TYPE_CHECKING
 
-from nxceviri.core.errors import NxError
+from nxceviri.core.errors import NxError, ProjectError
 from nxceviri.core.progress import ProgressCallback, TaskContext
 from nxceviri.core.project import Project, TranslationRow
 from nxceviri.core.qa import ignored
@@ -25,7 +27,7 @@ from nxceviri.core.qa.fixrun import FixSettings, plan_for_issues, plan_for_rows
 from nxceviri.core.qa.terms import project_terms
 from nxceviri.core.translate.status import Status
 from nxceviri.gui.jobs import new_job_id
-from nxceviri.gui.notify import LEVEL_INFO, LEVEL_SUCCESS, NoticeAction
+from nxceviri.gui.notify import LEVEL_INFO, LEVEL_SUCCESS, LEVEL_WARNING, NoticeAction
 from nxceviri.gui.step_nav import STEP_QA
 from nxceviri.gui.tasks import Task, release_thread
 from nxceviri.gui.widgets import format_int
@@ -57,6 +59,8 @@ class ChecksController:
         self.check_task: Task | None = None  # Durdur'un iptal edeceği tam denetim işi
         self.board_pending: dict[int, TranslationRow] = {}
         self.recheck_pending = False
+        #: İş sürerken Sorunlar'da yerinde yapılan düzenlemeler: satır → (proje, o anki çeviri, yeni metin).
+        self.pending_edits: dict[int, tuple[Project, str, str]] = {}
 
     def _checks_job(self, rows: list[TranslationRow]) -> Callable[[ProgressCallback | None], list[QaIssue]]:
         """Denetimi `rows` üzerinde çalıştıran işlev (isteğe bağlı ilerleme geri çağrısı alır); ayarlar şimdi okunur
@@ -175,8 +179,18 @@ class ChecksController:
     def edit_from_issues(self, row_id: int, text: str) -> None:
         """Sorunlar panosunda yerinde düzenleme: Çevir'deki kayıt yolundan yazılır, satır hemen yeniden denetlenir."""
         if self._win.busy:
-            self._win.qa_page.show_fix_result("warning", "Bir iş sürerken düzenlenemez; iş bitince yeniden deneyin.")
+            # Metin kaybolmasın: saklanır, iş bitince (satır bu arada değişmediyse) kaydedilir.
+            base = next((r.translation for r in self._win.translate_page.model.rows if r.id == row_id), "")
+            self.pending_edits[row_id] = (self._win.project, base, text)
+            self._win.qa_page.show_fix_result(
+                "warning",
+                "Düzenlemeniz saklandı. Bir iş sürüyor; düzenleme iş bitince kaydedilecek. "
+                "İş satırı değiştirirse ne yapacağınız sorulur.",
+            )
             return
+        self._commit_board_edit(row_id, text)
+
+    def _commit_board_edit(self, row_id: int, text: str) -> None:
         try:
             rows = self._win._commit_translations([(row_id, text)])
         except NxError as exc:
@@ -186,6 +200,32 @@ class ChecksController:
             return
         self._win.translate_page.model.update_rows(rows)
         self._win._recheck_board_rows(rows)
+
+    def flush_pending_edits(self) -> None:
+        """İş bitince saklanan yerinde düzenlemeleri yazar. İş satırı bu arada değiştirdiyse ezmez: metin bildirimde
+        gösterilir, "Yine de Kaydet" ile yazılabilir. Proje bu arada değiştiyse düzenleme o projeye ait değildir."""
+        pending, self.pending_edits = self.pending_edits, {}
+        current: dict[int, str] = {}
+        for row_id, (project, _base, _text) in pending.items():
+            if project is self._win.project:
+                with suppress(ProjectError):  # satır bu arada yeniden taramayla kalktıysa aşağıda bildirilir
+                    current[row_id] = self._win.project.translation_row(row_id).translation  # proje dosyası esastır
+        for row_id, (project, base, text) in pending.items():
+            if project is not self._win.project or row_id not in current:
+                self._win.notify(
+                    LEVEL_WARNING,
+                    "Saklanan düzenleme kaydedilmedi",
+                    f"Satır artık bu projede yok. Metniniz: {text}",
+                )
+            elif current[row_id] == base:
+                self._commit_board_edit(row_id, text)
+            elif current[row_id] != text:
+                self._win.notify(
+                    LEVEL_WARNING,
+                    "Saklanan düzenleme kaydedilmedi",
+                    f"Biten iş aynı satırı değiştirdi. Metniniz: {text}",
+                    (NoticeAction("Yine de Kaydet", partial(self._commit_board_edit, row_id, text)),),
+                )
 
     def recheck_board_rows(self, changed: Sequence[TranslationRow], *, keep_terms: bool = False) -> None:
         """Düzenlenen satırları ve aynı kaynaklı satırları (tutarsızlık değişir) panoda yerinde yeniden denetler.

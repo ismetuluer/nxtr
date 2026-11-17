@@ -21,7 +21,7 @@ birlikte, bütün olarak taşınabilir. Eksik, fazla, çaprazlanan ya da sıras�
 Listenin üstündeki **düzeltme çubuğu** güvenli düzeltmeleri toplu uygular (fazla boşluk, kod sırası, satır
 sığdırma…). Çubuk, listede görünen bulgulardan kendiliğinden düzeltilebilenleri sayar; satır seçerseniz yalnızca
 seçilileri sayar. Soldan bir tür seçmek ya da listede satır seçmek, o bulguların düzeltilmesini istediğinizi gösterir
-(yanılabilen düzeltmeler için çubuk uyarır); **Tüm bulgular**dayken yalnızca güvenli türler düzeltilir. Tüm
+(yanılabilen düzeltmeler için çubuk uyarır ve birden çok satırda uygulamadan önce onay sorar); **Tüm bulgular**dayken yalnızca güvenli türler düzeltilir. Tüm
 düzeltmeler tek iş olarak kaydedilir ve `Ctrl+Z` ile geri alınır (`Ctrl+Y` geri getirir). Onaylı satırlar da
 düzeltilir ve onaylı kalır; çubuktaki sayı, düğmenin gerçekten değiştireceği satır sayısıdır. Denetim yapıldıktan sonra üstteki düğme **Yeniden Denetle** olur.
 

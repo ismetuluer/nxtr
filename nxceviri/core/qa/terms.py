@@ -28,7 +28,12 @@ MIN_TERM_ROWS = 2
 #: Tek sözcüklü bir ifadenin en az harf sayısı ("I", "A" gibi harfler terim sayılmaz).
 MIN_SINGLE_WORD_LETTERS = 2
 #: Kanonik çevirinin son sözcüğüne doğrudan (kesmesiz) eklenebilen en çok harf sayısı: "Çamlar" + "daki".
+#: Kısa (≤ `SHORT_STEM_LETTERS` harfli) son sözcükte bu sınır kalır: "Ev" + 14 harf ("Evcilleştirilmiş") başka
+#: sözcüktür. Uzun son sözcükte çokluk + iyelik + hâl + ki + çokluk zinciri ("Şövalye" + "lerimizdekiler", 14 harf)
+#: tanınsın diye `MAX_LONG_STEM_SUFFIX_LETTERS`; daha uzun zincir ("-lerimizdekilerden", 17) seyrek, uyarı kalır.
 MAX_SUFFIX_LETTERS = 8
+MAX_LONG_STEM_SUFFIX_LETTERS = 14
+SHORT_STEM_LETTERS = 3
 
 _WORD = re.compile(r"[^\W_]+")
 _CANDIDATE_WORD = re.compile(r"[^\W_]+(?:['’-][^\W_]+)*")
@@ -154,7 +159,14 @@ def _stem_variants(needle: str) -> list[tuple[str, bool]]:
     return variants
 
 
+def _suffix_limit(stem: str) -> int:
+    """Köke doğrudan eklenebilen en çok harf: son sözcük kısaysa dar, uzunsa geniş (bkz. `MAX_SUFFIX_LETTERS`)."""
+    last = stem.rsplit(" ", 1)[-1]
+    return MAX_SUFFIX_LETTERS if len(last) <= SHORT_STEM_LETTERS else MAX_LONG_STEM_SUFFIX_LETTERS
+
+
 def _has_stem(normal: str, stem: str, vowel_suffix: bool) -> bool:
+    limit = _suffix_limit(stem)
     pos = normal.find(stem)
     while pos != -1:
         end = pos + len(stem)
@@ -173,7 +185,7 @@ def _has_stem(normal: str, stem: str, vowel_suffix: bool) -> bool:
                 stop = end
                 while stop < len(normal) and normal[stop].isalpha():
                     stop += 1
-                if stop - end <= MAX_SUFFIX_LETTERS and (stop == len(normal) or not _is_word_char(normal[stop])):
+                if stop - end <= limit and (stop == len(normal) or not _is_word_char(normal[stop])):
                     return True
         pos = normal.find(stem, pos + 1)
     return False
@@ -182,7 +194,7 @@ def _has_stem(normal: str, stem: str, vowel_suffix: bool) -> bool:
 def _has_term(normal: str, needle: str) -> bool:
     """`normal` (`_normal` biçimi) içinde `needle` sözcük sınırıyla geçiyor mu; sonuna Türkçe ek gelebilir.
 
-    Ek ya kesme işaretiyle (Çamlar'a), ya doğrudan en çok `MAX_SUFFIX_LETTERS` harfle (Çamlarda) gelir. Son harf
+    Ek ya kesme işaretiyle (Çamlar'a), ya doğrudan en çok `_suffix_limit` harfle (Çamlarda) gelir. Son harf
     ç/k/p/t ise ünlüyle başlayan ekin önünde c/ğ/b/d'ye (nk ise ng'ye) yumuşamış biçimi de kabul edilir.
     """
     return any(_has_stem(normal, stem, vowel) for stem, vowel in _stem_variants(needle))
