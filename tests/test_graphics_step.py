@@ -66,7 +66,7 @@ def test_extract_originals_from_window(qtbot: QtBot, tmp_path: Path, monkeypatch
 
     monkeypatch.setattr("nxceviri.gui.main_window.opened_view", fake_view)
     monkeypatch.setattr("nxceviri.gui.main_window.check_sources", lambda _s: [])
-    monkeypatch.setattr("nxceviri.gui.main_window.MemberReader", lambda *_a: None)
+    monkeypatch.setattr("nxceviri.gui.main_window.member_reader", lambda *_a: None)
     monkeypatch.setattr(w, "_inputs", lambda: None)
     w.keys = object()  # type: ignore[assignment]
     w.extract_graphics()
