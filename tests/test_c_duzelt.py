@@ -299,6 +299,28 @@ def test_is_satiri_degistirdiyse_bekleyen_duzenleme_ezmez_kullaniciya_sorar(wind
     assert _translation(window, "x1") == "Selam"
 
 
+def test_kapanista_saklanan_duzenleme_soylenir_ve_gec_yazilmaz(
+    window: MainWindow, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from PySide6.QtWidgets import QMessageBox
+
+    asked: list[str] = []
+
+    def question(_parent: object, _title: str, text: str) -> QMessageBox.StandardButton:
+        asked.append(text)
+        return QMessageBox.StandardButton.Yes
+
+    monkeypatch.setattr(QMessageBox, "question", question)
+    window.run_checks()
+    window.task = Task(lambda _ctx: None, "Sahte iş")
+    window.qa_page.translation_edited.emit(_ids(window)["x1"], "Selam")
+    window.dirty = False
+    window.close()
+    assert "saklanan 1 düzenleme de kaydedilmeyecek" in asked[0]
+    assert window.checks.pending_edits == {}  # kapanan projeye sonradan yazılmaz
+    window._task_finished()  # geç gelen iş sonu kapanmış projeye dokunmaz
+
+
 def test_o3_yerinde_duzenleme_sayaci_gunceller(window: MainWindow) -> None:
     window.run_checks()
     window.qa_page.translation_edited.emit(_ids(window)["x1"], "Selam")

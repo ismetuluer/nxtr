@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import threading
+from collections.abc import Callable
+
 import pytest
 from pytestqt.qtbot import QtBot
 
+from nxceviri.core.errors import ProjectError
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa.live import LiveChecker, LiveContext
 from nxceviri.core.translate.status import Status
@@ -70,6 +74,67 @@ def test_issues_filter_on_large_table_checks_in_background(qtbot: QtBot, monkeyp
     page.status_filter.set_current(ISSUES_FILTER)  # önbellek dolu: hemen süzülür
     assert not _running(page)
     assert page.proxy.rowCount() == 10
+
+
+def _large_page(qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> TranslatePage:
+    monkeypatch.setattr(translate_page_module, "ISSUES_PRECHECK_ROWS", 5)
+    page = TranslatePage()
+    qtbot.addWidget(page)
+    page.set_rows(_rows(20))
+    return page
+
+
+@pytest.mark.gui
+def test_reloading_rows_with_issues_filter_on_does_not_check_synchronously(
+    qtbot: QtBot, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    page = _large_page(qtbot, monkeypatch)
+    page.status_filter.set_current(ISSUES_FILTER)
+    qtbot.waitUntil(lambda: not _running(page), timeout=10_000)
+    fresh = _rows(20)  # makine işi sonrası yeniden yükleme gibi: yeni satır nesneleri
+    page.set_rows(fresh)
+    assert page.model.live.pending(fresh) == fresh  # model sıfırlanırken süzgeç satır denetlemedi
+    assert _running(page)
+    qtbot.waitUntil(lambda: not _running(page), timeout=10_000)
+    assert page.proxy.rowCount() == 10
+
+
+def _blocking_job(page: TranslatePage, monkeypatch: pytest.MonkeyPatch, release: threading.Event, fail: bool) -> None:
+    def precheck_job(rows: object) -> tuple[object, Callable[[Callable[[], None]], list[object]]]:
+        def job(check_cancelled: Callable[[], None]) -> list[object]:
+            while not release.wait(0.01):
+                check_cancelled()
+            if fail:
+                raise ProjectError("Deneme hatası.")
+            return []
+
+        return object(), job
+
+    monkeypatch.setattr(page.model.live, "precheck_job", precheck_job)
+
+
+@pytest.mark.gui
+def test_cancelled_precheck_is_not_restarted(qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
+    page = _large_page(qtbot, monkeypatch)
+    _blocking_job(page, monkeypatch, threading.Event(), fail=False)
+    page.status_filter.set_current(ISSUES_FILTER)
+    assert _running(page)
+    page.cancel_precheck()  # pencere kapanırken
+    qtbot.wait(50)
+    assert not _running(page)  # iptalden sonra yeni iş başlamadı
+
+
+@pytest.mark.gui
+def test_failed_precheck_tells_and_does_not_loop(qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
+    page = _large_page(qtbot, monkeypatch)
+    release = threading.Event()
+    _blocking_job(page, monkeypatch, release, fail=True)
+    page.status_filter.set_current(ISSUES_FILTER)
+    release.set()
+    qtbot.waitUntil(lambda: not _running(page), timeout=10_000)
+    qtbot.wait(50)
+    assert not _running(page)
+    assert "denetlenemedi" in page.notice_text
 
 
 @pytest.mark.gui

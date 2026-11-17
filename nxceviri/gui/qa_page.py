@@ -141,7 +141,7 @@ FIX_TIPS: dict[str, str] = {
     "bad_break": "Kötü yerden bölünmüş satırları noktalama ve sözcük sınırlarına göre yeniden böler.",
 }
 #: Metni yeniden biçimleyen ya da kod yerini değiştiren türler: "Tüm bulgular"da düzeltilmez; yalnızca türü solda
-#: ya da satırı listede seçilince (açık seçim onaydır) düzeltilir.
+#: ya da satırı listede seçilince düzeltilir; birden çok satırda uygulanmadan önce onay sorulur (`ask_risky_fix`).
 RISKY_FIX_KINDS = frozenset(
     {"ascii_turkish", "end_punctuation", "code_position", "newlines", "line_too_long", "page_too_tall", "bad_break"}
 )
@@ -1365,8 +1365,9 @@ class QaPage(QWidget):
     def _compute_scope(self) -> tuple[list[QaIssue], bool]:
         """Düzeltmenin kapsamı ve seçili satırlardan gelip gelmediği.
 
-        Seçili satırlarda düzeltilebilir bulgu varsa hepsi (riskliler dahil: açık seçim onaydır); yoksa solda tür
-        seçiliyse görünen düzeltilebilir bulguların hepsi; "Tüm bulgular"da yalnızca riskli olmayan türler.
+        Seçili satırlarda düzeltilebilir bulgu varsa hepsi (riskliler dahil; birden çok satırsa Düzelt onay sorar);
+        yoksa solda tür seçiliyse görünen düzeltilebilir bulguların hepsi; "Tüm bulgular"da yalnızca riskli olmayan
+        türler.
         """
         if self._ignored_view:
             return [], False

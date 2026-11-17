@@ -11,10 +11,11 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Callable, Sequence
+from contextlib import suppress
 from functools import partial
 from typing import TYPE_CHECKING
 
-from nxceviri.core.errors import NxError
+from nxceviri.core.errors import NxError, ProjectError
 from nxceviri.core.progress import ProgressCallback, TaskContext
 from nxceviri.core.project import Project, TranslationRow
 from nxceviri.core.qa import ignored
@@ -204,7 +205,11 @@ class ChecksController:
         """İş bitince saklanan yerinde düzenlemeleri yazar. İş satırı bu arada değiştirdiyse ezmez: metin bildirimde
         gösterilir, "Yine de Kaydet" ile yazılabilir. Proje bu arada değiştiyse düzenleme o projeye ait değildir."""
         pending, self.pending_edits = self.pending_edits, {}
-        current = {r.id: r.translation for r in self._win.project.translation_rows()}  # proje dosyası esastır
+        current: dict[int, str] = {}
+        for row_id, (project, _base, _text) in pending.items():
+            if project is self._win.project:
+                with suppress(ProjectError):  # satır bu arada yeniden taramayla kalktıysa aşağıda bildirilir
+                    current[row_id] = self._win.project.translation_row(row_id).translation  # proje dosyası esastır
         for row_id, (project, base, text) in pending.items():
             if project is not self._win.project or row_id not in current:
                 self._win.notify(

@@ -641,6 +641,8 @@ class TranslationFilter(QSortFilterProxyModel):
         self.groups: frozenset[str] | None = None  # None: grup süzgeci yok
         self.keys: frozenset[str] | None = None  # None: anahtar süzgeci yok
         self.text = ""
+        #: Büyük tabloda (bkz. `ISSUES_PRECHECK_ROWS`) "Hata veya uyarılı" süzgeci denetlenmemiş satırı denetlemez.
+        self.lazy_issues = False
         # Satır kimliği → (kaynak, çeviri, küçük harfli kaynak, küçük harfli çeviri). Metin değişmediyse her tuşta
         # onbinlerce metni yeniden küçültmemek için; metin nesnesi değiştiyse (düzenleme) satır yeniden hesaplanır.
         self._folded: dict[int, tuple[str, str, str, str]] = {}
@@ -680,6 +682,10 @@ class TranslationFilter(QSortFilterProxyModel):
             if r.id not in model.previous:
                 return False
         elif self.status == ISSUES_FILTER:
+            # Büyük tabloda denetlenmemiş satır burada denetlenmez (tablo yenilenince binlerce satır arayüzü
+            # dondururdu): arka plan denetimi bitene dek gösterilir, sonra süzgeç yeniden uygulanır.
+            if self.lazy_issues and model.live.cached(r) is None:
+                return True
             if not model.issues(r):
                 return False
         elif self.status and r.status != self.status:
@@ -1485,6 +1491,7 @@ class TranslatePage(QWidget):
         self._group_rank = {g: i for i, g in enumerate(groups)}
         self._group_possible = len(groups) > 1
         self._header_stats.clear()
+        self.filter.lazy_issues = len(rows) > ISSUES_PRECHECK_ROWS  # model sıfırlanırken süzgeç denetim yapmasın
         self.model.set_rows(rows)
         self._refresh_status_filter()
         self.group_filter.set_values(groups)
@@ -1544,14 +1551,20 @@ class TranslatePage(QWidget):
         token, job = live.precheck_job(pending)
         task = Task(lambda ctx: job(ctx.check), "Sorunlu satırlar denetleniyor")
         results: list[object] = []
+        failures: list[str] = []
         task.succeeded.connect(results.append)
+        task.failed.connect(failures.append)
 
         def finished() -> None:
             self.precheck_task = None
             release_thread(task)
-            if results:
-                assert isinstance(results[0], list)
-                live.store(token, results[0])
+            if failures:
+                self.show_notice("danger", f"Satırlar denetlenemedi; süzgeç uygulanmadı. {failures[0]}")
+                return
+            if not results:
+                return  # iptal edildi (pencere kapanıyor): yeniden başlatılmaz
+            assert isinstance(results[0], list)
+            live.store(token, results[0])
             if self.status_filter.current() == ISSUES_FILTER:
                 self._refilter()  # bağlam bu arada değiştiyse yeniden başlar
 
@@ -1575,13 +1588,17 @@ class TranslatePage(QWidget):
             return  # süzgeç denetim bitince uygulanır
         # Süzgeç gevşeyince görünüm başa dönmesin: seçili (geçerli) satır görünür kalırsa oraya dönülür.
         current = self.current_row()
-        with self.group_proxy.source_change():  # gruplu görünümde düzen bir kez kurulur
-            self.filter.update(
-                self.status_filter.current(),
-                self.group_filter.selected,
-                self.key_filter.selected,
-                self.search.text(),
-            )
+        lazy, self.filter.lazy_issues = self.filter.lazy_issues, False  # az sayıda bekleyen satır burada denetlenir
+        try:
+            with self.group_proxy.source_change():  # gruplu görünümde düzen bir kez kurulur
+                self.filter.update(
+                    self.status_filter.current(),
+                    self.group_filter.selected,
+                    self.key_filter.selected,
+                    self.search.text(),
+                )
+        finally:
+            self.filter.lazy_issues = lazy
         self._update_all_button()
         self.view_changed.emit()
         self._schedule_fit_rows()

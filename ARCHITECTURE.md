@@ -1139,7 +1139,11 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     denetiminde köke doğrudan eklenebilen harf sınırı son sözcüğü 4+ harfli terimde 14'tür ("Şövalye" +
     "lerimizdekiler"); 3 harfe kadar kısa terimde 8 kalır, yoksa "Ev" → "Evcilleştirilmiş" gibi başka sözcükler terim
     sayılırdı. Bedeli: kısa terimde uzun gerçek ek zinciri ("Evlerimizdekiler") ve uzun terimde 15+ harflik zincir
-    uyarı verir.
+    uyarı verir; uzun terimle başlayan ilgisiz bir sözcük de (14 harfe kadar devamıyla) terim sayılabilir, o satır
+    uyarı vermez. (e) Büyük tabloda süzgeç açıkken satırlar yeniden yüklenince (`set_rows`, ör. makine işinden sonra)
+    süzgeç denetlenmemiş satırı denetlemez, gösterir (`TranslationFilter.lazy_issues`); arka plan denetimi bitince
+    süzgeç yeniden uygulanır. Arka plan işi iptal edilirse yeniden başlamaz, hata verirse bildirir ve yeniden denemez.
+    Saklanan düzenleme varken pencere kapatılırsa "İşlem sürüyor" sorusu bunu söyler; vazgeçilirse saklananlar atılır.
 
 ## 5. Bilinen sınırlar
 

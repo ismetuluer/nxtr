@@ -3559,9 +3559,14 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         if self.busy:
-            answer = QMessageBox.question(
-                self, "İşlem sürüyor", "Bir işlem devam ediyor. İptal edip çıkmak istiyor musunuz?"
-            )
+            text = "Bir işlem devam ediyor. İptal edip çıkmak istiyor musunuz?"
+            if self.checks.pending_edits:
+                text += (
+                    "\n\nSorunlar'da iş bitince kaydedilmek üzere saklanan "
+                    f"{format_int(len(self.checks.pending_edits))} düzenleme de kaydedilmeyecek. "
+                    "Kaydetmek için Hayır deyip işin bitmesini bekleyin."
+                )
+            answer = QMessageBox.question(self, "İşlem sürüyor", text)
             if answer != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
@@ -3572,6 +3577,7 @@ class MainWindow(QMainWindow):
         # (beklenmeden bırakılan iş parçacığı çökmeye yol açar; bkz. tasks.release_thread).
         self.translate_page.find_window.close()  # açık Bul penceresinin konumu kaybolmasın
         self.translate_page.cancel_precheck()
+        self.checks.pending_edits.clear()  # kullanıcı vazgeçmeyi onayladı; kapanan projeye geç yazılmasın
         running = [t for t in (self.task, self._update_task, self._spell_scan, self._board_task) if t is not None]
         for thread in running:
             thread.cancel()
