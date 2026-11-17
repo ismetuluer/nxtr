@@ -29,7 +29,6 @@ from PySide6.QtWidgets import (
 
 from nxceviri import __version__
 from nxceviri.arac.teshis import RAPOR_ADI, UYARI, rapor_uret
-from nxceviri.core.archives.access import MemberReader
 from nxceviri.core.errors import NxError
 from nxceviri.core.export.layeredfs import (
     INFO_FILE,
@@ -38,6 +37,7 @@ from nxceviri.core.formats.derived import GraphicsSupport, graphics_status
 from nxceviri.core.formats.registry import (
     BUILTIN_PLUGINS,
     load_user_plugins,
+    member_reader,
     plugin_for_kind,
     user_plugin_report,
 )
@@ -2309,7 +2309,7 @@ class MainWindow(QMainWindow):
             names: list[str] = []
             with opened_view(inputs, ctx) as view:
                 for tree in view.trees:
-                    names += support.export(MemberReader(tree.view, tree.code), tree.view.files, folder)
+                    names += support.export(member_reader(tree), tree.view.files, folder)
             return names
 
         def done(result: object) -> None:

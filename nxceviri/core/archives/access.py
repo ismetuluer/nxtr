@@ -3,17 +3,24 @@
 Yol biçimi tarayıcınınkiyle aynıdır: `dış.sarc.zs>…>a.msbt`. İlk parça bir Unreal `.pak` ise
 pak tamamen okunmaz: yalnızca dizini ve istenen girdi okunur (pak'lar GB'larca olabilir). NNI
 (`data-en.ni>LOC/…/X.XSO`), CPK (`<ad>_US.CPK>MsgSheet/X.fms`) ve WAD
-(`dr1_data.wad>Dr1/data/us/script/X.lin`) arşivleri de aynı biçimde okunur.
+(`dr1_data.wad>Dr1/data/us/script/X.lin`) arşivleri de aynı biçimde okunur. Eklentilerin taşıdığı arşiv biçimleri
+(`ArchiveFormat`, `formats/base.py`) yerleşiklerden önce denenir; okuyucuya oyunun geçerli biçimleri verilir
+(`registry.member_reader`), böylece eklentinin `oyunlar` sınırı burada da uygulanır.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Collection, Mapping, Sequence
 
 from nxceviri.core.archives import cpk, nested, nni, psb_archive, wad
 from nxceviri.core.archives.pak import PakFile
+from nxceviri.core.container.storage import MemoryStorage, Storage
 from nxceviri.core.container.view import LayeredRomFs
 from nxceviri.core.errors import ArchiveError
+from nxceviri.core.formats.base import ArchiveFormat, GameFiles, MemberArchive
+
+#: Eklenti arşivinin `detect`'ine verilen baş bölümün boyutu.
+ARCHIVE_HEAD_SIZE = 4096
 
 
 def is_pak_path(path: str) -> bool:
@@ -44,9 +51,57 @@ def is_wad_path(path: str) -> bool:
     return len(parts) > 1 and parts[0].lower().endswith(wad.SUFFIX)
 
 
-def is_member_path(path: str) -> bool:
-    """Büyük arşivlerin içindeki (pak, PSB, NNI, CPK, WAD) üyeler: dış dosya tamamen okunmadan yalnızca üye okunur."""
-    return is_pak_path(path) or is_psb_archive_path(path) or is_nni_path(path) or is_cpk_path(path) or is_wad_path(path)
+def is_plugin_archive_path(path: str, archives: Sequence[ArchiveFormat]) -> bool:
+    """Bir eklenti arşivinin (uzantısı `archives`'tan birine uyan dosya) içindeki üyenin yolu."""
+    parts = nested.split(path)
+    return len(parts) > 1 and any(parts[0].lower().endswith(fmt.suffixes) for fmt in archives)
+
+
+def is_member_path(path: str, archives: Sequence[ArchiveFormat] = ()) -> bool:
+    """Büyük arşivlerin içindeki (pak, PSB, NNI, CPK, WAD; eklentilerin `archives` biçimleri) üyeler: dış dosya
+    tamamen okunmadan yalnızca üye okunur."""
+    return (
+        is_plugin_archive_path(path, archives)
+        or is_pak_path(path)
+        or is_psb_archive_path(path)
+        or is_nni_path(path)
+        or is_cpk_path(path)
+        or is_wad_path(path)
+    )
+
+
+class RomFsFiles:
+    """Oyunun RomFS dosyaları, eklenti arşiv biçimine verilen biçimde (`GameFiles`)."""
+
+    def __init__(self, romfs: LayeredRomFs) -> None:
+        self._romfs = romfs
+
+    @property
+    def files(self) -> Collection[str]:
+        return self._romfs.files.keys()
+
+    def open(self, path: str) -> Storage:
+        return self._romfs.open(path)
+
+
+class OverlayFiles:
+    """Oyun dosyalarının üstüne moda yazılacak dosyalar bindirilmiş görünüm: dışa aktarmada yeniden kurulan arşivin
+    oyunda nasıl okunacağını denetlemek için."""
+
+    def __init__(self, base: GameFiles, outputs: Mapping[str, bytes]) -> None:
+        self._base = base
+        self._outputs = outputs
+
+    @property
+    def files(self) -> Collection[str]:
+        return {*self._base.files, *self._outputs}
+
+    def open(self, path: str) -> Storage:
+        data = self._outputs.get(path)
+        if data is not None:
+            return MemoryStorage(data)
+        source = self._base.open(path)
+        return source if isinstance(source, Storage) else MemoryStorage(source.read_all())
 
 
 class MemberReader:
@@ -56,9 +111,17 @@ class MemberReader:
     anahtarı yalnızca buradan bulunur.
     """
 
-    def __init__(self, romfs: LayeredRomFs, code: Callable[[], bytes | None] | None = None) -> None:
+    def __init__(
+        self,
+        romfs: LayeredRomFs,
+        code: Callable[[], bytes | None] | None = None,
+        archives: Sequence[ArchiveFormat] = (),
+    ) -> None:
         self.romfs = romfs
         self._code = code
+        self.archives = tuple(archives)
+        self._formats: dict[str, ArchiveFormat | None] = {}
+        self._plugin: dict[str, MemberArchive] = {}
         self._paks: dict[str, PakFile] = {}
         self._psb_archive: dict[str, psb_archive.PsbArchive] = {}
         self._nni: dict[str, nni.NniArchive] = {}
@@ -110,8 +173,31 @@ class MemberReader:
             self._wad[top] = wad.WadArchive(self.romfs.open(top), top)
         return self._wad[top]
 
+    def plugin_format(self, top: str) -> ArchiveFormat | None:
+        """`top` dosyasını tanıyan eklenti arşiv biçimi (uzantı ve `detect`); yoksa None."""
+        if top not in self._formats:
+            found = None
+            candidates = [fmt for fmt in self.archives if top.lower().endswith(fmt.suffixes)]
+            if candidates and top in self.romfs.files:
+                storage = self.romfs.open(top)
+                head = storage.read(0, min(ARCHIVE_HEAD_SIZE, storage.size))
+                found = next((fmt for fmt in candidates if fmt.detect(top, head)), None)
+            self._formats[top] = found
+        return self._formats[top]
+
+    def plugin_archive(self, top: str) -> MemberArchive:
+        """`top` eklenti arşivini açar (aynı okuyucu boyunca bir kez)."""
+        if top not in self._plugin:
+            fmt = self.plugin_format(top)
+            if fmt is None:
+                raise ArchiveError(f"{top} hiçbir eklentinin arşiv biçimi olarak tanınmadı.")
+            self._plugin[top] = fmt.open(RomFsFiles(self.romfs), top)
+        return self._plugin[top]
+
     def read(self, path: str) -> bytes:
         parts = nested.split(path)
+        if len(parts) > 1 and self.plugin_format(parts[0]) is not None:
+            return nested.open_inner(self.plugin_archive(parts[0]).read(parts[1]), parts[2:])
         if len(parts) > 1 and is_pak_path(path):
             return nested.open_inner(self.pak(parts[0]).read(parts[1]), parts[2:])
         if len(parts) > 1 and is_psb_archive_path(path):

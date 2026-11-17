@@ -1228,6 +1228,30 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     aktaramazsa hata metnine bulguları ekler. Ayrıca `dogrula` artık kullanıcı eklentilerini kendisi yükler (önceden
     yalnızca yerleşikleri görüyordu) ve adı verilen eklenti yüklenemediyse "yok" yerine yükleme hatasını söyler.
     İskeletin testi `plugin.py`'yi paket olarak yükler; çok dosyalı eklentinin göreli içe aktarmaları testte de çalışır.
+228. **Eklenti arşiv kancası `archive_formats()` (ürün sahibi, 2026-11-17):** oyuna özgü arşiv biçimi çekirdeğe değil
+    eklentiye yazılır; eklenti `ArchiveFormat` nesneleri (`core/formats/base.py`: `name`, `label`, `suffixes`,
+    `detect`, `open(game, yol) -> MemberArchive`, `rebuild(changes, game) -> {RomFS yolu: bayt}`) bildirir. Yerleşik
+    üye arşivlerinin (NNI/CPK/WAD) bağlandığı noktalara bağlanır, paralel yol yoktur: `MemberReader` eklenti biçimini
+    (uzantı + `detect`, ilk 4 KB) yerleşiklerden önce dener ve `arşiv>üye` yolunu çözer; `is_member_path` biçimleri
+    parametre alır; `scanner` arşivi `ARCHIVE` türüyle yazar ve üyelerden kullanıcı eklentilerinin tanıdıklarını
+    listeler (üye adı bir eklentinin `path_suffixes`'ine uymuyorsa okunmaz: üye okumak açma maliyetlidir); `pipeline`
+    üyeyi okuyucudan okur; `layeredfs` değişen üyeleri ve `derived_files` üyelerini toplayıp eklentinin `rebuild`'ine
+    verir. `rebuild` bir oyundaki o biçimin bütün değişikliklerini tek seferde alır (`{arşiv: {üye: bayt}}`) ve
+    dönen dosyaları yazar; çünkü bazı oyunlar değişikliği güncellemenin arşivine koyar (temel arşiv GB'larca olabilir,
+    yeniden yazılmaz) ve arşiv başına `rebuild(changed) -> bytes` bunu anlatamaz. Kardeş dosyalar (`game.open`) bu
+    yüzden verilir; oyun dosyası `ByteSource` olarak açılır, tamamı okunmaz. Doğrulama çekirdekte: dönen dosyalar oyunun
+    üstüne bindirilir (`OverlayFiles`) ve eklentinin okuyucusuyla açılır; her değişiklik dönen arşivlerden birinde
+    aynen okunmalı, oyunda var olan arşivden üye düşmemeli, yoksa mod üretilmez (atomik yazım ve "yalnızca değişen
+    dosyalar" kuralı aynen). `oyunlar` sınırı uygulanır: biçimler `registry.archive_formats(title_id)`'den gelir,
+    okuyucu `registry.member_reader(tree)` ile kurulur (bütün `MemberReader` kurulumları buna geçti; oyun bilinmezse
+    yalnızca her oyunda geçerli eklentilerin biçimleri). Kancanın kodu korumalı çağrılır (`GuardedArchiveFormat`,
+    `GuardedMemberArchive`: beklenmeyen istisna eklentinin adıyla `ArchiveError` olur, dönüş türleri denetlenir);
+    geçersiz biçim yüklemede eklenti hatasıdır. Protokoller `formats.base`'te durduğu için izinli modül listesi
+    değişmedi. `arac dogrula` eklenti arşivlerinin üyelerini de gezer (klasör kaynağında oyun bilinmediği için yüklü
+    bütün biçimler denenir), `arac eklentiler` biçimleri listeler. Kancayı bildirmeyen eklentide ve yerleşik
+    arşivlerde davranış değişmez. Test: `tests/test_plugin_archives.py` (uydurma "KUTU" arşivi ve "SATIR" metni:
+    tarama → aktarma → dışa aktarma, `oyunlar` sınırı, `derived_files` üyesi, değişikliği yazmayan `rebuild`'in
+    reddi, geçersiz biçim, korumalı hata, `dogrula`).
 
 ## 5. Bilinen sınırlar
 

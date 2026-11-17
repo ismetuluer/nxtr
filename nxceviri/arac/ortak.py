@@ -1,4 +1,5 @@
-"""Araçların ortak parçaları: anahtar çözümleme, oyun kaynağı açma, iç arşivleri gezme, ilerleme yazımı.
+"""Araçların ortak parçaları: anahtar çözümleme, oyun kaynağı açma, iç arşivleri ve eklenti arşivlerini gezme,
+ilerleme yazımı.
 
 Anahtar dosyasının yalnızca yolu işlenir; içeriği hiçbir çıktıya yazılmaz.
 """
@@ -8,7 +9,7 @@ from __future__ import annotations
 import os
 import sys
 import time
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Collection, Iterator, Mapping
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,9 +17,12 @@ from pathlib import Path
 from PySide6.QtCore import QSettings
 
 from nxceviri.core.archives import cpk, nested, nni, psb_archive, sarc, wad, yaz0, zstd
+from nxceviri.core.archives.access import ARCHIVE_HEAD_SIZE
 from nxceviri.core.container.storage import FileStorage, Storage
 from nxceviri.core.container.view import ContentTree
 from nxceviri.core.errors import ArchiveError, ContainerError, KeyFileError
+from nxceviri.core.formats import registry
+from nxceviri.core.formats.base import ArchiveFormat
 from nxceviri.core.keys import KeySet, load_keys, load_title_keys
 from nxceviri.core.pipeline import Inputs, default_cache_dir, is_supported_file, opened_view
 from nxceviri.core.progress import TaskContext
@@ -80,6 +84,8 @@ class Dosya:
     etiket: str  # kullanıcıya gösterilen ad (birden çok içerikte kaynak başlığı eklenir)
     boyut: int
     acici: Callable[[], Storage]
+    #: Dosyanın ait olduğu oyunun TitleID'si; çıkarılmış klasörde bilinmez (None).
+    title_id: str | None = None
 
     def parcalar(self) -> Iterator[bytes]:
         """Dosyayı bellekte tümden tutmadan 4 MB'lık parçalarla okur."""
@@ -123,8 +129,38 @@ def arsiv_imzasi_var(bas: bytes) -> bool:
     return bas.startswith(_ARSIV_IMZALARI)
 
 
-def _dosya_olustur(yol: str, etiket: str, boyut: int, acici: Callable[[], Storage]) -> Dosya:
-    return Dosya(yol, etiket, boyut, acici)
+def _dosya_olustur(
+    yol: str, etiket: str, boyut: int, acici: Callable[[], Storage], title_id: str | None = None
+) -> Dosya:
+    return Dosya(yol, etiket, boyut, acici, title_id)
+
+
+class OyunDosyalari:
+    """Aynı oyunun (ya da klasörün) dosyaları, eklenti arşiv biçimine verilen biçimde (`GameFiles`)."""
+
+    def __init__(self, dosyalar: list[Dosya]) -> None:
+        self._dosyalar = {d.yol: d for d in dosyalar}
+
+    @property
+    def files(self) -> Collection[str]:
+        return self._dosyalar.keys()
+
+    def open(self, path: str) -> Storage:
+        dosya = self._dosyalar.get(path)
+        if dosya is None:
+            raise ContainerError(f"Oyunda bulunamadı: {path}")
+        return dosya.acici()
+
+
+def arsiv_bicimi(dosya: Dosya) -> ArchiveFormat | None:
+    """Dosyayı tanıyan eklenti arşiv biçimi. Oyunu bilinen dosyada eklentinin `oyunlar` sınırı uygulanır; klasörde
+    (oyun bilinmez) yüklü bütün arşiv biçimleri denenir. Eklentinin `detect` hatası `NxError` olarak çıkar."""
+    bicimler = registry.all_archive_formats() if dosya.title_id is None else registry.archive_formats(dosya.title_id)
+    adaylar = [b for b in bicimler if dosya.yol.lower().endswith(b.suffixes)]
+    if not adaylar:
+        return None
+    bas = dosya.bas(ARCHIVE_HEAD_SIZE)
+    return next((b for b in adaylar if b.detect(dosya.yol, bas)), None)
 
 
 def _klasor_dosyalari(kok: Path) -> list[Dosya]:
@@ -172,7 +208,7 @@ def kaynak_ac(
                 def ac(a: ContentTree = agac, p: str = vf.path) -> Storage:
                     return a.view.open(p)
 
-                dosyalar.append(_dosya_olustur(vf.path, onek + vf.path, vf.size, ac))
+                dosyalar.append(_dosya_olustur(vf.path, onek + vf.path, vf.size, ac, agac.title_id))
         yield Kaynak(dosyalar, gorunum.name or gorunum.title_id)
 
 

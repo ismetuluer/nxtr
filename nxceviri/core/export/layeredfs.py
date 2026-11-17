@@ -32,6 +32,8 @@ from nxceviri import __version__
 from nxceviri.core.archives import cpk, nested, nni, psb_archive, wad
 from nxceviri.core.archives.access import (
     MemberReader,
+    OverlayFiles,
+    RomFsFiles,
     is_cpk_path,
     is_nni_path,
     is_pak_path,
@@ -46,8 +48,8 @@ from nxceviri.core.export import extras
 from nxceviri.core.export.addressables import CatalogError, patch_catalog_crc
 from nxceviri.core.fontpatch.unity import FALLBACK_REASON, patch_fonts
 from nxceviri.core.formats import legacy
-from nxceviri.core.formats.base import FormatError, FormatPlugin
-from nxceviri.core.formats.registry import forbids_newline, plugin_for_kind
+from nxceviri.core.formats.base import ArchiveFormat, FormatError, FormatPlugin, GameFiles, MemberArchive
+from nxceviri.core.formats.registry import forbids_newline, member_reader, plugin_for_kind
 from nxceviri.core.pipeline import Inputs, opened_view
 from nxceviri.core.progress import TaskContext
 from nxceviri.core.project import TranslationRow, row_group
@@ -574,8 +576,45 @@ def export_mod(
                     groups.setdefault((title_id, top), [])
             changed_sizes: set[int] = set()
             addressables_changed = False
-            for i, ((title_id, top), group) in enumerate(sorted(groups.items())):
-                ctx.report(i, len(groups), f"Yazılıyor: {top}")
+            readers: dict[str, MemberReader] = {}
+            plugin_batches: dict[tuple[str, str], list[tuple[str, list[TextFileRef]]]] = {}
+            plain: list[tuple[tuple[str, str], list[TextFileRef]]] = []
+            for (title_id, top), group in sorted(groups.items()):
+                tree = trees.get(title_id)
+                archive_format = None
+                if tree is not None and top in tree.view.files:
+                    reader = readers.get(title_id)
+                    if reader is None:
+                        reader = readers[title_id] = member_reader(tree)
+                    archive_format = reader.plugin_format(top)
+                if archive_format is None:
+                    plain.append(((title_id, top), group))
+                else:
+                    plugin_batches.setdefault((title_id, archive_format.name), []).append((top, group))
+            for (title_id, _format_name), batch in sorted(plugin_batches.items()):
+                ctx.report(0, len(groups), f"Yazılıyor: {batch[0][0]}")
+                reader = readers[title_id]
+                archive_format = reader.plugin_format(batch[0][0])
+                assert archive_format is not None
+                for rel, data in _export_plugin_archives(
+                    trees[title_id],
+                    reader,
+                    archive_format,
+                    batch,
+                    translations=translations,
+                    root=_mod_root(options.layout, title_id, options.mod_name),
+                    result=result,
+                    extra={top: extra_members.get((title_id, top), {}) for top, _group in batch},
+                ):
+                    if rel.as_posix() in result.files:
+                        raise ExportError(
+                            f"'{rel.as_posix()}' iki kez yazılacaktı ({archive_format.label} ve başka bir dosya).",
+                            "Eklentinin arşiv biçimi başka bir arşivin dosyasını da yeniden kuruyor; eklentinin "
+                            "yazarına bildirin.",
+                        )
+                    _write_output(tmp, rel, data, result)
+            for i, ((title_id, top), group) in enumerate(plain):
+                ctx.report(len(groups) - len(plain) + i, len(groups), f"Yazılıyor: {top}")
                 tree = trees.get(title_id)
                 if tree is None or top not in tree.view.files:
                     raise ExportError(
@@ -624,14 +663,7 @@ def export_mod(
                         addressables_changed = True
                     outputs = [(root / safe_relative_path(top), data)]
                 for rel, data in outputs:
-                    target = tmp / rel
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    target.write_bytes(data)
-                    if target.read_bytes() != data:
-                        raise ExportError(
-                            f"'{rel.as_posix()}' diske doğru yazılamadı; disk dolu veya arızalı olabilir."
-                        )
-                    result.files.append(rel.as_posix())
+                    _write_output(tmp, rel, data, result)
             for title_id, found in derived.items():
                 for path, data in found.files.items():
                     rel = _mod_root(options.layout, title_id, options.mod_name) / safe_relative_path(path)
@@ -715,6 +747,16 @@ def export_mod(
         raise
     ctx.report(len(groups), len(groups), "Mod oluşturuldu")
     return result
+
+
+def _write_output(tmp: Path, rel: Path, data: bytes, result: ExportResult) -> None:
+    """Mod dosyasını geçici klasöre yazar ve geri okuyarak doğrular."""
+    target = tmp / rel
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(data)
+    if target.read_bytes() != data:
+        raise ExportError(f"'{rel.as_posix()}' diske doğru yazılamadı; disk dolu veya arızalı olabilir.")
+    result.files.append(rel.as_posix())
 
 
 def settle_rows(result: ExportResult, rows: list[TranslationRow], *, include_errors: bool) -> None:
@@ -1064,7 +1106,7 @@ def _export_psb_archive(
     çıkarılır ve üyenin kendisi (mdf kodlu) aynı yolda verilir. Cihazda doğrulandı (docs/formats/psb.md).
     """
     try:
-        archive = MemberReader(tree.view, tree.code).psb_archive(top)
+        archive = member_reader(tree).psb_archive(top)
     except NxError as exc:
         raise ExportError(f"'{top}' okunamadı: {exc.message}", exc.hint) from None
     by_member: dict[str, list[TextFileRef]] = {}
@@ -1112,7 +1154,7 @@ def _export_member_archive(
     CPK: değişen dosyalar sıkıştırılmadan konmuş tüm arşiv verilir. WAD: tüm arşiv, üyeler aynı sırada.
     Hepsi yeniden açılıp doğrulanır.
     """
-    reader = MemberReader(tree.view, tree.code)
+    reader = member_reader(tree)
     archive: nni.NniArchive | cpk.CpkFile | wad.WadArchive
     try:
         if top.lower().endswith(nni.INDEX_SUFFIX):
@@ -1171,6 +1213,109 @@ def _export_member_archive(
     if wrong or set(check.entries) != set(archive.entries):
         raise ExportError(f"'{top}' arşivi doğrulanamadı.")
     return outputs
+
+
+def _export_plugin_archives(
+    tree: ContentTree,
+    reader: MemberReader,
+    archive_format: ArchiveFormat,
+    batch: list[tuple[str, list[TextFileRef]]],
+    *,
+    translations: Mapping[str, Mapping[str, str]],
+    root: Path,
+    result: ExportResult,
+    extra: Mapping[str, Mapping[str, bytes]],
+) -> list[tuple[Path, bytes]]:
+    """Eklenti arşivlerinin (`archive_formats()` kancası) değişen üyelerini eklentinin `rebuild`'iyle yazar.
+
+    Bir oyundaki aynı biçimli bütün arşivlerin değişiklikleri birlikte verilir: eklenti değişikliği başka bir arşive
+    (ör. güncellemenin arşivine) koyabilir. `extra`, `derived_files`'ın bu arşivler için ürettiği üyelerdir; arşivde
+    yoksa yeni üye olarak verilir. Dönen dosyalar oyunun üstüne bindirilip yeniden açılır (`_verify_plugin_archives`).
+    """
+    changes: dict[str, dict[str, bytes]] = {}
+    for top, group in batch:
+        try:
+            archive = reader.plugin_archive(top)
+            listed = archive.members()
+        except NxError as exc:
+            raise ExportError(f"'{top}' okunamadı: {exc.message}", exc.hint) from None
+        by_member: dict[str, list[TextFileRef]] = {}
+        for ref in group:
+            by_member.setdefault(nested.split(ref.path)[1], []).append(ref)
+        for member, refs in sorted(by_member.items()):
+            try:
+                original = archive.read(member)
+            except NxError as exc:
+                raise ExportError(f"'{top}' içindeki '{member}' okunamadı: {exc.message}", exc.hint) from None
+            data = _apply_group(original, refs, translations, skip=2, result=result)
+            if data == original:
+                result.unchanged_files += 1
+                continue
+            _verify_group(data, refs, translations, skip=2, result=result, original=original)
+            changes.setdefault(top, {})[member] = data
+        for member, data in sorted(extra.get(top, {}).items()):  # eklentinin hazır ürettiği üyeler (ör. yazı tipi)
+            if member in listed:
+                try:
+                    same = archive.read(member) == data
+                except NxError as exc:
+                    raise ExportError(f"'{top}' içindeki '{member}' okunamadı: {exc.message}", exc.hint) from None
+                if same:
+                    result.unchanged_files += 1
+                    continue
+            changes.setdefault(top, {})[member] = data
+    if not changes:
+        return []
+    game = RomFsFiles(tree.view)
+    try:
+        built = archive_format.rebuild(changes, game)
+        outputs = [(root / safe_relative_path(path), data) for path, data in sorted(built.items())]
+    except NxError as exc:
+        raise ExportError(f"{archive_format.label} yeniden kurulamadı: {exc.message}", exc.hint) from None
+    _verify_plugin_archives(archive_format, game, built, changes)
+    return outputs
+
+
+def _verify_plugin_archives(
+    archive_format: ArchiveFormat,
+    game: GameFiles,
+    built: Mapping[str, bytes],
+    changes: Mapping[str, Mapping[str, bytes]],
+) -> None:
+    """Yeniden kurulan arşivleri oyunun üstüne bindirip eklentinin okuyucusuyla açar: her değişiklik dönen
+    arşivlerden birinde aynen okunmalı, oyunda zaten var olan arşivden üye düşmemeli."""
+    overlay = OverlayFiles(game, built)
+    rebuilt = [path for path in sorted(built) if path.lower().endswith(archive_format.suffixes)]
+    try:
+        opened = {path: archive_format.open(overlay, path) for path in rebuilt}
+        lost = {
+            path: sorted(set(archive_format.open(game, path).members()) - set(opened[path].members()))
+            for path in rebuilt
+            if path in game.files
+        }
+    except NxError as exc:
+        raise ExportError(f"Yeniden kurulan {archive_format.label} açılamadı: {exc.message}", exc.hint) from None
+    for path, names in lost.items():
+        if names:
+            raise ExportError(
+                f"'{path}' yeniden kurulurken {len(names)} üye düştü ({', '.join(names[:3])}).",
+                "Mod üretilmedi. Eklentinin arşiv biçimi hatalı olabilir; eklentinin yazarına bildirin.",
+            )
+    for top, members in sorted(changes.items()):
+        for member, data in sorted(members.items()):
+            if not any(_reads_back(opened[path], member, data) for path in rebuilt):
+                raise ExportError(
+                    f"'{top}{nested.SEPARATOR}{member}' yeniden kurulan arşivde doğrulanamadı.",
+                    "Mod üretilmedi. Eklentinin arşiv biçimi değişikliği yazmadı; eklentinin yazarına bildirin.",
+                )
+
+
+def _reads_back(archive: MemberArchive, member: str, data: bytes) -> bool:
+    """Üye bu arşivde aynen okunuyor mu? Üye bu arşivde yoksa (okuyucu hata verir) False: değişiklik başka bir çıktı
+    arşivinde aranır, hiçbirinde yoksa çağıran mod üretmeden hata verir."""
+    try:
+        return archive.read(member) == data
+    except NxError:
+        return False
 
 
 def patch_pak_name(top: str) -> str:

@@ -27,11 +27,11 @@ import UnityPy
 from fontTools.ttLib import TTFont, TTLibError
 
 from nxceviri.core.archives import nested
-from nxceviri.core.archives.access import MemberReader
 from nxceviri.core.container.view import GameView
 from nxceviri.core.errors import NxError
 from nxceviri.core.fontpatch.ttf import is_cjk_chars
 from nxceviri.core.fontpatch.unity import patch_fonts
+from nxceviri.core.formats.registry import member_reader
 from nxceviri.core.formats.scanner import ScanReport, base_detail, scan_view
 from nxceviri.core.pipeline import Inputs, opened_view
 from nxceviri.core.progress import TaskContext
@@ -279,7 +279,7 @@ def scan_fonts(view: GameView, report: ScanReport, ctx: TaskContext | None = Non
             continue
         parts = nested.split(entry.path)
         try:
-            data = MemberReader(tree.view, tree.code).read(entry.path)
+            data = member_reader(tree).read(entry.path)
             if entry.kind == "unity":
                 found, sources = _unity_fonts(data, entry.path)
                 if not found:

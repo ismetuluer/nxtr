@@ -5,6 +5,8 @@ Bir eklenti bir klasördür:
 - `eklenti.toml`: `ad`, `surum`, `yazar`, `api`, isteğe bağlı `oyunlar` (TitleID listesi) ve `aciklama`.
 - `plugin.py`: modül düzeyinde bir `PLUGIN` nesnesi (biçim eklentisi sözleşmesini uygular;
   `FormatPluginBase`'den türetmek en kolayıdır). Klasördeki diğer `.py` dosyaları `from . import x` ile alınabilir.
+  İsteğe bağlı `archive_formats()` kancasının döndürdüğü arşiv biçimleri yüklemede doğrulanır ve
+  `PluginInfo.arsivler`e korumalı sarmalayıcılarıyla (`GuardedArchiveFormat`) konur.
 - `tests/`, `NOT.md`: eklenti yazarı içindir; yükleyici bunlara bakmaz.
 
 Hatalı bir eklenti uygulamayı durdurmaz: nedeni `PluginInfo.hata` içinde, ne yapılacağıyla birlikte
@@ -32,8 +34,16 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-from nxceviri.core.errors import NxError
-from nxceviri.core.formats.base import Context, FormatError, FormatPlugin, TextEntry
+from nxceviri.core.errors import ArchiveError, NxError
+from nxceviri.core.formats.base import (
+    ArchiveFormat,
+    Context,
+    FormatError,
+    FormatPlugin,
+    GameFiles,
+    MemberArchive,
+    TextEntry,
+)
 from nxceviri.core.plugins.imports import audit_plugin
 
 log = logging.getLogger(__name__)
@@ -45,6 +55,8 @@ ENTRY_NAME = "plugin.py"
 #: Yüklenen eklenti modüllerinin `sys.modules` ön eki (eklenti başına benzersiz ad).
 MODULE_PREFIX = "nxtr_eklenti_"
 _REQUIRED_CALLS = ("detect", "collect_context", "language", "extract", "inject")
+#: Eklentinin `archive_formats()` kancasının döndürdüğü her arşiv biçiminde bulunması gereken işlevler.
+_ARCHIVE_CALLS = ("detect", "open", "rebuild")
 _TITLE_ID = re.compile(r"^[0-9A-Fa-f]{16}$")
 
 
@@ -95,6 +107,8 @@ class PluginInfo:
     #: Onay bekleyen eklentinin denetlenen içeriğinin parmak izi (`plugin_fingerprint`); onay bununla kaydedilir.
     parmak_izi: str = ""
     plugin: FormatPlugin | None = field(default=None, compare=False, repr=False)
+    #: Eklentinin `archive_formats()` ile taşıdığı arşiv biçimleri (korumalı sarmalayıcılarıyla); yoksa boş.
+    arsivler: tuple[ArchiveFormat, ...] = field(default=(), compare=False, repr=False)
 
     @property
     def yuklu(self) -> bool:
@@ -181,6 +195,115 @@ class GuardedPlugin:
             return self._call(fn, *args)
 
         return guarded
+
+
+def _archive_call(ad: str, fn: Any, *args: Any) -> Any:
+    """Eklentinin arşiv kodunu çağırır; beklenmeyen istisnayı (hangi eklentiden geldiğini söyleyen) `ArchiveError`
+    yapar. `NxError` olduğu gibi geçer (eklentinin kendi Türkçe mesajı)."""
+    try:
+        return fn(*args)
+    except NxError:
+        raise
+    except Exception as exc:
+        log.warning("Eklenti arşiv hatası (%s)", ad, exc_info=True)
+        raise ArchiveError(
+            f"“{ad}” eklentisinin arşiv kodu hata verdi ({type(exc).__name__}: {exc}).",
+            "Eklentinin yazarına bildirin ya da Araçlar → Eklentiler'den kaldırın.",
+        ) from exc
+
+
+class GuardedMemberArchive:
+    """Eklentinin açtığı arşivi sarar: hataları `ArchiveError`'a çevirir, dönüş türlerini denetler."""
+
+    def __init__(self, inner: MemberArchive, ad: str, label: str) -> None:
+        self._inner = inner
+        self._ad = ad
+        self._label = label
+
+    def members(self) -> dict[str, int]:
+        found = _archive_call(self._ad, self._inner.members)
+        if not isinstance(found, Mapping) or not all(
+            isinstance(k, str) and isinstance(v, int) and not isinstance(v, bool) for k, v in found.items()
+        ):
+            raise ArchiveError(
+                f"“{self._ad}” eklentisinin {self._label} okuyucusu geçersiz üye listesi döndürdü.",
+                "members() {üye yolu: boyut} sözlüğü döndürmeli; eklentinin yazarına bildirin.",
+            )
+        return dict(found)
+
+    def read(self, member: str) -> bytes:
+        data = _archive_call(self._ad, self._inner.read, member)
+        if not isinstance(data, bytes | bytearray):
+            raise ArchiveError(f"“{self._ad}” eklentisinin {self._label} okuyucusu '{member}' için bayt döndürmedi.")
+        return bytes(data)
+
+
+class GuardedArchiveFormat:
+    """Eklentinin arşiv biçimini sarar (`GuardedPlugin`'in arşiv karşılığı)."""
+
+    def __init__(self, inner: ArchiveFormat, ad: str) -> None:
+        self._inner = inner
+        self._ad = ad
+        self.name = inner.name
+        self.label = inner.label
+        self.suffixes = tuple(s.lower() for s in inner.suffixes)
+
+    def detect(self, path: str, head: bytes) -> bool:
+        return bool(_archive_call(self._ad, self._inner.detect, path, head))
+
+    def open(self, game: GameFiles, path: str) -> GuardedMemberArchive:
+        return GuardedMemberArchive(_archive_call(self._ad, self._inner.open, game, path), self._ad, self.label)
+
+    def rebuild(self, changes: Mapping[str, Mapping[str, bytes]], game: GameFiles) -> dict[str, bytes]:
+        built = _archive_call(self._ad, self._inner.rebuild, changes, game)
+        if not isinstance(built, Mapping) or not all(
+            isinstance(k, str) and isinstance(v, bytes | bytearray) for k, v in built.items()
+        ):
+            raise ArchiveError(
+                f"“{self._ad}” eklentisi {self.label} için geçersiz çıktı döndürdü.",
+                "rebuild() {RomFS yolu: bayt} sözlüğü döndürmeli; eklentinin yazarına bildirin.",
+            )
+        return {path: bytes(data) for path, data in built.items()}
+
+
+def _archive_problems(fmt: object) -> list[str]:
+    missing = [f"{attr} (boş olmayan metin)" for attr in ("name", "label") if not _text(getattr(fmt, attr, None))]
+    suffixes = getattr(fmt, "suffixes", None)
+    if not isinstance(suffixes, tuple) or not suffixes or not all(_text(s) for s in suffixes):
+        missing.append('suffixes (boş olmayan uzantı demeti, ör. (".vfs",))')
+    missing += [f"{call}()" for call in _ARCHIVE_CALLS if not callable(getattr(fmt, call, None))]
+    return missing
+
+
+def _text(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _archive_formats(plugin: object, ad: str) -> tuple[tuple[ArchiveFormat, ...], str]:
+    """Eklentinin `archive_formats()` kancasının (varsa) doğrulanmış, korumalı biçimleri ya da sorun metni."""
+    hook = getattr(plugin, "archive_formats", None)
+    if hook is None:
+        return (), ""
+    if not callable(hook):
+        return (), "archive_formats bir işlev olmalı (arşiv biçimlerinin demetini döndürür)."
+    try:
+        found = tuple(hook())
+    except Exception as exc:  # kullanıcı kodu: her hata yükleme hatası olarak raporlanır
+        log.warning("Eklentinin arşiv biçimleri alınamadı: %s", ad, exc_info=True)
+        return (), f"archive_formats() hata verdi ({type(exc).__name__}: {exc})."
+    problems: list[str] = []
+    names: set[str] = set()
+    for number, fmt in enumerate(found, 1):
+        missing = _archive_problems(fmt)
+        if missing:
+            problems.append(f"{number}. biçimde eksik: " + ", ".join(missing))
+        elif fmt.name in names:
+            problems.append(f"“{fmt.name}” arşiv biçimi adı iki kez kullanılmış")
+        else:
+            names.add(fmt.name)
+    if problems:
+        return (), "archive_formats() geçersiz arşiv biçimi döndürdü: " + "; ".join(problems) + "."
+    return tuple(GuardedArchiveFormat(fmt, ad) for fmt in found), ""
 
 
 #: Onay denetimi: (eklenti klasörü, şimdiki parmak izi) onaylıysa True.
@@ -426,6 +549,10 @@ def _load_one(
             f"“{kind}” biçim adı “{taken[kind]}” eklentisiyle çakışıyor. İkisinden birini kaldırın "
             "ya da birinin PLUGIN.name değerini değiştirin.",
         )
+    archives, problem = _archive_formats(plugin, data["ad"].strip())
+    if problem:
+        _forget_modules(module_name)
+        return _failed(folder, data, problem)
     note = ""
     if kind in builtin_names:
         note = f"Yerleşik “{kind}” desteğinin yerini alıyor; bu eklenti kaldırılana kadar yerleşik olan kullanılmaz."
@@ -440,6 +567,7 @@ def _load_one(
         uyari=note,
         tur=kind,
         plugin=GuardedPlugin(plugin, data["ad"].strip()),
+        arsivler=archives,
     )
 
 

@@ -1,5 +1,8 @@
 """`dogrula`: bir format eklentisini gerçek oyun dosyalarında sınar.
 
+Eklentinin tanıdığı dosyalar oyunun dosyalarından, SARC/Yaz0/ZSTD içlerinden ve eklenti arşivlerinin
+(`archive_formats()` kancası) üyelerinden toplanır.
+
 1. Değişikliksiz `extract` -> `inject` sonucu orijinalle bayt bayt aynı olmalı.
 2. En çok 3 girdiye işaret metni yazılıp `inject` -> `extract` ile geri okunur; işaretli girdiler işareti
    taşımalı, diğerleri değişmemeli.
@@ -17,8 +20,18 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from nxceviri.arac.ortak import EN_BUYUK_DOSYA, Dosya, IlerlemeYazici, ic_dosyalar, kaynak_ac, kisalt
-from nxceviri.core.errors import ContainerError
+from nxceviri.arac.ortak import (
+    EN_BUYUK_DOSYA,
+    Dosya,
+    IlerlemeYazici,
+    OyunDosyalari,
+    arsiv_bicimi,
+    ic_dosyalar,
+    kaynak_ac,
+    kisalt,
+)
+from nxceviri.core.archives import nested
+from nxceviri.core.errors import ContainerError, NxError
 from nxceviri.core.formats import legacy, registry
 from nxceviri.core.formats.base import SOURCE_LANGUAGE, SOURCE_PATH, FormatPlugin, TextEntry
 from nxceviri.core.plugins.imports import ImportFinding, audit_plugin
@@ -78,7 +91,35 @@ def adaylar(
             return False
         return eklenti.detect(yol, bas[:64])
 
+    oyunlar: dict[str | None, OyunDosyalari] = {}
     for dosya in dosyalar:
+        try:
+            bicim = arsiv_bicimi(dosya)
+        except NxError as exc:
+            uyarilar.append(f"{dosya.etiket}: {exc.message}")
+            continue
+        if bicim is not None:
+            oyun = oyunlar.get(dosya.title_id)
+            if oyun is None:
+                oyun = oyunlar[dosya.title_id] = OyunDosyalari([d for d in dosyalar if d.title_id == dosya.title_id])
+            try:
+                arsiv = bicim.open(oyun, dosya.yol)
+                uyeler = sorted(arsiv.members())
+            except NxError as exc:
+                uyarilar.append(f"{dosya.etiket}: {exc.message}")
+                continue
+            for uye in uyeler:
+                if eklenti.path_suffixes and not uye.lower().endswith(eklenti.path_suffixes):
+                    continue
+                yol = f"{dosya.yol}{nested.SEPARATOR}{uye}"
+                try:
+                    veri = arsiv.read(uye)
+                except NxError as exc:
+                    uyarilar.append(f"{yol}: {exc.message}")
+                    continue
+                if uygun(yol, veri):
+                    yield yol, veri
+            continue
         if dosya.boyut > EN_BUYUK_DOSYA:
             if uygun(dosya.yol, dosya.bas(64)):
                 atlanan.append(f"{dosya.etiket}: çok büyük ({dosya.boyut:,} bayt); atlandı.")

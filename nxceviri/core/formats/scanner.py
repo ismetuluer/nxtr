@@ -1,7 +1,9 @@
 """Format tarama: birleşik oyun görünümündeki dosyaları sınıflandırır, motoru tahmin eder.
 
 İç içe arşivlerin (SARC, Yaz0, ZSTD) içine de bakılır; bu aşamada yalnızca okunur.
-İç dosyaların yolu "dış/yol.szs>iç/yol.msbt" biçimindedir.
+İç dosyaların yolu "dış/yol.szs>iç/yol.msbt" biçimindedir. Eklenti arşivlerinde (`archive_formats()` kancası) yalnızca
+kullanıcı eklentilerinin tanıdığı üyeler listelenir; üye adı bir eklentinin `path_suffixes`'ine uymuyorsa (ya da
+eklentinin uzantı süzgeci yoksa) okunmaz.
 """
 
 from __future__ import annotations
@@ -30,7 +32,7 @@ from nxceviri.core.formats.detection import (
     detect,
 )
 from nxceviri.core.formats.psbtext import is_text_member
-from nxceviri.core.formats.registry import user_plugin_for_file
+from nxceviri.core.formats.registry import member_reader, user_plugin_for_file, user_plugins_for
 from nxceviri.core.progress import TaskContext
 
 #: İç arşivleri açarken izin verilen en büyük boyutlar (bellek koruması).
@@ -236,7 +238,7 @@ def _scan_psb_archive(
 ) -> None:
     """PSB arşivinin (mdf kodlu PSB dizini) üyelerini tarar; yalnızca çevrilebilir metin içerenleri listeler."""
     try:
-        archive = MemberReader(tree.view, tree.code).psb_archive(path)
+        archive = member_reader(tree).psb_archive(path)
     except NxError as exc:
         warnings.append(f"{path}: {exc.message}")
         return
@@ -277,7 +279,7 @@ def _scan_member_archive(
 ) -> None:
     """NNI/CPK/WAD arşivinin yalnızca dizinini okur; metin üyelerini adlarından seçip rapora ekler."""
     wanted, kind, label = _MEMBER_TEXT[detail]
-    reader = MemberReader(tree.view, tree.code)
+    reader = member_reader(tree)
     try:
         if detail == NNI_ARCHIVE_DETAIL:
             sizes = {m: e.size for m, e in reader.nni(path).entries.items()}
@@ -303,6 +305,52 @@ def _scan_member_archive(
             )
 
 
+def _scan_plugin_archive(
+    tree: ContentTree,
+    reader: MemberReader,
+    path: str,
+    origin: str,
+    *,
+    out: list[ScanEntry],
+    warnings: list[str],
+    ctx: TaskContext,
+) -> None:
+    """Eklenti arşivinin üyelerinden kullanıcı eklentilerinin tanıdıklarını rapora ekler."""
+    plugins = user_plugins_for(tree.title_id)
+    try:
+        members = reader.plugin_archive(path).members()
+    except NxError as exc:
+        warnings.append(f"{path}: {exc.message}")
+        return
+    wanted = sorted(
+        m for m in members if any(not p.path_suffixes or m.lower().endswith(p.path_suffixes) for p in plugins)
+    )
+    found = 0
+    for i, member in enumerate(wanted):
+        ctx.report(i, len(wanted), f"{path}: {member}")
+        try:
+            data = reader.read(f"{path}{NESTED_SEPARATOR}{member}")
+        except NxError as exc:
+            warnings.append(f"{path}{NESTED_SEPARATOR}{member}: {exc.message}")
+            continue
+        claimed = user_plugin_for_file(tree.title_id, member, data[:HEAD_SIZE])
+        if claimed is not None:
+            found += 1
+            out.append(
+                ScanEntry(
+                    tree.title_id,
+                    f"{path}{NESTED_SEPARATOR}{member}",
+                    len(data),
+                    claimed.name,
+                    claimed.label,
+                    TextLikelihood.HIGH.value,
+                    origin,
+                )
+            )
+    if not found:
+        warnings.append(f"{path}: arşivde eklentilerin tanıdığı metin dosyası bulunamadı.")
+
+
 def scan_view(view: GameView, ctx: TaskContext | None = None) -> ScanReport:
     ctx = ctx or TaskContext()
     started = time.monotonic()
@@ -311,9 +359,26 @@ def scan_view(view: GameView, ctx: TaskContext | None = None) -> ScanReport:
     total = view.file_count
     done = 0
     for tree in view.trees:
+        reader = member_reader(tree)
         for vf in tree.view.files.values():
             ctx.report(done, total, vf.path)
             done += 1
+            archive = reader.plugin_format(vf.path)
+            if archive is not None:
+                # Eklentinin arşiv biçimi yerleşik tespitten önce gelir (eklenti metin biçimleri gibi).
+                entries.append(
+                    ScanEntry(
+                        tree.title_id,
+                        vf.path,
+                        vf.size,
+                        FileKind.ARCHIVE.value,
+                        archive.label,
+                        TextLikelihood.NONE.value,
+                        vf.origin,
+                    )
+                )
+                _scan_plugin_archive(tree, reader, vf.path, vf.origin, out=entries, warnings=warnings, ctx=ctx)
+                continue
             storage = tree.view.open(vf.path)
             head, tail = _head_tail(storage)
             det = detect(vf.path, head, tail)

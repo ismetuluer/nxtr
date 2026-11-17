@@ -21,7 +21,14 @@ from nxceviri.core.container.package import KIND_BASE, KIND_LABELS, KIND_UPDATE,
 from nxceviri.core.container.view import ContentTree, GameView, LayeredRomFs, build_game_view, extract_tree
 from nxceviri.core.errors import ContainerError, NxError
 from nxceviri.core.formats.base import SOURCE_LANGUAGE, SOURCE_PATH, FormatPlugin
-from nxceviri.core.formats.registry import all_plugins, kind_label, plugin_for_kind, supported_kinds
+from nxceviri.core.formats.registry import (
+    all_plugins,
+    archive_formats,
+    kind_label,
+    member_reader,
+    plugin_for_kind,
+    supported_kinds,
+)
 from nxceviri.core.formats.scanner import (
     DETAIL_LANGUAGES,
     NESTED_SEPARATOR,
@@ -447,8 +454,10 @@ def _nothing_extracted(
 
 def _read(readers: dict[str, MemberReader], cache: dict[tuple[str, ...], bytes], tree: ContentTree, path: str) -> bytes:
     """Pak ve PSB arşivi içindekileri dizinden, diğerlerini (kardeşleri için ara katmanları saklayarak) okur."""
-    if is_member_path(path):
-        reader = readers.setdefault(tree.title_id, MemberReader(tree.view, tree.code))
+    if is_member_path(path, archive_formats(tree.title_id)):
+        reader = readers.get(tree.title_id)
+        if reader is None:
+            reader = readers[tree.title_id] = member_reader(tree)
         return reader.read(path)
     return _open_cached(cache, tree.title_id, nested.split(path), tree.view)
 

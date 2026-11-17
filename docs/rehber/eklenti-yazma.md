@@ -105,6 +105,7 @@ Dışa aktarma bunları `getattr` ile arar; yoksa atlanır. Türkçe harfle ilgi
 | `paired_code(code)` | Bu kod bir aç/kapa çiftinin parçası mı: `(aile, "open")`, `(aile, "close")`, çiftin içinde kalması gereken ayraç için `(aile, "separator")`, değilse `None`. Aynı ailenin açılışı ve kapanışı kaynaktaki sırayla eşleşir (`</>` gibi genel kapanışta bütün açılışlara aynı aile adını ver); eşi olmayan kod katı kalır. Çift iç içeliği bozulmadan bütün olarak taşınırsa satır uyarıdır, hatalı değildir. Yalnızca biçim etiketleri gerçekten ayrı açılış/kapanış olarak saklıyorsa bildir; `inject` yeri değişmiş çifti yazabilmeli ya da reddetmeli. XML benzeri etiketler için hazır yardımcı: `markup.tag_pair` |
 | `forbids_newline(key)` | Bu satırın çevirisinde gerçek satır sonu (`\n`, `\r`) yasak mı (`True`: ör. tırnaksız TSV/CSV hücresi, satır sonu satırı böler). Bildirilirse çeviride satır sonu olan satır Kontrol Et'te "Satır sonu" hatasıdır ve dışa aktarılmaz (orijinal kalır, bilgi dosyasında listelenir); satır sonu kodu (`⟦n⟧`) sayılmaz. Yalnızca yazıcı satır sonunu kesinlikle taşıyamıyorsa bildir; yoksa davranış değişmez |
 | `derived_files(read, files, game_dir)` | Metinden bağımsız dosya/arşiv üyesi üretimi (`core/formats/derived.py`: yazı tipi, resim) |
+| `archive_formats()` | Oyunun kendine özgü büyük arşivi (kapsayıcı dosya) için eklentinin taşıdığı arşiv biçimleri: `ArchiveFormat` nesnelerinden oluşan demet (`core/formats/base.py`; aşağıda "Arşiv biçimi") |
 | `graphics` (nitelik) | `GraphicsSupport(folder_name, export)`: Dışa Aktar → Görseller; `export(okuyucu, dosyalar, klasör)` özgün resimleri `orijinal/`e yazar ve adlarını döndürür |
 
 ## Test (önce yaz)
@@ -169,6 +170,39 @@ modül yüzünden içe aktaramazsa hata metninde aynı açıklamayı verir. Dene
   (çalışmaz). İskeletin testi `plugin.py`'yi aynı biçimde paket olarak yükler; yeni modül testten de görünür.
 - "Eklenti oluşturamıyorum" diye çekirdeğe yazmak kabul edilmez: sözleşme her biçim için aynıdır, gereken her şey
   bu klasöre sığar.
+
+### Arşiv biçimi (`archive_formats`)
+Metin dosyaları oyunun tanınmayan bir arşivinin içindeyse (yerleşikler: SARC, Yaz0, ZSTD, pak, PSB arşivi, NNI, CPK,
+WAD) arşiv okuyucusunu ve yazıcısını da eklentiye yaz; uygulama onu yerleşik arşivlerle aynı yerlerde kullanır:
+
+```python
+class BenimArsivim:
+    name = "benimarsiv"            # eklentide benzersiz kısa ad
+    label = "Benim arşivim"        # tarama raporunda görünen ad
+    suffixes = (".arc",)           # üst düzey RomFS dosya uzantıları (küçük harf)
+
+    def detect(self, path, head): ...           # head: dosyanın ilk 4 KB'ı
+    def open(self, game, path): ...             # -> members() ve read(üye) sunan nesne
+    def rebuild(self, changes, game): ...       # {arşiv: {üye: yeni bayt}} -> {RomFS yolu: bayt}
+
+class Eklenti(FormatPluginBase):
+    def archive_formats(self):
+        return (BenimArsivim(),)
+```
+
+- `game` oyunun dosyalarıdır: `game.files` (RomFS yolları), `game.open(yol)` (`size`, `read(ofset, boyut)`,
+  `read_all()`). Büyük arşivi `read_all()` ile belleğe alma; dizini ve istenen üyeyi `read` ile oku.
+- `open(...).members()` `{üye yolu: boyut}` döndürür; tarama yalnızca kullanıcı eklentilerinin `path_suffixes`'ine uyan
+  üyeleri okur ve `detect`'in tanıdıklarını `arşiv>üye` yoluyla listeler. `read(üye)` açılmış içeriği verir; üye yoksa
+  `FormatError`. Okuyucu kısa ad gibi eş adları da çözebilir, ama `members()`'taki ad projeye yazılan addır.
+- `rebuild` bir oyundaki bu biçimin bütün değişikliklerini birlikte alır; arşivde olmayan üye (ör. `derived_files`'ın
+  `Derived.members`'ı) eklenecek yeni üyedir. Değişmeyen üyeleri bayt bayt koru. Değişikliği başka bir arşive
+  (ör. güncellemenin arşivi) koyabilir. Uygulama dönen dosyaları oyunun üstüne bindirip `open` ile yeniden açar: her
+  değişiklik dönen arşivlerden birinde aynen okunmalı, var olan arşivden üye düşmemeli; tutmazsa mod üretilmez.
+- `oyunlar` sınırı arşiv biçimi için de geçerlidir; eklenti arşivi aynı uzantılı yerleşik arşivden önce denenir.
+  `dogrula` da arşivin üyelerini gezer. Geçersiz biçim (eksik `rebuild` gibi) eklentiyi yükleme hatasıyla durdurur.
+- Testte küçük bir arşivi elle kur: üyeleri listele, oku; bir üyeyi değiştirip `rebuild` et; değişen üye yeni
+  içerikte, diğerleri bayt bayt aynı olmalı. Uygulamanın kendi testi: `tests/test_plugin_archives.py`.
 
 ## Font ve resim kancaları (aynı eklentide)
 Metin, font ve resim işi **tek eklentide** toplanır:

@@ -30,6 +30,9 @@ def calistir(_args: argparse.Namespace) -> int:
             continue
         games = f", oyunlar: {', '.join(info.oyunlar)}" if info.oyunlar else ""
         print(f"[TAMAM] {info.ad} {info.surum} — {info.yazar} (tür: {info.tur}{games})")
+        if info.arsivler:
+            bicimler = ", ".join(f"{a.label} ({' '.join(a.suffixes)})" for a in info.arsivler)
+            print(f"        Arşiv biçimleri: {bicimler}")
         if info.uyari:
             print(f"        Uyarı: {info.uyari}")
         _bulgulari_yaz(info)

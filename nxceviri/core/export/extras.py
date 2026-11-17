@@ -15,7 +15,7 @@ from nxceviri.core.archives.access import MemberReader
 from nxceviri.core.container.view import ContentTree
 from nxceviri.core.errors import NxError
 from nxceviri.core.formats.derived import Derived
-from nxceviri.core.formats.registry import plugin_for_kind
+from nxceviri.core.formats.registry import member_reader, plugin_for_kind
 
 
 def collect(
@@ -30,7 +30,7 @@ def collect(
         if provider is None or tree is None or (title_id, provider) in done:
             continue
         done.add((title_id, provider))
-        reader = MemberReader(tree.view, tree.code)
+        reader = member_reader(tree)
 
         def read(path: str, _tree: ContentTree = tree, _reader: MemberReader = reader) -> bytes:
             if ">" in path:

@@ -9,9 +9,11 @@ import logging
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from nxceviri.core.archives.access import MemberReader
+from nxceviri.core.container.view import ContentTree
 from nxceviri.core.errors import NxError
 from nxceviri.core.formats import legacy
-from nxceviri.core.formats.base import ControlCode, FormatPlugin
+from nxceviri.core.formats.base import ArchiveFormat, ControlCode, FormatPlugin
 from nxceviri.core.formats.detection import KIND_LABELS, FileKind
 from nxceviri.core.formats.fmsb import FmsbPlugin
 from nxceviri.core.formats.fsdmsg import FsdMsgPlugin
@@ -123,6 +125,15 @@ def user_plugin_info(kind: str) -> PluginInfo | None:
     return next((i for i in _user_report.infos if i.plugin is not None and i.tur == kind), None)
 
 
+def user_plugins_for(title_id: str) -> tuple[FormatPlugin, ...]:
+    """Bu oyunda geçerli (yüklü, `oyunlar` sınırı uyan) kullanıcı eklentileri."""
+    return tuple(
+        info.plugin
+        for info in _user_report.infos
+        if info.plugin is not None and (not info.oyunlar or title_id.upper() in info.oyunlar)
+    )
+
+
 def user_plugin_for_file(title_id: str, path: str, head: bytes) -> FormatPlugin | None:
     """Bu dosyayı tanıyan ilk kullanıcı eklentisi (yalnızca eklentinin oyunlarında); yoksa None."""
     for info in _user_report.infos:
@@ -137,6 +148,28 @@ def user_plugin_for_file(title_id: str, path: str, head: bytes) -> FormatPlugin 
                 _failed_detect.add(info.ad)
                 log.warning("Eklenti tarama sırasında hata verdi: %s: %s", info.ad, exc.message)
     return None
+
+
+def archive_formats(title_id: str | None) -> tuple[ArchiveFormat, ...]:
+    """Bu oyunda geçerli eklenti arşiv biçimleri (`archive_formats()` kancası), eklenti sırasıyla.
+
+    `oyunlar` sınırı uygulanır; oyun bilinmiyorsa (None) yalnızca her oyunda geçerli eklentilerinkiler."""
+    return tuple(
+        fmt
+        for info in _user_report.infos
+        if info.plugin is not None and (not info.oyunlar or (title_id is not None and title_id.upper() in info.oyunlar))
+        for fmt in info.arsivler
+    )
+
+
+def all_archive_formats() -> tuple[ArchiveFormat, ...]:
+    """Yüklü bütün eklenti arşiv biçimleri, `oyunlar` sınırına bakılmadan (oyunu bilinmeyen klasörü sınayan araç)."""
+    return tuple(fmt for info in _user_report.infos if info.plugin is not None for fmt in info.arsivler)
+
+
+def member_reader(tree: ContentTree) -> MemberReader:
+    """Oyun ağacı için arşiv üyesi okuyucusu: yerleşik arşivler ve bu oyunda geçerli eklenti arşivleri."""
+    return MemberReader(tree.view, tree.code, archive_formats(tree.title_id))
 
 
 def kind_label(kind: str) -> str:
