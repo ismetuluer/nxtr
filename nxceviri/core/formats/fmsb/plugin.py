@@ -38,6 +38,9 @@ _CODE_RE = re.compile(
     r"|%[-+0-9.]*[sdf]"
     r"|<[A-Za-z0-9/]{1,8}>"  # <br>, <1>, <C>
 )
+#: Çift kapanışı (`#/c`, `@/c`) ve vurgu açılışı (`^1/`); `paired_code`.
+_PAIR_CLOSE = re.compile(rb"[#@]/[A-Za-z]")
+_EMPHASIS_OPEN = re.compile(rb"\^\d+/")
 #: Bölüm işaretleri (`##(START)`): oyun içi kimliktir, çevrilmez.
 _SECTION_RE = re.compile(r"##\([^()]*\)")
 #: Kana ve kanji (kodlar çıkarıldıktan sonra; `#FN(…町)` gibi ad kodları İngilizce metinde de geçer).
@@ -162,6 +165,19 @@ class FmsbPlugin:
         """Serbest: simge `#(56)`, ad değişkeni `#FN(…)`/`#CN(…)` (adıyla bağlanır). `%s`/`%d` sırayla bağlanır
         (konumsal); renk/boyut/eğik çiftleri, vurgu, bekleme ve yerleşim etiketleri yerinde kalır."""
         return code.raw.startswith((b"#(", b"#FN(", b"#CN("))
+
+    def paired_code(self, code: ControlCode) -> tuple[str, str] | None:
+        """Biçim çifti (her türün kendi kapanışı var): `#c(12)` … `#/c`, `@c(18)` … `@/c`, `#s(0.8)` … `#/s`,
+        `#i` … `#/i`, `#b` … `#/b`, `^1/` … `^`. Kodlar dizgede düz yazı olarak durduğundan yeri değişen çift aynen
+        yazılır. Simge, ad değişkeni, `%s`, bekleme ve yerleşim etiketleri çift değildir."""
+        raw = code.raw
+        if _PAIR_CLOSE.fullmatch(raw):
+            return (raw[:1].decode() + raw[2:].decode(), "close")
+        if raw.startswith((b"#c(", b"@c(", b"#s(")) or raw in (b"#i", b"#b"):
+            return (raw[:2].decode(), "open")
+        if raw == b"^":
+            return ("^", "close")
+        return ("^", "open") if _EMPHASIS_OPEN.fullmatch(raw) else None
 
     def language(self, data: bytes) -> str | None:
         """Ana arşivlerdeki (`<ad>.CPK`) sayfalar Japoncadır; dil CPK'larınınki yol adından anlaşılır.

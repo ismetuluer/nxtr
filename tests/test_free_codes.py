@@ -1,8 +1,9 @@
 """Serbest kontrol kodları (ürün sahibinin kararı, 2026-11-16).
 
 Yalnızca tek başına duran kodların (simge, adıyla bağlanan değişken) yeri değiştiyse satır hatalı sayılmaz: uyarıdır
-ve dışa aktarılır. Konumsal kodlar (`%s`, `%d`), çiftler (renk aç/kapa) ve satır sonları katıdır. Hangi kodun serbest
-olduğunu biçim eklentisi bildirir (`movable_code`); bildirmeyen eklentide hiçbir kod serbest değildir.
+ve dışa aktarılır. Konumsal kodlar (`%s`, `%d`) ve satır sonları katıdır; aç/kapa çiftleri yalnızca bütün olarak
+taşınabilir (`test_paired_codes.py`). Hangi kodun serbest olduğunu biçim eklentisi bildirir (`movable_code`);
+bildirmeyen eklentide hiçbir kod serbest değildir.
 """
 
 from __future__ import annotations

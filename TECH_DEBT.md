@@ -12,11 +12,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 22. **AssetTable/StringTable ayrımı sezgisel** (tüm değerleri GUID olan tablo metin sayılmaz).
     Kesin ayrım için `Script_monoscripts` bundle'ındaki MonoScript sınıf adları okunabilir.
 
-26. **Yer tutucu sırası katı denetleniyor.** Türkçe söz dizimi bazen etiketlerin (ör. `<b>…</b>`
-    çiftinin) cümlede başka yere taşınmasını gerektirir; şu an sıra değişirse satır "Hatalı" olur.
-    *Ne zaman:* Gerçek çeviri denemesinde bu çok sık olursa, eşleşen aç/kapa çiftlerinin bütün
-    olarak taşınmasına izin veren bir kural eklenmeli (biçimin desteklediği doğrulanarak).
-
 31. **Satırın hangi sağlayıcı/modelle çevrildiği kaydedilmiyor.** Karşılaştırma için ileride
     `text_entries`'e sağlayıcı/model sütunu eklenebilir.
 
@@ -38,12 +33,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     "Sayı 0202"); yalnızca seçimler, renk ve sayfa kodları kesin olarak çözüldü. Kodlar her durumda
     aynen korunur.
 
-52. **Kontrol kodu sırası katıdır; Türkçe cümle yapısı bunu sık bozar.** *Kısmen kapandı (0.62.0):* serbest kodlar (simge, adlı değişken) yer değiştirebilir, uyarı verilir; aç/kapa çiftleri hâlâ katı. Bir Unity oyununda 3.466
-    satırın 14'ü (hepsi düğme ikonlu ipucu/talimat metinleri) "Hatalı" çıktı çünkü Türkçe fiil sona
-    gittiğinde ikon ve kalın etiketlerin sırası değişiyor. Elle düzeltilebilir (kodları özgün sırada
-    tutan bir cümle kurulur) ama sıkıcıdır. *Ne zaman:* ikon/değişken gibi bağımsız kodların, çift
-    etiketlerin (açılış/kapanış) iç içeliği korunarak serbest sıralanmasına izin veren bir kural
-    düşünülebilir (CLAUDE.md §4.3 "sıra" kuralının gevşetilmesi ürün sahibinin kararıdır).
 
 54. **DeepL sözlüğü çok sözcüklü terimlerde uygulanmadı (nedeni bilinmiyor).** İki sözcüklü iki terim
     (5 ve 2 satır) sözlükte olduğu hâlde çeviride kullanılmadı; tek
@@ -100,6 +89,17 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     yüksek DPI'da elle izlenmedi. *Ne zaman:* kullanıcı geri bildirimiyle.
 
 91. **Dışa aktarma geri okuması oyunun ayrıştırıcısından yumuşak olabilir (0.55.1).** Yapı denetimi eklentinin kendi `extract`ını kullanır; oyunun yerleşik okuyucusu daha katıysa (ör. tırnaksız satır sonu bölen basit CSV okuyucu) bizim okuyucumuz sorunu görmeyebilir. Savunmanın öteki katmanları (çeviriye karışan kod/satır sonu denetimi) bu boşluğu azaltır. Kalıcı çözüm: biçim eklentilerine "satır sonu yasak" gibi bir kural bildirimi. *Ne zaman:* yeni bir oyunda benzer bozulma görülürse.
+
+97. **Unreal argüman ekleri kısmen çözüldü (2026-11-17).** Yalnızca yalın çoğul ifadesi (`{N}|plural(one=a,other=b)`)
+    parçalanır (ARCHITECTURE 220). Tırnaklı ya da boş değerli çoğul ve başka ekler (`|gender(…)`, `|ordinal(…)`)
+    çözülmez: değişken ile ekin başı tek, katı kod olur, ekin geri kalanı düz metin kalır (makine çevirisi `one=`
+    gibi anahtar sözcükleri çevirirse bozulur; denetim bunu görmez) ve ekin içindeki argümanlar serbest sayılır.
+    Çoğul seçeneğine boşluk, virgül vb. yazılması Kontrol Et'te görünmez; dışa aktarmada eklenti reddeder ve satır
+    "Hatalı" değilse bütün `.locres` dosyası, satırın anahtarını söyleyen hatayla yazılamaz. Bu sürümden önce
+    taranmış projede çoğul satırları yeniden taranana dek aynı hatayı verir (yeniden tarama kaynağı değişmiş
+    satırları "Hatalı" işaretler). Unreal'ın tırnaksız değer kuralları (boşluk, Türkçe harf) gerçek oyunda
+    doğrulanmadı. *Ne zaman:* bu eklerle bir Unreal oyunu çevrilince; ek ayrıştırması motorun belgesine göre
+    genişletilir ve seçenek denetimi Kontrol Et'e taşınır.
 
 ## 2. Bilinen sınırlar (ihtiyaç doğunca)
 
@@ -428,3 +428,12 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 72. ~~CRILAYLA açma yavaş~~ — **Kapandı:** açma döngüsü hızlandırıldı: akış bir kez 0/1 dizgesine açılıp dilim + int(…, 2) ile okunuyor, geri başvurular dilimle kopyalanıyor. Elle üretilmiş 2 MB'lık rastgele geçerli akışta en iyi süre 0,649 sn -> 0,199 sn (~3,3 kat), çıktı bayt bayt aynı (testte bit bit başvuru açıcıyla karşılaştırılır). İlk geçişte dili yoldan belli dosyaları atlamak (pipeline değişikliği) yapılmadı.
 
 21. ~~Smart String ifadeleri tek bir kontrol kodu sayılıyor~~ — **Kapandı:** çoğul ifadesi (iki ya da daha çok dallı {0:plural:a|b}) artık ayrılıyor: iskeleti ({0:plural:, her |, kapanış }) sıralı ve katı kod, dalların sözcükleri çevrilebilir (markup.tokenize plural=True; yalnızca Unity kullanır). Yer tutucu sözleşmesi (sayı/sıra/tür) değişmedi; round-trip bayt bayt aynı. Tek dallı çoğul ve choose/cond/list gibi öteki ifadeler tek kod olarak kalır. Gerçek bir oyunda denenmedi; Türkçe çoğul dalı sayısı kaynak dilden azsa çeviride yine tüm ayraçlar bulunmalıdır.
+
+26. ~~Yer tutucu sırası katı denetleniyor.~~ — **Kapandı (ürün sahibinin kararı, 2026-11-17):** biçim eklentisi
+    `paired_code` ile bildirdiğinde aç/kapa çifti iç içeliği bozulmadan bütün olarak taşınabilir; satır uyarıdır,
+    dışa aktarılır (ARCHITECTURE 219). Bildirmeyen eklentide (GFMSG, fsd, kullanıcı eklentileri) çiftler katı kalır.
+
+52. ~~Kontrol kodu sırası katıdır; Türkçe cümle yapısı bunu sık bozar.~~ — **Kapandı:** serbest kodlar (0.62.0) ve
+    bütün olarak taşınan aç/kapa çiftleri (2026-11-17, ARCHITECTURE 219) uyarıdır. Kalan: satır/sayfa sonu ve
+    konumsal kodların (`%s`) sırası bilerek katıdır; MSBT'de rengi yeni bir renk etiketiyle sıfırlayan oyunlarda
+    (0x0F kapanışı yok) renk kodları çift sayılmaz, katı kalır.

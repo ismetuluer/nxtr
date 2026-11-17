@@ -270,6 +270,13 @@ class NniTextPlugin:
         """Serbest: simge `<ext:17>`. `%s`/`%d` sırayla bağlanır (konumsal); renk ve boyut kodları yerinde kalır."""
         return code.raw.startswith(b"<ext:")
 
+    def paired_code(self, code: ControlCode) -> tuple[str, str] | None:
+        """Renk çifti: `<color:0xffRRGGBB>` … `<color:>`. Kodlar dizgede düz yazı olarak durduğundan yeri değişen
+        çift aynen yazılır. Boyut (`<scale:…>`), simge ve değişkenler çift değildir."""
+        if code.raw == b"<color:>":
+            return ("color", "close")
+        return ("color", "open") if code.raw.startswith(b"<color:") else None
+
     def extract(self, data: bytes, context: Context | None = None) -> list[TextEntry]:
         entries: list[TextEntry] = []
         if data.startswith(XSO_MAGIC):

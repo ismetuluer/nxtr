@@ -238,6 +238,13 @@ class WadLinPlugin:
                 entries.append(TextEntry(f"{prefix}{i}", len(entries), source, codes, context=note))
         return entries
 
+    def paired_code(self, code: ControlCode) -> tuple[str, str] | None:
+        """Renk/biçim çifti: `<CLT 4>` … `<CLT>`. Etiketler UTF-16 metnin içinde düz yazı olarak durduğundan yeri
+        değişen çift aynen yazılır."""
+        if code.raw == b"<CLT>":
+            return ("CLT", "close")
+        return ("CLT", "open") if code.raw.startswith(b"<CLT ") else None
+
     def inject(self, data: bytes, translations: Mapping[str, str]) -> bytes:
         if not translations:
             return data

@@ -37,8 +37,9 @@ def evaluate(
 
     İnsanın elle girdiği geçerli çeviri "onaylandı" sayılır; makine çevirisi (M3)
     `ok_status=Status.MACHINE`, dış redaksiyondan gelen düzeltme `Status.REDACTED` ile çağırır.
-    `free`: satırın serbest kodları; yalnızca bunların yeri değiştiyse satır hatalı sayılmaz (uyarıyı Kontrol Et
-    denetimi üretir, açıklamaya yazılmaz).
+    `free`: satırın kod rolleri (serbest kodlar; `CodeRoles` ise aç/kapa çiftleri de); yalnızca serbest kodların ya
+    da bütün olarak taşınan çiftlerin yeri değiştiyse satır hatalı sayılmaz (uyarıyı Kontrol Et denetimi üretir,
+    açıklamaya yazılmaz).
     """
     if not translation:
         return Status.UNTRANSLATED, ""

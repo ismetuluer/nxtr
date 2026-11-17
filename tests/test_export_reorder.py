@@ -1,5 +1,5 @@
-"""Hatalı satırları aktarırken yalnızca kod sırası farklı olan satırlar: serbest kodlar yazılır; çiftler ve konumsal
-kodlar (`%s`, `%d`) yazılmaz."""
+"""Hatalı satırları aktarırken yalnızca kod sırası farklı olan satırlar: serbest kodlar yazılır; ters dönen çiftler ve
+konumsal kodlar (`%s`, `%d`) yazılmaz."""
 
 from __future__ import annotations
 
@@ -25,16 +25,13 @@ OPEN = "Renk #c(15)"
 CLOSE = "Renk sonu #/c"
 
 
-def _free_vars(n: int) -> bool:
-    return n in (1, 2)
-
-
-def test_order_only_problem_distinguishes_safe_reorder() -> None:
+def test_check_distinguishes_safe_reorder() -> None:
     src = "Altın ⟦1⟧, ad ⟦2⟧, ⟦3⟧renkli⟦4⟧"
-    assert placeholders.order_only_problem(src, "Ad ⟦2⟧, altın ⟦1⟧, ⟦3⟧renkli⟦4⟧", _free_vars)
-    assert not placeholders.order_only_problem(src, "Ad ⟦2⟧, altın ⟦1⟧, ⟦4⟧renkli⟦3⟧", _free_vars)  # çift ters
-    assert not placeholders.order_only_problem(src, "Ad ⟦2⟧, altın ⟦1⟧, ⟦3⟧renkli", _free_vars)  # kod eksik
-    assert not placeholders.order_only_problem(src, src, _free_vars)  # sorun yok: sıra farkı da yok
+    free = frozenset({1, 2})
+    assert placeholders.check(src, "Ad ⟦2⟧, altın ⟦1⟧, ⟦3⟧renkli⟦4⟧", free).warnings
+    assert placeholders.check(src, "Ad ⟦2⟧, altın ⟦1⟧, ⟦4⟧renkli⟦3⟧", free).errors  # çift ters
+    assert placeholders.check(src, "Ad ⟦2⟧, altın ⟦1⟧, ⟦3⟧renkli", free).errors  # kod eksik
+    assert placeholders.check(src, src, free) == placeholders.CodeCheck()  # sorun yok: sıra farkı da yok
     assert placeholders.problems(src, "Ad ⟦2⟧, altın ⟦1⟧, ⟦3⟧renkli⟦4⟧")
     with placeholders.tolerate_reorder():
         assert not placeholders.problems(src, "Ad ⟦2⟧, altın ⟦1⟧, ⟦3⟧renkli⟦4⟧")
