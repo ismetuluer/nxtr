@@ -96,9 +96,30 @@ Kalan küçük kusur: Sığdırma ayar kartında gizlenen sonuç satırının ye
   seçenekleri, Denetle, sığdırma alanları). Çevir sayfasında ipucusuz kalanlar yalnızca kendini anlatan düğmeler
   (Bul, Yerine, Onayla, İptal).
 
-**Sırada**
-Görsel denetim listesi ve 0.57.2 sonrası geri bildirim kapandı. Sıradaki iş, yukarıdaki "Sonraki yapılacaklar"
-listesinden ürün sahibinin seçimiyle belirlenir.
+**Sırada: kalan işlerin yol haritası (ürün sahibinin isteği, 2026-11-17)**
+Hedef: "şimdi yapılabilir" listesini boşaltmak; tek sürümle yayımlanır (0.63.1 düzeltmeleri dahil). Kararlar
+(anket, 2026-11-17): aç/kapa kod çiftleri iç içelik korunarak bütün taşınabilir (uyarı); Python 3.12 indirilip
+denenir; ana pencere bölünür.
+
+Aşama 1 (paralel; `main_window.py`'ye yalnızca bölme işi dokunur)
+- 1a. Ana pencereyi bölme (TECH_DEBT 69): önce Kontrol Et, sonra Dışa Aktar denetleyicisi; davranış ve testler aynı.
+- 1b. Kod çiftleri (TECH_DEBT 26, 52) ve Unreal çoğul kodları; karar `placeholders.check`'te, eklenti bildirir.
+- 1c. Çekirdek küçük borçlar: Ollama belirteç tahmini (86), Türkçe harf onarımı istisna listesi (92), satır sonu
+  yasak kural bildirimi (91), I2 kaynak dili (43), Smart String çoğul içi (21), CRILAYLA hızı (72).
+- 1d. Python 3.12 ile tam test (TECH_DEBT 12).
+
+Aşama 2 (bölünmüş yapı üzerinde)
+- 2a. Yazım penceresinin açılış hızı (arka planda tarama).
+- 2b. Görsel cila: boşluk/köşe ölçeği, adım listesinde odak işareti, boş "Oyunu Ekle" ekranı, durum çubuğu
+  etiketleri, kısa panel/bildirim açılış animasyonu (90).
+- 2c. Sorunlar panosu eksikleri (85) ve satırın hangi sağlayıcı/modelle çevrildiğinin kaydı (31, şema geçişi).
+
+Aşama 3: tam test, gerçek proje kopyasında ölçüm, istek-sonuç kıyası, sürüm.
+
+Koşula bağlı (burada yapılamaz; neyi beklediği yanında): 22, 47 gerçek oyun verisi · 33, 46 font ölçüsüyle
+gerçek kutu genişliği (oyunda görülmeli) · 54 nedeni bilinmiyor, veri yok · 55 mimari karar 51 · 68 gerçek model
+ölçümü · 75, 89 ilgili oyun yeniden çevrilirken · 83 gerçek Unity oyunu ölçümü · 87, 91'in genişletilmesi kullanıcı
+geri bildirimi · 88 gerçek Windows bildirimi · "Bilinen sınırlar" bölümü ihtiyaç doğunca.
 
 **Yapıldı (0.63.0)**
 - Kontrol Et bekleme ekranı ve Durdur (`widgets.BusyState`, `run_checks(progress=)`, `qa_page.mark_checking`).
