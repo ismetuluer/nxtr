@@ -116,8 +116,9 @@ class Card(QFrame):
         head.addStretch(1)
         self.header_right = QHBoxLayout()
         head.addLayout(self.header_right)
-        head_box.setVisible(bool(title))  # başlıksız kart: başlık satırı yer kaplamaz
         outer.addWidget(head_box)
+        # Ebeveyne bağlandıktan sonra: ebeveynsiz setVisible(True) bir anlığına ayrı pencere açar (açılışta titreme).
+        head_box.setHidden(not title)  # başlıksız kart: başlık satırı yer kaplamaz
         if subtitle:
             outer.addWidget(label(subtitle, "muted", wrap=True))
         self.body = QVBoxLayout()

@@ -453,9 +453,9 @@ class MainWindow(QMainWindow):
         self._nav_anim: SpringAnimator | None = None
         self._nav_collapsed = self._initial_nav_collapsed()
         self.nav.set_collapsed(self._nav_collapsed)
-        self.nav_header.setVisible(not self._nav_collapsed)
         self.nav.preferred_width_changed.connect(self._update_nav_width)
         column.addWidget(self.nav_header)
+        self.nav_header.setHidden(self._nav_collapsed)  # ebeveynden sonra: yoksa bir anlığına ayrı pencere açılır
         column.addWidget(self.nav, 1)
         # Görünür daralt/genişlet düğmesi (menü ve Ctrl+Alt+S'nin yanında): daralmış hâlde de görünür kalır.
         self.nav_toggle = QToolButton()

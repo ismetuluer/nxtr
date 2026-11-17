@@ -2,6 +2,12 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [Yayımlanmadı]
+
+### Düzeltildi
+- **Açılışta ekran titremesi:** ana pencere kurulurken kart başlıkları ve kenar çubuğu başlığı ebeveyne bağlanmadan
+  görünür yapıldığı için 9-10 küçük boş pencere bir anlığına açılıp kapanıyordu. Artık yalnızca ana pencere açılır.
+
 ## [0.65.0] — 2026-11-17 — Eklenti arşiv kancası, dosya adından dil
 
 ### Eklendi
