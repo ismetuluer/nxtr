@@ -32,6 +32,15 @@ CHIP_TEXT_LIMIT = 40
 #: Son projeler kartında en çok kaç satır görünür.
 RECENT_SHOWN = 8
 RECENT_NAME_WIDTH = 200
+#: Boş ekranda gösterilen akış: (adım adı, tek cümlelik açıklama); sıra `step_nav.STEPS` ile aynıdır.
+HOW_IT_WORKS: tuple[tuple[str, str], ...] = (
+    ("Oyunu Ekle", "Anahtar dosyanızı seçin, oyunun NSP ya da NSZ dosyasını bırakın."),
+    ("Metinleri Tara", "Oyunun içindeki metinler ayıklanır."),
+    ("Çevir", "Makine çevirisi yapın, satırları elle düzeltin."),
+    ("Kontrol Et", "Kod, uzunluk ve yazım sorunlarını görün ve düzeltin."),
+    ("Dışa Aktar", "Oyuna geri yüklenecek mod klasörünü oluşturun."),
+)
+STEP_NAME_WIDTH = 150
 
 
 class AddGamePage(QWidget):
@@ -117,6 +126,18 @@ class AddGamePage(QWidget):
         self._recent: list[Path] = []
         self._has_sources = False
 
+        # --- beş adımın kısa yolu (yalnızca ekran boşken) ---
+        self.steps_card = Card("Beş adımda çeviri")
+        for number, (name, text) in enumerate(HOW_IT_WORKS, start=1):
+            row = QHBoxLayout()
+            row.setSpacing(12)
+            title = label(f"{number} {name}", "stepName")
+            title.setFixedWidth(STEP_NAME_WIDTH)
+            row.addWidget(title, alignment=Qt.AlignmentFlag.AlignTop)
+            row.addWidget(label(text, "muted", wrap=True), 1)
+            self.steps_card.body.addLayout(row)
+        lay.addWidget(self.steps_card)
+
         lay.addStretch(1)
 
     # --- güncelleme yöntemleri ----------------------------------------------------------
@@ -168,6 +189,7 @@ class AddGamePage(QWidget):
 
     def _sync_recent_visible(self) -> None:
         self.recent_card.setVisible(bool(self._recent) and not self._has_sources)
+        self.steps_card.setVisible(not self._has_sources)
 
     def set_sources(self, sources: list[SourceRecord]) -> None:
         self._has_sources = bool(sources)

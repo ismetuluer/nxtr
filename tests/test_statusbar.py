@@ -287,6 +287,7 @@ def test_save_state(window: MainWindow) -> None:
     window._refresh_status()
     assert seg._save.toolTip() == "Kaydedilmedi"
     assert seg.save_dot.property("state") == "warning"
+    assert seg.save_dot.accessibleName() == "Kayıt durumu: Kaydedilmedi"  # nokta tek başına etiketsizdi
     window.dirty = False
     window._refresh_status()
     assert seg._save.toolTip() == "Kaydedildi"

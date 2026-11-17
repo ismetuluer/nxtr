@@ -8,7 +8,17 @@ böylece simgeler her çizimde geçerli tema renkleriyle üretilir ve tema deği
 from __future__ import annotations
 
 from PySide6.QtCore import QEvent, QModelIndex, QPersistentModelIndex, QPoint, QRect, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QResizeEvent
+from PySide6.QtGui import (
+    QColor,
+    QFocusEvent,
+    QFont,
+    QFontMetrics,
+    QKeyEvent,
+    QMouseEvent,
+    QPainter,
+    QPen,
+    QResizeEvent,
+)
 from PySide6.QtWidgets import (
     QLabel,
     QListWidget,
@@ -95,6 +105,15 @@ class _StepDelegate(QStyledItemDelegate):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(QColor(tokens["selection" if selected else "surface2"]))
             painter.drawRoundedRect(rect, 8, 8)
+        if (
+            option.state & QStyle.StateFlag.State_HasFocus
+            and isinstance(option.widget, StepNav)
+            and option.widget.keyboard_focus
+        ):
+            # Klavye odağı: ince vurgu halkası (fare tıklamasında çizilmez).
+            painter.setPen(QPen(QColor(tokens["accent"]), 2))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRoundedRect(rect.adjusted(1, 1, -1, -1), 7, 7)
         text_color = QColor(tokens["text" if enabled else "muted"])
         icon_color = tokens["success"] if (done and enabled) else tokens["accent" if enabled else "muted"]
         mark = icons.icon(str(index.data(ICON_ROLE)), icon_color, ICON_SIZE).pixmap(ICON_SIZE, ICON_SIZE)
@@ -154,6 +173,7 @@ class StepNav(QListWidget):
         self.setMouseTracking(True)
         self.setUniformItemSizes(True)
         self._collapsed = False
+        self._keyboard_focus = False
         for name, icon_name in STEPS:
             item = QListWidgetItem(name)
             item.setData(ICON_ROLE, icon_name)
@@ -165,6 +185,35 @@ class StepNav(QListWidget):
     @property
     def collapsed(self) -> bool:
         return self._collapsed
+
+    @property
+    def keyboard_focus(self) -> bool:
+        """Odak klavyeyle (Tab ya da ok tuşları) geldi; fare tıklamasında odak işareti çizilmez."""
+        return self._keyboard_focus
+
+    def _set_keyboard_focus(self, value: bool) -> None:
+        if value != self._keyboard_focus:
+            self._keyboard_focus = value
+            self.viewport().update()
+
+    def focusInEvent(self, event: QFocusEvent) -> None:
+        super().focusInEvent(event)
+        self._set_keyboard_focus(
+            event.reason()
+            in (Qt.FocusReason.TabFocusReason, Qt.FocusReason.BacktabFocusReason, Qt.FocusReason.ShortcutFocusReason)
+        )
+
+    def focusOutEvent(self, event: QFocusEvent) -> None:
+        super().focusOutEvent(event)
+        self._set_keyboard_focus(False)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        self._set_keyboard_focus(True)
+        super().keyPressEvent(event)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        self._set_keyboard_focus(False)
+        super().mousePressEvent(event)
 
     def set_collapsed(self, collapsed: bool) -> None:
         """Daraltılmış hâlde yalnızca simgeler çizilir; ad ve rozet sayısı ipucuna taşınır."""

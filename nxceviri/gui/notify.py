@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.mascot import MOOD_DONE, MOOD_ERROR, MascotWidget, mascot_enabled
+from nxceviri.gui.motion import fade_in
 from nxceviri.gui.widgets import button
 
 log = logging.getLogger(__name__)
@@ -272,6 +273,7 @@ class NoticeStack(QWidget):
         self.show()
         self.raise_()
         self._place()
+        fade_in(card)
 
     def _remove(self, card: NoticeCard) -> None:
         if card in self._cards:

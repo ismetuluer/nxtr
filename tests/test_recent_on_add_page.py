@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QSettings
-from PySide6.QtWidgets import QToolButton
+from PySide6.QtWidgets import QLabel, QToolButton
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.project import SourceRecord
@@ -35,6 +35,34 @@ def _page(qtbot: QtBot) -> AddGamePage:
     qtbot.addWidget(page)
     page.show()
     return page
+
+
+def test_steps_guide_shown_only_while_empty(qtbot: QtBot) -> None:
+    """Boş ekranda beş adımı anlatan kısa yol görünür; oyun eklenince kaybolur."""
+    page = _page(qtbot)
+    assert page.steps_card.isVisible()
+    names = [lbl.text() for lbl in page.steps_card.findChildren(QLabel) if lbl.property("role") == "stepName"]
+    assert [n.split(" ", 1)[1] for n in names] == [
+        "Oyunu Ekle",
+        "Metinleri Tara",
+        "Çevir",
+        "Kontrol Et",
+        "Dışa Aktar",
+    ]
+    source = SourceRecord(
+        path=Path("oyun.nsp"),
+        kind="base",
+        name="A",
+        title_id="0100",
+        application_id="0100",
+        version=0,
+        display_version="",
+        file_size=1,
+    )
+    page.set_sources([source])
+    assert not page.steps_card.isVisible()
+    page.set_sources([])
+    assert page.steps_card.isVisible()
 
 
 def test_missing_paths_skipped(qtbot: QtBot, tmp_path: Path) -> None:

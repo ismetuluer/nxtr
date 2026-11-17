@@ -330,3 +330,42 @@ def test_visible_toggle_button_collapses_and_expands(qtbot: QtBot, window: MainW
     button.click()
     assert not _collapsed(window)
     assert "daralt" in button.toolTip()
+
+
+def _ring_pixels(nav: StepNav) -> int:
+    """Geçerli satırın kenarında vurgu renginde çizilen piksel sayısı (odak işareti)."""
+    from PySide6.QtGui import QColor
+
+    from nxceviri.gui.theme import current_tokens
+
+    image = nav.viewport().grab().toImage()
+    accent = QColor(current_tokens()["accent"]).rgb()
+    rect = nav.visualItemRect(nav.item(nav.currentRow()))
+    count = 0
+    for x in range(rect.left(), rect.right() + 1):
+        for y in (rect.top() + 2, rect.bottom() - 2):
+            count += int(image.pixelColor(x, y).rgb() == accent)
+    return count
+
+
+def _keyboard_focus(nav: StepNav) -> bool:
+    return nav.keyboard_focus
+
+
+def test_keyboard_focus_ring_only_for_keyboard(qtbot: QtBot) -> None:
+    nav = StepNav()
+    qtbot.addWidget(nav)
+    nav.resize(240, 300)
+    nav.show()
+    nav.setCurrentRow(1)
+    nav.setFocus()
+    qtbot.waitUntil(nav.hasFocus)
+    assert not _keyboard_focus(nav)
+    assert _ring_pixels(nav) == 0
+    qtbot.keyClick(nav, Qt.Key.Key_Down)
+    assert _keyboard_focus(nav)
+    assert _ring_pixels(nav) > 20
+    rect = nav.visualItemRect(nav.item(0))
+    qtbot.mouseClick(nav.viewport(), Qt.MouseButton.LeftButton, pos=rect.center())
+    assert not _keyboard_focus(nav)
+    assert _ring_pixels(nav) == 0
