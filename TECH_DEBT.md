@@ -88,10 +88,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     reddedilince kaybolur; riskli toplu düzeltmelerde ayrıca onay sorusu yok; 8 harften uzun Türkçe
     ek zincirleri terim denetiminde tanınmaz. *Ne zaman:* kullanıcı geri bildirimiyle.
 
-86. **Ollama belirteç tahmini kaba (karakter/3, 0.51.0).** Japonca/Çince kaynakta gerçek belirteç
-    sayısı daha yüksek olabilir; parti tahminden uzun çıkarsa `num_ctx` bir basamak yükselir (model bir
-    kez yeniden yüklenir).
-
 87. **Sayfa içi durum bantları yerinde (0.52.0; 0.52.1'de iş sonuçları bildirime taşındı).** Oyunu Ekle,
     Metinleri Tara, Kontrol Et ve Dışa Aktar sayfalarının bağlamsal uyarı bantları (ör. anahtar dosyası,
     tarama hatası) sayfada durur; iş bittiğinde ya da hata olduğunda ayrıca bildirim kartı çıkar.
@@ -432,3 +428,5 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     düzeltme önce Öneri sütunundan gözden geçirilir ve Geri Al ile döner. Önerilerin sırası olasılığa değil değişen
     harf sayısına dayanır (sözcük sıklığı bilinmiyor). *Olası iyileştirme:* Türkçe harf silen önerileri toplu
     düzeltmeden çıkarmak (gerçek projede güvenli sınıfın 109/257'si).
+
+86. ~~Ollama belirteç tahmini kaba~~ — **Kapandı:** tahmin CJK (kana, Kanji/Çince, Hangul) karakterini ~1 belirteç, Latin metni karakter/3 sayar (estimate_tokens, prompt_weight; ollama.py). Gerçek sayı modele göre değişir; parti tahminden uzun çıkarsa num_ctx yine bir basamak yükselir.
