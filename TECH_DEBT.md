@@ -37,11 +37,13 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     makine işi iletileri `gui/jobs.py`'ye, son projeler `gui/recent.py`'ye, kurtarma kopyası
     `gui/recovery.py`'ye taşındı. İkinci adım (2026-11-17, ARCHITECTURE karar 221): Kontrol Et
     `gui/checks_controller.py`'ye, Dışa Aktar `gui/export_controller.py`'ye taşındı; pencere ~3.600 satır.
-    Kalan: proje yaşam döngüsü (yeni/aç/kaydet/kurtarma), makine işleri (çeviri, redaksiyon, değişiklikler,
-    terimler), yazım denetimi penceresi, dış redaksiyon içe/dışa aktarma ve görseller hâlâ pencere sınıfında.
-    Testler pencerenin yöntemlerini ve modülün adlarını (`ask_machine_settings`, `provider_factory`,
-    `_launch_machine`, `UpdateDialog`, `implicit_terms` …) değiştirerek çalıştığı için aynı düzenle (karar 221:
-    yönlendirme + pencere üzerinden çağrı) adım adım taşınmalı.
+    Üçüncü adım (2026-11-17, karar 221): proje yaşam döngüsü `gui/project_controller.py`'ye, makine işleri
+    (çevir / yeniden çevir / talimatla düzelt) `gui/machine_controller.py`'ye taşındı; pencere ~3.370 satır.
+    Kalan: son işin değişiklikleri ve satır geçmişi (`show_job_changes`, `_revert`; testler `ChangesDialog`'u
+    pencere modülünde değiştirir), terimler ve terim önerileri, yazım denetimi penceresi, dış redaksiyon
+    içe/dışa aktarma (`CsvExportDialog` pencere modülünde değiştirilir), güncelleme (`UpdateDialog`) ve görseller
+    hâlâ pencere sınıfında. Aynı düzenle (karar 221: yönlendirme + pencere üzerinden çağrı, pencere modülünde
+    değiştirilen adlar gecikmeli içe aktarılan pencere modülünden) adım adım taşınmalı.
     *Ne zaman:* bu bölümlerden birine büyük bir özellik eklenirken o bölüm ayrı bir denetleyiciye taşınır.
 
 75. **NNI arşivli oyun: grafik klasörünü üretmek ve seçmek için arayüz yok (0.39.0).** `orijinal/`

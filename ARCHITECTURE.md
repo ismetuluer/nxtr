@@ -120,6 +120,8 @@ nxceviri/
     main_window.py         # adımlar arası akış, menüler, arka plan işleri
     checks_controller.py   # Kontrol Et iş akışı: denetim, pano yenileme, yok sayma, Düzelt (karar 221)
     export_controller.py   # Dışa Aktar iş akışı: özet, hedef klasör, mod oluşturma (karar 221)
+    project_controller.py  # proje yaşam döngüsü: yeni, aç, kaydet, son projeler, kurtarma (karar 221)
+    machine_controller.py  # makine işleri: çevir, yeniden çevir, talimatla düzelt penceresi ve iş (karar 221)
     icons.py + icons/*.svg # Lucide simgeleri; temaya uyan QIcon, bind_icon/refresh_icons
     appicon/               # uygulama simgesi: nxtr.svg + nxtr-kucuk.svg (kaynak) → .ico/.png (packaging/make_icon.py)
     step_nav.py            # simgeli kenar çubuğu (StepNav) ve proje başlığı
@@ -1106,6 +1108,15 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     görsel çıkarma pencerede. Dışa aktarma `check_sources`'u kendi modülünden çağırır; pencere modülündeki adı
     değiştirmek artık yalnızca pencerede kalan yolları (ekleme, görseller, font) etkiler. Adım sabitleri
     `gui/step_nav.py`'dedir, `main_window` `__all__` ile yeniden verir.
+    Üçüncü adım (aynı düzen): proje yaşam döngüsü (yeni, aç, kaydet, farklı kaydet, son projeler, kurtarma kopyası)
+    `gui/project_controller.py` `ProjectController`'da (`self.projects`), makine işleri (çevir / yeniden çevir /
+    talimatla düzelt penceresi, kapsamlar, ayarların hatırlanması, işin yürütülmesi ve partilerin yazılması)
+    `gui/machine_controller.py` `MachineController`'da (`self.machine`). İkisi de durum tutmaz: proje, `dirty`,
+    `recent`, `recovery`, `_recovery_due`, `_last_job`, `secrets`, `provider_factory` pencerede kalır (testler bunları
+    pencerede atar). Kaydetme sorusu (`ask_save_changes`, `build_save_box` pencere modülünde) ve `closeEvent`
+    pencerede kalır. Testlerin pencere modülünde değiştirdiği `implicit_terms`'i makine denetleyicisi gecikmeli
+    içe aktarılan pencere modülünden okur (`_mw.implicit_terms`). Talimat anahtarları (`REVISE_INSTRUCTION_KEY`,
+    `TRANSLATE_INSTRUCTION_KEY`) denetleyici modülündedir, `main_window` yeniden verir.
 
 ### 4.55 2026-11-17 kararları (çeviri kaynağı, Sorunlar panosu)
 

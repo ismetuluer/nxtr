@@ -104,7 +104,7 @@ from nxceviri.core.translate.fitconfig import (
     separate_groups,
 )
 from nxceviri.core.translate.glossary_io import merge_terms, plan_terms_from_rows
-from nxceviri.core.translate.origin import MEMORY_ORIGIN, NO_ORIGIN, MachineOrigin
+from nxceviri.core.translate.origin import NO_ORIGIN, MachineOrigin
 from nxceviri.core.translate.port import ReadyTranslations, port_translations, read_ready_translations
 from nxceviri.core.translate.probe import deepl_summary, ollama_summary
 from nxceviri.core.translate.providers.base import ProviderError, TranslationProvider
@@ -112,12 +112,8 @@ from nxceviri.core.translate.providers.deepl import DeepLProvider
 from nxceviri.core.translate.providers.ollama import DEFAULT_URL, OllamaProvider
 from nxceviri.core.translate.report import job_label, mark_label
 from nxceviri.core.translate.runner import (
-    ACTION_REVISE,
     ACTION_TRANSLATE,
     MachineJob,
-    RunSummary,
-    memory_filled_ids,
-    target_rows,
 )
 from nxceviri.core.translate.status import TRANSLATED_STATUSES, Status
 from nxceviri.core.translate.terms import TermCandidate, TermSuggestion, find_candidates, suggest_glossary
@@ -142,22 +138,17 @@ from nxceviri.gui.export_controller import ExportController
 from nxceviri.gui.export_page import ExportPage
 from nxceviri.gui.help_window import STEP_TOPICS, TOPIC_START, HelpWindow
 from nxceviri.gui.icons import bind_icon
-from nxceviri.gui.jobs import JOB_TITLES, describe_summary, new_job_id, run_and_close, short_summary
+from nxceviri.gui.jobs import new_job_id
+from nxceviri.gui.machine_controller import REVISE_INSTRUCTION_KEY, TRANSLATE_INSTRUCTION_KEY, MachineController
 from nxceviri.gui.machine_dialogs import (
     PROVIDER_DEEPL,
     PROVIDER_OLLAMA,
     SCOPE_ALL,
-    SCOPE_FILTERED,
-    SCOPE_GROUPS,
-    SCOPE_PATTERN,
-    SCOPE_SELECTED,
     AddTermsDialog,
     GlossaryDialog,
-    MachineDialog,
     MachineSettings,
     TermSuggestionsDialog,
     make_provider,
-    rows_matching,
 )
 from nxceviri.gui.mascot import (
     MOOD_DONE,
@@ -220,30 +211,32 @@ from nxceviri.gui.translate_page import TranslatePage
 from nxceviri.gui.update_dialog import UpdateDialog, UpdaterFactory, auto_check_enabled
 from nxceviri.gui.widgets import button, format_int, format_size, tip_html
 
-#: Modülün dışa verdiği adlar; adım sabitleri `step_nav`'da tanımlıdır, buradan da alınabilsinler diye yeniden verilir.
+#: Modülün dışa verdiği adlar; adım sabitleri `step_nav`'da, talimat anahtarları `machine_controller`'da tanımlıdır,
+#: buradan da alınabilsinler diye yeniden verilir. `implicit_terms`'i makine denetleyicisi bu modülden okur (testler
+#: onu burada değiştirir).
 __all__ = [
     "MANUAL_LIMIT_KEY",
     "MASCOT_SLEEP_S",
+    "REVISE_INSTRUCTION_KEY",
     "STEP_ADD",
     "STEP_EXPORT",
     "STEP_QA",
     "STEP_SCAN",
     "STEP_TRANSLATE",
+    "TRANSLATE_INSTRUCTION_KEY",
     "MainWindow",
     "ask_full_folder",
     "build_save_box",
     "choose_button",
+    "implicit_terms",
     "log_dir",
 ]
 
 log = logging.getLogger(__name__)
 
 APP_TITLE = "NXTR"
-#: Proje ayarı: son kullanılan redaksiyon talimatı (pencere bir sonraki açılışta bunu önerir).
 #: Projenin ayar tablosunda "Elle sınır" (çeviri panelinin satır sınırı); 0 = kapalı.
 MANUAL_LIMIT_KEY = "translate_manual_limit"
-REVISE_INSTRUCTION_KEY = "revise_instruction"
-TRANSLATE_INSTRUCTION_KEY = "translate_instruction"
 
 
 #: Kaydedilmemiş projenin kurtarma kopyasının yenilenme aralığı.
@@ -392,6 +385,8 @@ class MainWindow(QMainWindow):
         self.exporter = ExportController(self)
         #: Proje yaşam döngüsü (yeni, aç, kaydet, son projeler, kurtarma); durum pencerede kalır.
         self.projects = ProjectController(self)
+        #: Makine işleri (çevir, yeniden çevir, talimatla düzelt); durum pencerede kalır.
+        self.machine = MachineController(self)
         #: Çeviri satırları her yeniden kurulduğunda artar; satırlara bağlı ağır hesapların önbelleği buna bağlıdır.
         self._rows_version = 0
         self._fit_lists_cache: tuple[int, list[str], list[str], list[str]] | None = None
@@ -2722,98 +2717,18 @@ class MainWindow(QMainWindow):
         action: str = ACTION_TRANSLATE,
         scope: str = SCOPE_ALL,
     ) -> MachineSettings | None:
-        dialog = MachineDialog(
-            self,
-            provider=str(self.settings.value("translate/provider", PROVIDER_OLLAMA)),
-            base_url=str(self.settings.value("ollama/url", DEFAULT_URL)),
-            model=str(self.settings.value("ollama/model", "")),
-            notes=self.project.setting("translation_notes"),
-            source_language=self.project.setting("source_language", "en"),
-            secrets=self.secrets,
-            scopes=scopes,
-            action=action,
-            scope=scope,
-            instruction=self.project.setting(REVISE_INSTRUCTION_KEY),
-            translate_instruction=self.project.setting(TRANSLATE_INSTRUCTION_KEY),
-        )
-        try:
-            if dialog.exec() != MachineDialog.DialogCode.Accepted:
-                return None
-            return dialog.settings()
-        finally:
-            dialog.deleteLater()  # her açılışta ana pencerenin çocuğu olarak kalıyordu (sızıntı)
+        return self.machine.ask_machine_settings(scopes, action, scope)
 
     def _machine_scopes(self) -> dict[str, list[TranslationRow]]:
         """Pencerede sunulan kapsamlar: seçili satırlar, onların grupları, filtrelenen satırlar, tümü."""
-        page = self.translate_page
-        rows = page.model.rows
-        selected = page.selected_rows()
-        groups = {row_group(r) for r in selected}
-        filtered = page.filtered_rows()
-        return {
-            SCOPE_SELECTED: selected,
-            SCOPE_GROUPS: [r for r in rows if row_group(r) in groups],
-            SCOPE_FILTERED: filtered if len(filtered) < len(rows) else [],
-            SCOPE_ALL: rows,
-        }
+        return self.machine.machine_scopes()
 
     def _remember_machine_settings(self, chosen: MachineSettings) -> bool:
-        self.settings.setValue("translate/provider", chosen.provider)
-        self.settings.setValue("ollama/url", chosen.base_url)
-        self.settings.setValue("ollama/model", chosen.model)
-        self._refresh_status()
-        try:
-            self.project.set_setting("translation_notes", chosen.notes)
-            if chosen.action == ACTION_REVISE:
-                if chosen.instruction:
-                    self.project.set_setting(REVISE_INSTRUCTION_KEY, chosen.instruction)
-            elif chosen.provider == PROVIDER_OLLAMA:
-                # Çeviri talimatı isteğe bağlıdır: kutu boşaltılınca saklanan talimat da silinir.
-                self.project.set_setting(TRANSLATE_INSTRUCTION_KEY, chosen.instruction)
-        except NxError as exc:
-            self.notify(LEVEL_ERROR, "Proje", exc.user_text())
-            return False
-        return True
+        return self.machine.remember_machine_settings(chosen)
 
     def start_machine_translation(self, action: str = ACTION_TRANSLATE, from_selection: bool = False) -> None:
         """Çevir / yeniden çevir / talimatla düzelt penceresini açar ve seçilen işi başlatır."""
-        if self.busy:
-            return
-        page = self.translate_page
-        if from_selection and not page.table.selectionModel().hasSelection():
-            page.show_notice("warning", "Önce çevirmek istediğiniz satırları seçin.")
-            return
-        scopes = self._machine_scopes()
-        chosen = self.ask_machine_settings(scopes, action, SCOPE_SELECTED if from_selection else SCOPE_ALL)
-        if chosen is None or not self._remember_machine_settings(chosen):
-            return
-        scope_rows = (
-            rows_matching(scopes.get(SCOPE_ALL, []), chosen.pattern)
-            if chosen.scope == SCOPE_PATTERN
-            else scopes.get(chosen.scope, [])
-        )
-        target = target_rows(scope_rows, chosen.action, chosen.include_approved)
-        job = MachineJob(
-            rows=target,
-            source_lang=self.project.setting("source_language", "en"),
-            notes=chosen.notes,
-            # Terminoloji + örtük terimler (menüde/başlıkta nasıl çevrildiyse cümlede de öyle; partide geçenler gider).
-            glossary=[
-                *self.project.glossary(),
-                *implicit_terms(self.project.translation_rows(), self.project.glossary(), self._terms_ignored()),
-            ],
-            memory=self.project.memory_lookup(r.source for r in target) if chosen.action == ACTION_TRANSLATE else {},
-            action=chosen.action,
-            instruction=chosen.instruction,
-            all_rows=self.project.translation_rows(),
-        )
-        self._launch_machine(
-            chosen,
-            job,
-            set_running=page.set_machine_running,
-            on_progress=page.update_machine_progress,
-            report=page.show_notice,
-        )
+        self.machine.start_machine_translation(action, from_selection)
 
     def _launch_machine(
         self,
@@ -2825,58 +2740,9 @@ class MainWindow(QMainWindow):
         report: Callable[[str, str], None],
         job_id: str = "",
     ) -> None:
-        """Makine işini arka planda çalıştırır; sonuçlar parti parti projeye yazılır.
-
-        Değişen her satırın önceki hâli `job_id` adıyla geçmişe yazılır; iş bitince değişiklikler
-        "Son İşin Değişiklikleri" penceresinde gösterilir (çeviri işinde yalnızca düğmeyle).
-        """
-        job_id = job_id or new_job_id(job.action)
-        try:
-            provider = self.provider_factory(chosen)
-        except NxError as exc:
-            report("danger", exc.user_text())
-            return
-        set_running(True)
-        report("success", "")
-        # Satırın kaynağı olarak yalnızca sağlayıcı kimliği ve Ollama modeli yazılır (adres ya da anahtar asla).
-        origin = MachineOrigin(chosen.provider, chosen.model if chosen.provider == PROVIDER_OLLAMA else "")
-        memory_ids = frozenset(memory_filled_ids(job))
-
-        def finish(level: str, title: str, text: str, details: str = "") -> None:
-            set_running(False)
-            self._reload_rows()  # filtrelere "Makine" durumu eklensin
-            changed = self._set_last_job(job_id)
-            actions: list[NoticeAction] = []
-            if level == LEVEL_ERROR:
-                actions.append(NoticeAction("Tekrar Dene", lambda: self.start_machine_translation(job.action)))
-            if changed:
-                actions.append(NoticeAction("Değişiklikleri Gör", self.show_job_changes))
-            if details:
-                actions.append(NoticeAction("Ayrıntılar", lambda: QMessageBox.information(self, title, details)))
-            self.notify(level, title, text, tuple(actions))
-
-        def done(result: object) -> None:
-            assert isinstance(result, RunSummary)
-            level, title, text = short_summary(job.action, result)
-            details, _state = describe_summary(job.action, result)
-            finish(level, title, text, details if level != LEVEL_SUCCESS else "")
-
-        resume = (
-            "Yeniden başlatınca kaldığı yerden devam eder."
-            if job.action == ACTION_TRANSLATE
-            else "Kalan satırlar için işi yeniden başlatabilirsiniz."
-        )
-        name = JOB_TITLES[job.action]
-        self._run(
-            lambda ctx: run_and_close(provider, job, ctx),
-            name,
-            on_success=done,
-            on_failure=lambda text: finish(LEVEL_ERROR, f"{name} durdu", f"{text} Yapılanlar kaydedildi. {resume}"),
-            on_progress=on_progress,
-            on_cancel=lambda: finish(LEVEL_WARNING, f"{name} durduruldu", f"Yapılanlar kaydedildi. {resume}"),
-            on_partial=lambda results: self._machine_results(
-                results, chosen.include_approved, job_id, origin=origin, memory_ids=memory_ids
-            ),
+        """Makine işini arka planda çalıştırır; sonuçlar parti parti projeye yazılır."""
+        self.machine.launch_machine(
+            chosen, job, set_running=set_running, on_progress=on_progress, report=report, job_id=job_id
         )
 
     # --- değişiklikler ve geçmiş -------------------------------------------------------------
@@ -3058,38 +2924,8 @@ class MainWindow(QMainWindow):
         origin: MachineOrigin | None = None,
         memory_ids: frozenset[int] = frozenset(),
     ) -> None:
-        """Makine işinin bir partisini yazar; `origin` satırın kaynağı olarak kaydedilir, bellekten dolanlar
-        (`memory_ids`) "Çeviri belleği" olarak."""
-        assert isinstance(results, list)
-        job = job_id or new_job_id("translate")
-        from_memory = [r for r in results if r[0] in memory_ids]
-        from_provider = [r for r in results if r[0] not in memory_ids]
-        try:
-            rows = []
-            if from_memory:
-                rows += self.project.set_translations(
-                    from_memory, machine=True, overwrite_approved=overwrite_approved, job=job, origin=MEMORY_ORIGIN
-                )
-            if from_provider:
-                rows += self.project.set_translations(
-                    from_provider, machine=True, overwrite_approved=overwrite_approved, job=job, origin=origin
-                )
-        except NxError as exc:
-            self.translate_page.show_notice("danger", exc.user_text())
-            self._cancel_task()
-            return
-        page = self.translate_page
-        page.model.update_rows(rows)
-        label = mark_label(job_id)
-        marks = dict(page.model.marks)
-        for r in rows:
-            if label:
-                marks[r.id] = label
-            else:
-                marks.pop(r.id, None)
-        page.model.set_marks(marks)
-        page.show_live([r.id for r in rows])
-        self._mark_changed()
+        """Makine işinin bir partisini yazar (`machine_controller.MachineController.machine_results`)."""
+        self.machine.machine_results(results, overwrite_approved, job_id, origin=origin, memory_ids=memory_ids)
 
     def _update_undo_action(self) -> None:
         job = self.project.undo_job()
