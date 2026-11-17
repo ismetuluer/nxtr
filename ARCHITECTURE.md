@@ -118,6 +118,8 @@ nxceviri/
     export/layeredfs.py    # Atmosphère / emülatör mod klasörü, atomik ve doğrulamalı
   gui/                     # PySide6; iş mantığı içermez
     main_window.py         # adımlar arası akış, menüler, arka plan işleri
+    checks_controller.py   # Kontrol Et iş akışı: denetim, pano yenileme, yok sayma, Düzelt (karar 219)
+    export_controller.py   # Dışa Aktar iş akışı: özet, hedef klasör, mod oluşturma (karar 219)
     icons.py + icons/*.svg # Lucide simgeleri; temaya uyan QIcon, bind_icon/refresh_icons
     appicon/               # uygulama simgesi: nxtr.svg + nxtr-kucuk.svg (kaynak) → .ico/.png (packaging/make_icon.py)
     step_nav.py            # simgeli kenar çubuğu (StepNav) ve proje başlığı
@@ -1067,8 +1069,20 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     (`AsciiRepair.choices` → `QaIssue.choices`) bulguya taşır; sağ tıktaki seçim `apply_choice` ile projedeki bütün
     satırlara tek iş olarak (`_replace_translations`) uygulanır. Yok sayma `core/qa/ignored.py`: proje ayarında
     (satır, tür, çeviri özeti); özet tutmazsa bulgu geri gelir, hata bulguları yok sayılamaz. Süzgeç tek yerde
-    (`MainWindow._show_check_results` ve `_replace_board_rows`) uygulanır; panoda yalnızca gerçek bulgular sayılır,
+    (`ChecksController.show_check_results` ve `_replace_board_rows`, `gui/checks_controller.py`) uygulanır; panoda yalnızca gerçek bulgular sayılır,
     yok sayılanlar "Yok sayılanlar" girişiyle ayrı görünür. Menü eylemleri planı 0 satır düzeltiyorsa hiç çıkmaz.
+219. **Ana pencere denetleyicilere bölünür (ürün sahibinin onayı, 2026-11-17; TECH_DEBT 69):** Kontrol Et iş akışı
+    `gui/checks_controller.py` `ChecksController`'da (denetim, pano yenileme, yok sayma, Düzelt, aday seçimi,
+    yazım/terim yok sayma; durumu `qa_count`, `board_task`… da orada), Dışa Aktar iş akışı
+    `gui/export_controller.py` `ExportController`'da (özet, hedef klasör, hatalı satır seçeneği, mod oluşturma;
+    durum tutmaz). Denetleyici Qt nesnesi değildir, pencereyi tutar ve her çağrıda pencereden okur; pencerede
+    yönlendirmesi olan yöntemi pencere üzerinden çağırır (`self._win._recheck_if_done()`), bağlı yöntemi
+    saklamaz: testler pencerenin yöntemlerini değiştirerek çalışır. Sinyal bağlantıları, kısayollar ve iş akışı
+    (`MainWindow._run`, `Task`) pencerede kalır; pencere eski adları ince yönlendirme ve okuma/yazma
+    property'si (`_qa_count`, `_board_task`…) olarak korur. Testlerin modül düzeyinde değiştirdiği adlar
+    (`choose_button`, `check_sources`, `opened_view`…) pencere modülünde kalır: dolu klasör sorusu
+    `MainWindow._ask_full_folder` üzerinden, görsel çıkarma pencerede. Adım sabitleri `gui/step_nav.py`'dedir,
+    `main_window` `__all__` ile yeniden verir.
 
 ## 5. Bilinen sınırlar
 

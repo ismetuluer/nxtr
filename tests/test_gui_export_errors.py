@@ -163,7 +163,7 @@ def test_full_folder_offers_overwrite_or_other_folder(
 
 def test_kept_rows_text_names_number_and_texts(qtbot: QtBot, tmp_path: Path) -> None:
     """Uyarı hangi satırların orijinal kaldığını No, orijinal ve çeviriyle söyler; çoksa ilk birkaçını."""
-    from nxceviri.gui.main_window import KEPT_ROWS_SHOWN
+    from nxceviri.gui.export_controller import KEPT_ROWS_SHOWN
     from tests.test_statusbar import _make_window, _project
 
     w = _make_window(qtbot, tmp_path, _project())

@@ -60,11 +60,15 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     `CONTEXT_AFTER=3`). *Ne zaman:* kullanıcı bir Unity oyununda birkaç sahneyi yeniden çevirip
     karşılaştırınca; gerekirse sayılar ve kurallar ayarlanır.
 
-69. **`gui/main_window.py` hâlâ büyük (0.57.0, ~3.700 satır).** Denetimdeki M1'in ilk adımı yapıldı:
+69. **`gui/main_window.py` hâlâ büyük (0.57.0, ~3.700 satır; 0.63.0'da ~4.100).** Denetimdeki M1'in ilk adımı:
     makine işi iletileri `gui/jobs.py`'ye, son projeler `gui/recent.py`'ye, kurtarma kopyası
-    `gui/recovery.py`'ye taşındı. Proje yaşam döngüsü, makine işleri, Kontrol Et ve dışa aktarma hâlâ
-    pencere sınıfında. Testler pencerenin yöntemlerini (`ask_machine_settings`, `provider_factory` …)
-    değiştirerek çalıştığı için bölme, davranış değişmeden ve testler korunarak adım adım yapılmalı.
+    `gui/recovery.py`'ye taşındı. İkinci adım (2026-11-17, ARCHITECTURE karar 219): Kontrol Et
+    `gui/checks_controller.py`'ye, Dışa Aktar `gui/export_controller.py`'ye taşındı; pencere ~3.600 satır.
+    Kalan: proje yaşam döngüsü (yeni/aç/kaydet/kurtarma), makine işleri (çeviri, redaksiyon, değişiklikler,
+    terimler), yazım denetimi penceresi, dış redaksiyon içe/dışa aktarma ve görseller hâlâ pencere sınıfında.
+    Testler pencerenin yöntemlerini ve modülün adlarını (`ask_machine_settings`, `provider_factory`,
+    `_launch_machine`, `UpdateDialog`, `implicit_terms` …) değiştirerek çalıştığı için aynı düzenle (karar 219:
+    yönlendirme + pencere üzerinden çağrı) adım adım taşınmalı.
     *Ne zaman:* bu bölümlerden birine büyük bir özellik eklenirken o bölüm ayrı bir denetleyiciye taşınır.
 
 72. **CRILAYLA açma yavaş (0.36.0).** Saf Python bit okuyucu 6 MB'lık `UcScriptMsgConv.fms`'yi ~2 sn'de
