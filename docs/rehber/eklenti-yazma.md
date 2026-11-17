@@ -178,13 +178,14 @@ WAD) arşiv okuyucusunu ve yazıcısını da eklentiye yaz; uygulama onu yerleş
 
 ```python
 class BenimArsivim:
-    name = "benimarsiv"            # eklentide benzersiz kısa ad
-    label = "Benim arşivim"        # tarama raporunda görünen ad
-    suffixes = (".arc",)           # üst düzey RomFS dosya uzantıları (küçük harf)
+    name = "benimarsiv"  # eklentide benzersiz kısa ad
+    label = "Benim arşivim"  # tarama raporunda görünen ad
+    suffixes = (".arc",)  # üst düzey RomFS dosya uzantıları (küçük harf)
 
-    def detect(self, path, head): ...           # head: dosyanın ilk 4 KB'ı
-    def open(self, game, path): ...             # -> members() ve read(üye) sunan nesne
-    def rebuild(self, changes, game): ...       # {arşiv: {üye: yeni bayt}} -> {RomFS yolu: bayt}
+    def detect(self, path, head): ...  # head: dosyanın ilk 4 KB'ı
+    def open(self, game, path): ...  # -> members() ve read(üye) sunan nesne
+    def rebuild(self, changes, game): ...  # {arşiv: {üye: yeni bayt}} -> {RomFS yolu: bayt}
+
 
 class Eklenti(FormatPluginBase):
     def archive_formats(self):
