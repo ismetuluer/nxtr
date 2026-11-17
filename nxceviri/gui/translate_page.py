@@ -49,6 +49,7 @@ from PySide6.QtWidgets import (
 from nxceviri.core.errors import NxError
 from nxceviri.core.languages import natural_sort_key
 from nxceviri.core.project import TranslationRow, row_group
+from nxceviri.core.qa import ignored
 from nxceviri.core.qa.checks import (
     KIND_LABELS,
     ROW_FLAG_KINDS,
@@ -257,6 +258,8 @@ class TranslationModel(QAbstractTableModel):
         self.live = LiveChecker()  # anlık denetim: görünen satırlar için, önbellekli
         #: Son "Kontrol Et" sonucu: satır → (denetlenen çeviri, sorunları). Çeviri değişince geçersiz sayılır.
         self._qa: dict[int, tuple[str, list[QaIssue]]] = {}
+        #: Kontrol Et'te "yok sayılan" bulgular (satır, tür, çeviri özeti); çeviri değişince tutmaz.
+        self._ignored: set[ignored.Entry] = set()
 
     def set_live_context(self, context: LiveContext) -> None:
         """Anlık denetimin bağlamını (font, sözlük, sığdırma, yazım, seçili türler) değiştirir; hücreler yenilenir."""
@@ -266,7 +269,7 @@ class TranslationModel(QAbstractTableModel):
 
     def flag(self, r: TranslationRow) -> QaIssue | None:
         """Çeviri metnini renklendiren en önemli sorun (yoksa None)."""
-        found = {i.kind: i for i in self.live.check(r)}
+        found = {i.kind: i for i in self._not_ignored(r, self.live.check(r))}
         return next((found[k] for k in ROW_FLAG_KINDS if k in found), None)
 
     def _all_issues(self, r: TranslationRow) -> list[QaIssue]:
@@ -282,7 +285,21 @@ class TranslationModel(QAbstractTableModel):
             for i in qa[1]:
                 if i.kind not in LIVE_KINDS:
                     out.setdefault((i.kind, i.message), i)
-        return list(out.values())
+        return self._not_ignored(r, list(out.values()))
+
+    def _not_ignored(self, r: TranslationRow, found: list[QaIssue]) -> list[QaIssue]:
+        """Kullanıcının yok saydığı bulguları (çeviri değişmediyse) ayıklar; hatalar asla yok sayılmaz."""
+        if not self._ignored or not found:
+            return found
+        return ignored.split(found, {r.id: r}, self._ignored)[0]
+
+    def set_ignored(self, entries: set[ignored.Entry]) -> None:
+        """Yok sayılan bulguları bildirir (Kontrol Et'te yok sayınca ya da geri alınca); hücreler yenilenir."""
+        if entries == self._ignored:
+            return
+        self._ignored = set(entries)
+        if self.rows:
+            self.dataChanged.emit(self.index(0, 0), self.index(len(self.rows) - 1, len(_COLUMNS) - 1))
 
     def issues(self, r: TranslationRow) -> list[QaIssue]:
         """Satırın hata ve uyarıları (bilgi düzeyi sayılmaz)."""
@@ -295,10 +312,14 @@ class TranslationModel(QAbstractTableModel):
             return True
         serious = (SEVERITY_ERROR, SEVERITY_WARNING)
         qa = self._qa.get(r.id)
-        if qa is not None and qa[0] == r.translation and any(i.severity in serious for i in qa[1]):
+        if (
+            qa is not None
+            and qa[0] == r.translation
+            and any(i.severity in serious for i in self._not_ignored(r, qa[1]))
+        ):
             return True
         live = self.live.cached(r)
-        return live is not None and any(i.severity in serious for i in live)
+        return live is not None and any(i.severity in serious for i in self._not_ignored(r, live))
 
     def set_qa_issues(self, issues: list[QaIssue], checked: list[TranslationRow]) -> None:
         """Kontrol Et sonuçlarını (`checked` satırlarının o anki çevirisiyle) durum hücresine bağlar."""
@@ -1371,6 +1392,12 @@ class TranslatePage(QWidget):
         self.model.refresh_display()
         if self.settings is not None:
             self.settings.setValue("translate/wrap", "1" if on else "0")
+        self._schedule_fit_rows()
+
+    def set_ignored(self, entries: set[ignored.Entry]) -> None:
+        """Yok sayılan bulguları tabloya bildirir; durum hücresi uzayabileceği için satır yükseklikleri yenilenir."""
+        self.model.set_ignored(entries)
+        self._header_stats.clear()
         self._schedule_fit_rows()
 
     def set_qa_issues(self, issues: list[QaIssue], checked: list[TranslationRow]) -> None:

@@ -91,6 +91,7 @@ _FIT_RESULT_CHECKING = "Denetleniyor…"
 _CHECKING_TITLE = "Denetleniyor…"
 _CHECKING_PREPARING = "Denetim hazırlanıyor…"
 _CHECK_STOPPED = "Denetim durduruldu."
+_CHECK_STOPPED_CHANGED = "Denetim durduruldu; değişen {count} satır denetlenmedi. Denetle'ye basın."
 _FIT_RESULT_FAILED = "Denetim yenilenemedi. Sorunlar sekmesinde “Denetle”ye basarak yeniden deneyin."
 #: "Taşıyor" sayılan bulgu türleri: satır ya da sayfa sınırını aşanlar (kötü bölünme taşma değildir).
 _OVERFLOW_KINDS = (PROBLEM_LINE, PROBLEM_PAGE)
@@ -711,12 +712,29 @@ class QaPage(QWidget):
         if self._checking:
             self.waiting.update_progress(done, total, message)
 
-    def stop_checking(self) -> None:
-        """Denetim durduruldu: önceki bulgular (varsa) ya da boş durum geri gelir."""
+    def changed_rows(self, current: Sequence[TranslationRow]) -> list[TranslationRow]:
+        """Bulgusu olup çevirisi panodaki anlık görüntüden ayrılmış satırlar (güncel hâliyle): bulguları eskimiştir."""
+        with_issues = {i.row_id for i in self.all_issues()}
+        return [
+            r
+            for r in current
+            if r.id in with_issues and r.id in self._rows and self._rows[r.id].translation != r.translation
+        ]
+
+    def stop_checking(self, changed: Sequence[TranslationRow] = ()) -> None:
+        """Denetim durduruldu: önceki bulgular (varsa) ya da boş durum geri gelir.
+
+        `changed`: denetim öncesinden beri çevirisi değişmiş satırlar (`changed_rows`); bulguları yanlış olduğundan
+        (yok sayılanlar dahil) panodan çıkarılır ve özet kaç satırın denetlenmediğini söyler.
+        """
         if not self._checking:
             return
         self._set_checking(False)
-        self.summary.setText(_CHECK_STOPPED)
+        if changed:
+            self.replace_rows_issues({}, changed)
+            self.summary.setText(_CHECK_STOPPED_CHANGED.format(count=format_int(len(changed))))
+        else:
+            self.summary.setText(_CHECK_STOPPED)
         self._update_fit_result_after_stop()
         self._refilter()
 
@@ -1250,7 +1268,11 @@ class QaPage(QWidget):
             counts[i.kind] = counts.get(i.kind, 0) + 1
             severities[i.kind] = _worse(severities.get(i.kind, ""), i.severity)
         self.kind_list.set_counts(
-            counts, severities, sum(1 for i in issues if i.severity != SEVERITY_INFO), len(self._ignored)
+            counts,
+            severities,
+            sum(1 for i in issues if i.severity != SEVERITY_INFO),
+            len(self._ignored),
+            sum(1 for i in issues if i.severity == SEVERITY_INFO),
         )
         self._refilter()
         self._update_check_button()

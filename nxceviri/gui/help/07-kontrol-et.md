@@ -4,7 +4,7 @@
 
 **Denetle** bütün satırları arka planda tarar; bitince bildirim gelir. Soldaki listeden türe göre süzün: en üstte
 oyunu bozabilecek sorunlar durur. Bir türe tıklayın; birkaç tür için Ctrl'ye basılı tutun; grup başlığına tıklayınca
-grubun hepsi seçilir; **Tüm bulgular** süzgeci kaldırır.
+grubun hepsi seçilir; **Tüm bulgular** süzgeci kaldırır (bilgi düzeyindeki öneriler, örneğin yazım, bu sayıya girmez; görmek için türünü soldan seçin).
 
 Her bulgu üç satırlık bir kart olarak listelenir: üstte açıklama (sağda çeviri tablosundaki **No**), altında soluk
 orijinal metin, en altta çeviri. Sıra önemden başlar (hata, uyarı, bilgi), sonra türe ve satır numarasına göre gider.

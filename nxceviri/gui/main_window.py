@@ -1979,9 +1979,15 @@ class MainWindow(QMainWindow):
             on_success=done,
             on_failure=self.qa_page.show_check_failed,
             on_progress=progress,
-            on_cancel=self.qa_page.stop_checking,
+            on_cancel=self._on_check_cancelled,
         )
         self._check_task = self.task
+
+    def _on_check_cancelled(self) -> None:
+        """Denetim durduruldu: düzeltme/düzenlemeyle çevirisi değişen satırların eski bulguları geri getirilmez."""
+        changed = self.qa_page.changed_rows(self.translate_page.model.rows)
+        self.qa_page.stop_checking(changed)
+        self._recount_qa()
 
     def _stop_checks(self) -> None:
         """Durdur: sürmekte olan denetim işini iptal eder (başka bir iş sürüyorsa dokunmaz)."""
@@ -1993,6 +1999,7 @@ class MainWindow(QMainWindow):
         self._sync_live()  # Çevir'deki anlık denetim bağlamı Kontrol Et'in kullandığı güncel ayarlarla aynı olsun
         self.qa_page.set_code_kinds(self._fit_config().kinds)
         issues, hidden = self._split_ignored(issues, rows)  # yok sayılanlar listeye, sayaca ve Çevir'e girmez
+        self._sync_ignored_to_translate()
         self.qa_page.show_issues(issues, rows, hidden)
         self.translate_page.set_qa_issues(issues, rows)
         counted = [i for i in issues if i.severity in (SEVERITY_ERROR, SEVERITY_WARNING)]
@@ -2083,6 +2090,10 @@ class MainWindow(QMainWindow):
             shown[row_id], hidden[row_id] = ignored.split(found, by_id, entries)
         self.qa_page.replace_rows_issues(shown, rows, hidden)
 
+    def _sync_ignored_to_translate(self) -> None:
+        """Projedeki yok sayılan bulguları Çevir tablosuna bildirir (anlık denetim de onları göstermesin)."""
+        self.translate_page.set_ignored(ignored.load(self.project.setting(ignored.IGNORED_KEY)))
+
     def _split_ignored(
         self, issues: list[QaIssue], rows: Sequence[TranslationRow]
     ) -> tuple[list[QaIssue], list[QaIssue]]:
@@ -2106,6 +2117,7 @@ class MainWindow(QMainWindow):
     def _store_ignored_issues(self, entries: set[ignored.Entry], row_ids: set[int]) -> None:
         self.project.set_setting(ignored.IGNORED_KEY, ignored.dump(entries))
         self._mark_changed()
+        self.translate_page.set_ignored(entries)  # Çevir'deki işaret de hemen kalkar (ya da geri gelir)
         rows = [r for r in self.translate_page.model.rows if r.id in row_ids]
         by_row: dict[int, list[QaIssue]] = {}
         for issue in self.qa_page.all_issues():
@@ -3887,6 +3899,7 @@ class MainWindow(QMainWindow):
             str(project.path) if project.path else None
         )  # süzgeçler projeye göre hatırlanır
         self.translate_page.set_rows(project.translation_rows())
+        self._sync_ignored_to_translate()
         self._sync_spell()
         self.font_report = None
         self._sync_live()  # font raporu sıfırlandı: eksik harf bağlamı projenin kayıtlı değerinden gelir

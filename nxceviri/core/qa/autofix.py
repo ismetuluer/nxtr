@@ -21,7 +21,8 @@ bağlıdır (`FIX_KINDS`); kullanıcı hangi türlerin düzeltileceğini seçer 
   satırda "satır sonu sayısı özgünle aynı olmalı" kuralı uygulanmaz; satır sayısını sınır belirler.
 
 Olası taşma, uzunluk sınırı aşımı, güvenle onarılamayan eksik kontrol kodu, şüpheli çeviri, eksik harf (font) ve
-kod adı uyarıları düzeltilmez: anlam gerektirir ya da kararı insan verir. Onaylanmış satırlara dokunulmaz.
+kod adı uyarıları düzeltilmez: anlam gerektirir ya da kararı insan verir. Onaylı satırlar da düzeltilir ve onaylı
+kalır (`fixrun`, `include_approved=True`).
 """
 
 from __future__ import annotations

@@ -50,6 +50,8 @@ KIND_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
 #: Eşlemede olmayan (sonradan eklenen) türlerin düştüğü grup.
 OTHER_GROUP = "Diğer"
 ALL_TITLE = "Tüm bulgular"
+#: Bilgi düzeyindeki öneriler (ör. yazım) "Tüm bulgular" sayısına girmez ve onda listelenmez; bunu söyleyen ipucu.
+_INFO_NOT_COUNTED = "Bilgi önerileri (ör. yazım) bu sayıya girmez; görmek için türünü soldan seçin."
 EMPTY_TEXT = "Bulunan sorunların türleri burada listelenir."
 #: "Yok sayılanlar" girişinin sahte türü: seçilince tablo yok sayılan bulguları gösterir (başka türle karışmaz).
 IGNORED_KIND = "ignored"
@@ -106,11 +108,12 @@ class KindList(QListWidget):
     # --- içerik -------------------------------------------------------------------------
 
     def set_counts(
-        self, counts: Mapping[str, int], severities: Mapping[str, str], total: int, ignored: int = 0
+        self, counts: Mapping[str, int], severities: Mapping[str, str], total: int, ignored: int = 0, info: int = 0
     ) -> None:
         """Listeyi yeniden kurar; bulgusu kalmayan türün seçimi bırakılır, kalan seçim korunur.
 
         `ignored`: yok sayılan bulgu sayısı; sıfırdan büyükse listenin sonuna "Yok sayılanlar" girişi eklenir.
+        `info`: bilgi düzeyindeki bulgu sayısı; `total`a girmez, sıfırdan büyükse "Tüm bulgular" bunu ipucuyla söyler.
         """
         previous = self._last
         scroll = self.verticalScrollBar().value()
@@ -124,6 +127,8 @@ class KindList(QListWidget):
             self._errors = {k for k in self._counts if severities.get(k) == SEVERITY_ERROR}
             self._total = total
             self.all_item = self._add(ALL_TITLE, _TYPE_ALL, total, "")
+            if info > 0:
+                self.all_item.setToolTip(tip_html(_INFO_NOT_COUNTED))
             known = {k for _title, kinds in KIND_GROUPS for k in kinds}
             others = [k for k in self._counts if k not in known]
             groups = [*KIND_GROUPS, (OTHER_GROUP, tuple(others))]
