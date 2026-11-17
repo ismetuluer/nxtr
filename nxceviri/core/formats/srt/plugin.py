@@ -116,7 +116,7 @@ class SrtPlugin:
                 continue  # değişmeyen bloğun ham baytları korunur
             issues = placeholders.problems(source, new)
             if issues:
-                raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}")
+                raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}", key=key)
             body = markup.detokenize(new.replace("\r\n", "\n"), codes)
             if "\0" in body:
                 raise FormatError(f"'{key}' çevirisinde boş karakter (NUL) olamaz.")

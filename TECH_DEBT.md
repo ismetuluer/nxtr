@@ -78,12 +78,18 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     parçalanır (ARCHITECTURE 220). Tırnaklı ya da boş değerli çoğul ve başka ekler (`|gender(…)`, `|ordinal(…)`)
     çözülmez: değişken ile ekin başı tek, katı kod olur, ekin geri kalanı düz metin kalır (makine çevirisi `one=`
     gibi anahtar sözcükleri çevirirse bozulur; denetim bunu görmez) ve ekin içindeki argümanlar serbest sayılır.
-    Çoğul seçeneğine boşluk, virgül vb. yazılması Kontrol Et'te görünmez; dışa aktarmada eklenti reddeder ve satır
-    "Hatalı" değilse bütün `.locres` dosyası, satırın anahtarını söyleyen hatayla yazılamaz. Bu sürümden önce
-    taranmış projede çoğul satırları yeniden taranana dek aynı hatayı verir (yeniden tarama kaynağı değişmiş
-    satırları "Hatalı" işaretler). Unreal'ın tırnaksız değer kuralları (boşluk, Türkçe harf) gerçek oyunda
-    doğrulanmadı. *Ne zaman:* bu eklerle bir Unreal oyunu çevrilince; ek ayrıştırması motorun belgesine göre
-    genişletilir ve seçenek denetimi Kontrol Et'e taşınır.
+    Çoğul seçeneğine boşluk, virgül vb. yazılması Kontrol Et'te görünmez. *Dışa aktarma kısmı kapandı
+    (2026-11-17, ARCHITECTURE 224):* eklentinin reddettiği satır (geçersiz seçenek; bu sürümden önce taranmış,
+    kaynağı eski düzenle saklanmış yalın çoğul satırı; Unity'de eski düzenle saklanmış Smart String çoğul satırı)
+    artık yalnızca kendisi orijinal kalır, bilgi dosyasında listelenir, dosyanın geri kalanı yazılır. **Kalan:**
+    (a) Seçenek denetimi Kontrol Et'te yok; satır ancak dışa aktarmada orijinal kaldığında fark edilir. (b) Eski
+    projede **tırnaklı çoğul ve `|gender(…)` gibi ekler sessizce bozulur:** eski düzende kod yalnızca `{G}`, ek düz
+    metindi; yeni düzende kod `{G}|gender(` olduğundan eski çeviri (`⟦1⟧|gender(o,o) kaldı`) eklentinin ret denetimine
+    takılmaz ve `{G}|gender(|gender(o,o) kaldı` yazılır (kod sayısı ikisinde de bir). Yeniden tarama kaynağı değişen
+    satırı "Hatalı" işaretlediği için yeniden taranmış projede olmaz; olası çözüm dışa aktarmada saklı kaynağı
+    eklentinin bugünkü `extract` çıktısıyla karşılaştırıp uymayan satırı orijinal bırakmak. Unreal'ın tırnaksız değer
+    kuralları (boşluk, Türkçe harf) gerçek oyunda doğrulanmadı. *Ne zaman:* bu eklerle bir Unreal oyunu çevrilince;
+    ek ayrıştırması motorun belgesine göre genişletilir ve seçenek denetimi Kontrol Et'e taşınır.
 
 ## 2. Bilinen sınırlar (ihtiyaç doğunca)
 

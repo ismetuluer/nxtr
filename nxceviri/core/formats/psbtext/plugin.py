@@ -178,6 +178,6 @@ class PsbTextPlugin:
             source, codes = tokenize(row.source)
             issues = placeholders.problems(source, new)
             if issues:
-                raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}")
+                raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}", key=key)
             replacements[row.string_index] = markup.detokenize(new, codes)
         return psb.replace_strings(data, replacements)

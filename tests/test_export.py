@@ -346,20 +346,48 @@ def test_export_include_errors_bisection_is_cancellable(
 
 
 def test_export_include_errors_unrelated_failure_is_not_swallowed(
-    msbt_project: tuple[Inputs, Project], tmp_path: Path
+    msbt_project: tuple[Inputs, Project], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Hatalı olmayan bir satır yazılamıyorsa hata yutulmaz (yalnızca hatalı satırlar orijinale düşer)."""
+    """Dosya çevirisiz bile yazılamıyorsa sorun satırlarda değildir: hata yutulmaz, mod üretilmez."""
     inputs, project = msbt_project
-    rows = [dataclasses.replace(r, translation="Yok ⟦9⟧") if r.key == "No" else r for r in project.translation_rows()]
+    real = MsbtPlugin.inject
+
+    def broken(self: MsbtPlugin, data: bytes, translations: Any) -> bytes:
+        if not translations or "Yes" in translations:  # Ortak.msbt hiçbir hâlde yazılamıyor
+            raise FormatError("dosya bozuk")
+        return real(self, data, translations)
+
+    monkeypatch.setattr(MsbtPlugin, "inject", broken)
     with pytest.raises(ExportError):
         export_mod(
             inputs,
             _refs(project),
-            rows,
+            _with_error_status(project, "No"),
             options=ExportOptions(LAYOUT_ATMOSPHERE, tmp_path / "bozuk", "Deneme", "", include_errors=True),
             info=INFO,
         )
     assert not (tmp_path / "bozuk").exists()
+
+
+def test_export_include_errors_rejected_good_row_stays_original(
+    msbt_project: tuple[Inputs, Project], tmp_path: Path
+) -> None:
+    """Hatalı olmayan bir satırı eklenti reddederse (bu sürümden önce bütün dosya düşerdi) yalnızca o satır orijinal
+    kalır ve bildirilir; hatalı satırların sayımı değişmez."""
+    inputs, project = msbt_project
+    rows = [dataclasses.replace(r, translation="Yok ⟦9⟧") if r.key == "No" else r for r in project.translation_rows()]
+    dest = tmp_path / "ret"
+    result = export_mod(
+        inputs,
+        _refs(project),
+        rows,
+        options=ExportOptions(LAYOUT_ATMOSPHERE, dest, "Deneme", "", include_errors=True),
+        info=INFO,
+    )
+    assert _common_texts(dest) == {"Yes": "Evet", "No": "No", "Wait": "Please wait⟦1⟧"}
+    assert result.rejected_ids == [next(r.id for r in rows if r.key == "No")]
+    assert (result.rows_error, result.rows_error_written, result.rows_error_kept) == (1, 0, 1)
+    assert "Msg/Ortak.msbt : No" in (dest / INFO_FILE).read_text(encoding="utf-8")
 
 
 def test_export_emulator_layout(msbt_project: tuple[Inputs, Project], tmp_path: Path) -> None:

@@ -320,7 +320,7 @@ class MsbtPlugin:
             else:
                 issues = placeholders.problems(entry.source, new)
                 if issues:
-                    raise FormatError(f"'{entry.key}' çevirisi yazılamadı: {' '.join(issues)}")
+                    raise FormatError(f"'{entry.key}' çevirisi yazılamadı: {' '.join(issues)}", key=entry.key)
             blobs.append(_encode(f, new, entry.codes, text.tail))
         offsets = []
         pos = 4 + 4 * n

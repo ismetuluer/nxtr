@@ -115,7 +115,7 @@ class PakYcPlugin:
             source, codes = tokenize(original)
             issues = placeholders.problems(source, new)
             if issues:
-                raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}")
+                raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}", key=key)
             edits.setdefault(table.offset, {})[index] = markup.detokenize(new, codes)
         for table in tables:
             if table.offset not in edits:

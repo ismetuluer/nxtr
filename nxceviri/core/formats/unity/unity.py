@@ -561,7 +561,7 @@ def _apply(key: str, original: str, new: str, literals: tuple[str, ...] = ()) ->
     display, codes = tokenize(original, literals)
     issues = placeholders.problems(display, new)
     if issues:
-        raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}")
+        raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}", key=key)
     return detokenize(new, codes)
 
 
@@ -712,7 +712,8 @@ class UnityPlugin:
                 text = _apply(cell.key, shown, new, (_LITERAL_NEWLINE,))
                 if not _loc_valid(asset, cell.text, text):
                     raise FormatError(
-                        f"'{cell.key}' çevirisi yazılamadı: metin biçimi bozacak satır sonu veya sekme içeriyor."
+                        f"'{cell.key}' çevirisi yazılamadı: metin biçimi bozacak satır sonu veya sekme içeriyor.",
+                        key=cell.key,
                     )
                 if text == shown:
                     continue  # ekranda görünen özgün metin geri verildi: dosya değişmez

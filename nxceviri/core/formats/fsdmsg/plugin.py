@@ -204,7 +204,7 @@ class FsdMsgPlugin:
             _table, index, message = entries[key]
             issues = placeholders.problems(message.text, new)
             if issues:
-                raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}")
+                raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}", key=key)
             if new != message.text:  # değişmeyen dizgi özgün baytlarıyla kalır
                 strings[index] = codec.encode(message, new, pad_to=pad)
                 changed = True

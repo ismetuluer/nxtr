@@ -308,7 +308,7 @@ class LocresPlugin:
             display, codes = tokenize(original)
             issues = placeholders.problems(display, new)
             if issues:
-                raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}")
+                raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}", key=key)
             text = markup.detokenize(new, codes)
             if any(b"|" in c.raw for c in codes):
                 _check_modifier(key, new, codes, text)
@@ -326,7 +326,8 @@ def _check_modifier(key: str, new: str, codes: tuple[ControlCode, ...], text: st
     if again != placeholders.renumber(new) or [c.raw for c in again_codes] != expected:
         raise FormatError(
             f"'{key}' çevirisi yazılamadı: çoğul ifadesinin seçenekleri boş olamaz; boşluk, virgül, parantez, "
-            "eşittir, tırnak ya da süslü parantez içeremez (her seçeneğe tek sözcük yazın)."
+            "eşittir, tırnak ya da süslü parantez içeremez (her seçeneğe tek sözcük yazın).",
+            key=key,
         )
 
 

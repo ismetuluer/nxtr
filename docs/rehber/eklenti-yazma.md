@@ -82,6 +82,9 @@ Gerçek örnekler: en küçük `core/formats/msbt/msbt.py` (`MsbtPlugin`), kayı
 - Bilinmeyen `key` için çeviri verilmişse `FormatError`.
 - Kontrol kodlarını doğrula: `placeholders.problems(entry.source, yeni)` boş değilse `FormatError` (sayı, tür, sıra).
   Çeviride `⟦n⟧` kodunu `codes[n-1].raw` ile geri yaz.
+- Ret tek bir satırın çevirisinden geliyorsa anahtarını ver: `FormatError(f"'{key}' çevirisi yazılamadı: …", key=key)`.
+  Dışa aktarma reddedilen satırı orijinal bırakıp dosyanın geri kalanını yazar; anahtar verilirse satırı doğrudan
+  bulur, verilmezse ikili bölmeyle (daha yavaş) arar.
 - Dosyanın kodlamasıyla yazılamayan karakter varsa `FormatError`; sessizce `?` yazma.
 - Metin uzunluğu değişince **bağlı tüm alanları** güncelle: ofset tabloları, uzunluklar, bölüm/dosya boyutu, hizalama,
   kapsayıcı dizini. Hangileri olduğunu `ara` çıktısı ve çözümleme notlarından çıkar; tahmin etme.

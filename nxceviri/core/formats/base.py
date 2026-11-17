@@ -51,7 +51,14 @@ SOURCE_PATH = "kaynak_yol"
 
 
 class FormatError(NxError):
-    """Metin dosyası çözülemedi veya geri yazılamadı."""
+    """Metin dosyası çözülemedi veya geri yazılamadı.
+
+    `key`: hata tek bir satırın çevirisinden kaynaklanıyorsa o satırın anahtarı (`inject` reddi). Dışa aktarma
+    reddedilen satırı bununla doğrudan ayıklar; verilmezse ikili bölmeyle bulur (yalnızca daha yavaş)."""
+
+    def __init__(self, message: str, hint: str = "", *, key: str | None = None) -> None:
+        super().__init__(message, hint)
+        self.key = key
 
 
 @dataclass(frozen=True)

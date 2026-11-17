@@ -304,7 +304,7 @@ class GfMsgPlugin:
             source, codes = _display(line.chars)
             issues = placeholders.problems(source, new)
             if issues:
-                raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}")
+                raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}", key=key)
             chars = _encode(new, codes, key)
             if chars != line.chars:
                 line.chars = chars

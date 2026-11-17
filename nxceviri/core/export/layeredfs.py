@@ -7,7 +7,9 @@
 Yalnızca değişen dosyalar yazılır. Çeviriler "Onaylandı", "Makine" veya "Redakte" durumundaki satırlardan
 alınır; "Hatalı" satırlar yazılmaz (oyunda orijinal metin kalır). Yalnızca serbest kodlarının (simge, adlı
 değişken) yeri değişmiş satırlar hatalı değildir: sıra denetimi gevşetilerek yazılır; biçim eklentisi reddederse o
-satır orijinal kalır ve bilgi dosyasında bildirilir. Her dosya önce bellekte üretilir,
+satır orijinal kalır ve bilgi dosyasında bildirilir. Eklentinin reddettiği her satır için aynısı geçerlidir (ör. eski
+kod düzeniyle saklanmış satır): yalnızca o satır orijinal kalır, dosyanın geri kalanı yazılır. Her dosya önce bellekte
+üretilir,
 yeniden açılıp her metnin beklenen değerde olduğu doğrulanır, sonra geçici klasöre yazılır; iş bitince
 geçici klasör tek hamlede hedefe taşınır. Hata veya iptalde hedefte hiçbir şey kalmaz. Oyunun orijinal
 dosyaları yalnızca okunur.
@@ -44,7 +46,7 @@ from nxceviri.core.export import extras
 from nxceviri.core.export.addressables import CatalogError, patch_catalog_crc
 from nxceviri.core.fontpatch.unity import FALLBACK_REASON, patch_fonts
 from nxceviri.core.formats import legacy
-from nxceviri.core.formats.base import FormatPlugin
+from nxceviri.core.formats.base import FormatError, FormatPlugin
 from nxceviri.core.formats.registry import plugin_for_kind
 from nxceviri.core.pipeline import Inputs, opened_view
 from nxceviri.core.progress import TaskContext
@@ -182,6 +184,12 @@ class ExportResult:
     attempted_keys: dict[str, frozenset[str]] = field(default_factory=dict, repr=False)
     #: Serbest kod sırası farklı olduğu için eklentinin reddettiği, modda orijinal kalan (hatalı olmayan) satırlar
     reorder_dropped_ids: list[int] = field(default_factory=list)
+    #: Biçim eklentisinin reddettiği, modda orijinal kalan (hatalı olmayan, kod sırası farkı da olmayan) satırlar
+    rejected_ids: list[int] = field(default_factory=list)
+    #: Aynı satırlar (dosya yolu, anahtar) olarak; bilgi dosyasında listelenir
+    rejected_rows: list[tuple[str, str]] = field(default_factory=list)
+    #: Dosya yolu → {anahtar → eklentinin ret iletisi} (satır tek tek sınandığında)
+    reject_reasons: dict[str, dict[str, str]] = field(default_factory=dict, repr=False)
     #: İptal denetimi (`TaskContext.check`); uzun ikili bölme döngüsü bunu çağırır.
     cancel_check: Callable[[], None] = field(default=lambda: None, repr=False)
 
@@ -369,6 +377,7 @@ def _info_text(info: ExportInfo, options: ExportOptions, result: ExportResult) -
             if result.reorder_dropped_ids
             else ""
         )
+        + _rejected_text(result)
         + f"Çevrilmemiş (orijinal kalan) satır: {result.rows_untranslated}\n"
         f"Harf dönüştürme: {conversion}\n"
         + (f"Büyük harfle gösterilen satır (i → İ yazıldı): {result.rows_uppercase}\n" if result.rows_uppercase else "")
@@ -393,6 +402,24 @@ def _info_text(info: ExportInfo, options: ExportOptions, result: ExportResult) -
         )
         + f"Değiştirilen dosya sayısı: {len(result.files)}\n\n{howto}\n"
     )
+
+
+#: Bilgi dosyasında adıyla listelenen en çok reddedilen satır (geri kalanı sayıyla söylenir).
+REJECTED_LISTED = 200
+
+
+def _rejected_text(result: ExportResult) -> str:
+    """Eklentinin reddettiği satırların bilgi dosyası bölümü: sayı, sonra dosya, anahtar ve neden (oyun metni yok)."""
+    if not result.rejected_rows:
+        return ""
+    lines = [f"Biçim eklentisi reddettiği için orijinal bırakılan satır: {len(result.rejected_rows)}\n"]
+    for path, key in result.rejected_rows[:REJECTED_LISTED]:
+        reason = result.reject_reasons.get(path, {}).get(key, "")
+        lines.append(f"  {path} : {key}" + (f" — {reason}" if reason else "") + "\n")
+    rest = len(result.rejected_rows) - REJECTED_LISTED
+    if rest > 0:
+        lines.append(f"  … ve {rest} satır daha\n")
+    return "".join(lines)
 
 
 def export_mod(
@@ -625,16 +652,30 @@ def settle_rows(result: ExportResult, rows: list[TranslationRow], *, include_err
     """Yazımdan sonra satır sayılarını kesinleştirir: eklentinin reddettiği satırlar orijinal kalmıştır.
 
     Reddedilen hatalı satırlar hatalı sayılarına; reddedilen, serbest kod sırası farklı (hatalı olmayan) satırlar
-    `reorder_dropped_ids`e ve uyarıya yazılır, "yazılan" sayısından düşülür."""
+    `reorder_dropped_ids`e, öteki reddedilen satırlar `rejected_ids`e ve uyarıya yazılır, "yazılan" sayısından
+    düşülür."""
     errors = {(r.file, r.key) for r in rows if r.status == Status.ERROR}
     dropped = {(path, key) for path, keys in result.dropped_keys.items() for key in keys}
+    reordered = {(path, key) for path, keys in result.reordered_keys.items() for key in keys}
     good_dropped = dropped - errors
-    if good_dropped:
-        result.reorder_dropped_ids = [r.id for r in rows if (r.file, r.key) in good_dropped]
+    reorder_dropped = good_dropped & reordered
+    rejected = good_dropped - reordered
+    if reorder_dropped:
+        result.reorder_dropped_ids = [r.id for r in rows if (r.file, r.key) in reorder_dropped]
         result.rows_written -= len(result.reorder_dropped_ids)
         result.warnings.append(
             f"{len(result.reorder_dropped_ids)} satırda kod sırası oyun dosyasına yazılamadı; bu satırlar orijinal "
             "kaldı. Kodları orijinaldeki sıraya dizip yeniden dışa aktarın."
+        )
+    if rejected:
+        found = [r for r in rows if (r.file, r.key) in rejected]
+        result.rejected_ids = [r.id for r in found]
+        result.rejected_rows = sorted((r.file, r.key) for r in found)
+        result.rows_written -= len(found)
+        result.warnings.append(
+            f"{len(found)} satır oyun dosyasına yazılamadı (biçim eklentisi reddetti); bu satırlar orijinal kaldı, "
+            "dosyanın geri kalanı yazıldı. Hangi satırlar olduğu bilgi dosyasında; metinleri yeniden tarayıp "
+            "Kontrol Et'ten geçirin."
         )
     if include_errors:
         attempted = {(path, key) for path, keys in result.attempted_keys.items() for key in keys} & errors
@@ -734,27 +775,38 @@ def _accept_soft(
     accepted: dict[str, str],
     pending: list[tuple[str, str]],
     check: Callable[[], None],
+    *,
+    reasons: dict[str, str] | None = None,
 ) -> dict[str, str]:
-    """`accepted` çevirilerine eklenebilen en çok hatalı satırı bulur (ikili bölme); reddedilenler dışarıda kalır."""
+    """`accepted` çevirilerine eklenebilen en çok satırı bulur (ikili bölme); reddedilenler dışarıda kalır.
+
+    `reasons` verilirse tek başına reddedilen satırın anahtarına eklentinin hata iletisi yazılır."""
     if not pending:
         return accepted
     check()
     trial = {**accepted, **dict(pending)}
     try:
         plugin.inject(data, trial)
-    except NxError:
+    except NxError as exc:
         if len(pending) == 1:
+            if reasons is not None:
+                reasons[pending[0][0]] = exc.message
             return accepted
         mid = len(pending) // 2
-        accepted = _accept_soft(plugin, data, accepted, pending[:mid], check)
-        return _accept_soft(plugin, data, accepted, pending[mid:], check)
+        accepted = _accept_soft(plugin, data, accepted, pending[:mid], check, reasons=reasons)
+        return _accept_soft(plugin, data, accepted, pending[mid:], check, reasons=reasons)
     return trial
 
 
 def _inject_tolerant(
     plugin: FormatPlugin, data: bytes, translations: Mapping[str, str], path: str, result: ExportResult
 ) -> bytes:
-    """`inject`; hatalı satırlar dışa aktarılırken eklentinin reddettiği hatalı satırlar orijinal bırakılır."""
+    """`inject`; eklentinin reddettiği satırlar orijinal bırakılır, dosyanın geri kalanı yazılır.
+
+    Önce yalnızca "yumuşak" satırlar (serbest kod sırası farklı ya da dışa aktarılan hatalı satırlar) ayıklanır;
+    bunlar dışındakiler de yazılamıyorsa her satır tek tek sınanır (eski kod düzeniyle saklanmış ya da eklentinin
+    yazım denetimine takılan satır bütün dosyayı düşürmez). Çevirisiz yazım bile başarısızsa sorun satırlarda
+    değildir; hata olduğu gibi çıkar."""
     soft = result.soft_keys.get(path, frozenset())
     result.attempted_keys[path] = frozenset(k for k in translations if k in soft)
     # Yalnızca kod sırası farklı satırlar varken eklentinin sıra denetimi gevşetilir; sayı/tür farkı olan satırlar
@@ -763,17 +815,79 @@ def _inject_tolerant(
     with relaxed:
         try:
             return plugin.inject(data, translations)
-        except NxError:
-            pending = [(k, v) for k, v in translations.items() if k in soft]
-            if not pending:
-                raise
-            result.cancel_check()
-            # Hatalı olmayanlar tek başına da yazılamıyorsa sorun hatalı satırlarda değildir; hata olduğu gibi çıkar.
-            base = {k: v for k, v in translations.items() if k not in soft}
-            plugin.inject(data, base)
+        except NxError as failure:
+            first = failure
+        result.cancel_check()
+        pending = [(k, v) for k, v in translations.items() if k in soft]
+        base = {k: v for k, v in translations.items() if k not in soft}
+        if pending and _injects(plugin, data, base):
             accepted = _accept_soft(plugin, data, base, pending, result.cancel_check)
-            result.dropped_keys[path] = frozenset(k for k, _v in pending if k not in accepted)
-            return plugin.inject(data, accepted)
+        else:
+            # Satır düzeyinde ayıklama: önce tek başına reddedilen satırlar bulunur (alt kümeler kendi başına sınanır;
+            # eklentinin işi yazılan satır sayısıyla büyüdüğü için birikimli bölmeden çok daha ucuzdur). Kalanlar
+            # birlikte yine yazılamıyorsa (ör. toplam boyut sınırı) birikimli ikili bölmeye geçilir; yumuşak olmayan
+            # satırlar önce denenir.
+            if not _injects(plugin, data, {}):
+                raise first
+            reasons: dict[str, str] = {}
+            items = [*base.items(), *pending]
+            bad = _find_rejected(plugin, data, items, result.cancel_check, reasons)
+            accepted = {k: v for k, v in items if k not in bad}
+            if not _injects(plugin, data, accepted):
+                accepted = _accept_soft(plugin, data, {}, list(accepted.items()), result.cancel_check, reasons=reasons)
+            result.reject_reasons[path] = {k: reasons[k] for k in translations if k not in accepted and k in reasons}
+        result.dropped_keys[path] = frozenset(k for k in translations if k not in accepted)
+        return plugin.inject(data, accepted)
+
+
+def _find_rejected(
+    plugin: FormatPlugin,
+    data: bytes,
+    items: list[tuple[str, str]],
+    check: Callable[[], None],
+    reasons: dict[str, str],
+) -> set[str]:
+    """Eklentinin reddettiği satırların anahtarları; alt kümeler birbirinden bağımsız sınanır.
+
+    Ret hangi satırdan geldiğini söylüyorsa (`FormatError.key`) o satır doğrudan ayıklanır; söylemiyorsa küme ikiye
+    bölünür. Her `inject` dosyayı baştan ayrıştırdığından çağrı sayısı süreyi belirler; adlı ret bunu reddedilen satır
+    başına yaklaşık bir çağrıya indirir. Reddedilen satırın iletisi `reasons`a yazılır."""
+    bad: set[str] = set()
+    stack = [items]
+    while stack:
+        part = stack.pop()
+        while part:
+            check()
+            try:
+                plugin.inject(data, dict(part))
+            except NxError as exc:
+                named = exc.key if isinstance(exc, FormatError) else None
+                if named is not None and any(k == named for k, _v in part):
+                    reasons[named] = exc.message
+                    bad.add(named)
+                    part = [(k, v) for k, v in part if k != named]
+                elif len(part) == 1:
+                    reasons[part[0][0]] = exc.message
+                    bad.add(part[0][0])
+                    break
+                # Kalan yine ikiye bölünür: sonraki çağrılar küçülür (eklentinin işi yazılan satır sayısıyla büyür).
+                if len(part) <= 1:
+                    continue
+                mid = len(part) // 2
+                stack.append(part[mid:])
+                part = part[:mid]
+                continue
+            break
+    return bad
+
+
+def _injects(plugin: FormatPlugin, data: bytes, translations: Mapping[str, str]) -> bool:
+    """Eklenti bu çevirilerle dosyayı yazabiliyor mu (reddi `False`)?"""
+    try:
+        plugin.inject(data, translations)
+    except NxError:
+        return False
+    return True
 
 
 def _apply_group(

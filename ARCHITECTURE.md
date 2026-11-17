@@ -1144,6 +1144,23 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     süzgeç denetlenmemiş satırı denetlemez, gösterir (`TranslationFilter.lazy_issues`); arka plan denetimi bitince
     süzgeç yeniden uygulanır. Arka plan işi iptal edilirse yeniden başlamaz, hata verirse bildirir ve yeniden denemez.
     Saklanan düzenleme varken pencere kapatılırsa "İşlem sürüyor" sorusu bunu söyler; vazgeçilirse saklananlar atılır.
+224. **Eklentinin reddettiği satır yalnızca kendisi orijinal kalır (TECH_DEBT 97'nin dışa aktarma kısmı):** önceden
+    yalnızca "yumuşak" satırlar (serbest kod sırası farklı, ya da "Hatalı satırları da aktar" açıkken hatalı satırlar)
+    ayıklanabiliyordu; "Hatalı" olmayan bir satırı eklenti reddedince (eski kod düzeniyle saklanmış çoğul satırı,
+    geçersiz çoğul seçeneği) bütün dosya yazılamıyordu. Şimdi `_inject_tolerant` tam yazım ve (varsa) yumuşaklar
+    dışındaki yazım başarılıysa eskisi gibi davranır (127'nin yolu değişmedi); o da başarısızsa önce çevirisiz yazımı
+    dener (o da düşüyorsa sorun satırlarda değildir, hata olduğu gibi çıkar), sonra reddedilen satırları
+    `_find_rejected` ile bulur: alt kümeler birbirinden bağımsız sınanır, ret satırı adlandırıyorsa
+    (`FormatError(key=…)`, yerleşik eklentilerin satır reddi) o satır doğrudan çıkarılır, adlandırmıyorsa küme ikiye
+    bölünür; kalan yine ikiye bölünerek çağrılar küçülür. Kalanlar birlikte yazılamıyorsa (ör. toplam boyut sınırı)
+    birikimli ikili bölmeye (`_accept_soft`) düşülür. Her `inject` dosyayı baştan ayrıştırdığından süre çağrı
+    sayısıyla gider; ölçüm (3.000 satırlık locres, eski düzenli çoğul satırları): 20 ret 45 çağrı / 4,7 sn, 200 ret
+    405 çağrı / 14,8 sn (adlandırmadan saf ikili bölme: 323 / 12,8 sn ve 1.955 / 52 sn). İptal edilebilir. Hatalı
+    olmayan reddedilen satır `ExportResult.rejected_ids`/`rejected_rows`'a yazılır, "yazılan" sayısından düşülür;
+    uyarı verilir ve bilgi dosyası "dosya : anahtar — eklentinin iletisi" olarak listeler (en çok 200 satır; satırın
+    metni yazılmaz, yerleşik eklentilerin iletisi kod numaralarını ve kuralı söyler). Kod sırası reddi (`reordered_keys`) eskisi gibi
+    kendi uyarısıyla sayılır. Bilinçli değişiklik: "Hatalı satırları da aktar" açıkken hatalı olmayan bir satırın
+    reddi önceden dosyayı düşürürdü, şimdi o satır orijinal kalır (`test_export_include_errors_rejected_good_row_*`).
 
 ## 5. Bilinen sınırlar
 

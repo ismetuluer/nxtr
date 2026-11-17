@@ -183,7 +183,7 @@ def _encode(key: str, original: str, new: str, *, escaped_newlines: bool = True)
     source, codes = tokenize(original, escaped_newlines=escaped_newlines)
     issues = placeholders.problems(source, new)
     if issues:
-        raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}")
+        raise FormatError(f"'{key}' çevirisi yazılamadı: {' '.join(issues)}", key=key)
     text = detokenize(new, codes, escaped_newlines=escaped_newlines)
     if "\0" in text:
         raise FormatError(f"'{key}' çevirisinde boş karakter (NUL) olamaz.")
