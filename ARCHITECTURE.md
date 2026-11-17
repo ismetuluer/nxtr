@@ -1181,9 +1181,12 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     "kaynak değişmiş — Metinleri Tara ile yeniden tarayın"). Gerekçe: eklentinin okuma düzeni değişince (ör. Unreal ek
     ayrıştırması, Unity Smart String çoğulu) eski çeviri kod sayısı aynı kaldığı için yazım denetimine takılmadan
     yanlış yazılabiliyordu (`{G}|gender(|gender(o,o) …`). Çevrilmemiş satırlara ve bugünkü okumada bulunmayan anahtara
-    bakılmaz (onu eklenti zaten reddeder). Ek ayrıştırma maliyeti yoktur: okunan anahtar kümesi
-    (`ExportResult.original_keys`) geri okuma denetimindeki (`_verify_group`) orijinal satır kümesinin yerine
-    kullanılır; o okuma kaldırıldı. Kod ham baytı karşılaştırılmaz (etiketler sürümler arasında yalnızca yazı olarak
+    bakılmaz (onu eklenti zaten reddeder). Değişen dosyada ek ayrıştırma yoktur: okunan anahtar
+    kümesi (`ExportResult.original_keys`) geri okuma denetimindeki (`_verify_group`) orijinal satır kümesinin yerine
+    kullanılır; o okuma kaldırıldı. Sonunda değişmeyen dosya (ör. bütün satırları reddedilen arşiv üyesi) önceden hiç
+    okunmazdı, şimdi bir kez okunur. Eklentilerin `extract`'i bağlamı (kaynak dil, dosya yolu, toplanan bağlam)
+    yalnızca hangi anahtarların alınacağını ve okunur bağlamı seçmek için kullanır, kaynak metni değiştirmez
+    (yerleşiklerde koddan denetlendi); bağlamsız okuma bu yüzden aynı kaynağı verir. Kod ham baytı karşılaştırılmaz (etiketler sürümler arasında yalnızca yazı olarak
     değişebilir; görünen kaynak aynıyken kod sınırları da aynıdır). Arayüz: Dışa Aktar bildirimi bu satırları
     (`rejected_ids`) hatalı tutulanlarla aynı düzende listeler (`KEPT_ROWS_SHOWN`).
 225. **"Satır sonu yasak" biçim kuralı (TECH_DEBT 91):** biçim eklentisi isteğe bağlı `forbids_newline(key) -> bool`

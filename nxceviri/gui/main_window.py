@@ -2353,8 +2353,8 @@ class MainWindow(QMainWindow):
     def export_mod(self) -> None:
         self.exporter.export_mod()
 
-    def _kept_rows_text(self, ids: Sequence[int], rows: Sequence[TranslationRow]) -> str:
-        return self.exporter.kept_rows_text(ids, rows)
+    def _kept_rows_text(self, ids: Sequence[int], rows: Sequence[TranslationRow], *labels: str) -> str:
+        return self.exporter.kept_rows_text(ids, rows, *labels)
 
     def _open_export_folder(self) -> None:
         self.exporter.open_export_folder()

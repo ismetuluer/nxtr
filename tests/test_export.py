@@ -391,6 +391,32 @@ def test_export_include_errors_rejected_good_row_stays_original(
     assert "Msg/Ortak.msbt : No" in (dest / INFO_FILE).read_text(encoding="utf-8")
 
 
+def test_export_drops_good_row_refused_without_key(
+    msbt_project: tuple[Inputs, Project], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Ret satırı adlandırmasa da (kullanıcı eklentisi `key=` vermez) ikili bölmeyle yalnızca o satır ayıklanır."""
+    inputs, project = msbt_project
+    real = MsbtPlugin.inject
+
+    def picky(self: MsbtPlugin, data: bytes, translations: Any) -> bytes:
+        if "Hayır" in translations.values():
+            raise FormatError("bu satır yazılamıyor")
+        return real(self, data, translations)
+
+    monkeypatch.setattr(MsbtPlugin, "inject", picky)
+    dest = tmp_path / "adsiz"
+    result = export_mod(
+        inputs,
+        _refs(project),
+        project.translation_rows(),
+        options=ExportOptions(LAYOUT_ATMOSPHERE, dest, "D", ""),
+        info=INFO,
+    )
+    assert _common_texts(dest) == {"Yes": "Evet", "No": "No", "Wait": "Please wait⟦1⟧"}
+    assert result.rejected_ids == [next(r.id for r in project.translation_rows() if r.key == "No")]
+    assert "Ortak.msbt : No — bu satır yazılamıyor" in (dest / INFO_FILE).read_text(encoding="utf-8")
+
+
 @pytest.mark.parametrize("include_errors", [False, True])
 def test_export_skips_row_whose_format_forbids_newline(
     msbt_project: tuple[Inputs, Project],

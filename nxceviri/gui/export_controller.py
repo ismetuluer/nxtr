@@ -182,7 +182,7 @@ class ExportController:
             kept = self._win._kept_rows_text(result.error_kept_ids, rows)
             if kept:
                 message += "\n\n" + kept
-            refused = self.kept_rows_text(
+            refused = self._win._kept_rows_text(
                 result.rejected_ids,
                 rows,
                 "Oyun dosyasına yazılamadığı için orijinal kalan satırlar",
