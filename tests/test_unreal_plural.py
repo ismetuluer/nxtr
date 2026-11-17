@@ -73,6 +73,19 @@ def test_inject_rejects_option_text_that_would_break_the_expression(option: str)
         PLUGIN.inject(data, {"Game/Cats": f"Orada ⟦1⟧{option}⟦2⟧var⟦3⟧ ⟦4⟧ ⟦5⟧kedi⟦6⟧kedi⟦7⟧."})
 
 
+def test_free_argument_moved_into_an_option_is_rejected_on_write() -> None:
+    """Denetim serbest kodun çiftin içine girmesine izin verir (uyarı); seçeneğin içine giren argüman ifadeyi bozar,
+    eklenti yazmayı reddeder (dışa aktarma o satırı orijinal bırakır)."""
+    text = "{Name} has {N}|plural(one=cat,other=cats)"
+    source, codes = locres.tokenize(text)
+    assert source == "⟦1⟧ has ⟦2⟧cat⟦3⟧cats⟦4⟧"
+    moved = "⟦2⟧kedi ⟦1⟧⟦3⟧kedi⟦4⟧"
+    assert placeholders.check(source, moved, registry.free_codes("unreal", codes)).warnings
+    data = build_locres([("Game", "K", text)])
+    with placeholders.tolerate_reorder(), pytest.raises(FormatError):
+        PLUGIN.inject(data, {"Game/K": moved})
+
+
 def test_other_shapes_keep_the_head_strict() -> None:
     """Tanınmayan biçimde değişken ile ekin başı tek kod olur; serbest değildir, eklenti onu çift saymaz."""
     for text, head, rest in (

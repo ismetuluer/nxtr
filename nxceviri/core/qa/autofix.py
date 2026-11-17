@@ -138,6 +138,7 @@ def reorder_codes(source: str, text: str, labels: Sequence[str], free: Collectio
     (oyuncu adı, sayı, eşya adı …) ve tanınmayan kodlar yerinde ve aynı sırada kalmalıdır; kalmıyorsa hiçbir şey
     yapılmaz. Serbest kodlar (`free`: biçim eklentisinin bildirdiği, yeri değişebilen simge/değişken) çevirmenin
     koyduğu yerde bırakılır, özgünün sırasına dizilmez. Çevirideki açılış/kapanış çiftleri de iç içe geçerli olmalı.
+    Bütün olarak taşınmış çift (`placeholders.check` uyarısı) çağıranlar tarafından buraya hiç gönderilmez.
     Metin aynı kalır. Sorun yoksa, kümeler farklıysa (eksik/fazla kod) ya da düzeltilemiyorsa None.
     """
     expected = placeholders.tokens_in(source)

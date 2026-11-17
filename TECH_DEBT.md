@@ -102,6 +102,17 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 
 92. **Türkçe harf onarımı sözlüğe bağlı (0.57.0).** Paketli sözlük bazı ASCII biçimleri (`surat`, `simdi`) geçerli sözcük saydığı için bunlar onarılmaz; eşyazımlılar (`cok` → çok/çök) elle kalır. Hatalı satırlarda kod onarımı ile harf onarımı ayrı geçişlerde çalışır, tek geçişte birleşmez. Düzeltme onay kutusu için arayüz testi yok. *Ne zaman:* kullanıcı onarılmayan yaygın bir sözcük bildirirse sözlüğe istisna listesi eklenir.
 
+97. **Unreal argüman ekleri kısmen çözüldü (2026-11-17).** Yalnızca yalın çoğul ifadesi (`{N}|plural(one=a,other=b)`)
+    parçalanır (ARCHITECTURE 220). Tırnaklı ya da boş değerli çoğul ve başka ekler (`|gender(…)`, `|ordinal(…)`)
+    çözülmez: değişken ile ekin başı tek, katı kod olur, ekin geri kalanı düz metin kalır (makine çevirisi `one=`
+    gibi anahtar sözcükleri çevirirse bozulur; denetim bunu görmez) ve ekin içindeki argümanlar serbest sayılır.
+    Çoğul seçeneğine boşluk, virgül vb. yazılması Kontrol Et'te görünmez; dışa aktarmada eklenti reddeder ve satır
+    "Hatalı" değilse bütün `.locres` dosyası, satırın anahtarını söyleyen hatayla yazılamaz. Bu sürümden önce
+    taranmış projede çoğul satırları yeniden taranana dek aynı hatayı verir (yeniden tarama kaynağı değişmiş
+    satırları "Hatalı" işaretler). Unreal'ın tırnaksız değer kuralları (boşluk, Türkçe harf) gerçek oyunda
+    doğrulanmadı. *Ne zaman:* bu eklerle bir Unreal oyunu çevrilince; ek ayrıştırması motorun belgesine göre
+    genişletilir ve seçenek denetimi Kontrol Et'e taşınır.
+
 ## 2. Bilinen sınırlar (ihtiyaç doğunca)
 
 2. **Eski NCA0/NCA2 başlıkları desteklenmiyor.** 2017 öncesi geliştirme sürümlerine özgü;
@@ -429,4 +440,4 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 52. ~~Kontrol kodu sırası katıdır; Türkçe cümle yapısı bunu sık bozar.~~ — **Kapandı:** serbest kodlar (0.62.0) ve
     bütün olarak taşınan aç/kapa çiftleri (2026-11-17, ARCHITECTURE 219) uyarıdır. Kalan: satır/sayfa sonu ve
     konumsal kodların (`%s`) sırası bilerek katıdır; MSBT'de rengi yeni bir renk etiketiyle sıfırlayan oyunlarda
-    (0x0F kapanışı yok) renk kodları çift sayılmaz, katı kalır. Cihazda denenmedi.
+    (0x0F kapanışı yok) renk kodları çift sayılmaz, katı kalır.
