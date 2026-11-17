@@ -603,6 +603,12 @@ class UnityPlugin:
         ve kendini kapatan etiket çift değildir; kaynakta eşi olmayan açılış (`<space=4>`) katı kalır."""
         return markup.tag_pair(code.raw, _SINGLE_TAGS)
 
+    def forbids_newline(self, key: str) -> bool:
+        """Dil sütunlu TSV hücresinde gerçek satır sonu satırı böler (`_loc_valid` zaten reddeder); hücredeki satır sonu
+        düz `\\n` yazısıdır ve kod olarak (`⟦n⟧`) gösterilir. Altyazı (SRT), String Table, I2 ve SerializeReference
+        metinlerinde satır sonu metnin parçasıdır."""
+        return key.startswith(_TSV_PREFIX)
+
     def language(self, data: bytes) -> str | None:
         env = _load(data)
         if _i2_sources(env):

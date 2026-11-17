@@ -6,7 +6,7 @@ eklentiyi onaylayınca yeniden yüklenir) ve yerleşiklerden ÖNCE denenir."""
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from nxceviri.core.errors import NxError
@@ -54,6 +54,8 @@ _movable: dict[tuple[str, str | None, bytes, str], bool] = {}
 _paired: dict[tuple[str, str | None, bytes, str], PairRole | None] = {}
 #: (biçim, oyun) → eklenti `movable_code` ya da `paired_code` bildiriyor mu; aynı anda silinir.
 _judges: dict[tuple[str, str | None], bool] = {}
+#: (biçim, oyun) → eklentinin `forbids_newline` bildirimi (yoksa None); aynı anda silinir.
+_newline_rules: dict[tuple[str, str | None], Callable[[str], object] | None] = {}
 
 
 def load_user_plugins(dirs: Sequence[Path] | None = None, trusted: TrustCheck | None = None) -> PluginReport:
@@ -66,6 +68,7 @@ def load_user_plugins(dirs: Sequence[Path] | None = None, trusted: TrustCheck | 
     _movable.clear()
     _paired.clear()
     _judges.clear()
+    _newline_rules.clear()
     _user_report = load_plugins(dirs, {p.name for p in BUILTIN_PLUGINS}, trusted)
     for info in _user_report.errors:
         log.warning("Eklenti yüklenemedi: %s: %s", info.ad, info.hata)
@@ -83,6 +86,7 @@ def reset_user_plugins() -> None:
     _movable.clear()
     _paired.clear()
     _judges.clear()
+    _newline_rules.clear()
 
 
 def user_plugin_report() -> PluginReport:
@@ -181,6 +185,23 @@ def judges_codes(kind: str, title_id: str | None = None) -> bool:
         plugin = plugin_for_kind(legacy.format_id(kind), title_id)
         known = _judges[key] = any(getattr(plugin, hook, None) is not None for hook in ("movable_code", "paired_code"))
     return known
+
+
+def forbids_newline(kind: str, key: str, title_id: str | None = None) -> bool:
+    """Biçim eklentisi bu satırın çevirisinde gerçek satır sonunu yasaklıyor mu (`forbids_newline(key)` bildirimi)?
+
+    Bildirmeyen eklentide ve tanınmayan biçimde False. Eklentinin kendi hatası kuralı yok sayar (günlüğe yazılır)."""
+    rule_key = (kind, title_id)
+    if rule_key not in _newline_rules:
+        _newline_rules[rule_key] = getattr(plugin_for_kind(legacy.format_id(kind), title_id), "forbids_newline", None)
+    rule = _newline_rules[rule_key]
+    if rule is None:
+        return False
+    try:
+        return rule(key) is True
+    except Exception as exc:  # kullanıcı eklentisinin hatası projenin açılmasını engellememeli; kural yok sayılır
+        log.warning("Eklentinin satır sonu bildirimi hata verdi (%s, %s): %s", kind, key, exc)
+        return False
 
 
 def _ask_movable(kind: str, title_id: str | None, code: ControlCode) -> bool:

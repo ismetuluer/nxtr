@@ -72,7 +72,11 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     kayarak açılmıyor. Maskot animasyonu ekransız testte ve kare dökümüyle denendi; gerçek pencerede ve
     yüksek DPI'da elle izlenmedi. *Ne zaman:* kullanıcı geri bildirimiyle.
 
-91. **Dışa aktarma geri okuması oyunun ayrıştırıcısından yumuşak olabilir (0.55.1).** Yapı denetimi eklentinin kendi `extract`ını kullanır; oyunun yerleşik okuyucusu daha katıysa (ör. tırnaksız satır sonu bölen basit CSV okuyucu) bizim okuyucumuz sorunu görmeyebilir. Savunmanın öteki katmanları (çeviriye karışan kod/satır sonu denetimi) bu boşluğu azaltır. Kalıcı çözüm: biçim eklentilerine "satır sonu yasak" gibi bir kural bildirimi. *Ne zaman:* yeni bir oyunda benzer bozulma görülürse.
+91. ~~**Dışa aktarma geri okuması oyunun ayrıştırıcısından yumuşak olabilir (0.55.1).**~~ *Kapandı (2026-11-17,
+    ARCHITECTURE 225): eklentiler `forbids_newline(key)` ile "satır sonu yasak" kuralı bildirir; çeviride satır sonu
+    olan satır Kontrol Et'te hata, dışa aktarmada orijinal kalır ve bildirilir. Bildiren yerleşik yalnızca Unity TSV
+    hücreleri; YCD (`.yc`) belirsiz olduğu için bildirilmedi. Satır sonu dışındaki ayraçlar (ör. sekme, CSV virgülü)
+    için genel bir kural yok; yeni bir biçimde gerekirse aynı düzenle eklenir.* Eski not: Yapı denetimi eklentinin kendi `extract`ını kullanır; oyunun yerleşik okuyucusu daha katıysa (ör. tırnaksız satır sonu bölen basit CSV okuyucu) bizim okuyucumuz sorunu görmeyebilir. Savunmanın öteki katmanları (çeviriye karışan kod/satır sonu denetimi) bu boşluğu azaltır. Kalıcı çözüm: biçim eklentilerine "satır sonu yasak" gibi bir kural bildirimi. *Ne zaman:* yeni bir oyunda benzer bozulma görülürse.
 
 97. **Unreal argüman ekleri kısmen çözüldü (2026-11-17).** Yalnızca yalın çoğul ifadesi (`{N}|plural(one=a,other=b)`)
     parçalanır (ARCHITECTURE 220). Tırnaklı ya da boş değerli çoğul ve başka ekler (`|gender(…)`, `|ordinal(…)`)

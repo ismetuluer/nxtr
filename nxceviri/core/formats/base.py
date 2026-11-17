@@ -29,6 +29,10 @@ Her metin formatı `FormatPlugin`'i uygular:
   biçim etiketleri gerçekten ayrı açılış/kapanış olarak saklıyorsa ve `inject` yeri değişen çifti doğru yazabiliyorsa
   bildirilir. Bildirmeyen eklentide çift yoktur (katı). Bütün olarak, iç içeliği bozulmadan taşınan çift hatalı
   sayılmaz (uyarı; `placeholders.check`, ürün sahibinin kararı 2026-11-17).
+- `forbids_newline(key) -> bool`: bu satırın çevirisinde gerçek satır sonu (`\n`, `\r`) yasak mı? Biçim satır sonunu
+  taşıyamıyorsa (ör. tırnaksız TSV hücresi: satır sonu satırı böler) True. Bildiren eklentide çeviride satır sonu
+  olan satır Kontrol Et'te hatadır ve dışa aktarılmaz (orijinal kalır, bildirilir); satır sonu kodu (`⟦n⟧`) sayılmaz.
+  Bildirmeyen eklentide davranış değişmez. Yalnızca yazıcının satır sonunu kesinlikle taşıyamadığı biçimde bildirin.
 """
 
 from __future__ import annotations

@@ -47,7 +47,7 @@ from nxceviri.core.export.addressables import CatalogError, patch_catalog_crc
 from nxceviri.core.fontpatch.unity import FALLBACK_REASON, patch_fonts
 from nxceviri.core.formats import legacy
 from nxceviri.core.formats.base import FormatError, FormatPlugin
-from nxceviri.core.formats.registry import plugin_for_kind
+from nxceviri.core.formats.registry import forbids_newline, plugin_for_kind
 from nxceviri.core.pipeline import Inputs, opened_view
 from nxceviri.core.progress import TaskContext
 from nxceviri.core.project import TranslationRow, row_group
@@ -292,6 +292,36 @@ def fold_unsupported_letters(translations: dict[str, dict[str, str]], files: lis
     return folded
 
 
+#: Satır sonu yasak biçimde çevirisinde satır sonu olan satırın bilgi dosyasındaki nedeni.
+NEWLINE_FORBIDDEN_REASON = "çeviride satır sonu var; bu dosya biçimi satır sonu kabul etmiyor"
+
+
+def drop_forbidden_newlines(
+    translations: dict[str, dict[str, str]], files: list[TextFileRef], result: ExportResult
+) -> None:
+    """Biçim eklentisinin satır sonu yasakladığı (`forbids_newline`) satırlardan çevirisinde gerçek satır sonu
+    olanları yazılacaklardan çıkarır: orijinal kalır, eklentinin reddettiği satırlar gibi bildirilir (TECH_DEBT 91).
+
+    Eklentinin `inject`i bu satırı kabul etse de yazılmaz: oyunun okuyucusu bizimkinden katı olabilir."""
+    for ref in files:
+        texts = translations.get(ref.path)
+        if not texts:
+            continue
+        bad = {
+            key
+            for key, text in texts.items()
+            if ("\n" in text or "\r" in text) and forbids_newline(ref.format, key, ref.title_id)
+        }
+        if not bad:
+            continue
+        for key in bad:
+            del texts[key]
+        result.dropped_keys[ref.path] = result.dropped_keys.get(ref.path, frozenset()) | bad
+        result.reject_reasons.setdefault(ref.path, {}).update(dict.fromkeys(bad, NEWLINE_FORBIDDEN_REASON))
+        if ref.path in result.reordered_keys:
+            result.reordered_keys[ref.path] = result.reordered_keys[ref.path] - bad
+
+
 def support_files(files: list[TextFileRef], layout: str, mod_name: str) -> list[tuple[Path, bytes]]:
     """Biçim eklentilerinin moda eklediği dosyalar (ör. `.fsd`/`.msg` biçimli oyunun Türkçe harfli yazı dokusu)."""
     out: list[tuple[Path, bytes]] = []
@@ -462,6 +492,7 @@ def export_mod(
     result.soft_keys = {path: frozenset(keys) for path, keys in soft.items()}
     result.reordered_keys = {path: frozenset(keys) for path, keys in reordered.items()}
     folded = fold_unsupported_letters(translations, files)
+    drop_forbidden_newlines(translations, files, result)
     if folded:
         result.warnings.append(
             f"Bu oyunun fontunda olmayan harfler dönüştürüldü: {' '.join(folded)} → "
@@ -835,8 +866,12 @@ def _inject_tolerant(
             accepted = {k: v for k, v in items if k not in bad}
             if not _injects(plugin, data, accepted):
                 accepted = _accept_soft(plugin, data, {}, list(accepted.items()), result.cancel_check, reasons=reasons)
-            result.reject_reasons[path] = {k: reasons[k] for k in translations if k not in accepted and k in reasons}
-        result.dropped_keys[path] = frozenset(k for k in translations if k not in accepted)
+            result.reject_reasons.setdefault(path, {}).update(
+                {k: reasons[k] for k in translations if k not in accepted and k in reasons}
+            )
+        result.dropped_keys[path] = result.dropped_keys.get(path, frozenset()) | {
+            k for k in translations if k not in accepted
+        }
         return plugin.inject(data, accepted)
 
 

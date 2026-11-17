@@ -348,6 +348,8 @@ class TranslationRow:
     #: Makine çevirisini yapan sağlayıcı kimliği ve model (`core/translate/origin.py`); bilinmiyorsa boş.
     mt_provider: str = ""
     mt_model: str = ""
+    #: Biçim eklentisi bu satırın çevirisinde gerçek satır sonunu yasaklıyor (`registry.forbids_newline`).
+    newline_forbidden: bool = False
 
 
 def _codes_json(entry: TextEntry) -> str:
@@ -386,6 +388,7 @@ def _row(r: tuple[object, ...]) -> TranslationRow:
         free_codes=_free_codes(fmt, str(r[11]), codes),
         mt_provider=sys.intern(str(r[12])),
         mt_model=sys.intern(str(r[13])),
+        newline_forbidden=registry.forbids_newline(fmt, str(r[2]), str(r[11])),
     )
 
 

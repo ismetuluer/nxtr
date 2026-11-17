@@ -9,7 +9,7 @@ Denetimler satır başınadır ve yalnızca bulguları döndürür; satırları 
 | max_length | hata | Biçimin koyduğu uzunluk sınırı aşılmış |
 | glyph | uyarı | Çeviride fontta olmayan ve dönüştürülmeyecek harf var |
 | overflow | uyarı | Çeviri orijinalden belirgin biçimde uzun (kutuya sığmayabilir) |
-| newlines | uyarı | Satır sonu sayısı orijinalden farklı |
+| newlines | uyarı | Satır sonu sayısı orijinalden farklı (biçim yasaklıyorsa hata; dışa aktarılmaz) |
 | line_too_long | uyarı | Bir satır, sığdırma kuralındaki karakter sınırını aşıyor |
 | page_too_tall | uyarı | Bir sayfada sığdırma kuralındaki satır sayısından fazla satır var |
 | bad_break | uyarı | Satır gereksiz kısa kesilmiş; sonraki sözcük sığardı |
@@ -223,6 +223,14 @@ def check_row(
     if src_len >= OVERFLOW_MIN_CHARS and len(shown) > src_len * OVERFLOW_RATIO:
         add("overflow", SEVERITY_WARNING, f"Çeviri orijinalden %{round(len(shown) * 100 / src_len) - 100} uzun.")
     rules = fit.rules_for_row(row) if fit is not None else None
+    forbidden_break = row.newline_forbidden and ("\n" in row.translation or "\r" in row.translation)
+    if forbidden_break:
+        add(
+            "newlines",
+            SEVERITY_ERROR,
+            "Bu dosya biçimi çeviride satır sonu kabul etmiyor; satır dışa aktarılmaz (oyunda orijinali kalır). "
+            "Satırı tek satıra indirin; satır sonu gerekiyorsa orijinaldeki satır sonu kodunu kullanın.",
+        )
     if fit is not None and rules is not None:
         for p in find_problems(row.translation, fit.kind_of_row(row), rules, row.source):
             if p.kind == PROBLEM_LINE:
@@ -234,7 +242,7 @@ def check_row(
             else:
                 continue
             add(p.kind, SEVERITY_WARNING, msg)
-    elif row.source.count("\n") != row.translation.count("\n"):
+    elif not forbidden_break and row.source.count("\n") != row.translation.count("\n"):
         add(
             "newlines",
             SEVERITY_WARNING,

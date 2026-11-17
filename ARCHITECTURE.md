@@ -1161,6 +1161,20 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     metni yazılmaz, yerleşik eklentilerin iletisi kod numaralarını ve kuralı söyler). Kod sırası reddi (`reordered_keys`) eskisi gibi
     kendi uyarısıyla sayılır. Bilinçli değişiklik: "Hatalı satırları da aktar" açıkken hatalı olmayan bir satırın
     reddi önceden dosyayı düşürürdü, şimdi o satır orijinal kalır (`test_export_include_errors_rejected_good_row_*`).
+225. **"Satır sonu yasak" biçim kuralı (TECH_DEBT 91):** biçim eklentisi isteğe bağlı `forbids_newline(key) -> bool`
+    ile bildirir (satır başına, çünkü aynı eklenti hem satır sonu taşıyan hem taşıyamayan metin tutabilir). Karar
+    `registry.forbids_newline`'da (eklenti bildirimi biçim+oyun başına önbellekli; eklenti hatası kuralı yok sayar,
+    günlüğe yazılır) verilir ve `TranslationRow.newline_forbidden` olarak satıra taşınır (şema değişmez). Yalnızca
+    gerçek `\n`/`\r` sayılır; satır sonu kodu (`⟦n⟧`) sayılmaz. Kontrol Et: yeni tür açılmadı, var olan "Satır sonu"
+    (`newlines`) türü hata önemiyle verilir (arayüzdeki tür grupları ve Düzelt değişmeden çalışır; Düzelt kaynağında
+    satır sonu olmayan satırı tek satıra indirir, sığdırma kuralı olan dosyada indirmez); aynı satıra satır sonu
+    sayısı uyarısı ayrıca verilmez. Dışa aktarma: `drop_forbidden_newlines` harf dönüştürme ve `normalize_text`'ten
+    sonra bu satırları yazılacaklardan çıkarır, 224'teki gibi bildirir (neden: `NEWLINE_FORBIDDEN_REASON`);
+    "Hatalı satırları da aktar" açık da olsa yazılmaz. Eklentinin `inject`i satırı kabul etse bile yazılmaz: oyunun
+    okuyucusu bizimkinden katı olabilir. Bildiren yerleşik: yalnızca Unity'nin dil sütunlu TSV hücreleri (`TSV|`
+    anahtarları; yazıcı zaten reddediyordu). Öteki yerleşik biçimlerde satır sonu metnin parçasıdır ya da koda
+    çevrilir (MSBT, FMSB, WAD/LIN, GFMSG, Unreal, PSB, NNI, FSD/MSG, SRT: SRT yalnızca boş satırı reddeder); YCD
+    (`.yc`) dizgilerinin satır sonu kuralı biçim notlarında belirsiz olduğundan bildirilmedi.
 
 ## 5. Bilinen sınırlar
 

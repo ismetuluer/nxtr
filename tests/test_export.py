@@ -26,6 +26,7 @@ from nxceviri.core.export.layeredfs import (
     export_mod,
     safe_mod_name,
 )
+from nxceviri.core.formats import registry
 from nxceviri.core.formats.base import FormatError
 from nxceviri.core.formats.msbt import MsbtPlugin
 from nxceviri.core.formats.unity import UnityPlugin
@@ -388,6 +389,48 @@ def test_export_include_errors_rejected_good_row_stays_original(
     assert result.rejected_ids == [next(r.id for r in rows if r.key == "No")]
     assert (result.rows_error, result.rows_error_written, result.rows_error_kept) == (1, 0, 1)
     assert "Msg/Ortak.msbt : No" in (dest / INFO_FILE).read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("include_errors", [False, True])
+def test_export_skips_row_whose_format_forbids_newline(
+    msbt_project: tuple[Inputs, Project],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+    include_errors: bool,
+) -> None:
+    """`forbids_newline` bildiren eklentide çevirisinde satır sonu olan satır yazılmaz (eklentinin `inject`i kabul etse
+    bile: oyunun okuyucusu bizimkinden katı olabilir, TECH_DEBT 91); orijinal kalır, bilgi dosyasında listelenir."""
+    inputs, project = msbt_project
+    monkeypatch.setattr(MsbtPlugin, "forbids_newline", lambda self, key: key == "Yes", raising=False)
+    registry.reset_user_plugins()  # kural önbelleği (biçim → bildirim) sıfırlanır
+    request.addfinalizer(registry.reset_user_plugins)
+    rows = [dataclasses.replace(r, translation="Ev\net") if r.key == "Yes" else r for r in project.translation_rows()]
+    dest = tmp_path / "satir"
+    result = export_mod(
+        inputs,
+        _refs(project),
+        rows,
+        options=ExportOptions(LAYOUT_ATMOSPHERE, dest, "Deneme", "", include_errors=include_errors),
+        info=INFO,
+    )
+    assert _common_texts(dest) == {"Yes": "Yes", "No": "Hayır", "Wait": "Please wait⟦1⟧"}
+    assert result.rejected_ids == [next(r.id for r in rows if r.key == "Yes")]
+    info = (dest / INFO_FILE).read_text(encoding="utf-8")
+    assert "Msg/Ortak.msbt : Yes — " in info
+    assert "satır sonu" in info
+    # Kuralı bildirmeyen eklentide (ya da kuralın kapsamadığı satırda) satır sonu yazılır.
+    monkeypatch.setattr(MsbtPlugin, "forbids_newline", lambda self, key: False, raising=False)
+    registry.reset_user_plugins()  # kural önbelleği (biçim → bildirim) sıfırlanır
+    plain = export_mod(
+        inputs,
+        _refs(project),
+        rows,
+        options=ExportOptions(LAYOUT_ATMOSPHERE, tmp_path / "duz", "Deneme", "", include_errors=include_errors),
+        info=INFO,
+    )
+    assert _common_texts(tmp_path / "duz")["Yes"] == "Ev\net"
+    assert plain.rejected_ids == []
 
 
 def test_export_emulator_layout(msbt_project: tuple[Inputs, Project], tmp_path: Path) -> None:
