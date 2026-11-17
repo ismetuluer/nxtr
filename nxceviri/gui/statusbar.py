@@ -238,6 +238,8 @@ class StatusSegments(QObject):
             bind_icon(self.provider_icon, _PROVIDER_ICONS.get(provider, "cpu"), size=14, tone="muted")
             self._set_text(self.provider_label, _PROVIDER_NAMES.get(provider, provider))
         self.save_dot.setProperty("state", "success" if saved else "warning")
-        self._save.setToolTip("Kaydedildi" if saved else "Kaydedilmedi")
+        state_text = "Kaydedildi" if saved else "Kaydedilmedi"
+        self._save.setToolTip(state_text)
+        self.save_dot.setAccessibleName(f"Kayıt durumu: {state_text}")
         repolish(self.save_dot)
         self._refit()
