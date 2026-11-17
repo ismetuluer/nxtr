@@ -151,14 +151,16 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     up_off, down_off = _chevron("yukari", t["border"]), _chevron("asagi", t["border"])
     return f"""
     QCheckBox::indicator, QAbstractItemView::indicator {{
-        width: {INDICATOR}px; height: {INDICATOR}px; border: 1px solid {t["muted"]}; border-radius: {R4}px; background: {t["surface"]};
+        width: {INDICATOR}px; height: {INDICATOR}px; border: 1px solid {t["muted"]}; border-radius: {R4}px;
+        background: {t["surface"]};
     }}
     QCheckBox::indicator:checked, QAbstractItemView::indicator:checked {{
         background: {t["accent"]}; border-color: {t["accent"]}; image: url({check});
     }}
     QCheckBox::indicator:disabled, QAbstractItemView::indicator:disabled {{ border-color: {t["border"]}; }}
     QRadioButton::indicator {{
-        width: {INDICATOR}px; height: {INDICATOR}px; border: 1px solid {t["muted"]}; border-radius: {INDICATOR // 2}px; background: {t["surface"]};
+        width: {INDICATOR}px; height: {INDICATOR}px; border: 1px solid {t["muted"]};
+        border-radius: {INDICATOR // 2}px; background: {t["surface"]};
     }}
     QRadioButton::indicator:checked {{ background: {t["accent"]}; border-color: {t["accent"]}; image: url({dot}); }}
     QRadioButton::indicator:disabled {{ border-color: {t["border"]}; }}
@@ -177,6 +179,7 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QLabel[role="cardTitle"] {{ font-size: {size(1.2)}; font-weight: 600; }}
     QLabel[role="muted"] {{ color: {t["muted"]}; }}
     QLabel[role="statValue"] {{ font-size: {size(1.8)}; font-weight: 600; }}
+    QLabel[role="stepName"] {{ font-weight: 600; }}
     QLabel[role="emptyTitle"] {{ font-size: {size(1.3)}; font-weight: 600; }}
     QLabel[role="badge"] {{ border-radius: {R8}px; padding: {S4}px {S8}px; font-weight: 600; }}
     QLabel[state="neutral"] {{ background: {t["surface2"]}; color: {t["muted"]}; }}
@@ -229,7 +232,9 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
         background: transparent; border: 1px solid transparent; color: {t["accent"]}; padding: {S4}px {S4}px;
     }}
     QWidget#stepNavColumn {{ background: {t["surface"]}; border-right: 1px solid {t["border"]}; }}
-    QListWidget#stepNav {{ background: transparent; border: none; outline: none; padding: {S4}px {S8}px {S12}px {S8}px; }}
+    QListWidget#stepNav {{
+        background: transparent; border: none; outline: none; padding: {S4}px {S8}px {S12}px {S8}px;
+    }}
     QListWidget#kindList {{ outline: none; padding: {S4}px 2px; }}
     QTableView#issueTable {{ border-radius: {R8}px; }}
     QTabWidget::pane {{ border: none; }}

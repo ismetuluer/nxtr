@@ -348,6 +348,10 @@ def _ring_pixels(nav: StepNav) -> int:
     return count
 
 
+def _keyboard_focus(nav: StepNav) -> bool:
+    return nav.keyboard_focus
+
+
 def test_keyboard_focus_ring_only_for_keyboard(qtbot: QtBot) -> None:
     nav = StepNav()
     qtbot.addWidget(nav)
@@ -356,12 +360,12 @@ def test_keyboard_focus_ring_only_for_keyboard(qtbot: QtBot) -> None:
     nav.setCurrentRow(1)
     nav.setFocus()
     qtbot.waitUntil(nav.hasFocus)
-    assert not nav.keyboard_focus
+    assert not _keyboard_focus(nav)
     assert _ring_pixels(nav) == 0
     qtbot.keyClick(nav, Qt.Key.Key_Down)
-    assert nav.keyboard_focus
+    assert _keyboard_focus(nav)
     assert _ring_pixels(nav) > 20
     rect = nav.visualItemRect(nav.item(0))
     qtbot.mouseClick(nav.viewport(), Qt.MouseButton.LeftButton, pos=rect.center())
-    assert not nav.keyboard_focus
+    assert not _keyboard_focus(nav)
     assert _ring_pixels(nav) == 0

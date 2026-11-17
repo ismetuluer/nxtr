@@ -81,6 +81,7 @@ from nxceviri.gui.group_header import GroupHeader, GroupTableView, header_tip
 from nxceviri.gui.group_proxy import GroupProxy
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.marked_delegate import ROW_ROLE, MarkedDelegate, kind_of_row
+from nxceviri.gui.motion import fade_in
 from nxceviri.gui.shortcuts import ShortcutRegistry, display_text
 from nxceviri.gui.status_cell import ISSUE_ICON, STATUS_ICONS, STATUS_ROLE, StatusDelegate, cell_width
 from nxceviri.gui.status_filter import FilterOption, StatusFilterBar
@@ -1224,6 +1225,7 @@ class TranslatePage(QWidget):
         layout = self._wanted_pane_layout()
         if layout == self._pane_layout:
             return
+        previous = self._pane_layout
         self._pane_layout = layout
         if layout is None:
             self.pane.flush()
@@ -1235,7 +1237,10 @@ class TranslatePage(QWidget):
         # Sağda en az PANE_MIN_WIDTH genişlik. Altta sabit yükseklik verilmez: bölücü panelin güncel en küçük
         # ölçüsünü (minimumSizeHint) kullanır, çipler veya uyarılar sonradan belirince panel de büyür.
         self.pane.setMinimumSize(PANE_MIN_WIDTH if horizontal else 0, 0)
+        reopened = previous is None and self.isVisible()
         self.pane.show()
+        if reopened:
+            fade_in(self.pane)  # kapalıyken açılan panel kısa süre solarak gelir
         self._restore_pane_sizes(layout)
         self._relayout()
 
