@@ -1,6 +1,9 @@
-# HANDOFF — oturum devri (2026-11-17, 0.64.0)
+# HANDOFF — oturum devri (2026-11-17, 0.64.1)
 
 ## Durum
+- **Sürüm 0.64.1** (2026-11-17; CHANGELOG 0.64.1): eklenti içe aktarma denetimi `core/plugins/imports.py`
+  (`ALLOWED_MODULES`, `audit_plugin`; ARCHITECTURE 227), grafik klasörü `derived.TURKISH_DIR`/`turkish_dir`
+  (226), AGENTS.md §1 ana koda yazma yasağı ve mazeretsiz teslim; `yeni-oyun.md` "Bağlayıcı kurallar".
 - **Sürüm 0.64.0** (2026-11-17; CHANGELOG 0.64.0): yol haritasının (docs/yol-haritasi.md) 1–2. aşaması. Ana pencere
   `gui/checks_controller.py` ve `gui/export_controller.py`'ye bölündü (ARCHITECTURE 221; pencere ince yönlendirmeler
   taşır, testler bunlara erişir). Kod çiftleri `paired_code` + `placeholders.CodeRoles` (219), Unreal çoğul (220),

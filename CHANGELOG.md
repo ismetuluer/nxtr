@@ -2,6 +2,24 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.64.1] — 2026-11-17 — Eklenti kuralları, içe aktarma denetimi, turkce/ klasörü
+
+### Eklendi
+- **Eklenti içe aktarma denetimi:** kullanıcı eklentisinin ana koddan kullandığı modüller izin listesine göre
+  denetlenir (kod çalıştırılmadan). İzinsiz ya da bu sürümde olmayan modül `dogrula`'da başarısızlıktır, `eklentiler`
+  çıktısında ve yükleme hatasında açıklanır. Eklenti birden çok dosyadan oluşabilir (kendi modülleri).
+
+### Değişti
+- **Grafik klasörü:** Türkçe resimler `grafik_temizleme/turkce/` klasörüne konur; eski `temiz/` klasörü `turkce/`
+  yokken okunmaya devam eder.
+- **Ajan kuralları:** yeni oyunda bütün kod tek eklentide durur, ana koda yazılmaz; teslim mazeretsizdir; bütün metin
+  dosyaları kapsanır ya da gerekçelendirilir; varsayılan yalnızca İngilizce; font önce yamalanır, harf dönüştürme son
+  çare; resimdeki yazılar her oyunda bildirilir. Rehberler, skill'ler ve hazır istemler buna göre güncellendi.
+- Uygulama içi yardım ve belgeler 0.64.0 özellikleriyle güncellendi.
+
+### Düzeltildi
+- `dogrula` kullanıcı eklentilerini yüklemiyordu; yalnızca yerleşik eklentileri sınıyordu.
+
 ## [0.64.0] — 2026-11-17 — Kalan işler: kod çiftleri, sağlayıcı kaydı, pano eksikleri, görsel cila
 
 ### Eklendi
