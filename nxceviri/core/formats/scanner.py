@@ -363,7 +363,11 @@ def scan_view(view: GameView, ctx: TaskContext | None = None) -> ScanReport:
         for vf in tree.view.files.values():
             ctx.report(done, total, vf.path)
             done += 1
-            archive = reader.plugin_format(vf.path)
+            try:
+                archive = reader.plugin_format(vf.path)
+            except NxError as exc:  # eklentinin arşiv tanıması hata verdi: dosya yerleşik tespitle taranır
+                warnings.append(f"{vf.path}: {exc.message}")
+                archive = None
             if archive is not None:
                 # Eklentinin arşiv biçimi yerleşik tespitten önce gelir (eklenti metin biçimleri gibi).
                 entries.append(

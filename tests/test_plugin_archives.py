@@ -387,6 +387,22 @@ class Patlayan(KutuBicimi):
         reader.read("veri/paket.kutu>a.satir")
 
 
+def test_scan_survives_an_archive_detect_error(tmp_path: Path) -> None:
+    hook = """
+    def archive_formats(self):
+        return (Bozuk(),)
+
+
+class Bozuk(KutuBicimi):
+    def detect(self, path, head):
+        raise ValueError("bozuk")
+"""
+    install(tmp_path, hook=hook)
+    report = scan_sources(game(tmp_path), TaskContext())
+    assert "veri/paket.kutu" in {e.path for e in report.entries}  # yerleşik tespitle taranır
+    assert any("kutu_eklentisi" in w for w in report.warnings)
+
+
 def test_dogrula_walks_plugin_archive_members(tmp_path: Path) -> None:
     install(tmp_path)
     folder = tmp_path / "romfs"
