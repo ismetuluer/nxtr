@@ -66,7 +66,6 @@ class ProjectController:
         win.translate_page.set_qa_issues([], [])  # önceki projenin denetim sonuçları taşınmaz
         win._fit_recheck_timer.stop()  # bekleyen ayar yenilemesi eski projeye aitti
         win.qa_page.reset()
-        win.graphics_check.project_replaced()  # süren grafik denetimi durur; klasör yeni projeden bulunur
         win._qa_count = None
         win._qa_errors = False
         win.translate_page.set_project_key(
@@ -81,6 +80,9 @@ class ProjectController:
         win.dirty = False
         win.add_page.set_files_message("warning", "")
         win.nav.setCurrentRow(STEP_ADD)
+        # Süren grafik denetimi durur, klasör yeni projeden bulunur; adım değiştiği için sekme görünmez, denetim
+        # başlamaz (sekme açılınca başlar).
+        win.graphics_check.project_replaced()
         win._refresh()
         return True
 

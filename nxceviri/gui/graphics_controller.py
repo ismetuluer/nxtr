@@ -163,13 +163,14 @@ class GraphicsController:
 
     def shown(self) -> None:
         """Sekme ya da Kontrol Et adımı açıldı: bayatsa denetlenir."""
-        if self.visible():
+        if self.visible() and not self.sync_folder():  # klasör değiştiyse sync_folder görünümü zaten günceller
             self._update(check=self._stale or self.items is None)
 
-    def sync_folder(self) -> None:
+    def sync_folder(self) -> bool:
         """Klasör değişmiş olabilir (proje, görsel çıkarma, Dışa Aktar sayfası): izleyici ve görünüm güncellenir.
 
-        Klasör ve izlenen alt klasörler aynıysa bir şey yapılmaz (Dışa Aktar sayfası her açılışta çağırır)."""
+        Klasör ve izlenen alt klasörler aynıysa bir şey yapılmaz (Dışa Aktar sayfası her açılışta çağırır);
+        görünüm güncellendiyse True."""
         source = self.source()
         folder = source.folder if source is not None else None
         changed = folder != self._folder_key
@@ -177,9 +178,12 @@ class GraphicsController:
             self._folder_key = folder
             self.items = None
             self._generation += 1
+            self._set_count(0)  # önceki klasörün sorun sayısı başlıkta kalmasın
         if self._watch() or changed:
             self._stale = True
             self._update(check=self.visible())
+            return True
+        return False
 
     def project_replaced(self) -> None:
         """Başka proje açıldı: süren denetim durdurulup beklenir, sonuçlar atılır, klasör yeniden bulunur."""
@@ -189,8 +193,9 @@ class GraphicsController:
         self._folder_key = None
         self._stale = True
         self._retries = 0
-        self.sync_folder()
-        self._update(check=self.visible())
+        self._set_count(0)
+        if not self.sync_folder():
+            self._update(check=self.visible())
 
     def shutdown(self) -> None:
         """Pencere kapanıyor: izleyici ve zamanlayıcı durur, süren denetim iptal edilip beklenir."""

@@ -340,6 +340,32 @@ def test_check_runs_outside_window_task_and_stops_on_project_replace(
     assert win.graphics_check.items is None
 
 
+def test_project_switch_clears_tab_count(
+    qtbot: QtBot, win: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _use_folder(qtbot, win, monkeypatch, _folder(tmp_path))
+    tabs = win.qa_page.tabs
+    assert tabs.tabText(tabs.count() - 1) == "Grafik (2)"
+    other = Project.new()
+    other.set_setting(FOLDER_KEY, str(_folder(tmp_path / "baska")))
+    win._replace_project(other)  # açılış Oyunu Ekle adımına döner: sekme görünmez, denetim başlamaz
+    assert win.graphics_check.task is None
+    assert tabs.tabText(tabs.count() - 1) == "Grafik"
+
+
+def test_shown_picks_up_changed_folder(
+    qtbot: QtBot, win: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _use_folder(qtbot, win, monkeypatch, _folder(tmp_path))
+    second = _folder(tmp_path / "ikinci")
+    (second / "orijinal" / "a.png").unlink()
+    win.project.set_setting(FOLDER_KEY, str(second))  # Dışa Aktar'a uğranmadan klasör değişti
+    win.nav.setCurrentRow(0)
+    _show_tab(win)
+    _wait(qtbot, win)
+    assert _badges(win)["a"] == BADGE_ERROR  # yeni klasörde özgünü yok: yetim
+
+
 def test_check_stops_on_close(qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     w = _make_window(qtbot, tmp_path, _project())
     task = _start_blocking(qtbot, w, tmp_path, monkeypatch)

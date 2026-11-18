@@ -1329,7 +1329,9 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     sonucu atar. Proje değişince (`replace_project`) ve pencere kapanırken (`closeEvent`, onaylardan sonra) iş iptal
     edilip beklenir, izleyici boşaltılır. **İzleme:** `QFileSystemWatcher` dosyaları değil klasörleri izler (grafik
     klasörü, `orijinal/`, etkin Türkçe klasör; yalnızca var olanlar, her senkronda yeniden kurulur: çıkarma klasörleri
-    sonradan oluşturur); olaylar 300 ms'de toplanır. Çekirdek okuma hatası (`OSError`, yarım yazılmış/kilitli dosya)
+    sonradan oluşturur); olaylar 300 ms'de toplanır. Windows'ta klasör izleyicisi var olan dosyanın yerinde üzerine
+    yazılmasını da, geçici dosya + yeniden adlandırma ile kaydetmeyi de bildirir (2026-11-18, gerçek izleyiciyle
+    ölçüldü). Sekme açılınca ya da Kontrol Et adımına gelinince klasör yeniden bulunur (`sync_folder`). Çekirdek okuma hatası (`OSError`, yarım yazılmış/kilitli dosya)
     izleyicinin tetiklediği denetimde gösterilmez: önceki liste kalır, en çok 3 kez kısa süre sonra yeniden denenir;
     Yenile'de ya da ilk denetimde hata durumu gösterilir. Çekirdeğin kuralları değişmedi. **Görünüm:** sol liste (ad,
     ilk sorun, rozet; süzgeç Sorunlu/Eksik/Hepsi; sayaç "12 / 40 hazır · 3 sorun · 5 eksik"), sağda dama tahtası
