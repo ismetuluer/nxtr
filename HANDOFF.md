@@ -1,6 +1,7 @@
-# HANDOFF — oturum devri (2026-11-18, 0.65.1)
+# HANDOFF — oturum devri (2026-11-18, 0.66.0)
 
 ## Durum
+- **Sürüm 0.66.0** (2026-11-18; CHANGELOG 0.66.0): Kontrol Et → Grafik sekmesi (core/qa/graphics.py, gui/graphics_check.py, gui/graphics_controller.py; ARCHITECTURE 231); ana pencere denetleyicilere bölündü (TECH_DEBT 69 kapandı; ARCHITECTURE 221).
 - **Sürüm 0.65.1** (2026-11-18; CHANGELOG 0.65.1): açılış titremesi düzeltildi. Ebeveynsiz
   widget'a `setVisible(True)` bir anlığına üst düzey pencere açıyordu (`widgets.Card` başlık satırı,
   `MainWindow.nav_header`); görünürlük ebeveyne bağlandıktan sonra ayarlanıyor. Bekçi: `tests/test_acilis_pencere.py`.

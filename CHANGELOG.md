@@ -2,7 +2,7 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
-## [Yayımlanmadı]
+## [0.66.0] — 2026-11-18 — Kontrol Et'te Grafik sekmesi, ana pencere bölündü
 
 ### Eklendi
 - **Kontrol Et → Grafik sekmesi:** `orijinal/` ve `turkce/` klasörlerindeki resimler arka planda denetlenir (eksik,
