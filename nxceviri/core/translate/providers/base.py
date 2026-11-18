@@ -18,10 +18,19 @@ class ProviderError(NxError):
     """Sağlayıcıya ulaşılamadı veya istek reddedildi (ağ, zaman aşımı, kota, eksik model…)."""
 
     def __init__(
-        self, message: str, hint: str = "", *, retryable: bool = False, splittable: bool = False, per_item: bool = False
+        self,
+        message: str,
+        hint: str = "",
+        *,
+        retryable: bool = False,
+        splittable: bool = False,
+        per_item: bool = False,
+        retry_after_s: float | None = None,
     ) -> None:
         super().__init__(message, hint)
         self.retryable = retryable
+        #: Hizmetin istediği bekleme (`retry-after` başlığı, saniye); yeniden denemeden önce en az bu kadar beklenir.
+        self.retry_after_s = retry_after_s
         #: Yanıt uzunluk sınırında kesildi: aynı partiyi tekrar istemek yerine ikiye bölmek işe yarar.
         self.splittable = splittable
         #: Sorun sağlayıcıda değil modelin o metni işleyişinde (kesilme, döngü, bozuk yanıt): tek satıra inilip
@@ -99,7 +108,7 @@ class TranslationProvider(Protocol):
     supports_glossary: bool
     max_batch_chars: int
     max_batch_items: int
-    #: Serbest talimatı (redaksiyon) izleyebilir mi? DeepL izleyemez.
+    #: Serbest talimatı (redaksiyon) izleyebilir mi? Klasik çeviri hizmetleri (DeepL, Google Translate) izleyemez.
     supports_instructions: bool
 
     def test_connection(self) -> ProviderStatus: ...
