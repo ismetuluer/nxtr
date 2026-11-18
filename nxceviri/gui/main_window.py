@@ -50,34 +50,25 @@ from nxceviri.core.pipeline import (
 from nxceviri.core.plugins.loader import PluginInfo, PluginReport
 from nxceviri.core.plugins.trust import PluginTrust
 from nxceviri.core.progress import ProgressCallback, TaskContext
-from nxceviri.core.project import Change, Project, SourceRecord, TranslationRow, row_group
-from nxceviri.core.qa import ignored, transliterate
+from nxceviri.core.project import Change, Project, SourceRecord, TranslationRow
+from nxceviri.core.qa import ignored
 from nxceviri.core.qa.autofix import FixPlan, plan_reflow
 from nxceviri.core.qa.checks import (
     QaIssue,
 )
 from nxceviri.core.qa.fixrun import FixSettings
 from nxceviri.core.qa.fonts import FontReport
-from nxceviri.core.qa.live import SETTING_KEY as LIVE_KINDS_KEY
-from nxceviri.core.qa.live import LiveContext, format_live_kinds, parse_live_kinds
+from nxceviri.core.qa.live import LiveContext
 from nxceviri.core.qa.terms import implicit_terms
 from nxceviri.core.secrets import DEEPL_API_KEY, KeyringStore, SecretStore
 from nxceviri.core.selfupdate import PreparedInstall, current_install, launch_installer
-from nxceviri.core.spell.checker import SpellChecker, turkish_lower
+from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.spell.loader import load_spell_checker
 from nxceviri.core.spell.report import UnknownWordCache, replace_unknown
 from nxceviri.core.spell.suggest import Suggestion
 from nxceviri.core.spell.userdict import UserDictionary, default_user_dictionary_path
-from nxceviri.core.translate.codekinds import suspected_line_breaks
 from nxceviri.core.translate.fitconfig import (
-    EACH_GROUP,
-    GROUP_PREFIX,
     FitConfig,
-    learn_group_rules,
-    learn_rules,
-    load_config,
-    save_config,
-    separate_groups,
 )
 from nxceviri.core.translate.origin import MachineOrigin
 from nxceviri.core.translate.probe import deepl_summary, ollama_summary
@@ -100,7 +91,7 @@ from nxceviri.core.update import (
 from nxceviri.gui import motion
 from nxceviri.gui.add_game_page import AddGamePage
 from nxceviri.gui.changes_dialog import ChangesDialog
-from nxceviri.gui.checks_controller import ChecksController
+from nxceviri.gui.checks_controller import MANUAL_LIMIT_KEY, ChecksController
 from nxceviri.gui.csv_dialog import CsvExportDialog
 from nxceviri.gui.exchange_controller import ExchangeController
 from nxceviri.gui.export_controller import ExportController
@@ -152,7 +143,7 @@ from nxceviri.gui.recent import RecentProjects
 from nxceviri.gui.recovery import RecoveryFile, RecoveryKeeper, default_recovery_dir
 from nxceviri.gui.scan_controller import ScanController
 from nxceviri.gui.scan_page import ScanPage
-from nxceviri.gui.settings_dialog import KEY_SPELL_COPIED, PAGE_VIEW, SettingsDialog
+from nxceviri.gui.settings_dialog import PAGE_VIEW, SettingsDialog
 from nxceviri.gui.shortcuts import ShortcutRegistry
 from nxceviri.gui.spell_controller import SpellController
 from nxceviri.gui.spell_window import SpellWindow
@@ -182,11 +173,12 @@ from nxceviri.gui.update_controller import UpdateController
 from nxceviri.gui.update_dialog import UpdateDialog, UpdaterFactory
 from nxceviri.gui.widgets import button, format_int, format_size, tip_html
 
-#: Modülün dışa verdiği adlar; adım sabitleri `step_nav`'da, talimat anahtarları `machine_controller`'da tanımlıdır,
-#: buradan da alınabilsinler diye yeniden verilir. `implicit_terms`'i makine denetleyicisi bu modülden okur (testler
-#: onu burada değiştirir); `UpdateDialog`'u güncelleme, `replace_unknown`'u yazım denetimi denetleyicisi okur;
-#: `opened_view`, `check_sources` ve `member_reader`'ı font ve görseller denetleyicisi, `CsvExportDialog` ile
-#: `ChangesDialog`'u dış redaksiyon denetleyicisi, `check_sources` ile `extract_texts`'i tarama denetleyicisi okur.
+#: Modülün dışa verdiği adlar; adım sabitleri `step_nav`'da, talimat anahtarları `machine_controller`'da,
+#: `MANUAL_LIMIT_KEY` `checks_controller`'da tanımlıdır, buradan da alınabilsinler diye yeniden verilir.
+#: `implicit_terms`'i makine denetleyicisi bu modülden okur (testler onu burada değiştirir); `UpdateDialog`'u
+#: güncelleme, `replace_unknown`'u yazım denetimi denetleyicisi okur; `opened_view`, `check_sources` ve
+#: `member_reader`'ı font ve görseller denetleyicisi, `CsvExportDialog` ile `ChangesDialog`'u dış redaksiyon
+#: denetleyicisi, `check_sources` ile `extract_texts`'i tarama denetleyicisi okur.
 __all__ = [
     "MANUAL_LIMIT_KEY",
     "MASCOT_SLEEP_S",
@@ -216,8 +208,6 @@ __all__ = [
 log = logging.getLogger(__name__)
 
 APP_TITLE = "NXTR"
-#: Projenin ayar tablosunda "Elle sınır" (çeviri panelinin satır sınırı); 0 = kapalı.
-MANUAL_LIMIT_KEY = "translate_manual_limit"
 
 
 #: Kaydedilmemiş projenin kurtarma kopyasının yenilenme aralığı.
@@ -1222,54 +1212,16 @@ class MainWindow(QMainWindow):
         return self.fonts._transliterate_letters()
 
     def _refresh_qa(self) -> None:
-        self.qa_page.show_font_report(self.font_report, self.project.setting("font_missing"))
-        self.qa_page.set_font_overrides(self._stored_font_overrides())
-        self.qa_page.set_font_patch(self.project.setting("font_patch") == "1", self._patchable_letters())
-        mode = self.project.setting("transliterate_mode", transliterate.MODE_NONE)
-        self.qa_page.set_mode(mode, self._missing_letters(), self._font_patch_on())
-        config = self._fit_config()
-        self.qa_page.set_fit(config, *self._fit_lists())
-        self._refresh_limits()
-        self._sync_live()
+        return self.checks._refresh_qa()
 
     def _rows_replaced(self) -> None:
-        """Çeviri satırları yeniden kuruldu: satırlara bağlı önbellekler geçersiz."""
-        self._rows_version += 1
+        return self.checks._rows_replaced()
 
     def _fit_lists(self) -> tuple[list[str], list[str], list[str]]:
-        """Sığdırma sekmesinin dosya, kod etiketi ve grup listeleri (satırlar değişmedikçe önbellekten)."""
-        cached = self._fit_lists_cache
-        if cached is None or cached[0] != self._rows_version:
-            rows = self.translate_page.model.rows
-            cached = (
-                self._rows_version,
-                sorted({r.file for r in rows}),
-                sorted({code for r in rows for code in r.code_labels}),
-                list(separate_groups(rows)),
-            )
-            self._fit_lists_cache = cached
-        return cached[1], cached[2], cached[3]
+        return self.checks._fit_lists()
 
     def _refresh_limits(self) -> None:
-        """Sınırlar tablosunu doldurur; istatistik ve öğrenme tüm satırları taradığı için yalnızca Sığdırma sekmesi
-        görünürken ve satırlar ya da öğrenmeyi etkileyen ayar değiştiyse yapılır."""
-        if not self.qa_page.fit_tab_visible():
-            return
-        config = self._fit_config()
-        key = (
-            self._rows_version,
-            config.default,
-            sorted(config.per_file.items()),
-            config.kinds.dump(),
-        )
-        limits = self.qa_page.limits
-        if key == self._limits_key:
-            limits.set_config(config)
-            return
-        rows = self.translate_page.model.rows
-        limits.set_data(rows, config, learn_group_rules(rows, config))
-        self.qa_page.show_kind_warnings(suspected_line_breaks(((r.source, r.code_labels) for r in rows), config.kinds))
-        self._limits_key = key
+        return self.checks._refresh_limits()
 
     def _reload_rows(self) -> None:
         """Tabloyu projeden yeniler; panelde bekleyen metin önce kaydedilir ki yenilenen satırlar bayat kalmasın."""
@@ -1277,105 +1229,40 @@ class MainWindow(QMainWindow):
         self.translate_page.set_rows(self.project.translation_rows())
 
     def _push_fit_to_page(self) -> None:
-        """Çeviri sayfasına sığdırma ayarını ve kod türlerini verir (panel sayacı ve çipler)."""
-        self.translate_page.set_fit_config(self._fit_config())
-        self.translate_page.set_manual_limit(self._manual_limit())
-        self._sync_live()
+        return self.checks._push_fit_to_page()
 
     def _load_live_kinds(self) -> frozenset[str]:
-        """Ayarlardaki anlık denetim türleri (bozuk ya da yoksa hepsi)."""
-        return parse_live_kinds(self.settings.value(LIVE_KINDS_KEY, None))
+        return self.checks._load_live_kinds()
 
     def _sync_live(self, force: bool = False) -> None:
-        """Anlık denetimin bağlamını proje, font, sözlük, sığdırma, yazım denetleyicisi ve seçili türlerle kurar.
-
-        Bağlam değişmediyse tablo yenilenmez (büyük projede tüm hücreleri yeniden çizdirmek pahalıdır); yazım
-        denetleyicisinin içi değiştiyse (sözcük eklendi) `force` verilir.
-        """
-        context = LiveContext(
-            missing_letters=self._missing_letters(),
-            transliterated=self._transliterate_letters(),
-            glossary=tuple(self.project.glossary()),
-            fit=self._fit_config(),
-            spell=self.spell,
-            kinds=self._live_kinds,
-            spell_ignored=frozenset(turkish_lower(w) for w in self._spell_ignored()),
-        )
-        if not force and context == self._live_context:
-            return
-        self._live_context = context
-        self.translate_page.set_live_context(context)
+        return self.checks._sync_live(force)
 
     def _apply_spell_copied(self) -> None:
-        """Kayıtlı "orijinalden kopyalanan sözcükleri de işaretle" tercihini yazım denetleyicisine uygular."""
-        if self.spell is not None:
-            self.spell.flag_copied = str(self.settings.value(KEY_SPELL_COPIED, "0")) == "1"
+        return self.checks._apply_spell_copied()
 
     def _set_spell_copied(self, on: bool) -> None:
-        self.settings.setValue(KEY_SPELL_COPIED, "1" if on else "0")
-        self._apply_spell_copied()
-        self._sync_spell()
-        self._recheck_if_done()
+        return self.checks._set_spell_copied(on)
 
     def _set_live_kinds(self, kinds: list[str]) -> None:
-        self._live_kinds = frozenset(kinds)
-        self.settings.setValue(LIVE_KINDS_KEY, format_live_kinds(kinds))
-        self._sync_live()
+        return self.checks._set_live_kinds(kinds)
 
     def _manual_limit(self) -> int:
-        """Projenin kayıtlı "Elle sınır"ı (0: kapalı)."""
-        try:
-            return max(int(self.project.setting(MANUAL_LIMIT_KEY, "0")), 0)
-        except ValueError:
-            return 0
+        return self.checks._manual_limit()
 
     def _save_manual_limit(self, limit: int) -> None:
-        self.project.set_setting(MANUAL_LIMIT_KEY, str(limit))
+        return self.checks._save_manual_limit(limit)
 
     def _fit_config(self) -> FitConfig:
-        """Projenin kayıtlı sığdırma ayarı (sınır yoksa denetim ve düzeltme sığdırma yapmaz)."""
-        return load_config(self.project)
+        return self.checks._fit_config()
 
     def _save_fit(self) -> None:
-        try:
-            save_config(self.project, self.qa_page.fit_config())
-        except NxError as exc:
-            self.notify(LEVEL_ERROR, "Proje", exc.user_text())
-            return
-        self._push_fit_to_page()
-        self._mark_changed()
-        if self._qa_count is not None and self._qa_count[0] is self.project:
-            # Daha önce denetlendiyse yeni ayarın etkisi kendiliğinden görünür; hiç denetlenmediyse başlatılmaz.
-            self.qa_page.show_fit_checking()
-            self._fit_recheck_timer.start()
+        return self.checks._save_fit()
 
     def _fit_recheck_due(self) -> None:
-        self._recheck_if_done()
+        return self.checks._fit_recheck_due()
 
     def _learn_rules(self, scope: str) -> None:
-        """Kapsamdaki (proje, dosya ya da grup) orijinal metinlerden sınır önerir; öneri kaydedilmez.
-
-        "Her grup ayrı" kapsamında her grubun sınırı ayrı öğrenilir ve hemen kaydedilir.
-        """
-        config = self.qa_page.fit_config()
-        all_rows = self.translate_page.model.rows
-        if scope == EACH_GROUP:
-            learned = learn_group_rules(all_rows, config)
-            self.qa_page.show_learned_groups(learned)
-            self.qa_page.limits.set_learned(learned)
-            return
-        if scope.startswith(GROUP_PREFIX):
-            group = scope[len(GROUP_PREFIX) :]
-            rows = [r for r in all_rows if row_group(r) == group]
-            current = config.per_group.get(group) or config.default
-        else:
-            rows = [r for r in all_rows if not scope or r.file == scope]
-            current = config.rules_for(scope) if scope else config.default
-        if current is None:
-            rules = learn_rules(rows, config.kinds)
-        else:
-            rules = learn_rules(rows, config.kinds, current.variable_width)
-        self.qa_page.show_learned(rules)
+        return self.checks._learn_rules(scope)
 
     def scan_fonts(self) -> None:
         return self.fonts.scan_fonts()

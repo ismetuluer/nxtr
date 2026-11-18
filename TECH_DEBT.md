@@ -48,7 +48,7 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     Dokuzuncu adım: son işin değişiklikleri, satır geçmişi, geri al/yinele `gui/history_controller.py`'ye taşındı;
     pencere 2.344 satır.
     Onuncu adım: anahtarlar, oyun dosyaları, tarama ve metin aktarma `gui/scan_controller.py`'ye taşındı; pencere
-    2.028 satır.
+    2.028 satır. Ardından sığdırma ve anlık denetim `gui/checks_controller.py`'ye taşındı; pencere 1.915 satır.
     Kalan bölümler hâlâ pencere sınıfında. Aynı düzenle (karar 221: yönlendirme + pencere üzerinden çağrı, pencere modülünde
     değiştirilen adlar gecikmeli içe aktarılan pencere modülünden) adım adım taşınmalı.
     *Ne zaman:* bu bölümlerden birine büyük bir özellik eklenirken o bölüm ayrı bir denetleyiciye taşınır.

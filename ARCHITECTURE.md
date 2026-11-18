@@ -118,7 +118,7 @@ nxceviri/
     export/layeredfs.py    # Atmosphère / emülatör mod klasörü, atomik ve doğrulamalı
   gui/                     # PySide6; iş mantığı içermez
     main_window.py         # adımlar arası akış, menüler, arka plan işleri
-    checks_controller.py   # Kontrol Et iş akışı: denetim, pano yenileme, yok sayma, Düzelt (karar 221)
+    checks_controller.py   # Kontrol Et iş akışı: denetim, pano, yok sayma, Düzelt, sığdırma, anlık denetim (karar 221)
     export_controller.py   # Dışa Aktar iş akışı: özet, hedef klasör, mod oluşturma (karar 221)
     project_controller.py  # proje yaşam döngüsü: yeni, aç, kaydet, son projeler, kurtarma (karar 221)
     machine_controller.py  # makine işleri: çevir, yeniden çevir, talimatla düzelt penceresi ve iş (karar 221)
@@ -1147,6 +1147,10 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     projeye aktarma `gui/scan_controller.py` `ScanController`'da (`self.scanning`); `check_sources` ve `extract_texts`
     çağrı anında `_mw.<ad>` ile okunur, `_cache_dir`, `_inputs` (font, görsel, dışa aktarma da kullanır) ve
     `_show_scan_report` pencerede kalır.
+    Onuncu adımın ikinci kısmı: sığdırma ayarı (sınırlar tablosu, öğrenme, elle sınır) ve anlık denetim bağlamı
+    `ChecksController`'a taşındı; önbellek durumu ve `_fit_recheck_timer` pencerede, `MANUAL_LIMIT_KEY`
+    `checks_controller`'da tanımlanıp pencere modülünden yeniden verilir. Tabloyu projeden yenileyen `_reload_rows`
+    birçok denetleyicinin ortak yapıştırıcısı olduğundan pencerede kalır.
 
 ### 4.55 2026-11-17 kararları (çeviri kaynağı, Sorunlar panosu)
 

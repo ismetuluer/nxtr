@@ -1,9 +1,12 @@
-"""Kontrol Et denetleyicisi: denetim, pano yenileme, yok sayma, Düzelt ve aday seçimi.
+"""Kontrol Et denetleyicisi: denetim, pano yenileme, yok sayma, Düzelt, aday seçimi, sığdırma ayarı ve anlık denetim.
 
 Ana pencereden ayrılmıştır (`ARCHITECTURE.md` karar 221). Denetleyici pencereyi bilir; pencerenin
 durumunu (proje, sayfalar, iş) her çağrıda pencereden okur ve pencerede yönlendirmesi olan bir yöntemi
 pencere üzerinden çağırır (`self._win.<ad>`): testler pencerenin yöntemlerini değiştirerek çalışır,
 bağlı yöntem önceden saklanırsa değiştirilen yol sınanmaz. Sinyal bağlantıları ve kısayollar pencerede kalır.
+Sığdırma ve anlık denetimin önbellek durumu (`_rows_version`, `_fit_lists_cache`, `_limits_key`, `_live_context`,
+`_live_kinds`) ve `_fit_recheck_timer` pencerede kalır. Tabloyu projeden yenileyen `_reload_rows` tarama, makine ve
+dış redaksiyon denetleyicilerinin de kullandığı genel pencere yapıştırıcısı olduğundan pencerede kalır.
 """
 
 from __future__ import annotations
@@ -17,17 +20,32 @@ from typing import TYPE_CHECKING
 
 from nxceviri.core.errors import NxError, ProjectError
 from nxceviri.core.progress import ProgressCallback, TaskContext
-from nxceviri.core.project import Project, TranslationRow
-from nxceviri.core.qa import ignored
+from nxceviri.core.project import Project, TranslationRow, row_group
+from nxceviri.core.qa import ignored, transliterate
 from nxceviri.core.qa.asciitr import apply_choice
 from nxceviri.core.qa.autofix import FixPlan
 from nxceviri.core.qa.checks import KIND_LABELS, SEVERITY_ERROR, SEVERITY_WARNING, QaIssue, parse_word_list
 from nxceviri.core.qa.checks import run_checks as run_qa_checks
 from nxceviri.core.qa.fixrun import FixSettings, plan_for_issues, plan_for_rows
+from nxceviri.core.qa.live import SETTING_KEY as LIVE_KINDS_KEY
+from nxceviri.core.qa.live import LiveContext, format_live_kinds, parse_live_kinds
 from nxceviri.core.qa.terms import project_terms
+from nxceviri.core.spell.checker import turkish_lower
+from nxceviri.core.translate.codekinds import suspected_line_breaks
+from nxceviri.core.translate.fitconfig import (
+    EACH_GROUP,
+    GROUP_PREFIX,
+    FitConfig,
+    learn_group_rules,
+    learn_rules,
+    load_config,
+    save_config,
+    separate_groups,
+)
 from nxceviri.core.translate.status import Status
 from nxceviri.gui.jobs import new_job_id
-from nxceviri.gui.notify import LEVEL_INFO, LEVEL_SUCCESS, LEVEL_WARNING, NoticeAction
+from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_INFO, LEVEL_SUCCESS, LEVEL_WARNING, NoticeAction
+from nxceviri.gui.settings_dialog import KEY_SPELL_COPIED
 from nxceviri.gui.step_nav import STEP_QA
 from nxceviri.gui.tasks import Task, release_thread
 from nxceviri.gui.widgets import format_int
@@ -35,6 +53,8 @@ from nxceviri.gui.widgets import format_int
 if TYPE_CHECKING:
     from nxceviri.gui.main_window import MainWindow
 
+#: Projenin ayar tablosunda "Elle sınır" (çeviri panelinin satır sınırı); 0 = kapalı.
+MANUAL_LIMIT_KEY = "translate_manual_limit"
 #: Proje ayarları: yazım denetiminde yoksayılan sözcükler ve "terim değil" denen ifadeler (JSON listesi).
 SPELL_IGNORED_KEY = "spell_ignored"
 TERMS_IGNORED_KEY = "terms_ignored"
@@ -563,3 +583,166 @@ class ChecksController:
         page.show_fix_result(
             "success", " ".join([f"{format_int(len(plan.changes))} satır düzeltildi.", *notes]), "Raporu Gör"
         )
+
+    # --- sığdırma ve anlık denetim -----------------------------------------------------------
+
+    def _refresh_qa(self) -> None:
+        win = self._win
+        win.qa_page.show_font_report(win.font_report, win.project.setting("font_missing"))
+        win.qa_page.set_font_overrides(win._stored_font_overrides())
+        win.qa_page.set_font_patch(win.project.setting("font_patch") == "1", win._patchable_letters())
+        mode = win.project.setting("transliterate_mode", transliterate.MODE_NONE)
+        win.qa_page.set_mode(mode, win._missing_letters(), win._font_patch_on())
+        config = win._fit_config()
+        win.qa_page.set_fit(config, *win._fit_lists())
+        win._refresh_limits()
+        win._sync_live()
+
+    def _rows_replaced(self) -> None:
+        """Çeviri satırları yeniden kuruldu: satırlara bağlı önbellekler geçersiz."""
+        self._win._rows_version += 1
+
+    def _fit_lists(self) -> tuple[list[str], list[str], list[str]]:
+        """Sığdırma sekmesinin dosya, kod etiketi ve grup listeleri (satırlar değişmedikçe önbellekten)."""
+        win = self._win
+        cached = win._fit_lists_cache
+        if cached is None or cached[0] != win._rows_version:
+            rows = win.translate_page.model.rows
+            cached = (
+                win._rows_version,
+                sorted({r.file for r in rows}),
+                sorted({code for r in rows for code in r.code_labels}),
+                list(separate_groups(rows)),
+            )
+            win._fit_lists_cache = cached
+        return cached[1], cached[2], cached[3]
+
+    def _refresh_limits(self) -> None:
+        """Sınırlar tablosunu doldurur; istatistik ve öğrenme tüm satırları taradığı için yalnızca Sığdırma sekmesi
+        görünürken ve satırlar ya da öğrenmeyi etkileyen ayar değiştiyse yapılır."""
+        win = self._win
+        if not win.qa_page.fit_tab_visible():
+            return
+        config = win._fit_config()
+        key = (
+            win._rows_version,
+            config.default,
+            sorted(config.per_file.items()),
+            config.kinds.dump(),
+        )
+        limits = win.qa_page.limits
+        if key == win._limits_key:
+            limits.set_config(config)
+            return
+        rows = win.translate_page.model.rows
+        limits.set_data(rows, config, learn_group_rules(rows, config))
+        win.qa_page.show_kind_warnings(suspected_line_breaks(((r.source, r.code_labels) for r in rows), config.kinds))
+        win._limits_key = key
+
+    def _push_fit_to_page(self) -> None:
+        """Çeviri sayfasına sığdırma ayarını ve kod türlerini verir (panel sayacı ve çipler)."""
+        win = self._win
+        win.translate_page.set_fit_config(win._fit_config())
+        win.translate_page.set_manual_limit(win._manual_limit())
+        win._sync_live()
+
+    def _load_live_kinds(self) -> frozenset[str]:
+        """Ayarlardaki anlık denetim türleri (bozuk ya da yoksa hepsi)."""
+        return parse_live_kinds(self._win.settings.value(LIVE_KINDS_KEY, None))
+
+    def _sync_live(self, force: bool = False) -> None:
+        """Anlık denetimin bağlamını proje, font, sözlük, sığdırma, yazım denetleyicisi ve seçili türlerle kurar.
+
+        Bağlam değişmediyse tablo yenilenmez (büyük projede tüm hücreleri yeniden çizdirmek pahalıdır); yazım
+        denetleyicisinin içi değiştiyse (sözcük eklendi) `force` verilir.
+        """
+        win = self._win
+        context = LiveContext(
+            missing_letters=win._missing_letters(),
+            transliterated=win._transliterate_letters(),
+            glossary=tuple(win.project.glossary()),
+            fit=win._fit_config(),
+            spell=win.spell,
+            kinds=win._live_kinds,
+            spell_ignored=frozenset(turkish_lower(w) for w in win._spell_ignored()),
+        )
+        if not force and context == win._live_context:
+            return
+        win._live_context = context
+        win.translate_page.set_live_context(context)
+
+    def _apply_spell_copied(self) -> None:
+        """Kayıtlı "orijinalden kopyalanan sözcükleri de işaretle" tercihini yazım denetleyicisine uygular."""
+        win = self._win
+        if win.spell is not None:
+            win.spell.flag_copied = str(win.settings.value(KEY_SPELL_COPIED, "0")) == "1"
+
+    def _set_spell_copied(self, on: bool) -> None:
+        win = self._win
+        win.settings.setValue(KEY_SPELL_COPIED, "1" if on else "0")
+        win._apply_spell_copied()
+        win._sync_spell()
+        win._recheck_if_done()
+
+    def _set_live_kinds(self, kinds: list[str]) -> None:
+        win = self._win
+        win._live_kinds = frozenset(kinds)
+        win.settings.setValue(LIVE_KINDS_KEY, format_live_kinds(kinds))
+        win._sync_live()
+
+    def _manual_limit(self) -> int:
+        """Projenin kayıtlı "Elle sınır"ı (0: kapalı)."""
+        try:
+            return max(int(self._win.project.setting(MANUAL_LIMIT_KEY, "0")), 0)
+        except ValueError:
+            return 0
+
+    def _save_manual_limit(self, limit: int) -> None:
+        self._win.project.set_setting(MANUAL_LIMIT_KEY, str(limit))
+
+    def _fit_config(self) -> FitConfig:
+        """Projenin kayıtlı sığdırma ayarı (sınır yoksa denetim ve düzeltme sığdırma yapmaz)."""
+        return load_config(self._win.project)
+
+    def _save_fit(self) -> None:
+        win = self._win
+        try:
+            save_config(win.project, win.qa_page.fit_config())
+        except NxError as exc:
+            win.notify(LEVEL_ERROR, "Proje", exc.user_text())
+            return
+        win._push_fit_to_page()
+        win._mark_changed()
+        if win._qa_count is not None and win._qa_count[0] is win.project:
+            # Daha önce denetlendiyse yeni ayarın etkisi kendiliğinden görünür; hiç denetlenmediyse başlatılmaz.
+            win.qa_page.show_fit_checking()
+            win._fit_recheck_timer.start()
+
+    def _fit_recheck_due(self) -> None:
+        self._win._recheck_if_done()
+
+    def _learn_rules(self, scope: str) -> None:
+        """Kapsamdaki (proje, dosya ya da grup) orijinal metinlerden sınır önerir; öneri kaydedilmez.
+
+        "Her grup ayrı" kapsamında her grubun sınırı ayrı öğrenilir ve hemen kaydedilir.
+        """
+        win = self._win
+        config = win.qa_page.fit_config()
+        all_rows = win.translate_page.model.rows
+        if scope == EACH_GROUP:
+            learned = learn_group_rules(all_rows, config)
+            win.qa_page.show_learned_groups(learned)
+            win.qa_page.limits.set_learned(learned)
+            return
+        if scope.startswith(GROUP_PREFIX):
+            group = scope[len(GROUP_PREFIX) :]
+            rows = [r for r in all_rows if row_group(r) == group]
+            current = config.per_group.get(group) or config.default
+        else:
+            rows = [r for r in all_rows if not scope or r.file == scope]
+            current = config.rules_for(scope) if scope else config.default
+        if current is None:
+            rules = learn_rules(rows, config.kinds)
+        else:
+            rules = learn_rules(rows, config.kinds, current.variable_width)
+        win.qa_page.show_learned(rules)

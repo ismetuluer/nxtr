@@ -6,7 +6,7 @@ Ana pencereden ayrılmıştır (`ARCHITECTURE.md` karar 221). Denetleyici durum 
 `_inputs`, `_mark_changed`, `_refresh_qa`, `_graphics`...) pencere üzerinden çağrılır; testler bu adları pencerede
 değiştirir. Testlerin `nxceviri.gui.main_window` üzerinde değiştirdiği `opened_view`, `check_sources` ve
 `member_reader` adları çağrı anında `_mw.<ad>` ile okunur. Font ayarlarını arayüze yansıtan `_refresh_qa` Kontrol Et
-akışına ait olduğu için pencerede kalır.
+akışına ait olduğu için Kontrol Et denetleyicisindedir.
 """
 
 from __future__ import annotations
