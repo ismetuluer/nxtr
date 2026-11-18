@@ -122,6 +122,7 @@ nxceviri/
     export_controller.py   # Dışa Aktar iş akışı: özet, hedef klasör, mod oluşturma (karar 221)
     project_controller.py  # proje yaşam döngüsü: yeni, aç, kaydet, son projeler, kurtarma (karar 221)
     machine_controller.py  # makine işleri: çevir, yeniden çevir, talimatla düzelt penceresi ve iş (karar 221)
+    update_controller.py   # güncelleme: denetim penceresi, paket kurulumu, açılıştaki sessiz denetim (karar 221)
     icons.py + icons/*.svg # Lucide simgeleri; temaya uyan QIcon, bind_icon/refresh_icons
     appicon/               # uygulama simgesi: nxtr.svg + nxtr-kucuk.svg (kaynak) → .ico/.png (packaging/make_icon.py)
     step_nav.py            # simgeli kenar çubuğu (StepNav) ve proje başlığı
@@ -1117,6 +1118,9 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     pencerede kalır. Testlerin pencere modülünde değiştirdiği `implicit_terms`'i makine denetleyicisi gecikmeli
     içe aktarılan pencere modülünden okur (`_mw.implicit_terms`). Talimat anahtarları (`REVISE_INSTRUCTION_KEY`,
     `TRANSLATE_INSTRUCTION_KEY`) denetleyici modülündedir, `main_window` yeniden verir.
+    Dördüncü adım: güncelleme (denetim penceresi, paket kurulumu, açılıştaki sessiz denetim) `gui/update_controller.py`
+    `UpdateController`'da (`self.updates`); testlerin pencere modülünde değiştirdiği `UpdateDialog` gecikmeli
+    içe aktarılan pencere modülünden okunur (`_mw.UpdateDialog`), `main_window` `__all__` ile yeniden verir.
 
 ### 4.55 2026-11-17 kararları (çeviri kaynağı, Sorunlar panosu)
 

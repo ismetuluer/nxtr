@@ -39,9 +39,10 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     `gui/checks_controller.py`'ye, Dışa Aktar `gui/export_controller.py`'ye taşındı; pencere ~3.600 satır.
     Üçüncü adım (2026-11-17, karar 221): proje yaşam döngüsü `gui/project_controller.py`'ye, makine işleri
     (çevir / yeniden çevir / talimatla düzelt) `gui/machine_controller.py`'ye taşındı; pencere ~3.370 satır.
+    Dördüncü adım: güncelleme `gui/update_controller.py`'ye taşındı; pencere 3.259 satır.
     Kalan: son işin değişiklikleri ve satır geçmişi (`show_job_changes`, `_revert`; testler `ChangesDialog`'u
     pencere modülünde değiştirir), terimler ve terim önerileri, yazım denetimi penceresi, dış redaksiyon
-    içe/dışa aktarma (`CsvExportDialog` pencere modülünde değiştirilir), güncelleme (`UpdateDialog`) ve görseller
+    içe/dışa aktarma (`CsvExportDialog` pencere modülünde değiştirilir) ve görseller
     hâlâ pencere sınıfında. Aynı düzenle (karar 221: yönlendirme + pencere üzerinden çağrı, pencere modülünde
     değiştirilen adlar gecikmeli içe aktarılan pencere modülünden) adım adım taşınmalı.
     *Ne zaman:* bu bölümlerden birine büyük bir özellik eklenirken o bölüm ayrı bir denetleyiciye taşınır.

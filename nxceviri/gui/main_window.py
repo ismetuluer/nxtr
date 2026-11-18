@@ -75,8 +75,8 @@ from nxceviri.core.qa.fonts import scan_fonts as scan_font_files
 from nxceviri.core.qa.live import SETTING_KEY as LIVE_KINDS_KEY
 from nxceviri.core.qa.live import LiveContext, format_live_kinds, parse_live_kinds
 from nxceviri.core.qa.terms import implicit_terms
-from nxceviri.core.secrets import DEEPL_API_KEY, GITHUB_UPDATE_KEY, KeyringStore, SecretStore
-from nxceviri.core.selfupdate import PreparedInstall, current_install, discard_prepared, launch_installer
+from nxceviri.core.secrets import DEEPL_API_KEY, KeyringStore, SecretStore
+from nxceviri.core.selfupdate import PreparedInstall, current_install, launch_installer
 from nxceviri.core.spell.checker import SpellChecker, turkish_lower
 from nxceviri.core.spell.loader import load_spell_checker
 from nxceviri.core.spell.report import UnknownWordCache, replace_unknown
@@ -119,14 +119,9 @@ from nxceviri.core.translate.status import TRANSLATED_STATUSES, Status
 from nxceviri.core.translate.terms import TermCandidate, TermSuggestion, find_candidates, suggest_glossary
 from nxceviri.core.translate.uppercase import UppercaseRules
 from nxceviri.core.update import (
-    GitHubUpdater,
-    UpdateError,
-    UpdateInfo,
     Updater,
     app_root,
-    is_git_checkout,
     is_packaged,
-    make_updater,
     relaunch,
 )
 from nxceviri.gui import motion
@@ -208,12 +203,13 @@ from nxceviri.gui.theme import (
     clamp_font_size,
 )
 from nxceviri.gui.translate_page import TranslatePage
-from nxceviri.gui.update_dialog import UpdateDialog, UpdaterFactory, auto_check_enabled
+from nxceviri.gui.update_controller import UpdateController
+from nxceviri.gui.update_dialog import UpdateDialog, UpdaterFactory
 from nxceviri.gui.widgets import button, format_int, format_size, tip_html
 
 #: Modülün dışa verdiği adlar; adım sabitleri `step_nav`'da, talimat anahtarları `machine_controller`'da tanımlıdır,
 #: buradan da alınabilsinler diye yeniden verilir. `implicit_terms`'i makine denetleyicisi bu modülden okur (testler
-#: onu burada değiştirir).
+#: onu burada değiştirir); `UpdateDialog`'u güncelleme denetleyicisi bu modülden okur.
 __all__ = [
     "MANUAL_LIMIT_KEY",
     "MASCOT_SLEEP_S",
@@ -225,6 +221,7 @@ __all__ = [
     "STEP_TRANSLATE",
     "TRANSLATE_INSTRUCTION_KEY",
     "MainWindow",
+    "UpdateDialog",
     "ask_full_folder",
     "build_save_box",
     "choose_button",
@@ -385,6 +382,7 @@ class MainWindow(QMainWindow):
         self.exporter = ExportController(self)
         #: Proje yaşam döngüsü (yeni, aç, kaydet, son projeler, kurtarma); durum pencerede kalır.
         self.projects = ProjectController(self)
+        self.updates = UpdateController(self)
         #: Makine işleri (çevir, yeniden çevir, talimatla düzelt); durum pencerede kalır.
         self.machine = MachineController(self)
         #: Çeviri satırları her yeniden kurulduğunda artar; satırlara bağlı ağır hesapların önbelleği buna bağlıdır.
@@ -787,133 +785,26 @@ class MainWindow(QMainWindow):
     # --- güncelleme ----------------------------------------------------------------------
 
     def open_updates(self) -> None:
-        packaged = self.app_root is None and self.packaged
-        root = self.install_dir if packaged else self.app_root
-        if root is None:
-            return
-        dialog = UpdateDialog(
-            self,
-            secrets=self.secrets,
-            settings=self.settings,
-            current=__version__,
-            root=root,
-            updater_factory=self.updater_factory,
-            git_mode=not packaged and is_git_checkout(root),
-            packaged=packaged,
-        )
-        if dialog.exec() != UpdateDialog.DialogCode.Accepted or dialog.info is None:
-            return
-        self.update_badge.hide()
-        version = dialog.info.version
-        prepared = dialog.prepared
-        if packaged:
-            if prepared is not None and not self._install_package(prepared, root):
-                discard_prepared(prepared)
-            return
-        later = f"{version} sürümü uygulama bir sonraki açılışında kurulacak."
-        answer = QMessageBox.question(
-            self,
-            "Güncelleme hazır",
-            f"{version} sürümü indirildi. Uygulama şimdi yeniden başlatılıp güncellensin mi?\n\n"
-            "Hayır derseniz güncelleme bir sonraki açılışta kurulur.",
-        )
-        if answer != QMessageBox.StandardButton.Yes:
-            self.statusBar().showMessage(later, 10000)
-            return
-        if self.busy:
-            self.notify(LEVEL_INFO, "Güncelleme hazır", "Önce süren işlemi bitirin veya iptal edin. " + later)
-            return
-        if not self._confirm_discard():
-            self.statusBar().showMessage(later, 10000)
-            return
-        self.dirty = False  # kullanıcı az önce kaydetti veya değişiklikleri atmayı seçti
-        self.relauncher(root)
-        self.close()
+        return self.updates.open_updates()
 
     def _install_package(self, prepared: PreparedInstall, install_dir: Path) -> bool:
-        """İndirilip doğrulanan paketi kurdurur: uygulama kapanır, yardımcı klasörü değiştirip yeniden açar.
-
-        False dönerse kurulmadı (çağıran hazırlığı siler); sonra Yardım → Güncellemeleri Denetle ile yinelenebilir.
-        """
-        retry = "Güncelleme yapılmadı. Daha sonra Yardım → Güncellemeleri Denetle ile yineleyebilirsiniz."
-        answer = QMessageBox.question(
-            self,
-            "Güncelleme hazır",
-            f"{prepared.version} sürümü indirildi ve doğrulandı. Uygulama şimdi kapatılıp güncellensin ve "
-            "yeniden açılsın mı?\n\nProjeleriniz, eklentileriniz ve ayarlarınız olduğu gibi kalır.",
-        )
-        if answer != QMessageBox.StandardButton.Yes:
-            self.statusBar().showMessage(retry, 10000)
-            return False
-        if self.busy:
-            self.notify(LEVEL_INFO, "Güncelleme hazır", "Önce süren işlemi bitirin veya iptal edin. " + retry)
-            return False
-        if not self._confirm_discard():
-            self.statusBar().showMessage(retry, 10000)
-            return False
-        try:
-            self.installer_launcher(prepared, install_dir)
-        except UpdateError as exc:
-            self.notify(LEVEL_ERROR, "Güncelleme", exc.user_text())
-            return False
-        self.dirty = False  # kullanıcı az önce kaydetti veya değişiklikleri atmayı seçti
-        self.close()
-        return True
+        return self.updates._install_package(prepared, install_dir)
 
     def check_updates_in_background(self) -> None:
-        """Açılışta (ayar açıksa) yeni sürüm olup olmadığına sessizce bakar; varsa durum çubuğunda rozet çıkar."""
-        root = self.app_root
-        if (
-            (root is None and not self.packaged)
-            or self._update_task is not None
-            or not auto_check_enabled(self.settings)
-        ):
-            return
-        try:
-            token = self.secrets.get(GITHUB_UPDATE_KEY)
-        except NxError:
-            token = None  # anahtar deposu okunamıyorsa anahtarsız denenir (açık depo); açılış bozulmaz
-        factory = self.updater_factory
-
-        def work(_ctx: TaskContext) -> object:
-            updater = factory(token)
-            try:
-                return updater.check(__version__)
-            finally:
-                updater.close()
-
-        task = Task(work, "Güncelleme denetimi")
-        task.succeeded.connect(self._update_checked)
-        task.failed.connect(lambda text: log.info("Açılıştaki güncelleme denetimi başarısız: %s", text))
-        self._update_task = task
-        task.start()
+        return self.updates.check_updates_in_background()
 
     def _default_updater(self, token: str | None) -> Updater:
-        if self.app_root is None:  # paketlenmiş sürüm: yalnızca yeni sürüm olup olmadığına bakılır
-            return GitHubUpdater(token)
-        return make_updater(self.app_root, token)
+        return self.updates._default_updater(token)
 
     def _test_notification(self) -> None:
         """Ayarlar → Bildirimler'deki deneme: seçili kanallarla (Windows bildirimi, ses) örnek bildirim."""
         self.notifier.notify(LEVEL_SUCCESS, "Deneme bildirimi", "Bildirimler böyle görünür.", loud=True)
 
     def notify_update_failure(self, reason: str) -> None:
-        """Önceki güncelleme kurulamadıysa açılışta bildirir; Tekrar Dene güncelleme penceresini açar."""
-        actions = (NoticeAction("Tekrar Dene", self.open_updates),) if self.update_action.isEnabled() else ()
-        self.notifier.notify(LEVEL_ERROR, "Güncelleme kurulamadı", reason, actions, loud=True)
+        return self.updates.notify_update_failure(reason)
 
     def _update_checked(self, result: object) -> None:
-        assert isinstance(result, UpdateInfo)
-        if result.newer:
-            self.update_badge.setText(f"Yeni sürüm: {result.version} — Güncelle")
-            self.update_badge.show()
-            self.notifier.notify(
-                LEVEL_INFO,
-                f"Yeni sürüm: {result.version}",
-                "Yenilikleri görmek ve kurmak için Şimdi Güncelle'ye basın.",
-                (NoticeAction("Şimdi Güncelle", self.open_updates), NoticeAction("Sonra", lambda: None)),
-                loud=True,
-            )
+        return self.updates._update_checked(result)
 
     # --- genel durum ---------------------------------------------------------------------
 
