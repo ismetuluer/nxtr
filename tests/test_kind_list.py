@@ -23,7 +23,7 @@ _EXPECTED_GROUPS = [
         "Oyunu bozabilir",
         ["placeholder", "code_position", "newlines", "markup", "missing_markup", "identifier", "protected", "glyph"],
     ),
-    ("Ekrana sığmayabilir", ["max_length", "line_too_long", "page_too_tall", "overflow", "bad_break"]),
+    ("Ekrana sığmayabilir", ["max_length", "line_too_long", "page_too_tall", "overflow", "bad_break", "too_wide"]),
     ("Dil ve tutarlılık", ["glossary", "term", "inconsistent", "suspicious", "code_order", "spelling", "untranslated"]),
     (
         "Küçük düzeltmeler",

@@ -103,7 +103,7 @@ _FIT_RESULT_FAILED = "Denetim yenilenemedi. Sorunlar sekmesinde “Denetle”ye 
 _OVERFLOW_KINDS = (PROBLEM_LINE, PROBLEM_PAGE, KIND_TOO_WIDE)
 #: Genişlik denetiminin kutu seçenekleri (gösterilen ad, değer).
 _WIDTH_BOXES = (("Kapsamdaki en geniş orijinal", BOX_GROUP), ("Satırın kendi orijinali", BOX_ROW))
-_WIDTH_FONT_APPROX = "Ölçüm: yaklaşık tablo — daha doğru sonuç için Font ve harfler'den fontları tarayın"
+_WIDTH_FONT_APPROX = "Ölçüm: yaklaşık tablo — Font ve harfler'den fontları tarayın"
 
 
 #: Satırın çeviri ekranında nasıl açılacağı; hücre ipuçlarının sonuna eklenir.
@@ -661,7 +661,12 @@ class QaPage(QWidget):
         self.fit_width_box.currentIndexChanged.connect(lambda _i: self._width_changed())
         form.addRow("Kutu:", self.fit_width_box)
         body.addLayout(form)
-        self.fit_width_font = label(_WIDTH_FONT_APPROX, "muted", wrap=True)
+        self.fit_width_font = label(
+            _WIDTH_FONT_APPROX,
+            "muted",
+            wrap=True,
+            tip="Genişlik bu tabloyla ölçülür. Fontlar taranınca oyunun fontu kullanılır; sonuç daha doğru olur.",
+        )
         body.addWidget(self.fit_width_font)
         learn_row = QHBoxLayout()
         self.fit_learn = button("Orijinalden öğren")
