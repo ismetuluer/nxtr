@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import html
 import logging
 import os
 import time
@@ -93,7 +92,6 @@ from nxceviri.core.translate.probe import deepl_summary, ollama_summary
 from nxceviri.core.translate.providers.base import ProviderError, TranslationProvider
 from nxceviri.core.translate.providers.deepl import DeepLProvider
 from nxceviri.core.translate.providers.ollama import DEFAULT_URL
-from nxceviri.core.translate.report import job_label, mark_label
 from nxceviri.core.translate.runner import (
     ACTION_TRANSLATE,
     MachineJob,
@@ -117,6 +115,7 @@ from nxceviri.gui.export_controller import ExportController
 from nxceviri.gui.export_page import ExportPage
 from nxceviri.gui.fonts_controller import FontsController
 from nxceviri.gui.help_window import STEP_TOPICS, TOPIC_START, HelpWindow
+from nxceviri.gui.history_controller import HistoryController
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.jobs import new_job_id
 from nxceviri.gui.machine_controller import REVISE_INSTRUCTION_KEY, TRANSLATE_INSTRUCTION_KEY, MachineController
@@ -375,6 +374,7 @@ class MainWindow(QMainWindow):
         self.terms = TermsController(self)
         self.fonts = FontsController(self)
         self.exchange = ExchangeController(self)
+        self.history = HistoryController(self)
         #: Makine işleri (çevir, yeniden çevir, talimatla düzelt); durum pencerede kalır.
         self.machine = MachineController(self)
         #: Çeviri satırları her yeniden kurulduğunda artar; satırlara bağlı ağır hesapların önbelleği buna bağlıdır.
@@ -2087,78 +2087,19 @@ class MainWindow(QMainWindow):
     # --- değişiklikler ve geçmiş -------------------------------------------------------------
 
     def _set_last_job(self, job_id: str) -> int:
-        """Son işi hatırlar; işte değişen (geri alınmamış) satır sayısını döndürür."""
-        self._last_job = job_id
-        changes = self.project.job_changes(job_id)
-        self.translate_page.set_last_changes({c.entry_id: c.old_text for c in changes})
-        return len(changes)
+        return self.history.set_last_job(job_id)
 
     def _refresh_marks(self, ids: Sequence[int] | None = None) -> None:
-        """Durum sütunundaki "· redaksiyon" gibi işaretler: satırın son değişikliğini yapan iş.
-
-        `ids` verilirse yalnızca o satırların işareti yenilenir (az satır değişen işlerde bütün geçmişi okumaz).
-        """
-        model = self.translate_page.model
-        if ids is None:
-            marks = {eid: label for eid, job in self.project.last_jobs().items() if (label := mark_label(job))}
-        else:
-            marks = dict(model.marks)
-            latest = self.project.last_jobs(ids)
-            for eid in ids:
-                text = mark_label(latest[eid]) if eid in latest else ""
-                if text:
-                    marks[eid] = text
-                else:
-                    marks.pop(eid, None)
-        model.set_marks(marks)
+        return self.history.refresh_marks(ids)
 
     def show_job_changes(self) -> None:
-        """Son işin değişikliklerini gösterir; işaretlenenler geri alınır."""
-        if self._last_job is None:
-            return
-        changes = self.project.job_changes(self._last_job)
-        if not changes:
-            self.translate_page.set_last_changes({})
-            self.translate_page.show_notice("success", "Son işte değişen (geri alınmamış) satır kalmadı.")
-            return
-        applied = (
-            self._fix_report[1] if self._fix_report is not None and self._fix_report[0] == self._last_job else None
-        )
-        self._open_changes(
-            ChangesDialog(
-                self,
-                f"{job_label(self._last_job)}: değişiklikler",
-                changes,
-                kinds=applied,
-                edit_fn=self._edit_from_changes,
-                context_fn=self._context_html,
-                settings=self.settings,
-            )
-        )
+        return self.history.show_job_changes()
 
     def _edit_from_changes(self, row_id: int, text: str) -> str | None:
-        """Değişiklikler penceresinde "Yeni" hücresinin elle düzeltilmesi: Çevir'deki kayıt yoluyla yazılır."""
-        if self.busy:
-            return "Bir iş sürerken düzenlenemez; iş bitince yeniden deneyin."
-        try:
-            rows = self._commit_translations([(row_id, text)])
-        except NxError as exc:
-            return exc.user_text()
-        self.translate_page.model.update_rows(rows)
-        return None
+        return self.history.edit_from_changes(row_id, text)
 
     def _context_html(self, row_id: int) -> str:
-        """Satırın bağlamı: aynı dosyada önceki ve sonraki iki satırın orijinali ve çevirisi (ipucu için HTML)."""
-        before, after = self.translate_page.model.neighbors(row_id)
-
-        def line(r: TranslationRow) -> str:
-            translation = html.escape(r.translation) if r.translation else "<i>çevrilmedi</i>"
-            return f"{html.escape(r.source)}<br><span style='color:gray'>{translation}</span>"
-
-        parts = [line(r) for r in before]
-        parts.append("<b>▶ bu satır</b>")
-        parts += [line(r) for r in after]
-        return "<br><br>".join(parts) if before or after else ""
+        return self.history.context_html(row_id)
 
     def _to_translate_step(self) -> bool:
         if not self.translate_page.model.rows:
@@ -2191,58 +2132,16 @@ class MainWindow(QMainWindow):
             self.start_machine_translation()
 
     def _replace_translations(self, changes: list[tuple[int, str]]) -> list[TranslationRow] | None:
-        """Bul ve Değiştir çubuğunun yazma yolu: her eylem tek iştir, Ctrl+Z hepsini geri alır.
-
-        Onaylı satırlar onaylı kalır, diğerleri makine durumunda yazılır. Hata olursa None döner ve neden
-        sayfada bildirilir.
-        """
-        if self.busy:
-            return None
-        page = self.translate_page
-        job_id = new_job_id("replace")
-        status = {r.id: r.status for r in page.model.rows}
-        approved = [c for c in changes if status.get(c[0]) == Status.APPROVED]
-        others = [c for c in changes if status.get(c[0]) != Status.APPROVED]
-        try:
-            rows = self.project.set_translations(approved, job=job_id)
-            rows += self.project.set_translations(others, machine=True, job=job_id)
-        except NxError as exc:
-            page.show_notice("danger", exc.user_text())
-            return None
-        page.model.update_rows(rows)
-        self._mark_changed()
-        self._refresh_marks([r.id for r in rows])
-        self._set_last_job(job_id)
-        return rows
+        return self.history.replace_translations(changes)
 
     def show_row_history(self, entry_id: int) -> None:
-        changes = self.project.row_history(entry_id)
-        if not changes:
-            self.translate_page.show_notice("success", "Bu satırın çevirisi henüz hiç değişmedi.")
-            return
-        self._open_changes(ChangesDialog(self, "Çeviri geçmişi", changes, history=True))
+        return self.history.show_row_history(entry_id)
 
     def _open_changes(self, dialog: ChangesDialog) -> None:
-        self.changes_dialog = dialog
-        dialog.accepted.connect(lambda: self._revert(dialog.to_revert))
-        dialog.open()  # pencereyi engellemez; kapanınca geri alma uygulanır
+        return self.history.open_changes(dialog)
 
     def _revert(self, changes: list[Change]) -> None:
-        if not changes or self.busy:
-            return
-        try:
-            rows = self.project.revert(changes)
-        except NxError as exc:
-            self.translate_page.show_notice("danger", exc.user_text())
-            return
-        self.translate_page.model.update_rows(rows)
-        self._mark_changed()
-        self._refresh_marks()
-        if self._last_job is not None:
-            self._set_last_job(self._last_job)
-        self.translate_page.show_notice(
-            "success", f"{format_int(len(rows))} satır önceki çevirisine ve durumuna döndürüldü."
-        )
+        return self.history.revert(changes)
 
     def _save_uppercase(self, rules: object) -> None:
         assert isinstance(rules, UppercaseRules)
@@ -2267,67 +2166,19 @@ class MainWindow(QMainWindow):
         self.machine.machine_results(results, overwrite_approved, job_id, origin=origin, memory_ids=memory_ids)
 
     def _update_undo_action(self) -> None:
-        job = self.project.undo_job()
-        self.undo_action.setText("Geri Al" if job is None else f"Geri Al: {job_label(job)}")
-        self.undo_action.setEnabled(job is not None and not self.busy)
+        return self.history.update_undo_action()
 
     def _update_redo_action(self) -> None:
-        job = self.project.redo_job()
-        self.redo_action.setText("Yinele" if job is None else f"Yinele: {job_label(job)}")
-        self.redo_action.setEnabled(job is not None and not self.busy)
+        return self.history.update_redo_action()
 
     def undo_last(self) -> None:
-        """Çeviri tablosundaki son işlemi (elle düzenleme, onay, makine işi, bul-değiştir, içe aktarma …) geri alır."""
-        page = self.translate_page
-        if self.busy:
-            page.show_notice("warning", "Bir iş sürerken geri alınamaz; iş bitince veya durdurulunca deneyin.")
-            return
-        try:
-            result = self.project.undo()
-        except NxError as exc:
-            page.show_notice("danger", exc.user_text())
-            return
-        self._to_translate_step()
-        if result is None:
-            page.show_notice("warning", "Geri alınacak bir işlem yok.")
-            return
-        job, rows = result
-        self._show_stepped_rows(rows)
-        page.show_notice(
-            "success", f"Geri alındı ({job_label(job)}): {format_int(len(rows))} satır önceki hâline döndü."
-        )
+        return self.history.undo_last()
 
     def redo_last(self) -> None:
-        """Geri alınan son işlemi aynen geri getirir; arada yeni bir düzenleme yapıldıysa yinelenecek bir şey kalmaz."""
-        page = self.translate_page
-        if self.busy:
-            page.show_notice("warning", "Bir iş sürerken yinelenemez; iş bitince veya durdurulunca deneyin.")
-            return
-        try:
-            result = self.project.redo()
-        except NxError as exc:
-            page.show_notice("danger", exc.user_text())
-            return
-        self._to_translate_step()
-        if result is None:
-            page.show_notice("warning", "Yinelenecek bir işlem yok.")
-            return
-        job, rows = result
-        self._show_stepped_rows(rows)
-        page.show_notice("success", f"Yinelendi ({job_label(job)}): {format_int(len(rows))} satır yeniden uygulandı.")
+        return self.history.redo_last()
 
     def _show_stepped_rows(self, rows: list[TranslationRow]) -> None:
-        """Geri al / yinele sonrası: tabloyu, iş işaretlerini ve "Son işte değişenler"i yeniler."""
-        page = self.translate_page
-        page.model.update_rows(rows)
-        self._mark_changed()
-        self._refresh_marks()
-        self._update_undo_action()  # art arda Ctrl+Z / Ctrl+Y zamanlayıcıyı beklemeden doğru eylemi bulsun
-        self._update_redo_action()
-        if self._last_job is not None:
-            self._set_last_job(self._last_job)
-        if len(rows) == 1:
-            page.select_row(rows[0].id)
+        return self.history.show_stepped_rows(rows)
 
     # --- dış dosya: dışa / içe aktarma (redaksiyon ve çeviri) ------------------------------------
 
