@@ -40,6 +40,12 @@ Oyunun metin kutusuna sığmayan satırlar için satırda en çok karakter ve sa
 sonu, değişken) ayarlanır. Ayarı değiştirince denetim kendiliğinden yenilenir (önce bir kez **Denetle**'ye
 basmış olmanız gerekir); kaç satırın taştığı bu sekmede görünür, **Göster** onları Sorunlar'da açar.
 
+**Genişliği fontla denetle** (kapsam başına, varsayılan kapalı): menü ve düğme gibi kısa metinlerde çevirinin
+ekrandaki genişliği oyunun fontuyla ölçülür. Kutu, kapsamdaki en geniş orijinaldir (ya da seçerseniz satırın kendi
+orijinali); **Genişlik payı**'nı (%15) aşan satır "Geniş satır" uyarısı alır, dışa aktarma engellenmez. "Ölçüm:" satırı
+hangi fontun kullanıldığını söyler; fontlar taranmadıysa yaklaşık tablo kullanılır. Bu denetim karakter sınırı
+gerektirmez. Açıkken çeviri panelinde sayacın yanında "Genişlik %112" gibi oran görünür.
+
 ## Yazım Denetimi
 
 **Araçlar → Yazım Denetimi** (`F7`): Türkçe yazım hatalarını tek tek gezer; program doğru yazımı kendisi önerir (önce

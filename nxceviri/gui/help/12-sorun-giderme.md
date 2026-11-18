@@ -17,7 +17,8 @@
 ## Metin kutudan taşıyor
 
 **Kontrol Et → Sığdırma**'da satır ve sayfa sınırlarını verin (bilmiyorsanız **Orijinalden öğren**), sonra
-Düzeltmeler'de satır sığdırmayı uygulayın. Türkçe çoğu zaman İngilizceden %20–40 uzundur.
+Düzeltmeler'de satır sığdırmayı uygulayın. Türkçe çoğu zaman İngilizceden %20–40 uzundur. Menü ve düğmelerde
+taşma oluyorsa o dosya ya da grup için **Genişliği fontla denetle**'yi açın (önce **Fontları Tara**).
 
 ## Harfler kutucuk
 

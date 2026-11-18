@@ -2,6 +2,16 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [Yayımlanmadı]
+
+### Eklendi
+- **Sığdırma → Genişliği fontla denetle:** seçili kapsam (dosya, grup ya da tüm proje) için çevirinin ekrandaki
+  genişliği oyunun fontuyla ölçülür ve kapsamdaki en geniş orijinalle (ya da satırın kendi orijinaliyle)
+  karşılaştırılır; payı (varsayılan %15) aşan satır "Geniş satır" uyarısı alır, dışa aktarma engellenmez. Varsayılan
+  kapalıdır ve karakter sınırı gerektirmez. Ölçüm fontu **Fontları Tara** ile kaydedilir (yalnızca harf
+  genişlikleri); taranmadıysa yaklaşık tablo kullanılır ve sekmede bu söylenir. Çeviri panelinde sayacın yanında
+  "Genişlik %112" göstergesi görünür.
+
 ## [0.66.0] — 2026-11-18 — Kontrol Et'te Grafik sekmesi, ana pencere bölündü
 
 ### Eklendi

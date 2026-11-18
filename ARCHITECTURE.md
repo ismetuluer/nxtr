@@ -104,6 +104,7 @@ nxceviri/
       status.py            # satır durumları (çevrilmedi/makine/onaylandı/hatalı)
       codekinds.py         # kontrol kodu türleri (satır sonu, sayfa sonu, değişken, sembol, biçim, diğer): kodun yer/uzunluk etkisi
       fit.py               # saf sığdırma: sayfa/satır ayrıştırma, sorun bulma, noktalama→kelime bitimi bölme (Qt'siz, projesiz)
+      fitwidth.py          # kapsam başına fontla genişlik denetimi: kutular (tüm satırlardan bir kez), ölçüm tablosu ayarı, bulgu iletisi
       widths.py            # piksel genişliği: font tablosu (TTF/TMP/BMFont) ya da yaklaşık tablo, orijinale göre bağıl genişlik denetimi (Qt'siz)
       fitconfig.py         # sınırlar + seçenekler + kod türlerinin `settings` tablosundan okunması/yazılması, orijinalden öğrenme
       providers/base.py    # TranslationProvider sözleşmesi, ProviderError
@@ -1340,6 +1341,28 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     kutusu düz; özgünü aşıyorsa kırmızı), Sığdır / %100 (bir resim pikseli bir ekran pikseli). Qt'nin açamadığı DDS
     Pillow ile yüklenir. `_refresh_graphics` (Dışa Aktar sayfası, çıkarma sonrası) sekmeyi `sync_folder` ile tazeler;
     klasör ve izlenen alt klasörler aynıysa bir şey yapmaz.
+232. **Fontla genişlik denetimi kapsam kuralıdır, varsayılan kapalıdır (ürün sahibi, 2026-11-18):** karakter sayısı
+    "M" ile "i"yi eşit sayar; genişlik oyunun fontuyla ölçülür (`core/translate/widths.py`). Kutunun gerçek boyutu
+    bilinmediği için ölçüt orijinaldir. **Kalibrasyon** (gerçek bir proje kopyasında, yaklaşık tabloyla, salt okunur):
+    ~36 bin çevrili satırın ~28 bini tek satırlıydı (motor diyaloğu kendisi bölüyor; "tek satırlı" arayüz metni demek
+    değil). Satır başına oran (çeviri / kendi orijinali) çok gürültülü: ≤12 karakterlik kısa satırların ~%14'ü %15'i
+    aşıyor (Türkçe doğal olarak %20-30 uzun). Grup kutusu (gruptaki en geniş orijinal) gürültüyü çok azaltıyor
+    (≤25 karakterlik satırlarda ~%2,7 uyarı). Bu yüzden: (1) denetim kapsam başına açılır (`FitConfig.width_*`,
+    JSON'da isteğe bağlı `widths` bölümü; `WidthRules(enabled, tolerance=0.15, box="group"|"row")`), (2) varsayılan
+    kutu kapsamdaki en geniş tek satırlı orijinaldir; kapsam kimliği karakter kuralıyla aynı öncelikle bulunur
+    (anahtar deseni > grup > dosya > proje; kapalı girdi üst kapsamı geçersiz kılar), (3) bulgu `too_wide` uyarıdır,
+    dışa aktarmayı engellemez. Genişlik ayarı `FitRules`'tan ayrıdır: kapsam karakter sınırı olmadan yalnızca
+    genişlik denetimi taşıyabilir (`FitRules` en az 1 karakter ister ve eşitlikle karşılaştırılır; ona alan eklemek
+    öğrenme ve önbellek anahtarlarını bozardı). Arayüzde genişliği açmak sığdırmayı açar ama proje sınırı eklemez;
+    kapsam seçici ve genişlik kutusu sığdırma kapalıyken de kullanılabilir. **Kutular** yalnızca orijinallere
+    bağlıdır: `fitwidth.build_measure` tüm satırlardan bir kez hesaplar, pencere satır sürümü + ayar + tabloyla
+    önbelleğe alır (yalnızca pay değiştiyse kutular yeniden ölçülmez, `box_shape`); tam denetim, pano yeniden denetimi
+    ve anlık denetim aynı `WidthMeasure`'ı alır (alt kümeyle denetimde kutu alt kümeden çıkarılmaz). **Ölçüm fontu:**
+    font taraması TTF/OTF (`hmtx`, Çince/Japonca/Korece fontlar atlanır) ve TMP (`m_GlyphTable`) genişliklerini
+    `FontInfo.widths`'e alır; ASCII harflerin en çoğunu kapsayan Latin statik font (eşitlikte büyük tablo, sonra ad)
+    seçilir, `widths.dump` ile `fit_widths` ayarına yazılır (font verisi değil, yalnızca genişlikler); yoksa ya da
+    tarama yapılmadıysa yaklaşık tablo. BMFont ve BFFNT taramada okunmaz (TECH_DEBT 33). Anahtar deseni kapsamı
+    yapılandırma ve denetimde desteklenir, Sığdırma sekmesinin kapsam seçicisinde yoktur.
 
 ## 5. Bilinen sınırlar
 

@@ -55,6 +55,10 @@ anahtar, oyun dosyası, orijinal dosyalara dokunma yok.
    düzeltme çubuğundaki düğme → Değişiklikler penceresinde bak (`docs/translation.md` "Metin sığdırma").
 2. Türkçe çeviri İngilizceden %20-40 uzundur; sınırı aşan satırlar için modele kısaltma yaptır.
 3. Sınır karakter sayısıdır, piksel değildir. Geniş harfli fontta (`W`, `M`) taşma olursa sınırı biraz düşür.
+   Menü/düğme gibi kısa metinlerde taşan dosya ya da grup için kapsamı seçip **"Genişliği fontla denetle"**yi aç:
+   çeviri oyunun fontuyla (fontlar taranmadıysa yaklaşık tabloyla) ölçülür ve kapsamdaki en geniş orijinal kutuyla
+   karşılaştırılır; payı aşan satır "Geniş satır" uyarısıdır (dışa aktarılır). Önce **Font ve harfler → Fontları
+   Tara** ile ölçüm fontunu kaydet. Tüm projede açma: diyalogda satır başına oran çok gürültülüdür.
 4. Taşma yalnızca bir yerde oluyorsa o dosyaya ayrı sınır ver ("Kapsam").
 
 ### D. Harfler kutucuk / boşluk / yanlış harf

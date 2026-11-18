@@ -9,10 +9,15 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     Kesin ayrım için `Script_monoscripts` bundle'ındaki MonoScript sınıf adları okunabilir.
 
 33. **Taşma denetimi kaba.** Font ölçüsü/kutu genişliği bilinmediği için yalnızca uzunluk oranına
-    bakılıyor; gerçek taşma oyunda görülür.
+    bakılıyor; gerçek taşma oyunda görülür. *Kısmen çözüldü (karar 232):* kapsam başına isteğe bağlı fontla genişlik
+    denetimi (TTF/OTF ve TMP fontlarının harf genişlikleri, yoksa yaklaşık tablo; kutu = kapsamdaki en geniş
+    orijinal). Kalan: kutunun gerçek piksel genişliği hâlâ bilinmiyor; BFFNT ve BMFont genişlikleri taramada
+    okunmuyor (yaklaşık tablo); kerning yok; otomatik bölme hâlâ karakterle.
 
 46. **Metin kutusu genişliği denetlenmiyor.** GFMSG biçimi satırları elle `\n` ile bölünür; Türkçe
     metin uzun olursa kutudan taşabilir. *Ne zaman:* M5 QA'ya font ölçüsüyle satır genişliği denetimi.
+    *Kısmen çözüldü (karar 232):* tek satırlı orijinaller için kapsam başına fontla genişlik denetimi var; çok
+    satırlı (elle `\n` ile bölünmüş) metinde uygulanmaz, oradaki karakter sınırı kuralları sürer.
 
 47. **GFMSG kod türlerinin çoğunun adı tahmini.** Etiketler grup düzeyindedir ("Değişken 0107",
     "Sayı 0202"); yalnızca seçimler, renk ve sayfa kodları kesin olarak çözüldü. Kodlar her durumda
