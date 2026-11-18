@@ -54,8 +54,8 @@ TID = 0x0100EEEE00000000
 TID_HEX = f"{TID:016X}"
 HEADER = bytes.fromhex("d99b871a01020304")
 KEY = bytes.fromhex("5a3c9e11")
-#: Avrupa dillerinin aksanlı harfleri: Latin metin fontu bunları taşır (Türkçenin ç ö ü'sü dahil).
-WESTERN = "çöüÇÖÜéèàñ"
+#: Avrupa dillerinin aksanlı harfleri (Latin-1 Ek): Latin metin fontu bunları taşır (Türkçenin ç ö ü'sü dahil).
+WESTERN = "".join(chr(c) for c in range(0xC0, 0x100) if c not in (0xD7, 0xF7))
 PATCHABLE = "ıİşŞğĞ"
 
 LATIN_ZS = "mesg/Font/Latin.bfttf.zs"
@@ -225,6 +225,16 @@ def test_cjk_font_with_only_ascii_is_language_specific(switch_game: Game) -> Non
     assert not standard.language_specific
     assert sorted(standard.patchable) == sorted(PATCHABLE)
     assert standard.widths is not None
+
+
+def test_cjk_font_with_a_few_accented_letters_is_language_specific() -> None:
+    from nxceviri.core.qa import fonts as qa_fonts
+
+    # Çince fontlar pinyin için ü, é, à gibi birkaç aksanlı harf taşır; Avrupa metin fontu değildir.
+    cjk = frozenset(chr(c) for c in range(0x4E00, 0x4E00 + 3000)) | frozenset("abcdefghijklmnopqrstuvwxyzüéàèòù")
+    assert qa_fonts.is_language_specific_switch_font("FZTLJW.bfttf", cjk)
+    western = cjk | frozenset(chr(c) for c in range(0xC0, 0x100) if c not in (0xD7, 0xF7))
+    assert not qa_fonts.is_language_specific_switch_font("FOT-Std.bfotf", western)
 
 
 def test_patch_files_and_verdict(switch_game: Game) -> None:

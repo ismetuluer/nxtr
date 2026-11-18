@@ -54,6 +54,8 @@ _SWITCH_FONT = re.compile(r"\.bf(ttf|otf)(\.zs)?$", re.IGNORECASE)
 #: Avrupa dillerinin aksanlı harfleri (Latin-1 Ek; × ve ÷ hariç). Latin metin fontu bunları taşır; yalnızca ASCII
 #: taşıyan CJK font Çince/Korece gibi bir dilin fontudur.
 _WESTERN_LETTERS = frozenset(chr(c) for c in range(0xC0, 0x100) if c not in (0xD7, 0xF7))
+#: CJK yoğun bir Switch fontunun Latin metin fontu sayılması için taşıması gereken aksanlı harf oranı.
+_WESTERN_COVERAGE = 0.75
 #: Font taramasında açılacak Unity dosya türleri (tarama raporundaki ayrıntı metni).
 _UNITY_CONTAINERS = ("Unity AssetBundle", "Unity serileştirilmiş dosya")
 #: Bundan büyük Unity dosyaları (ses/model/video) font aramak için açılmaz.
@@ -92,14 +94,17 @@ def switch_font_source(path: str) -> str | None:
 
 
 def is_language_specific_switch_font(name: str, chars: frozenset[str] | None) -> bool:
-    """Switch fontu bir dile mi özgü? Adı öyle diyorsa ya da CJK yoğun olup Avrupa harflerinden hiçbirini taşımıyorsa.
+    """Switch fontu bir dile mi özgü? Adı öyle diyorsa ya da CJK yoğun olup Avrupa harflerinin çoğunu taşımıyorsa.
 
     Switch oyunlarının Latin metin fontları da Japonca glif taşır (`switchfont` bu yüzden CJK fontlara da harf ekler);
-    onları Çince/Korece fontlardan ayıran, Avrupa dillerinin aksanlı harfleridir (é, ö, ç…).
+    onları Çince/Korece fontlardan ayıran, Avrupa dillerinin aksanlı harfleridir (é, ö, ç…). Çince fontlar pinyin
+    için birkaç aksanlı harf (ü, é, à) taşıdığından ölçüt "hiç yok" değil, "çoğu yok"tur (gerçek oyunda görüldü).
     """
     if is_language_specific(name):
         return True
-    return chars is not None and is_cjk_chars(map(ord, chars)) and not chars & _WESTERN_LETTERS
+    if chars is None or not is_cjk_chars(map(ord, chars)):
+        return False
+    return len(chars & _WESTERN_LETTERS) < _WESTERN_COVERAGE * len(_WESTERN_LETTERS)
 
 
 @dataclass(frozen=True)

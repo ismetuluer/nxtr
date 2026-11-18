@@ -1370,8 +1370,9 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     dıştaki parçayı kanonik yol sayar (modun değiştirdiği dosya; SARC içindeyse `arşiv>Font/X.bfttf.zs`). Tür
     `KIND_SWITCH`; karakterler, yamalanabilir harfler (`ttf.plan(..., allow_cjk=True)`) ve genişlikler
     (`table_from_ttf`) açılmış sfnt'den okunur. **Dile özgü kuralı** (`is_language_specific_switch_font`): ad
-    `is_language_specific`'e uyuyorsa ya da font CJK yoğun olup Avrupa aksanlı harflerinden (Latin-1 Ek: é, ö, ç…)
-    hiçbirini taşımıyorsa. Düz `is_cjk_chars` yetmez: Switch oyunlarının Latin metin fontları Japonca glif de taşır,
+    `is_language_specific`'e uyuyorsa ya da font CJK yoğun olup Avrupa aksanlı harflerinin (Latin-1 Ek: é, ö, ç…)
+    %75'inden azını taşıyorsa (gerçek oyunda düzeltildi: Çince fontlar pinyin için ü, é, à taşıdığından "hiç yok"
+    kuralı 48 CJK fontu Latin sanıyordu; %75 ile 48'i dile özgü, 12 Latin font yamalanabilir çıktı). Düz `is_cjk_chars` yetmez: Switch oyunlarının Latin metin fontları Japonca glif de taşır,
     onları atlamak yamayı boşa çıkarırdı; yalnızca ASCII taşıyan Çince/Korece fontlar ("Asia…", "…KDH…" gibi adlar
     regex'e uymaz) karakter kuralıyla ayrılır. Gerçek oyunda doğrulanması gereken kural budur. Dile özgü fontun
     yamalanabilir harfi boştur (`patch_files`'a girmez), ölçüm fontu olamaz; dışa aktarma da aynı kuralla atlar (eski

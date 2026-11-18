@@ -24,7 +24,8 @@ eklenebilecek harfler ve genişlikler açılmış sfnt'den okunur.
 
 Switch oyunlarının Latin metin fontları Japonca glif de taşır. Bu yüzden font, CJK karakter sayısına bakılarak değil şu
 kuralla dile özgü sayılır: adı bir dili gösteriyorsa (`japanese`, `zh`, `ko`…) ya da CJK yoğun olup Avrupa dillerinin
-aksanlı harflerinden (é, ö, ç…) hiçbirini taşımıyorsa (yalnızca ASCII taşıyan Çince/Korece font). Dile özgü font
+aksanlı harflerinin (é, ö, ç…) çoğunu (%75'ten azını) taşıyorsa. Çince fontlar pinyin için ü, é, à gibi birkaç
+aksanlı harf taşır; bu yüzden ölçüt "hiç yok" değil "çoğu yok"tur. Dile özgü font
 yamalanmaz ve genişlik ölçümünde kullanılmaz.
 
 ## Yama ve yazım
