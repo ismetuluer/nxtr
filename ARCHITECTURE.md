@@ -1363,6 +1363,26 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     seçilir, `widths.dump` ile `fit_widths` ayarına yazılır (font verisi değil, yalnızca genişlikler); yoksa ya da
     tarama yapılmadıysa yaklaşık tablo. BMFont ve BFFNT taramada okunmaz (TECH_DEBT 33). Anahtar deseni kapsamı
     yapılandırma ve denetimde desteklenir, Sığdırma sekmesinin kapsam seçicisinde yoktur.
+233. **Switch sistem fontları font denetimine ve font yamasına bağlandı (2026-11-18):** bir MSBT oyunu fontlarını
+    `mesg/Font/<ad>.bfttf.zs` / `.bfotf.zs` olarak taşıyordu; `core/fontpatch/switchfont.py` bunları açıp yamalıyordu ama
+    uygulama kullanmıyordu (0.31.17 girişi bağlantıyı anlatır, kod geçmişte yok). **Tek kayıt:** tarayıcı aynı fontu
+    hem `.zs` dosyası hem `X.bfttf.zs>X.bfttf` iç dosyası olarak listeler; `qa.fonts.switch_font_source` adı font olan en
+    dıştaki parçayı kanonik yol sayar (modun değiştirdiği dosya; SARC içindeyse `arşiv>Font/X.bfttf.zs`). Tür
+    `KIND_SWITCH`; karakterler, yamalanabilir harfler (`ttf.plan(..., allow_cjk=True)`) ve genişlikler
+    (`table_from_ttf`) açılmış sfnt'den okunur. **Dile özgü kuralı** (`is_language_specific_switch_font`): ad
+    `is_language_specific`'e uyuyorsa ya da font CJK yoğun olup Avrupa aksanlı harflerinden (Latin-1 Ek: é, ö, ç…)
+    hiçbirini taşımıyorsa. Düz `is_cjk_chars` yetmez: Switch oyunlarının Latin metin fontları Japonca glif de taşır,
+    onları atlamak yamayı boşa çıkarırdı; yalnızca ASCII taşıyan Çince/Korece fontlar ("Asia…", "…KDH…" gibi adlar
+    regex'e uymaz) karakter kuralıyla ayrılır. Gerçek oyunda doğrulanması gereken kural budur. Dile özgü fontun
+    yamalanabilir harfi boştur (`patch_files`'a girmez), ölçüm fontu olamaz; dışa aktarma da aynı kuralla atlar (eski
+    ayarda kalmış olsa bile). **Dışa aktarma** mevcut `font_files` yolunu kullanır: RomFS'te serbest `.zs` genel yolda
+    `_patch_switch_font` ile, SARC/Yaz0/zstd içindeki font `nested.replace_inner` ile yamalanır (diğer üyeler aynı
+    kalır); başka arşiv türünün (pak, NNI, eklenti arşivi) içindekiler için uyarı verilir. Başlık ve XOR anahtarı
+    korunur; sıkıştırılmamış kapsayıcı sıkıştırılmadan yazılır. `switchfont._verify` yeniden açıp eklenen harfleri
+    cmap'te arar; doğrulama ya da kapsayıcı çözümü başarısızsa `ExportError` (bozuk font moda girmez). **Fontu dışarıda
+    düzenleme** (Dışa Aktar / İçe Al) bu türde kapalıdır: içe alınan TTF dışa aktarmada özgün başlık/anahtarla yeniden
+    paketlenmeliydi ve arşiv içindeki fontlarda çalışmazdı; düğmeler seçili Switch fontunda devre dışı, ipucu nedenini
+    söyler.
 
 ## 5. Bilinen sınırlar
 

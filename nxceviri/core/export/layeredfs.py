@@ -46,6 +46,7 @@ from nxceviri.core.container.view import ContentTree, safe_relative_path
 from nxceviri.core.errors import ContainerError, NxError, OperationCancelled
 from nxceviri.core.export import extras
 from nxceviri.core.export.addressables import CatalogError, patch_catalog_crc
+from nxceviri.core.fontpatch import switchfont
 from nxceviri.core.fontpatch.unity import FALLBACK_REASON, patch_fonts
 from nxceviri.core.formats import legacy
 from nxceviri.core.formats.base import ArchiveFormat, FormatError, FormatPlugin, GameFiles, MemberArchive
@@ -54,7 +55,13 @@ from nxceviri.core.pipeline import Inputs, opened_view
 from nxceviri.core.progress import TaskContext
 from nxceviri.core.project import TranslationRow, row_group
 from nxceviri.core.qa import transliterate
-from nxceviri.core.qa.fonts import is_language_specific, is_patchable_font_bundle
+from nxceviri.core.qa.fonts import (
+    is_language_specific,
+    is_language_specific_switch_font,
+    is_patchable_font_bundle,
+    is_switch_font_path,
+    switch_font_chars,
+)
 from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.status import Status
 from nxceviri.core.translate.uppercase import UppercaseRules, dotted_capitals
@@ -137,7 +144,8 @@ class ExportOptions:
     mod_name: str
     transliterate_letters: str = ""
     patch_fonts: bool = False  # TMP fontlarına eksik Türkçe harfleri ekle (M8)
-    #: Adında "font" geçmese de yamalanacak fontları içeren dosyalar (Kontrol Et → Fontları Tara bulur)
+    #: Adında "font" geçmese de yamalanacak fontları içeren dosyalar (Kontrol Et → Fontları Tara bulur). Switch
+    #: sistem fontları kanonik yollarıyla durur; arşiv içindekiler "arşiv>iç/yol.bfttf.zs" biçimindedir.
     font_files: frozenset[str] = frozenset()
     uppercase: UppercaseRules = field(default_factory=UppercaseRules)  # büyük harfle çizilen satırlar: i → İ
     #: Ürün sahibinin bilinçli istisnası (CLAUDE.md §4.3): "Hatalı" satırlar da çevirileriyle yazılır; biçim
@@ -559,12 +567,18 @@ def export_mod(
                 tree = trees.get(title_id)
                 if tree is not None and path in tree.view.files:
                     groups.setdefault((title_id, path), [])
+            # Arşiv içindeki Switch fontları: üst arşiv → iç fontlar (genel arşiv yolunda yamalanır).
+            nested_fonts: dict[str, list[str]] = {}
             if options.patch_fonts:
+                for path in sorted(options.font_files):
+                    if nested.SEPARATOR in path and is_switch_font_path(path):
+                        nested_fonts.setdefault(nested.split(path)[0], []).append(path)
                 for title_id in title_ids:
                     tree = trees.get(title_id)
                     for path in tree.view.files if tree is not None else []:
-                        if is_patchable_font_bundle(path) or path in options.font_files:
+                        if is_patchable_font_bundle(path) or path in options.font_files or path in nested_fonts:
                             groups.setdefault((title_id, path), [])
+            pending_fonts = {font for fonts in nested_fonts.values() for font in fonts}
             derived = extras.collect(
                 {(r.title_id, r.format) for r in refs.values()}, trees, inputs.paths[0].parent if inputs.paths else None
             )
@@ -649,8 +663,13 @@ def export_mod(
                     data = _apply_group(original, group, translations, skip=1, result=result)
                     if group:
                         _verify_group(data, group, translations, skip=1, result=result, original=original)
-                    if options.patch_fonts and (is_patchable_font_bundle(top) or top in options.font_files):
+                    if options.patch_fonts and is_switch_font_path(top) and top in options.font_files:
+                        data = _patch_switch_font(data, top, result)
+                    elif options.patch_fonts and (is_patchable_font_bundle(top) or top in options.font_files):
                         data = _patch_font_file(data, top, result)
+                    for font in nested_fonts.get(top, []):
+                        data = _patch_nested_switch_font(data, font, result)
+                        pending_fonts.discard(font)
                     extra = extra_patches.get((title_id, top))
                     if extra is not None:
                         try:
@@ -666,6 +685,11 @@ def export_mod(
                     outputs = [(root / safe_relative_path(top), data)]
                 for rel, data in outputs:
                     _write_output(tmp, rel, data, result)
+            for font in sorted(pending_fonts):
+                result.warnings.append(
+                    f"{font}: font yamalanmadı; bu arşiv türünün içindeki Switch fontları henüz yamalanamıyor "
+                    "(oyunda Türkçe harfler kutu görünebilir; harf dönüştürmeyi kullanın)."
+                )
             for title_id, found in derived.items():
                 for path, data in found.files.items():
                     rel = _mod_root(options.layout, title_id, options.mod_name) / safe_relative_path(path)
@@ -871,30 +895,69 @@ def _patch_font_file(data: bytes, path: str, result: ExportResult) -> bytes:
         out, patches = patch_fonts(data, skip=is_language_specific)
     except NxError as exc:
         raise ExportError(f"'{path}' fontları yamalanamadı: {exc.message}", exc.hint) from None
-    name = path.rsplit("/", 1)[-1]
+    _report_font_patches([(p.font, p.added, p.skipped) for p in patches], path.rsplit("/", 1)[-1], result)
+    return out
+
+
+def _report_font_patches(patches: list[tuple[str, str, Mapping[str, str]]], name: str, result: ExportResult) -> None:
+    """Font yamasının sonucunu (font adı, eklenen harfler, eklenemeyenler → neden) rapora ve bilgi dosyasına yazar."""
     partial = []
-    for p in patches:
-        missed = {c: why for c, why in p.skipped.items() if not why.startswith(("dinamik", FALLBACK_REASON))}
+    for font, added, skipped in patches:
+        missed = {c: why for c, why in skipped.items() if not why.startswith(("dinamik", FALLBACK_REASON))}
         detail = "; ".join(f"{c} ({why})" for c, why in missed.items())
-        if p.added:
-            line = f"{p.font} ({name}): {' '.join(p.added)}"
+        if added:
+            line = f"{font} ({name}): {' '.join(added)}"
             if missed:
                 line += " — eklenemeyen: " + detail
             result.font_patches.append(line)
         elif missed and all(why.startswith(_NO_BASE_LETTER) for why in missed.values()):
             # Harflerin türetileceği temel harfler (i, s, g …) fontta hiç yok: metin çizmeyen bir
             # yer tutucu/simge fontudur; uyarı verilmez, yalnızca bilgi dosyasına not düşülür.
-            result.font_notes.append(f"{p.font} ({name}): temel Latin harfleri yok, metin fontu değil; atlandı")
+            result.font_notes.append(f"{font} ({name}): temel Latin harfleri yok, metin fontu değil; atlandı")
             continue
         elif missed:
-            result.font_notes.append(f"{p.font} ({name}): harf eklenemedi — {detail}")
+            result.font_notes.append(f"{font} ({name}): harf eklenemedi — {detail}")
         if missed:
-            partial.append(f"{p.font} ({' '.join(missed)})")
+            partial.append(f"{font} ({' '.join(missed)})")
     if partial:
         result.warnings.append(
             f"{name}: bazı fontlara bazı harfler eklenemedi: {', '.join(partial)}. Ayrıntı bilgi dosyasında."
         )
-    return out
+
+
+_SWITCH_FONT_HINT = (
+    "Font dosyası beklenen Switch biçiminde değil ya da yama doğrulanamadı. Font yamasını kapatıp harf dönüştürmeyle "
+    "dışa aktarabilirsiniz; sorunu bildirirken bilgi dosyasını ekleyin."
+)
+
+
+def _patch_switch_font(data: bytes, path: str, result: ExportResult) -> bytes:
+    """Switch sistem fontuna (`.bfttf`/`.bfotf`, `.zs`) eksik Türkçe harfleri ekler; dile özgü font atlanır.
+
+    Yamalanan font yeniden açılıp eklenen harflerin cmap'te olduğu doğrulanır (`switchfont`); doğrulama ya da
+    kapsayıcı çözülemezse dışa aktarma hatayla durur (bozuk font moda konmaz).
+    """
+    file_name = nested.split(path)[-1].rsplit("/", 1)[-1]
+    font = file_name[:-3] if file_name.lower().endswith(".zs") else file_name
+    try:
+        if is_language_specific_switch_font(font, switch_font_chars(data)):
+            result.font_notes.append(f"{font} ({file_name}): dile özgü font; atlandı")
+            return data
+        patched = switchfont.patch_font(data)
+    except ValueError as exc:
+        raise ExportError(f"'{path}' fontu yamalanamadı: {exc}", _SWITCH_FONT_HINT) from None
+    _report_font_patches([(font, patched.added, patched.skipped)], file_name, result)
+    return patched.data
+
+
+def _patch_nested_switch_font(data: bytes, path: str, result: ExportResult) -> bytes:
+    """Arşivdeki (ör. SARC) Switch fontunu yamalar; üst arşivler yeniden kurulur, diğer üyeler aynı kalır."""
+    try:
+        return nested.replace_inner(data, nested.split(path)[1:], lambda inner: _patch_switch_font(inner, path, result))
+    except ExportError:
+        raise
+    except NxError as exc:
+        raise ExportError(f"'{path}' fontu yamalanamadı: {exc.message}", exc.hint) from None
 
 
 def _accept_soft(

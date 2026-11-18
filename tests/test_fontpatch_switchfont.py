@@ -250,3 +250,22 @@ def _serialize(font: TTFont) -> bytes:
     out = io.BytesIO()
     font.save(out)
     return out.getvalue()
+
+
+def raw(sfnt: bytes, header: bytes = HEADER, key: bytes = KEY) -> bytes:
+    """Tarayıcının iç dosya olarak gösterdiği, zstd'si açılmış `.bfttf` (başlık + XOR'lu sfnt)."""
+    return header + bytes(b ^ key[i % 4] for i, b in enumerate(sfnt))
+
+
+def test_unwrap_accepts_decompressed_member() -> None:
+    sfnt = make_font()
+    assert switchfont.unwrap(raw(sfnt)) == (HEADER, sfnt, KEY)
+
+
+def test_patch_keeps_raw_member_uncompressed() -> None:
+    result = switchfont.patch_font(raw(make_font()))
+
+    assert result.added == ALL
+    assert result.data.startswith(HEADER)  # özgünü gibi sıkıştırılmamış
+    _header, patched, _key = switchfont.unwrap(result.data)
+    assert all(outlines(patched)[letter] is not None for letter in ALL)

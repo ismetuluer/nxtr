@@ -36,6 +36,17 @@ def test_advice_explains_each_kind() -> None:
     assert "dile özgü" in font_advice(FontInfo("J", "Font/ja.ttf", KIND_TTF, LATIN, True))
 
 
+def test_patchable_fonts_of_every_kind_get_patch_advice() -> None:
+    """Paket içindeki yamalanabilir TTF de genel sonuçla aynı şeyi söyler: font yaması."""
+    packed = _font(KIND_TTF, source="data.unity3d", patchable="ğıİşĞŞ")
+    advice = font_advice(packed)
+    assert advice.startswith("Font yaması ğ ı İ ş Ğ Ş harflerini ekler")
+    assert advice.endswith("kalanlara harf dönüştürme.")  # ç ö ü Ç Ö Ü yamayla eklenmez
+    loose = _font(KIND_TTF, chars=LATIN | frozenset("çöüÇÖÜ"), patchable="ğıİşĞŞ")
+    assert font_advice(loose) == "Font yaması ğ ı İ ş Ğ Ş harflerini ekler."
+    assert "dile özgü" in font_advice(FontInfo("J", "x.unity3d", KIND_TTF, LATIN, True, "", "ğ"))
+
+
 def test_editable_only_for_loose_ttf_otf() -> None:
     assert is_editable_font(_font(KIND_TTF, "Font/a.ttf"))
     assert is_editable_font(_font(KIND_TTF, "Font/b.OTF"))

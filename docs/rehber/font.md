@@ -30,6 +30,8 @@ oyunda görünmez. Üç çözüm vardır; bu sırayla düşün:
    - "Eksik harf" = Latin fontların çoğunluğunda (yarıdan fazlasında) olmayan harf. Dile özgü fontlar (japanese,
      chinese, russian… adlı) sayılmaz.
    - "Yamayla eklenir" sütununda olmayan harf o fontta eklenemiyor demektir.
+   - Switch sistem fontları (`.bfttf`/`.bfotf`) artık listelenir; eski sürümde "okunabilen font bulunamadı" diyen
+     projede **Fontları Tara**'yı yeniden çalıştır, yoksa font yaması bu fontları bilmez.
 2. Eksik harf varsa **"Eksik Türkçe harfleri fontlara ekle (font yaması)"** kutusunu işaretle. Kapalıysa harf dönüştürme
    seçeneğini ("yok / yalnızca eksik harfler / tüm Türkçe harfler") belirle; yama açıkken dönüştürme yalnızca
    yamanın ekleyemediği harflere uygulanır.
@@ -46,7 +48,7 @@ oyunda görünmez. Üç çözüm vardır; bu sırayla düşün:
 | Unity **TextMeshPro, statik** atlas | `TMP_FontAsset` (bundle veya `.assets`) | Glifler SDF olarak atlasa çizilir; atlas dolarsa iki katına büyür | `docs/formats/tmp-font.md` |
 | Unity **TMP dinamik** / eski `Font` | Gömülü TTF/OTF `Font` nesneleri | TTF/OTF'e glif eklenir (sona eklenir, numaralar kaymaz) | Dinamik font harfi çalışma anında gömülü TTF'den üretir; orada yoksa yedek fonta düşüp farklı görünür |
 | **TTF / OTF** (RomFS'te serbest) | `*.ttf`, `*.otf` | Aynı glif ekleme | CID anahtarlı CFF ve CJK (≥200 CJK karakteri) fontlar atlanır |
-| **Switch sistem fontu** `.bfttf`/`.bfotf` (`.zs`) | Oyun içi gömülü | Önce zstd + XOR katmanı çözülür, yamalanır, yeniden paketlenir | `fontpatch/switchfont.py` |
+| **Switch sistem fontu** `.bfttf`/`.bfotf` (`.zs`) | `mesg/Font/…` gibi RomFS'te serbest ya da SARC içinde | Taranır (Tür: "Switch sistem fontu"); yama açıksa zstd + XOR katmanı çözülür, `ı İ ş Ş ğ Ğ` eklenir, aynı başlık ve anahtarla yeniden paketlenip aynı yola yazılır | Yalnızca ASCII taşıyan CJK fontlar (Çince/Korece) dile özgü sayılır, yamalanmaz; Japonca glifli Latin fontlar yamalanır. Dışarıda düzenleme (Fontu Dışa Aktar) bu türde yok. `docs/formats/switch-font.md` |
 | **BMFont** (`*.fnt` ikili v3 + `*.png`) | NNI arşivli oyun | Eksik glifler atlasa çizilir, `.fnt`'e eklenir; atlas dolarsa yüksekliği ikiye katlanır | `docs/formats/nni.md` |
 | **Oyunun kendi harf dokusu** | `.fsd`/`.msg` biçimli oyun, `msg_tex.t32` | Eklenti `support_files` ile Türkçe harfli yeni doku üretir | Harf kodları da özel (`0x72` + hücre); `fsd-msg.md` |
 | Font tip ağacı olmayan dosyada | Ör. `Localization` nesneli Unity oyunu | Okunamaz; `ğ ş ı İ` denetlenemez | Cihazda deneyip gerekirse harf dönüştürme |

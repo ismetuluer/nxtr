@@ -7,6 +7,9 @@ Desteklenen font türleri:
   atlaslar (`1`) eksik karakteri kaynak fonttan (`m_SourceFontFile` → Unity `Font` nesnesindeki
   TTF) çalışma anında üretir; bunun için kaynak TTF'in cmap'i okunur.
 - **Unity `Font` nesneleri ve RomFS'teki .ttf/.otf dosyaları:** fontTools ile cmap.
+- **Switch sistem fontları (`.bfttf` / `.bfotf`, çoğunlukla `.zs`):** `fontpatch.switchfont` kapsayıcıyı (zstd →
+  başlık → XOR) açar, içindeki sfnt'nin cmap'i okunur. Her font bir kez, modun değiştireceği dosyanın yoluyla
+  (`mesg/Font/X.bfttf.zs`; tarayıcının gösterdiği `>X.bfttf` iç dosyası değil) listelenir.
 
 Hangi metnin hangi fontla çizildiği dosyalardan güvenilir biçimde anlaşılamaz; bu yüzden rapor
 her fontu ayrı listeler ve harf başına "kaç Latin fontta var" sayar. Dile özgü fontlar (Japonca,
@@ -29,6 +32,7 @@ from fontTools.ttLib import TTFont, TTLibError
 from nxceviri.core.archives import nested
 from nxceviri.core.container.view import GameView
 from nxceviri.core.errors import NxError
+from nxceviri.core.fontpatch import switchfont, ttf
 from nxceviri.core.fontpatch.ttf import is_cjk_chars
 from nxceviri.core.fontpatch.unity import patch_fonts
 from nxceviri.core.formats.registry import member_reader
@@ -46,6 +50,10 @@ _LANG_SPECIFIC = re.compile(
     re.IGNORECASE,
 )
 _FONT_FILE = re.compile(r"\.(ttf|otf)$", re.IGNORECASE)
+_SWITCH_FONT = re.compile(r"\.bf(ttf|otf)(\.zs)?$", re.IGNORECASE)
+#: Avrupa dillerinin aksanlı harfleri (Latin-1 Ek; × ve ÷ hariç). Latin metin fontu bunları taşır; yalnızca ASCII
+#: taşıyan CJK font Çince/Korece gibi bir dilin fontudur.
+_WESTERN_LETTERS = frozenset(chr(c) for c in range(0xC0, 0x100) if c not in (0xD7, 0xF7))
 #: Font taramasında açılacak Unity dosya türleri (tarama raporundaki ayrıntı metni).
 _UNITY_CONTAINERS = ("Unity AssetBundle", "Unity serileştirilmiş dosya")
 #: Bundan büyük Unity dosyaları (ses/model/video) font aramak için açılmaz.
@@ -62,6 +70,36 @@ def is_language_specific(name: str) -> bool:
 KIND_TMP_STATIC = "TextMeshPro (statik atlas)"
 KIND_TMP_DYNAMIC = "TextMeshPro (dinamik)"
 KIND_TTF = "TrueType/OpenType"
+KIND_SWITCH = "Switch sistem fontu"
+
+
+def is_switch_font_path(path: str) -> bool:
+    """Yolun son parçası Switch sistem fontu mu (`.bfttf`, `.bfotf`, ya da `.zs` ile sıkıştırılmışı)?"""
+    return bool(_SWITCH_FONT.search(nested.split(path)[-1]))
+
+
+def switch_font_source(path: str) -> str | None:
+    """Tarama yolundaki Switch fontunun tek (kanonik) yolu: adı font olan en dıştaki parça.
+
+    `mesg/Font/X.bfttf.zs>X.bfttf` → `mesg/Font/X.bfttf.zs`: mod sıkıştırılmış dosyanın yerine konur. Font değilse
+    `None`.
+    """
+    parts = nested.split(path)
+    for i, part in enumerate(parts):
+        if _SWITCH_FONT.search(part):
+            return nested.SEPARATOR.join(parts[: i + 1])
+    return None
+
+
+def is_language_specific_switch_font(name: str, chars: frozenset[str] | None) -> bool:
+    """Switch fontu bir dile mi özgü? Adı öyle diyorsa ya da CJK yoğun olup Avrupa harflerinden hiçbirini taşımıyorsa.
+
+    Switch oyunlarının Latin metin fontları da Japonca glif taşır (`switchfont` bu yüzden CJK fontlara da harf ekler);
+    onları Çince/Korece fontlardan ayıran, Avrupa dillerinin aksanlı harfleridir (é, ö, ç…).
+    """
+    if is_language_specific(name):
+        return True
+    return chars is not None and is_cjk_chars(map(ord, chars)) and not chars & _WESTERN_LETTERS
 
 
 @dataclass(frozen=True)
@@ -156,10 +194,10 @@ def _ttf_chars(raw: bytes) -> frozenset[str] | None:
     return frozenset(chr(c) for c in (cmap or {}) if c < 0x110000)
 
 
-def _ttf_widths(raw: bytes, chars: frozenset[str] | None, name: str) -> WidthTable | None:
+def _ttf_widths(raw: bytes, chars: frozenset[str] | None, name: str, allow_cjk: bool = False) -> WidthTable | None:
     """TTF/OTF'un harf genişlikleri; okunamayan ya da Çince/Japonca/Korece font için `None` (ölçüm fontu olamaz,
-    büyük tabloyu boşuna açmayalım)."""
-    if chars is None or is_cjk_chars(map(ord, chars)):
+    büyük tabloyu boşuna açmayalım). `allow_cjk`: CJK glifleri de taşıyan Latin fontu (Switch) ölçülür."""
+    if chars is None or (not allow_cjk and is_cjk_chars(map(ord, chars))):
         return None
     try:
         return table_from_ttf(raw, name)
@@ -261,6 +299,33 @@ def _unity_fonts(
     return found, sources
 
 
+def switch_font_chars(data: bytes) -> frozenset[str] | None:
+    """Switch fontunun karakterleri (kapsayıcı açılarak); kapsayıcı çözülemezse `ValueError`."""
+    return _ttf_chars(switchfont.unwrap(data)[1])
+
+
+def read_switch_font(data: bytes, source: str) -> tuple[dict[str, Any] | None, str]:
+    """Switch fontunu açar: (font bilgisi, uyarı). Kapsayıcı çözülemezse bilgi `None`, uyarı dolu."""
+    name = source.rsplit(nested.SEPARATOR, 1)[-1].rsplit("/", 1)[-1]
+    if name.lower().endswith(".zs"):
+        name = name[:-3]
+    try:
+        _header, sfnt, _key = switchfont.unwrap(data)
+    except ValueError as exc:
+        return None, f"{source}: Switch fontu açılamadı ({exc})."
+    chars = _ttf_chars(sfnt)
+    lang = is_language_specific_switch_font(name, chars)
+    info: dict[str, Any] = {
+        "name": name,
+        "kind": KIND_SWITCH,
+        "chars": chars,
+        "lang": lang,
+        "patchable": "" if lang else ttf.plan(sfnt, ttf.PATCHABLE, allow_cjk=True)[0],
+        "widths": None if lang else _ttf_widths(sfnt, chars, name, allow_cjk=True),
+    }
+    return info, ""
+
+
 def is_font_bundle(path: str) -> bool:
     """Font içerdiği adından anlaşılan Unity bundle'ı (ör. "fonts_assets_all.bundle")."""
     return ">" not in path and _is_font_bundle(path)
@@ -289,21 +354,44 @@ def scan_fonts(view: GameView, report: ScanReport, ctx: TaskContext | None = Non
     ctx = ctx or TaskContext()
     result = FontReport()
     trees = {t.title_id: t for t in view.trees}
+    switch_fonts: dict[str, str] = {}  # kanonik yol → TitleID (aynı fontun iç dosyası ikinci kez sayılmaz)
+    for e in report.entries:
+        source = switch_font_source(e.path)
+        if source is not None:
+            switch_fonts.setdefault(source, e.title_id)
     targets = [
         e
         for e in report.entries
-        if (
-            e.kind == "unity"
-            and ">" not in e.path
-            and base_detail(e.detail) in _UNITY_CONTAINERS
-            and e.size <= _MAX_UNITY_SCAN_SIZE
+        if switch_font_source(e.path) is None
+        and (
+            (
+                e.kind == "unity"
+                and ">" not in e.path
+                and base_detail(e.detail) in _UNITY_CONTAINERS
+                and e.size <= _MAX_UNITY_SCAN_SIZE
+            )
+            or _FONT_FILE.search(e.path.split(">")[-1])
+            or base_detail(e.detail) in ("OpenType font", "Font")
         )
-        or _FONT_FILE.search(e.path.split(">")[-1])
-        or base_detail(e.detail) in ("OpenType font", "Font")
     ]
     pending: list[tuple[str, dict[str, Any]]] = []
+    total = len(targets) + len(switch_fonts)
+    for j, (source, title_id) in enumerate(sorted(switch_fonts.items())):
+        ctx.report(len(targets) + j, total, f"Font okunuyor: {source}")
+        tree = trees.get(title_id)
+        if tree is None:
+            continue
+        try:
+            info, warning = read_switch_font(member_reader(tree).read(source), source)
+        except NxError as exc:
+            result.warnings.append(exc.message)
+            continue
+        if info is None:
+            result.warnings.append(warning)
+        else:
+            pending.append((source, info))
     for i, entry in enumerate(targets):
-        ctx.report(i, len(targets), f"Font okunuyor: {entry.path}")
+        ctx.report(i, total, f"Font okunuyor: {entry.path}")
         tree = trees.get(entry.title_id)
         if tree is None:
             continue
@@ -349,14 +437,18 @@ def scan_fonts(view: GameView, report: ScanReport, ctx: TaskContext | None = Non
             else:
                 note = "Kaynak fontu bulunamadı; yalnızca atlastaki karakterler sayıldı."
         lang = (
-            is_language_specific(source.rsplit("/", 1)[-1])
-            or is_language_specific(f["name"])
-            or (f["kind"] == KIND_TTF and chars is not None and is_cjk_chars(map(ord, chars)))
+            f["lang"]
+            if "lang" in f
+            else (
+                is_language_specific(source.rsplit("/", 1)[-1])
+                or is_language_specific(f["name"])
+                or (f["kind"] == KIND_TTF and chars is not None and is_cjk_chars(map(ord, chars)))
+            )
         )
         result.fonts.append(
             FontInfo(f["name"], source, f["kind"], chars, lang, note, f.get("patchable", ""), f.get("widths"))
         )
-    ctx.report(len(targets), len(targets), "Font denetimi tamamlandı")
+    ctx.report(total, total, "Font denetimi tamamlandı")
     return result
 
 
@@ -382,16 +474,17 @@ def font_advice(font: FontInfo) -> str:
     """Fontun Türkçe harfler için ne yapılabileceği: neden yamanabilir/yamanamaz, hangi yol önerilir (kısa)."""
     if font.language_specific:
         return "Bu dile özgü font; Türkçe metinde kullanılmaz."
+    missing = font.missing()
+    # Yama harf ekleyebiliyorsa her türde öneri yamadır (genel sonuçla aynı); diğer iletiler yamalanamayan fontlar için.
+    if font.patchable and (font.chars is None or missing):
+        rest = "".join(c for c in missing if c not in font.patchable)
+        text = f"Font yaması {' '.join(font.patchable)} harflerini ekler"
+        return text + ("; kalanlara harf dönüştürme." if rest else ".")
     if font.kind == KIND_TMP_DYNAMIC:
         return "Dinamik font: oyun eksik harfleri yedek fonttan çizer; görünüm biraz farklı olabilir."
-    missing = font.missing()
     if font.chars is not None and not missing:
         return "Türkçe harflerin hepsi var."
-    if font.kind == KIND_TMP_STATIC:
-        if font.patchable:
-            rest = "".join(c for c in missing if c not in font.patchable)
-            text = f"Font yaması {' '.join(font.patchable)} harflerini ekler"
-            return text + ("; kalanlara harf dönüştürme." if rest else ".")
+    if font.kind in (KIND_TMP_STATIC, KIND_SWITCH):
         return "Eksik harflerin parçaları fontta yok; harf dönüştürme kullanın."
     if is_editable_font(font):
         return "TTF/OTF dosyası: Fontu Dışa Aktar ile FontForge gibi bir araçta düzenleyip içe alın."

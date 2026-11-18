@@ -151,6 +151,8 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 32. **BFFNT font denetimi yok.** MSBT kullanan Switch oyunlarının çoğu BFFNT kullanır; gerçek örnek
     olmadan biçimi güvenle çözmek mümkün değildi. Bu oyunlarda font denetimi "font bulunamadı" der;
     harf dönüştürme yine seçilebilir. *Ne zaman:* İlk MSBT oyununda.
+    *Not (2026-11-18):* Görülen gerçek MSBT oyunu BFFNT değil Switch sistem fontu (`mesg/Font/*.bfttf.zs`) kullanıyordu;
+    bunlar artık taranıp yamalanıyor (ARCHITECTURE 233). BFFNT gerçek örnek olmadığı için hâlâ desteklenmiyor.
 
 34. **Mod SD karta/emülatöre otomatik kopyalanmıyor.** Bilinçli karar (ARCHITECTURE #28); istenirse
     "emülatör mod klasörüne kur" seçeneği eklenebilir (klasör tespiti emülatöre göre değişir).

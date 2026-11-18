@@ -115,6 +115,11 @@ EDIT_HINT = (
 )
 #: Font tablosu hücresinde fontun kendi "Ne yapılabilir" önerisi (İçe alındı yazısı kalkınca geri konur).
 _ADVICE_ROLE = Qt.ItemDataRole.UserRole + 1
+_FONT_EXPORT_TIP = "Seçili fontu bir klasöre kaydeder; bir font düzenleyicide açabilirsiniz."
+_FONT_IMPORT_TIP = "Düzenlediğiniz TTF/OTF dosyası dışa aktarılan moda bu fontun yerine konur."
+_FONT_LOCKED_TIP = (
+    "Bu font dışarıda düzenlenemez; yalnızca oyunda serbest duran TTF/OTF dosyaları dışa aktarılıp içe alınabilir."
+)
 #: Font tablosunda Dosya sütunu dar başlar (tam yol ipucunda).
 _FILE_WIDTH = 150
 #: Satır ipucunda orijinal ve çeviriden en çok bu kadar karakter gösterilir.
@@ -423,9 +428,9 @@ class QaPage(QWidget):
         self._editable_fonts: set[str] = set()
         font_row = QHBoxLayout()
         self.font_export_button = button("Fontu Dışa Aktar…", icon="file-up")
-        self.font_export_button.setToolTip("Seçili fontu bir klasöre kaydeder; bir font düzenleyicide açabilirsiniz.")
+        self.font_export_button.setToolTip(_FONT_EXPORT_TIP)
         self.font_import_button = button("Düzenlenmiş Fontu İçe Al…", icon="file-down")
-        self.font_import_button.setToolTip("Düzenlediğiniz TTF/OTF dosyası dışa aktarılan moda bu fontun yerine konur.")
+        self.font_import_button.setToolTip(_FONT_IMPORT_TIP)
         self.font_reset_button = button("Özgün Fonta Dön", icon="undo-2")
         self.font_reset_button.setToolTip("İçe alınan fontu bırakır; modda oyunun özgün fontu kalır.")
         self.font_export_button.clicked.connect(lambda: self._emit_font(self.font_export_requested))
@@ -1256,6 +1261,10 @@ class QaPage(QWidget):
         self.font_export_button.setEnabled(editable)
         self.font_import_button.setEnabled(editable)
         self.font_reset_button.setEnabled(editable and source in self._font_overrides)
+        # Seçili font düzenlenemiyorsa (paket içi, Switch sistem fontu…) düğmeler nedenini söyler.
+        locked = source is not None and not editable
+        self.font_export_button.setToolTip(_FONT_LOCKED_TIP if locked else _FONT_EXPORT_TIP)
+        self.font_import_button.setToolTip(_FONT_LOCKED_TIP if locked else _FONT_IMPORT_TIP)
 
     def _emit_font(self, signal: SignalInstance) -> None:
         source = self.selected_font()

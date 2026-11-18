@@ -11,6 +11,18 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
   kapalıdır ve karakter sınırı gerektirmez. Ölçüm fontu **Fontları Tara** ile kaydedilir (yalnızca harf
   genişlikleri); taranmadıysa yaklaşık tablo kullanılır ve sekmede bu söylenir. Çeviri panelinde sayacın yanında
   "Genişlik %112" göstergesi görünür.
+- **Switch sistem fontları:** Kontrol Et → Fontları Tara ve `python -m nxceviri.arac font` artık oyunun
+  `mesg/Font/*.bfttf.zs` / `*.bfotf.zs` fontlarını (SARC içindekiler dahil) "Switch sistem fontu" türüyle listeler;
+  her font bir kez, modun değiştireceği dosyanın yoluyla görünür. Eksik harfler, yamayla eklenebilecekler ve
+  genişlik ölçümü fontun kendisinden okunur. Font yaması açıksa dışa aktarma bu fontlara `ı İ ş Ş ğ Ğ` harflerini
+  ekler, aynı başlık ve anahtarla yeniden paketleyip modda aynı yola yazar ve harflerin gerçekten eklendiğini yeniden
+  açarak doğrular. Yalnızca ASCII taşıyan Çince/Korece fontlar dile özgü sayılır ve yamalanmaz. Bu oyunlarda daha önce
+  "okunabilen font bulunamadı" görüldüyse fontları yeniden tarayın. (0.31.17'de anlatılan bağlantı kodda yoktu.)
+
+### Düzeltildi
+- **Font ve harfler** tablosunda font yamasının harf ekleyebildiği her font (ör. paket içindeki TTF) artık
+  "Font yaması … harflerini ekler" önerisini gösterir. Önceden yalnızca TextMeshPro statik fontlarında böyleydi; paket
+  içindeki TTF'ler, genel sonuç "font yamasıyla eklenebilir" derken "harf dönüştürme kullanın" diyordu.
 
 ## [0.66.0] — 2026-11-18 — Kontrol Et'te Grafik sekmesi, ana pencere bölündü
 

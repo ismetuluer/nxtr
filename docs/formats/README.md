@@ -33,7 +33,7 @@ Bu biçimlerin hangi durumda olduğu (okuma, yazma, font) için `docs/uyumluluk.
 | Konu | Not dosyası | Kod |
 |---|---|---|
 | Unity TextMeshPro fontları, TTF/OTF yaması | `tmp-font.md` | `core/fontpatch/` (`sdf.py`, `tmp.py`, `unity.py`, `ttf.py`) |
-| Switch sistem fontu (`.bfttf`/`.bfotf`) | `tmp-font.md` ("Vektör fontlar") | `core/fontpatch/switchfont.py` |
+| Switch sistem fontu (`.bfttf`/`.bfotf`, `.zs`) | `switch-font.md` | `core/fontpatch/switchfont.py`, `core/qa/fonts.py` |
 | BMFont | `nni.md` ("Yazı tipi yaması") | `core/fontpatch/bmfont.py`, `nni_fonts.py` |
 | Oyun resimlerindeki yazılar (`.fsd`/`.msg` ve NNI biçimleri) | `fsd-msg.md`, `nni.md` ("Grafikler") | `core/fontpatch/fsdmsg*.py`, `labels.py`, `bc7.py`, `nni_graphics.py` |
 
