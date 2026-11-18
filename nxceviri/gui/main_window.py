@@ -13,14 +13,12 @@ from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, QUrl
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QGuiApplication
 from PySide6.QtWidgets import (
     QApplication,
-    QHBoxLayout,
     QMainWindow,
     QMenu,
     QMessageBox,
     QPushButton,
     QStackedWidget,
     QToolButton,
-    QVBoxLayout,
     QWidget,
 )
 
@@ -99,7 +97,6 @@ from nxceviri.gui.export_page import ExportPage
 from nxceviri.gui.fonts_controller import FontsController
 from nxceviri.gui.help_window import STEP_TOPICS, TOPIC_START, HelpWindow
 from nxceviri.gui.history_controller import HistoryController
-from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.jobs import new_job_id
 from nxceviri.gui.machine_controller import REVISE_INSTRUCTION_KEY, TRANSLATE_INSTRUCTION_KEY, MachineController
 from nxceviri.gui.machine_dialogs import (
@@ -109,6 +106,7 @@ from nxceviri.gui.machine_dialogs import (
     MachineSettings,
     make_provider,
 )
+from nxceviri.gui.main_layout import MASCOT_POLL_MS, build_layout, connect_pages
 from nxceviri.gui.mascot import (
     MOOD_DONE,
     MOOD_ERROR,
@@ -171,7 +169,7 @@ from nxceviri.gui.theme import (
 from nxceviri.gui.translate_page import TranslatePage
 from nxceviri.gui.update_controller import UpdateController
 from nxceviri.gui.update_dialog import UpdateDialog, UpdaterFactory
-from nxceviri.gui.widgets import button, format_int, format_size, tip_html
+from nxceviri.gui.widgets import format_int, format_size
 
 #: Modülün dışa verdiği adlar; adım sabitleri `step_nav`'da, talimat anahtarları `machine_controller`'da,
 #: `MANUAL_LIMIT_KEY` `checks_controller`'da tanımlıdır, buradan da alınabilsinler diye yeniden verilir.
@@ -220,10 +218,6 @@ SPELL_SYNC_ROWS = 2000
 PREVIEW_CHARS = 80
 #: Bu genişlikten dar pencerede kenar çubuğu ilk açılışta daralmış başlar.
 NAV_AUTO_COLLAPSE_BELOW = 1000
-#: Kenar çubuğu daralma/açılma animasyonunun süresi (ms).
-#: Kenar çubuğu daralt/genişlet düğmesinin boyu ve kenar boşluğu (simgelerle hizalı).
-NAV_TOGGLE_SIZE = 32
-NAV_TOGGLE_MARGIN = 14
 #: Sağlayıcı durumu sorgularının zaman aşımı (sn); arka plandadır ama ipucunu uzun bekletmez.
 PROBE_TIMEOUT_S = 2.0
 
@@ -305,11 +299,11 @@ def ask_full_folder(parent: QWidget, dest: Path) -> str:
     return {"Üzerine Yaz": "overwrite", "Başka Klasör…": "other"}.get(choice, "cancel")
 
 
-#: Maskot: "bitti" ve "hata" hâllerinin süresi (ms); sistem bu kadar saniye boştaysa uyur; boşta denetim aralığı (ms).
+#: Maskot: "bitti" ve "hata" hâllerinin süresi (ms); sistem bu kadar saniye boştaysa uyur
+#: (boşta denetim aralığı `main_layout.MASCOT_POLL_MS`).
 MASCOT_DONE_MS = 4000
 MASCOT_ERROR_MS = 10000
 MASCOT_SLEEP_S = 5 * 60
-MASCOT_POLL_MS = 5000
 
 
 class MainWindow(QMainWindow):
@@ -325,6 +319,28 @@ class MainWindow(QMainWindow):
     undo_action: QAction
     redo_action: QAction
     update_action: QAction
+
+    # `main_layout.build_layout`'un kurduğu parçalar (mypy için burada bildirilir).
+    nav_column: QWidget
+    nav_header: ProjectHeader
+    nav: StepNav
+    nav_toggle: QToolButton
+    pages: QStackedWidget
+    add_page: AddGamePage
+    scan_page: ScanPage
+    translate_page: TranslatePage
+    qa_page: QaPage
+    export_page: ExportPage
+    update_badge: QPushButton
+    status_segments: StatusSegments
+    notifier: NotificationCenter
+    notice_button: HistoryButton
+    help_window: HelpWindow | None
+    mascot: MascotWidget
+    _nav_anim: SpringAnimator | None
+    _nav_collapsed: bool
+    _mascot_rest: QTimer
+    _mascot_poll: QTimer
 
     def __init__(self, settings: QSettings) -> None:
         super().__init__()
@@ -413,85 +429,7 @@ class MainWindow(QMainWindow):
         self._recovery_timer.timeout.connect(self.write_recovery)
         self._recovery_timer.start()
 
-        self.setMinimumSize(820, 560)
-        self.resize(1180, 780)
-
-        central = QWidget()
-        root = QHBoxLayout(central)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
-        self.nav_column = QWidget()
-        self.nav_column.setObjectName("stepNavColumn")
-        column = QVBoxLayout(self.nav_column)
-        column.setContentsMargins(0, 0, 0, 0)
-        column.setSpacing(0)
-        self.nav_header = ProjectHeader()
-        self.nav = StepNav()
-        self._nav_anim: SpringAnimator | None = None
-        self._nav_collapsed = self._initial_nav_collapsed()
-        self.nav.set_collapsed(self._nav_collapsed)
-        self.nav.preferred_width_changed.connect(self._update_nav_width)
-        column.addWidget(self.nav_header)
-        self.nav_header.setHidden(self._nav_collapsed)  # ebeveynden sonra: yoksa bir anlığına ayrı pencere açılır
-        column.addWidget(self.nav, 1)
-        # Görünür daralt/genişlet düğmesi (menü ve Ctrl+Alt+S'nin yanında): daralmış hâlde de görünür kalır.
-        self.nav_toggle = QToolButton()
-        self.nav_toggle.setProperty("role", "viewTool")
-        self.nav_toggle.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.nav_toggle.setFixedSize(NAV_TOGGLE_SIZE, NAV_TOGGLE_SIZE)
-        bind_icon(self.nav_toggle, "panel-left", size=18)
-        self.nav_toggle.clicked.connect(lambda: self.set_nav_collapsed(not self._nav_collapsed))
-        toggle_row = QHBoxLayout()
-        toggle_row.setContentsMargins(NAV_TOGGLE_MARGIN, 4, NAV_TOGGLE_MARGIN, 12)
-        toggle_row.addWidget(self.nav_toggle)
-        toggle_row.addStretch(1)
-        column.addLayout(toggle_row)
-        self._refresh_nav_toggle()
-        root.addWidget(self.nav_column)
-        self._update_nav_width()
-        self.pages = QStackedWidget()
-        self.add_page = AddGamePage()
-        self.scan_page = ScanPage()
-        self.translate_page = TranslatePage(self.shortcuts)
-        self.translate_page.model.commit = self._commit_translations
-        self.translate_page.replace_fn = self._replace_translations
-        self.translate_page.bind_settings(self.settings)
-        self.pages.addWidget(self.add_page)
-        self.pages.addWidget(self.scan_page)
-        self.pages.addWidget(self.translate_page)
-        self.qa_page = QaPage()
-        self.qa_page.model.number_of = self.translate_page.model.number
-        self.qa_page.bind_settings(self.settings)
-        self.export_page = ExportPage()
-        self.pages.addWidget(self.qa_page)
-        self.pages.addWidget(self.export_page)
-        root.addWidget(self.pages, 1)
-        self.setCentralWidget(central)
-        self.statusBar().showMessage("Hazır")
-        self.update_badge = button("Yeni sürüm var", icon="download")
-        self.update_badge.setToolTip(tip_html("Yeni sürümü görmek ve kurmak için tıklayın."))
-        self.update_badge.clicked.connect(self.open_updates)
-        self.update_badge.hide()
-        self.status_segments = StatusSegments(self.statusBar(), self.update_badge)
-        self.status_segments.problems_clicked.connect(self._open_qa_from_status)
-        self.status_segments.keys_clicked.connect(self._choose_keys)
-        self.status_segments.bind_symbols_action(self.translate_page.view_actions.symbols)
-        #: Bütün işlerin ve hataların sonucu buradan bildirilir (kart, geçmiş; arkadayken Windows bildirimi ve ses).
-        self.notifier = NotificationCenter(self, self.settings)
-        self.notice_button = HistoryButton(self.notifier)
-        self.help_window: HelpWindow | None = None
-        #: Maskot: işin durumunu gösterir (çalışıyor, bitti, hata; uzun boşta uyur). Ayarlar → Görünüm'den kapatılır.
-        self.mascot = MascotWidget(20)
-        self.statusBar().addPermanentWidget(self.mascot)
-        self.statusBar().addPermanentWidget(self.notice_button)
-        self._mascot_rest = QTimer(self)
-        self._mascot_rest.setSingleShot(True)
-        self._mascot_rest.timeout.connect(self._mascot_settle)
-        #: Uyku/uyanma: sistemin boşta süresine birkaç saniyede bir bakılır (Qt olay süzgeci yok).
-        self._mascot_poll = QTimer(self)
-        self._mascot_poll.setInterval(MASCOT_POLL_MS)
-        self._mascot_poll.timeout.connect(self._mascot_check_idle)
-        self._mascot_poll.start()
+        build_layout(self)
         self.translate_page.notice_requested.connect(self._page_notice)
         self.translate_page.add_terms_requested.connect(self.add_rows_to_terminology)
         #: Bir işin sonucu işlenirken: bildirim gürültülü olsun mu (uzun iş) ve işleyici kendi bildirimini verdi mi.
@@ -536,62 +474,7 @@ class MainWindow(QMainWindow):
         self.translate_page.model.dataChanged.connect(lambda *_args: self._derived_timer.start())
         self.translate_page.model.dataChanged.connect(lambda *_args: self._spell_timer.start())
 
-        self.nav.currentRowChanged.connect(self._go_to)
-        self.add_page.choose_keys.connect(self._choose_keys)
-        self.add_page.browse_files.connect(self._browse_files)
-        self.add_page.add_files.connect(self.add_files)
-        self.add_page.remove_source.connect(self._remove_source)
-        self.add_page.next_step.connect(self._go_scan)
-        self.add_page.open_recent.connect(self.open_recent)
-        self.scan_page.start_scan.connect(self.start_scan)
-        self.scan_page.cancel.connect(self._cancel_task)
-        self.scan_page.go_back.connect(lambda: self.nav.setCurrentRow(STEP_ADD))
-        self.scan_page.report.rescan_requested.connect(self.start_scan)
-        self.scan_page.report.import_requested.connect(self.import_texts)
-        self.translate_page.go_to_scan.connect(lambda: self.nav.setCurrentRow(STEP_SCAN))
-        self.translate_page.machine_requested.connect(self.start_machine_translation)
-        self.translate_page.uppercase_changed.connect(self._save_uppercase)
-        self.translate_page.machine_action_requested.connect(lambda a: self.start_machine_translation(a, True))
-        self.translate_page.pane.spell_word_requested.connect(lambda w: self.add_spell_words([w]))
-        self.qa_page.add_spelling_requested.connect(self.add_spelling_from_qa)
-        self.qa_page.not_term_requested.connect(self.ignore_terms)
-        self.qa_page.ascii_choice_requested.connect(self.apply_ascii_choice)
-        self.qa_page.ignore_requested.connect(self.ignore_issues)
-        self.qa_page.unignore_requested.connect(self.unignore_issues)
-        self.qa_page.user_dictionary_requested.connect(self.edit_user_dictionary)
-        self.translate_page.changes_requested.connect(self.show_job_changes)
-        self.translate_page.history_requested.connect(self.show_row_history)
-        self.translate_page.unapprove_requested.connect(self.unapprove)
-        self.translate_page.reflow_requested.connect(self.reflow_selected)
-        self.translate_page.csv_export_requested.connect(self.export_csv)
-        self.translate_page.csv_import_requested.connect(self.import_csv)
-        self.translate_page.translation_export_requested.connect(self.export_translation)
-        self.translate_page.translation_import_requested.connect(self.import_translation)
-        self.translate_page.cancel_machine.connect(self._cancel_task)
-        self.qa_page.scan_fonts.connect(self.scan_fonts)
-        self.export_page.extract_graphics.connect(self.extract_graphics)
-        self.export_page.open_graphics.connect(self.open_graphics)
-        self.qa_page.font_export_requested.connect(self.export_font_file)
-        self.qa_page.font_import_requested.connect(self.import_edited_font)
-        self.qa_page.font_reset_requested.connect(self.reset_edited_font)
-        self.qa_page.run_checks.connect(self.start_checks)
-        self.qa_page.stop_checks.connect(self._stop_checks)
-        self.qa_page.transliterate_changed.connect(self._set_transliterate)
-        self.qa_page.font_patch_changed.connect(self._set_font_patch)
-        self.qa_page.open_row.connect(self._open_row)
-        self.qa_page.fix_requested.connect(self.apply_fixes)
-        self.qa_page.fix_planner = self._plan_fix_bar
-        self.qa_page.translation_edited.connect(self._edit_from_issues)
-        self.qa_page.report_requested.connect(self.show_job_changes)
-        self.qa_page.fix_notice.connect(self._fix_notice)
-        self.qa_page.fit_changed.connect(self._save_fit)
-        self.qa_page.learn_rules_requested.connect(self._learn_rules)
-        self.qa_page.fit_tab_shown.connect(self._refresh_limits)
-        self.export_page.choose_folder.connect(self._choose_export_folder)
-        self.export_page.export_requested.connect(self.export_mod)
-        self.export_page.include_errors_changed.connect(self._set_include_errors)
-        self.export_page.open_folder.connect(self._open_export_folder)
-        self.export_page.cancel.connect(self._cancel_task)
+        connect_pages(self)
 
         self._build_menus()
         self._restore_keys()

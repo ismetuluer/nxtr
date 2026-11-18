@@ -35,7 +35,7 @@ BUTTON_ICONS = [
     ("find_replace.py", "Değiştir", "replace"),
     ("find_replace.py", "Tümünü Değiştir", "replace-all"),
     ("csv_dialog.py", "Vazgeç", "x"),
-    ("main_window.py", "Yeni sürüm var", "download"),
+    ("main_layout.py", "Yeni sürüm var", "download"),
 ]
 
 

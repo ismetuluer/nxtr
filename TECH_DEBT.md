@@ -49,9 +49,11 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     pencere 2.344 satır.
     Onuncu adım: anahtarlar, oyun dosyaları, tarama ve metin aktarma `gui/scan_controller.py`'ye taşındı; pencere
     2.028 satır. Ardından sığdırma ve anlık denetim `gui/checks_controller.py`'ye taşındı; pencere 1.915 satır.
-    Kalan bölümler hâlâ pencere sınıfında. Aynı düzenle (karar 221: yönlendirme + pencere üzerinden çağrı, pencere modülünde
-    değiştirilen adlar gecikmeli içe aktarılan pencere modülünden) adım adım taşınmalı.
-    *Ne zaman:* bu bölümlerden birine büyük bir özellik eklenirken o bölüm ayrı bir denetleyiciye taşınır.
+    On birinci adım: arayüz kurulumu ve sayfa sinyal bağlantıları `gui/main_layout.py` işlevlerine taşındı; pencere
+    1.798 satır (`wc -l nxceviri/gui/main_window.py`). Planlanan bölme tamamlandı: pencerede kalan ince yönlendirmeler,
+    sinyal bağlantıları, `_run`/`Task` ve durum alanları ARCHITECTURE karar 221 gereği bilerek orada durur (testler
+    pencerenin yöntemlerini değiştirerek çalışır). Açık iş yok; yeni bir bölüm büyürse aynı düzenle ayrı
+    denetleyiciye alınır.
 
 75. **NNI arşivli oyun: grafik klasörünü üretmek ve seçmek için arayüz yok (0.39.0).** `orijinal/`
     klasörü bir betikle (`export_originals`) üretildi; klasör oyun dosyalarının yanındaki

@@ -128,6 +128,7 @@ nxceviri/
     fonts_controller.py    # font ve görseller: font taraması/yaması, düzenli font içe alma, oyun resimlerini çıkarma (karar 221)
     exchange_controller.py # dış redaksiyon/çeviri TXT-XLSX-CSV dışa/içe aktarma, hazır çeviri içe aktarma (karar 221)
     history_controller.py  # son işin değişiklikleri, satır geçmişi, geri döndürme, Geri Al / Yinele (karar 221)
+    main_layout.py         # ana pencerenin arayüz kurulumu (build_layout) ve sayfa sinyal bağlantıları (connect_pages); mantık yok (karar 221)
     scan_controller.py     # anahtarlar, oyun dosyaları, tarama, dosya çıkarma, teşhis raporu, metin aktarma (karar 221)
     icons.py + icons/*.svg # Lucide simgeleri; temaya uyan QIcon, bind_icon/refresh_icons
     appicon/               # uygulama simgesi: nxtr.svg + nxtr-kucuk.svg (kaynak) → .ico/.png (packaging/make_icon.py)
@@ -1151,6 +1152,11 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     `ChecksController`'a taşındı; önbellek durumu ve `_fit_recheck_timer` pencerede, `MANUAL_LIMIT_KEY`
     `checks_controller`'da tanımlanıp pencere modülünden yeniden verilir. Tabloyu projeden yenileyen `_reload_rows`
     birçok denetleyicinin ortak yapıştırıcısı olduğundan pencerede kalır.
+    On birinci adım: pencerenin arayüz kurulumu (adım gezgini, sayfa yığını ve beş sayfa, durum çubuğu, bildirim
+    merkezi, maskot) ve sayfa sinyal bağlantıları denetleyici sınıfı olmayan `gui/main_layout.py` işlevlerine
+    (`build_layout`, `connect_pages`) taşındı; mantık içermez, `MainWindow.__init__` bunları eski yerlerinde çağırır
+    (öznitelikler sınıf düzeyinde bildirilir). Durum alanları, mantığa ait zamanlayıcılar ve sağlayıcı sorgusu
+    `__init__`'te kalır. Bölme tamamlandı; pencerede kalan yönlendirmeler bu kararın gereğidir.
 
 ### 4.55 2026-11-17 kararları (çeviri kaynağı, Sorunlar panosu)
 
