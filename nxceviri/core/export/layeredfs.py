@@ -46,6 +46,7 @@ from nxceviri.core.container.view import ContentTree, safe_relative_path
 from nxceviri.core.errors import ContainerError, NxError, OperationCancelled
 from nxceviri.core.export import extras
 from nxceviri.core.export.addressables import CatalogError, patch_catalog_crc
+from nxceviri.core.fontpatch import sources as mark_sources
 from nxceviri.core.fontpatch import switchfont
 from nxceviri.core.fontpatch.unity import FALLBACK_REASON, patch_fonts
 from nxceviri.core.formats import legacy
@@ -895,20 +896,42 @@ def _patch_font_file(data: bytes, path: str, result: ExportResult) -> bytes:
         out, patches = patch_fonts(data, skip=is_language_specific)
     except NxError as exc:
         raise ExportError(f"'{path}' fontları yamalanamadı: {exc.message}", exc.hint) from None
-    _report_font_patches([(p.font, p.added, p.skipped) for p in patches], path.rsplit("/", 1)[-1], result)
+    _report_font_patches(
+        [FontReport(p.font, p.added, p.skipped, p.sources, p.notes) for p in patches], path.rsplit("/", 1)[-1], result
+    )
     return out
 
 
-def _report_font_patches(patches: list[tuple[str, str, Mapping[str, str]]], name: str, result: ExportResult) -> None:
-    """Font yamasının sonucunu (font adı, eklenen harfler, eklenemeyenler → neden) rapora ve bilgi dosyasına yazar."""
+@dataclass(frozen=True)
+class FontReport:
+    """Bir fontun yama sonucu: eklenen harfler, eklenemeyenler → neden, işaret kaynakları, kısa notlar."""
+
+    font: str
+    added: str
+    skipped: Mapping[str, str]
+    sources: Mapping[str, str] = field(default_factory=dict)
+    notes: tuple[str, ...] = ()
+
+
+def _report_font_patches(patches: list[FontReport], name: str, result: ExportResult) -> None:
+    """Font yamasının sonucunu rapora ve bilgi dosyasına yazar.
+
+    Satır: `font (dosya): ı İ ş — ş: ç'nin çengeli, … — eklenemeyen: … — notlar`.
+    """
     partial = []
-    for font, added, skipped in patches:
+    for report in patches:
+        font, added, skipped = report.font, report.added, report.skipped
         missed = {c: why for c, why in skipped.items() if not why.startswith(("dinamik", FALLBACK_REASON))}
         detail = "; ".join(f"{c} ({why})" for c, why in missed.items())
         if added:
             line = f"{font} ({name}): {' '.join(added)}"
+            labels = {c: report.sources[c] for c in added if c in report.sources}
+            if labels:
+                line += " — " + mark_sources.describe(labels)
             if missed:
                 line += " — eklenemeyen: " + detail
+            if report.notes:
+                line += " — " + "; ".join(report.notes)
             result.font_patches.append(line)
         elif missed and all(why.startswith(_NO_BASE_LETTER) for why in missed.values()):
             # Harflerin türetileceği temel harfler (i, s, g …) fontta hiç yok: metin çizmeyen bir
@@ -946,7 +969,9 @@ def _patch_switch_font(data: bytes, path: str, result: ExportResult) -> bytes:
         patched = switchfont.patch_font(data)
     except ValueError as exc:
         raise ExportError(f"'{path}' fontu yamalanamadı: {exc}", _SWITCH_FONT_HINT) from None
-    _report_font_patches([(font, patched.added, patched.skipped)], file_name, result)
+    _report_font_patches(
+        [FontReport(font, patched.added, patched.skipped, patched.sources, patched.notes)], file_name, result
+    )
     return patched.data
 
 

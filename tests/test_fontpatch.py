@@ -21,7 +21,7 @@ from nxceviri.core.export.layeredfs import (
     _patch_font_file,
     export_mod,
 )
-from nxceviri.core.fontpatch import sdf
+from nxceviri.core.fontpatch import sdf, sources
 from nxceviri.core.fontpatch.tmp import TmpFont
 from nxceviri.core.fontpatch.unity import FontPatch, FontPatchError, patch_fonts
 from nxceviri.core.keys import load_keys
@@ -159,6 +159,7 @@ def test_lowercase_donor_builds_uppercase_letters() -> None:
         x0, _y0, x1, _y1 = sdf.bbox(comps[0], g.field.width)
         return x1 - x0
 
+    assert result.sources["Ş"] == "ç'nin çengeli"  # Ç yok: diğer büyüklükteki çengel
     upper_g, lower_g = after.glyph("Ğ"), after.glyph("ğ")
     assert upper_g is not None
     assert lower_g is not None
@@ -182,13 +183,85 @@ def test_caps_font_aliases_dotless_i_and_reports_missing_donors() -> None:
     glyphs = {"I": SYNTH_GLYPHS["I"], "i": SYNTH_GLYPHS["I"], "A": SYNTH_GLYPHS["A"], "s": SYNTH_GLYPHS["s"]}
     font, tree = _font(glyphs)
     result = font.patch()
-    assert result.added == "ı"  # "i" noktasız: "ı" aynı glife bağlanır, atlasa çizilmez
+    # "i" noktasız: "ı" aynı glife bağlanır, atlasa çizilmez. Nokta ve çengel kaynağı yok: çizilir.
+    assert result.added == "ıİş"
     i_index = next(c["m_GlyphIndex"] for c in tree["m_CharacterTable"] if c["m_Unicode"] == ord("i"))
     assert next(c["m_GlyphIndex"] for c in tree["m_CharacterTable"] if c["m_Unicode"] == ord("ı")) == i_index
-    assert font.placed == 0
-    assert result.skipped["ş"] == "kaynak harf yok: ç"
-    assert result.skipped["İ"] == "kaynak harfin yapısı beklenenden farklı"  # nokta kaynağı yok
-    assert "ğ" in result.skipped
+    assert font.placed == 2
+    assert result.sources == {"ı": sources.DOTLESS_SAME_AS_I, "İ": sources.DRAWN, "ş": sources.DRAWN}
+    assert result.skipped == {"Ş": "kaynak harf yok: S", "ğ": "kaynak harf yok: g", "Ğ": "kaynak harf yok: G"}
+    after = TmpFont(tree, font.atlas_image())
+    assert _components(after, "İ") == 2  # I + çizilen nokta
+    hooked = after.glyph("ş")
+    assert hooked is not None
+    assert any(hooked.top - i // hooked.field.width < 0 for i in hooked.ink())  # çizilen çengel taban altında
+    assert _components(after, "ş") == 1  # çengel gövdeye bağlı
+
+
+def _top_mark(g: Any) -> tuple[int, int]:
+    """Glifin en üstteki parçasının (genişlik, yükseklik) piksel ölçüsü."""
+    comps = sdf.components(g.field.mask(), g.field.width, g.field.height)
+    comps.sort(key=lambda c: min(i // g.field.width for i in c))
+    x0, y0, x1, y1 = sdf.bbox(comps[0], g.field.width)
+    return x1 - x0, y1 - y0
+
+
+#: ă'nın kavisi: U biçimli, tek parça, 16×7 piksel (gövdenin 5 piksel üstünde).
+A_BREVE = [(2, 33, 5, 40), (5, 33, 15, 36), (15, 33, 18, 40)]
+
+
+def test_breve_is_taken_from_a_breve() -> None:
+    font, tree = _font({**SYNTH_GLYPHS, "ă": [(0, 0, 20, 28), *A_BREVE]}, size=(512, 256))
+    result = font.patch()
+    assert result.sources["ğ"] == "ă'nın kavisi"
+    assert result.sources["Ğ"] == "ă'nın kavisi"  # Ă yok: küçük harfin kavisi, ölçeklenmeden
+    after = TmpFont(tree, font.atlas_image())
+    a_breve = after.glyph("ă")
+    for ch in "ğĞ":
+        g = after.glyph(ch)
+        assert g is not None
+        assert a_breve is not None
+        assert _top_mark(g) == _top_mark(a_breve)
+        assert _components(after, ch) == 2
+
+
+def test_spacing_breve_is_used_when_there_is_no_a_breve() -> None:
+    font, tree = _font({**SYNTH_GLYPHS, sources.SPACING_BREVE: A_BREVE}, size=(512, 256))
+    result = font.patch()
+    assert result.sources["ğ"] == sources.label("ğ", sources.SPACING_BREVE)
+    after = TmpFont(tree, font.atlas_image())
+    g, plain = after.glyph("ğ"), after.glyph("g")
+    assert g is not None
+    assert plain is not None
+    assert g.top > plain.top  # kavis harfin üstünde
+    assert _components(after, "ğ") == 2
+
+
+def test_dot_of_z_dot_is_used_when_i_has_no_dot() -> None:
+    glyphs = {k: v for k, v in SYNTH_GLYPHS.items() if k not in ("Ö", "ü", "Ü")}
+    glyphs["i"] = SYNTH_GLYPHS["I"][:]
+    glyphs["ż"] = [(0, 0, 18, 28), (6, 33, 13, 40)]
+    font, tree = _font(glyphs)
+    result = font.patch()
+    assert result.sources["İ"] == "ż'nin noktası"
+    after = TmpFont(tree, font.atlas_image())
+    dotted = after.glyph("İ")
+    assert dotted is not None
+    assert _top_mark(dotted) == (7, 7)
+    assert _components(after, "İ") == 2
+
+
+def test_comma_is_used_when_there_is_no_c_cedilla() -> None:
+    glyphs = {k: v for k, v in SYNTH_GLYPHS.items() if k not in ("ç", "Ç")}
+    glyphs[","] = [(0, -8, 5, 6)]
+    font, tree = _font(glyphs)
+    result = font.patch()
+    assert result.sources["ş"] == result.sources["Ş"] == "virgül"
+    after = TmpFont(tree, font.atlas_image())
+    hooked = after.glyph("ş")
+    assert hooked is not None
+    assert any(hooked.top - i // hooked.field.width < -5 for i in hooked.ink())  # virgül taban çizgisinin altında
+    assert _components(after, "ş") == 1
 
 
 def test_existing_letters_are_left_alone() -> None:
@@ -332,7 +405,10 @@ def test_export_with_font_patch(font_game: tuple[Inputs, Path]) -> None:
         root + "fonts_assets_all.bundle",
         root + "localization-string-tables-english(en)_assets_all.bundle",
     ]
-    assert result.font_patches == ["Ana SDF (fonts_assets_all.bundle): ı İ ş Ş ğ Ğ"]
+    assert result.font_patches == [
+        "Ana SDF (fonts_assets_all.bundle): ı İ ş Ş ğ Ğ — ı: i'den nokta silindi, İ: i'nin noktası, "
+        "ş: ç'nin çengeli, Ş: Ç'nin çengeli, ğ: çizildi, Ğ: çizildi"
+    ]
     font = _bundle_objects((dest / root / "fonts_assets_all.bundle").read_bytes())["fonts"]["Ana SDF"]
     assert {chr(c["m_Unicode"]) for c in font["m_CharacterTable"]} >= set("ıİşŞğĞ")
     assert "Font yaması" in (dest / INFO_FILE).read_text(encoding="utf-8")
@@ -385,3 +461,18 @@ def test_unpatchable_text_font_is_warned_and_explained(monkeypatch: pytest.Monke
         result,
     )
     assert "atlasta yer yok" in info
+
+
+def test_font_patch_line_names_mark_sources_and_notes(monkeypatch: pytest.MonkeyPatch) -> None:
+    patch = FontPatch(
+        "bigtext",
+        "şğ",
+        {"İ": "atlasta yer yok"},
+        sources={"ş": "ç'nin çengeli", "ğ": "çizildi"},
+        notes=("Ğ: işaret fontun üst sınırını aşıyor; oyunda kesilebilir",),
+    )
+    result = _fake_patches(monkeypatch, [patch])
+    assert result.font_patches == [
+        "bigtext (fonts-base_assets_all.bundle): ş ğ — ş: ç'nin çengeli, ğ: çizildi — eklenemeyen: İ (atlasta yer yok)"
+        " — Ğ: işaret fontun üst sınırını aşıyor; oyunda kesilebilir"
+    ]

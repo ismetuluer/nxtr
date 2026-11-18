@@ -313,6 +313,7 @@ def test_export_patches_switch_fonts(switch_game: Game, tmp_path: Path, layout: 
     assert pack.get("Data/x.bin") == b"\x01" * 16
     assert any(line.startswith("Latin.bfttf") and "ğ" in line for line in result.font_patches)
     assert any(line.startswith("Ic.bfttf") for line in result.font_patches)
+    assert all("ı: i'den nokta silindi" in line for line in result.font_patches)  # işaret kaynakları satırda
     assert "Font yaması (eklenen harfler)" in (dest / INFO_FILE).read_text(encoding="utf-8")
 
 

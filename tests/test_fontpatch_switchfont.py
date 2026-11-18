@@ -166,6 +166,7 @@ def test_glyf_font_gets_turkish_letters() -> None:
     assert result.added == ALL
     assert result.skipped == {}
     assert result.data != wrap(sfnt)
+    assert set(result.sources) == set(ALL)  # işaret kaynakları (ttf) kapsayıcıdan geçer
 
     header, patched, key = switchfont.unwrap(result.data)
     assert (header, key) == (HEADER, KEY)

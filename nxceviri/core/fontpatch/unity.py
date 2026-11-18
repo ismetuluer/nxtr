@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 from collections import Counter
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import UnityPy
@@ -50,6 +50,10 @@ class FontPatch:
     skipped: dict[str, str]
     #: True: gömülü TTF/OTF (`Font` nesnesi); False: TextMeshPro atlası
     vector: bool = False
+    #: eklenen harf → işaretin kaynağı ("ç'nin çengeli", "çizildi")
+    sources: dict[str, str] = field(default_factory=dict)
+    #: kısa uyarılar (ör. işaret fontun üst sınırını aşıyor)
+    notes: tuple[str, ...] = ()
 
 
 def _load(data: bytes) -> Any:
@@ -169,7 +173,7 @@ def patch_fonts(
             continue
         font = TmpFont(tree, image)
         result: FontPatchResult = font.patch(wanted)
-        reports.append(FontPatch(name, result.added, result.skipped))
+        reports.append(FontPatch(name, result.added, result.skipped, sources=result.sources, notes=result.notes))
         if not write or not result.added:
             continue
         old_height = image.height
@@ -214,14 +218,16 @@ def _patch_vector_fonts(
         raw = bytes(font.m_FontData or b"")
         if not raw or (skip is not None and skip(name)):
             continue
+        found: dict[str, str] = {}
+        notes: tuple[str, ...] = ()
         if write:
             result = ttf.patch_font(raw, letters)
-            added, skipped = result.added, result.skipped
+            added, skipped, found, notes = result.added, result.skipped, result.sources, result.notes
         else:
             added, skipped = ttf.plan(raw, letters)
         if not added and not skipped:
             continue  # istenen harflerin hepsi zaten var
-        reports.append(FontPatch(name, added, skipped, vector=True))
+        reports.append(FontPatch(name, added, skipped, vector=True, sources=found, notes=notes))
         if write and added:
             try:
                 font.m_FontData = result.data

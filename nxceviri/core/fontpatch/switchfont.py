@@ -43,6 +43,8 @@ class FontPatchResult:
     data: bytes  # yamalanmış font; hiçbir şey eklenmediyse özgün baytlar
     added: str = ""
     skipped: dict[str, str] = field(default_factory=dict)
+    sources: dict[str, str] = field(default_factory=dict)  # eklenen harf → işaretin kaynağı (`ttf`)
+    notes: tuple[str, ...] = ()
 
 
 def _is_sfnt(data: bytes) -> bool:
@@ -110,7 +112,7 @@ def patch_font(data: bytes, letters: str = ttf.PATCHABLE) -> FontPatchResult:
         return FontPatchResult(data, "", dict(result.skipped))
     packed = wrap(header, result.data, key, compress=is_compressed(data))
     _verify(packed, result.added)
-    return FontPatchResult(packed, result.added, dict(result.skipped))
+    return FontPatchResult(packed, result.added, dict(result.skipped), dict(result.sources), result.notes)
 
 
 def _verify(data: bytes, added: str) -> None:

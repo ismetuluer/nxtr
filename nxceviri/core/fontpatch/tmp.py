@@ -33,7 +33,7 @@ from typing import Any
 
 from PIL import Image, ImageDraw
 
-from nxceviri.core.fontpatch import sdf
+from nxceviri.core.fontpatch import sdf, sources
 
 TURKISH_PATCHABLE = "ıİşŞğĞ"
 _SUPERSAMPLE = 4
@@ -61,6 +61,8 @@ class Glyph:
 class FontPatchResult:
     added: str = ""  # eklenen harfler
     skipped: dict[str, str] = field(default_factory=dict)  # harf → neden
+    sources: dict[str, str] = field(default_factory=dict)  # eklenen harf → işaretin kaynağı (`sources.label`)
+    notes: tuple[str, ...] = ()
 
 
 class _Atlas:
@@ -249,28 +251,89 @@ class TmpFont:
         x0, _t, x1, _b = self._ink_box(g)
         return (x0 + x1) / 2
 
-    def _dot_on(self, base: Glyph, dot_source: Glyph | None, accent_ref: Glyph | None) -> Glyph | None:
-        """Tabana nokta koyar: nokta "i"den, o yoksa "Ö"nün noktalarından birinden alınır."""
-        ref_marks = self._marks(accent_ref) if accent_ref is not None else []
-        source_marks = self._marks(dot_source) if dot_source is not None else []
-        if source_marks and dot_source is not None:
-            dot = self._part(dot_source, source_marks[0])
-        elif ref_marks and accent_ref is not None:
-            dot = self._part(accent_ref, ref_marks[0])
-        else:
+    def _drawn(self, img: Image.Image) -> Glyph:
+        """Süper örneklenmiş çizimden (L kipi, `_SUPERSAMPLE` katı) glif; üst-sol köşesi glif uzayında (0, 0)."""
+        s = _SUPERSAMPLE
+        width, height = max(1, img.width // s), max(1, img.height // s)
+        small = img.resize((width, height), Image.Resampling.BOX)
+        k = self.margin
+        pw, ph = width + 2 * k, height + 2 * k
+        mask = [False] * (pw * ph)
+        for idx, v in enumerate(small.tobytes()):
+            if v >= 128:
+                mask[(idx // width + k) * pw + idx % width + k] = True
+        return Glyph(sdf.from_mask(mask, pw, ph, self.slope), -k, k, 0.0)
+
+    def _place_above(self, base: Glyph, mark: Glyph, target_top: int) -> Glyph:
+        """İşareti tabana yatayda ortalar, mürekkebinin üstü `target_top`'ta olacak şekilde birleştirir."""
+        _l, mark_top, _r, _b = self._ink_box(mark)
+        dx = round(self._center_x(base) - self._center_x(mark))
+        return self._compose(base, [self._moved(mark, dx, target_top - mark_top)])
+
+    def _body_top(self, g: Glyph) -> int:
+        comps = sdf.components(g.field.mask(), g.field.width, g.field.height)
+        return self._ink_box(g, comps[0])[1]
+
+    def _lowercase_top(self) -> int | None:
+        """Küçük harf yüksekliği (x, s, o ya da a'nın üstü): tek başına duran işaretin (˘) yüksekliği buna göredir."""
+        for ch in "xsoa":
+            g = self.glyph(ch)
+            if g is not None and g.ink():
+                return self._ink_box(g)[1]
+        return None
+
+    def _mark_of(self, donor: str, single: bool) -> tuple[Glyph, int] | None:
+        """Kaynak harfin üstteki işareti ve işaretin gövdeye göre yüksekliği (işaret üstü − gövde üstü)."""
+        g = self.glyph(donor)
+        if g is None or not g.ink():
             return None
-        _l, dot_top, _r, _b = self._ink_box(dot)
-        if ref_marks and accent_ref is not None:
-            target_top = self._ink_box(accent_ref, [i for c in ref_marks for i in c])[1]
-        else:
-            assert dot_source is not None
-            stem = self._dotless(dot_source)
-            if stem is None:
-                return None
-            gap = dot_top - self._ink_box(stem)[1]
-            target_top = self._ink_box(base)[1] + gap
-        dx = round(self._center_x(base) - self._center_x(dot))
-        return self._compose(base, [self._moved(dot, dx, target_top - dot_top)])
+        if donor == sources.SPACING_BREVE:
+            ref = self._lowercase_top()
+            mark = self._part(g, g.ink())
+            return (mark, self._ink_box(mark)[1] - ref) if ref is not None else None
+        marks = self._marks(g)
+        if not marks:
+            return None
+        # Nokta: en büyük parça (ö/Ö'de iki noktadan biri); kavis: gövdenin üstündeki bütün parçalar.
+        indices = marks[0] if single else [i for c in marks for i in c]
+        mark = self._part(g, indices)
+        return mark, self._ink_box(mark)[1] - self._body_top(g)
+
+    def _stroke(self, base: Glyph) -> int:
+        """Çizilen işaretlerin kalınlığı: I'nın (yoksa tabanın) dikey çizgisinin genişliği."""
+        ref = self.glyph("I") or base
+        x0, top, x1, bottom = self._ink_box(ref)
+        return max(2, min(x1 - x0, max(2, (top - bottom) // 4)))
+
+    def _dot_on(self, base: Glyph) -> tuple[Glyph, str]:
+        """İ'nin noktası: ortak kaynak sırasıyla; `Ö` varsa nokta onun noktalarının yüksekliğine konur."""
+        accent_ref = self.glyph("Ö")
+        ref_marks = self._marks(accent_ref) if accent_ref is not None else []
+        base_top = self._ink_box(base)[1]
+        for donor in sources.DOT_DONORS:
+            if donor == sources.PERIOD:
+                period = self.glyph(donor)
+                if period is None or not period.ink():
+                    continue
+                comps = sdf.components(period.field.mask(), period.field.width, period.field.height)
+                dot = self._part(period, comps[0])
+                _l, top, _r, bottom = self._ink_box(dot)
+                gap = max(1, (top - bottom) // 2)
+                return self._place_above(base, dot, base_top + gap + (top - bottom)), sources.label("İ", donor)
+            found = self._mark_of(donor, single=True)
+            if found is None:
+                continue
+            dot, height = found
+            if ref_marks and accent_ref is not None:
+                target_top = self._ink_box(accent_ref, [i for c in ref_marks for i in c])[1]
+            else:
+                target_top = base_top + height
+            return self._place_above(base, dot, target_top), sources.label("İ", donor)
+        d = self._stroke(base)
+        s = _SUPERSAMPLE
+        img = Image.new("L", (d * s, d * s), 0)
+        ImageDraw.Draw(img).ellipse((0, 0, d * s - 1, d * s - 1), fill=255)
+        return self._place_above(base, self._drawn(img), base_top + d + max(1, d // 2)), sources.DRAWN
 
     def _cedilla_on(self, base: Glyph, source: Glyph) -> Glyph | None:
         """Kaynağın (ç/Ç) taban çizgisinin altındaki kısmı (çengel) tabanın altına konur."""
@@ -280,79 +343,93 @@ class TmpFont:
             return None
         hook = self._part(source, below)
         dx = round(self._center_x(base) - self._center_x(source))
-        # Çengel gövdeden kopuk kalmasın: üst kenarı tabanın alt kenarına en az 1 piksel girsin.
+        return self._attach_below(base, self._moved(hook, dx, 0))
+
+    def _attach_below(self, base: Glyph, hook: Glyph, exact: bool = False) -> Glyph:
+        """Çengel gövdeden kopuk kalmasın: üst kenarı tabanın alt kenarına en az 1 piksel girsin.
+
+        `exact`: kendi yeri olmayan işaret (virgül, çizilen çengel) üst kenarı tam 1 piksel girecek şekilde konur."""
         base_bottom = self._ink_box(base)[3]
         hook_top = self._ink_box(hook)[1]
-        dy = max(0, base_bottom + 1 - hook_top)
-        return self._compose(base, [self._moved(hook, dx, dy)])
+        dy = base_bottom + 1 - hook_top if exact else max(0, base_bottom + 1 - hook_top)
+        return self._compose(base, [self._moved(hook, 0, dy)])
+
+    def _hook_on(self, ch: str, base: Glyph) -> tuple[Glyph, str]:
+        """ş/Ş'nin çengeli: ortak kaynak sırasıyla (ç/Ç'nin çengeli → virgül → çizilir)."""
+        for donor in sources.donors(ch):
+            source = self.glyph(donor)
+            if source is None or not source.ink():
+                continue
+            if donor == sources.COMMA:
+                comma = self._part(source, source.ink())
+                dx = round(self._center_x(base) - self._center_x(comma))
+                return self._attach_below(base, self._moved(comma, dx, 0), exact=True), sources.label(ch, donor)
+            hooked = self._cedilla_on(base, source)
+            if hooked is not None:
+                return hooked, sources.label(ch, donor)
+        t = self._stroke(base)
+        s = _SUPERSAMPLE
+        w, h = t * 2, round(t * 2.5)
+        img = Image.new("L", (w * s, h * s), 0)
+        ImageDraw.Draw(img).polygon([(t * s // 2, 0), (t * s * 3 // 2, 0), (w * s - 1, h * s - 1), (0, h * s - 1)], 255)
+        hook = self._drawn(img)
+        dx = round(self._center_x(base) - self._center_x(hook))
+        return self._attach_below(base, self._moved(hook, dx, 0), exact=True), sources.DRAWN
 
     def _breve_on(self, base: Glyph, diaeresis_ref: Glyph) -> Glyph | None:
+        """Çizilen kavis: boyutu ve yüksekliği ü/Ü'nün noktalarından alınır."""
         marks = self._marks_above(diaeresis_ref)
         if not marks:
             return None
         x0, _top, x1, bottom = self._ink_box(diaeresis_ref, marks)
         span, height = x1 - x0, _top - bottom
         # Breve, donorun noktaları ile gövdesi arasındaki boşluk kadar yukarıya konur.
-        comps = sdf.components(diaeresis_ref.field.mask(), diaeresis_ref.field.width, diaeresis_ref.field.height)
-        body_top = self._ink_box(diaeresis_ref, comps[0])[1]
-        target_top = self._ink_box(base)[1] + (_top - body_top)
+        target_top = self._ink_box(base)[1] + (_top - self._body_top(diaeresis_ref))
         width = max(4, round(span * 0.8))
         thick = max(2, round(height * 0.45))
         arc_h = max(thick + 2, round(height * 1.1))
-        k = self.margin
         s = _SUPERSAMPLE
         img = Image.new("L", (width * s, arc_h * s * 2), 0)
         ImageDraw.Draw(img).arc(
             (0, -arc_h * s, width * s - 1, arc_h * s - 1), start=0, end=180, fill=255, width=thick * s
         )
-        img = img.crop((0, 0, width * s, arc_h * s)).resize((width, arc_h), Image.Resampling.BOX)
-        pw, ph = width + 2 * k, arc_h + 2 * k
-        mask = [False] * (pw * ph)
-        for idx, v in enumerate(img.tobytes()):
-            if v >= 128:
-                mask[(idx // width + k) * pw + idx % width + k] = True
-        breve = Glyph(sdf.from_mask(mask, pw, ph, self.slope), 0, 0, 0.0)
-        bx0, btop, _bx1, _bb = self._ink_box(breve)
-        center = self._center_x(base)
-        return self._compose(base, [self._moved(breve, round(center - (bx0 + width / 2)), target_top - btop)])
+        return self._place_above(base, self._drawn(img.crop((0, 0, width * s, arc_h * s))), target_top)
 
-    def build(self, ch: str) -> Glyph | str:
-        """Harfin glifini üretir; üretemezse nedenini döndürür.
+    def _arc_on(self, ch: str, base: Glyph) -> tuple[Glyph, str] | str:
+        """ğ/Ğ'nin kavisi: ortak kaynak sırasıyla; hiçbiri yoksa ü/Ü'nün noktalarına göre çizilir."""
+        base_top = self._ink_box(base)[1]
+        for donor in sources.donors(ch):
+            found = self._mark_of(donor, single=False)
+            if found is not None:
+                mark, height = found
+                return self._place_above(base, mark, base_top + height), sources.label(ch, donor)
+        same, other = ("ü", "Ü") if ch == "ğ" else ("Ü", "ü")
+        ref = self.glyph(same) or self.glyph(other)
+        if ref is None:
+            return f"kaynak harf yok: {same}"
+        drawn = self._breve_on(base, ref)
+        return (drawn, sources.DRAWN) if drawn is not None else "kaynak harfin yapısı beklenenden farklı"
 
-        Donör harf aynı büyüklükte yoksa (ör. fontta `Ç` yok) diğer büyüklükteki
-        eşdeğeri (ör. `ç`) kullanılır; işaret aynı boyutta kalır.
+    def build(self, ch: str) -> tuple[Glyph, str] | str:
+        """(harfin glifi, işaretin kaynağı); üretemezse nedenini döndürür.
+
+        Kaynak sırası `fontpatch/sources.py`'dedir. Diğer büyüklükteki kaynaktan (ör. `ç`'den `Ş`) alınan işaret
+        ölçeklenmez, yalnızca taban harfin boyuna göre konumlandırılır.
         """
-        if ch == "İ":
-            base = self.glyph("I")
-            if base is None:
-                return "kaynak harf yok: I"
-            if self.glyph("i") is None and self.glyph("Ö") is None:
-                return "kaynak harf yok: i veya Ö"
-            dotted = self._dot_on(base, self.glyph("i"), self.glyph("Ö"))
-            return dotted if dotted is not None else "kaynak harfin yapısı beklenenden farklı"
-        if ch == "ı":
-            base = self.glyph("i")
-            if base is None:
-                return "kaynak harf yok: i"
-            dotless = self._dotless(base)
-            return dotless if dotless is not None else "kaynak harfin yapısı beklenenden farklı"
-
-        # (taban, aynı büyüklükteki donör, diğer büyüklükteki donör)
-        spec = {
-            "ş": ("s", "ç", "Ç"),
-            "Ş": ("S", "Ç", "ç"),
-            "ğ": ("g", "ü", "Ü"),
-            "Ğ": ("G", "Ü", "ü"),
-        }[ch]
-        base_ch, same, other = spec
+        base_ch = {"İ": "I", "ı": "i", "ş": "s", "Ş": "S", "ğ": "g", "Ğ": "G"}[ch]
         base = self.glyph(base_ch)
         if base is None:
             return f"kaynak harf yok: {base_ch}"
-        source = self.glyph(same) or self.glyph(other)
-        if source is None:
-            return f"kaynak harf yok: {same}"
-        result = self._cedilla_on(base, source) if ch in "şŞ" else self._breve_on(base, source)
-        return result if result is not None else "kaynak harfin yapısı beklenenden farklı"
+        if ch == "ı":
+            dotless = self._dotless(base)
+            return (
+                (dotless, sources.DOTLESS_FROM_I) if dotless is not None else "kaynak harfin yapısı beklenenden farklı"
+            )
+        if ch == "İ":
+            return self._dot_on(base)
+        if ch in "şŞ":
+            return self._hook_on(ch, base)
+        return self._arc_on(ch, base)
 
     # --- yazma -----------------------------------------------------------------------------
 
@@ -423,12 +500,14 @@ class TmpFont:
             if ch == "ı" and self._dotless_is_same():
                 self.alias("ı", "i")
                 result.added += ch
+                result.sources[ch] = sources.DOTLESS_SAME_AS_I
                 continue
             built = self.build(ch)
             if isinstance(built, str):
                 result.skipped[ch] = built
-            elif self.add(ch, built):
+            elif self.add(ch, built[0]):
                 result.added += ch
+                result.sources[ch] = built[1]
             else:
                 result.skipped[ch] = "atlasta yer yok"
         if self.placed:
