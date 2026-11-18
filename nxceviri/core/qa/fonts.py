@@ -35,6 +35,7 @@ from nxceviri.core.formats.registry import member_reader
 from nxceviri.core.formats.scanner import ScanReport, base_detail, scan_view
 from nxceviri.core.pipeline import Inputs, opened_view
 from nxceviri.core.progress import TaskContext
+from nxceviri.core.translate.widths import WidthTable, table_from_tmp, table_from_ttf
 
 log = logging.getLogger(__name__)
 
@@ -72,6 +73,8 @@ class FontInfo:
     language_specific: bool
     note: str = ""
     patchable: str = ""  # font yamasıyla eklenebilecek eksik harfler
+    #: Harf genişlikleri (sığdırmada fontla ölçüm); okuyucu ilerleme vermiyorsa `None`. Font verisi saklanmaz.
+    widths: WidthTable | None = field(default=None, compare=False, repr=False)
 
     @property
     def is_latin(self) -> bool:
@@ -133,6 +136,17 @@ class FontReport:
     def to_settings(self) -> str:
         return self.missing_letters()
 
+    def measuring_table(self) -> WidthTable | None:
+        """Sığdırmada genişlik ölçümünün fontu: ASCII harflerin en çoğunu kapsayan Latin statik font (eşitlikte büyük
+        tablo, sonra ad). Genişlik tablosu olan Latin statik font yoksa `None` (yaklaşık tablo kullanılır)."""
+        candidates = [f for f in self.latin_static if f.widths is not None]
+
+        def rank(font: FontInfo) -> tuple[int, int, str]:
+            advances = font.widths.advances if font.widths is not None else {}
+            return (sum(1 for c in _LATIN if c in advances), len(advances), font.name)
+
+        return max(candidates, key=rank).widths if candidates else None
+
 
 def _ttf_chars(raw: bytes) -> frozenset[str] | None:
     try:
@@ -140,6 +154,18 @@ def _ttf_chars(raw: bytes) -> frozenset[str] | None:
     except (TTLibError, ValueError, KeyError, AssertionError, struct.error):
         return None
     return frozenset(chr(c) for c in (cmap or {}) if c < 0x110000)
+
+
+def _ttf_widths(raw: bytes, chars: frozenset[str] | None, name: str) -> WidthTable | None:
+    """TTF/OTF'un harf genişlikleri; okunamayan ya da Çince/Japonca/Korece font için `None` (ölçüm fontu olamaz,
+    büyük tabloyu boşuna açmayalım)."""
+    if chars is None or is_cjk_chars(map(ord, chars)):
+        return None
+    try:
+        return table_from_ttf(raw, name)
+    except (TTLibError, ValueError, KeyError, AssertionError, struct.error, EOFError) as exc:
+        log.debug("Font genişlikleri okunamadı (%s): %s", name, type(exc).__name__)
+        return None
 
 
 def _is_font_bundle(path: str) -> bool:
@@ -211,7 +237,9 @@ def _unity_fonts(
             font_name = str(tree.get("m_Name", ""))
             sources[(file_name, int(obj.path_id))] = (font_name, chars)
             if raw:
-                found.append({"name": font_name, "kind": KIND_TTF, "chars": chars})
+                found.append(
+                    {"name": font_name, "kind": KIND_TTF, "chars": chars, "widths": _ttf_widths(raw, chars, font_name)}
+                )
         elif "m_CharacterTable" in tree:
             chars = frozenset(
                 chr(int(c["m_Unicode"]))
@@ -220,12 +248,14 @@ def _unity_fonts(
             )
             dynamic = int(tree.get("m_AtlasPopulationMode", 0)) != 0
             src = (tree.get("m_SourceFontFile") or {}).get("m_PathID", 0)
+            tmp_name = str(tree.get("m_Name", ""))
             found.append(
                 {
-                    "name": str(tree.get("m_Name", "")),
+                    "name": tmp_name,
                     "kind": KIND_TMP_DYNAMIC if dynamic else KIND_TMP_STATIC,
                     "chars": chars,
                     "source_font": (file_name, int(src)) if dynamic else None,
+                    "widths": table_from_tmp(tree.get("m_GlyphTable") or [], tree["m_CharacterTable"], tmp_name),
                 }
             )
     return found, sources
@@ -298,8 +328,13 @@ def scan_fonts(view: GameView, report: ScanReport, ctx: TaskContext | None = Non
                         font["patchable"] = plans.get(font["name"], "")
                     pending.append((entry.path, font))
             else:
+                name = parts[-1].rsplit("/", 1)[-1]
+                chars = _ttf_chars(data)
                 pending.append(
-                    (entry.path, {"name": parts[-1].rsplit("/", 1)[-1], "kind": KIND_TTF, "chars": _ttf_chars(data)})
+                    (
+                        entry.path,
+                        {"name": name, "kind": KIND_TTF, "chars": chars, "widths": _ttf_widths(data, chars, name)},
+                    )
                 )
         except NxError as exc:
             result.warnings.append(exc.message)
@@ -318,7 +353,9 @@ def scan_fonts(view: GameView, report: ScanReport, ctx: TaskContext | None = Non
             or is_language_specific(f["name"])
             or (f["kind"] == KIND_TTF and chars is not None and is_cjk_chars(map(ord, chars)))
         )
-        result.fonts.append(FontInfo(f["name"], source, f["kind"], chars, lang, note, f.get("patchable", "")))
+        result.fonts.append(
+            FontInfo(f["name"], source, f["kind"], chars, lang, note, f.get("patchable", ""), f.get("widths"))
+        )
     ctx.report(len(targets), len(targets), "Font denetimi tamamlandı")
     return result
 

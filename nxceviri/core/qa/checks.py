@@ -13,6 +13,7 @@ Denetimler satır başınadır ve yalnızca bulguları döndürür; satırları 
 | line_too_long | uyarı | Bir satır, sığdırma kuralındaki karakter sınırını aşıyor |
 | page_too_tall | uyarı | Bir sayfada sığdırma kuralındaki satır sayısından fazla satır var |
 | bad_break | uyarı | Satır gereksiz kısa kesilmiş; sonraki sözcük sığardı |
+| too_wide | uyarı | Fontla ölçülen genişlik orijinal kutuyu toleranstan fazla aşıyor (kapsamda açıksa) |
 | spaces | uyarı | Baştaki/sondaki boşluklar orijinalle aynı değil |
 | glossary | uyarı | Terminolojideki terim kaynakta geçiyor ama Türkçe karşılığı çeviride yok |
 | identifier | uyarı | Kaynak bir kod adına benziyor (Ad_Soyad_1) ve çevrilmiş; oyun bu adı arayabilir |
@@ -59,6 +60,7 @@ from nxceviri.core.translate.cleanup import (
 )
 from nxceviri.core.translate.fit import PROBLEM_BREAK, PROBLEM_LINE, PROBLEM_PAGE, find_problems
 from nxceviri.core.translate.fitconfig import FitConfig
+from nxceviri.core.translate.fitwidth import KIND_TOO_WIDE, WidthMeasure, width_message
 from nxceviri.core.translate.guards import translation_problems
 from nxceviri.core.translate.providers.base import GlossaryTerm
 from nxceviri.core.translate.status import Status
@@ -87,6 +89,7 @@ KIND_LABELS = {
     "line_too_long": "Satır uzun",
     "page_too_tall": "Sayfa uzun",
     "bad_break": "Kötü bölünme",
+    KIND_TOO_WIDE: "Geniş satır",
     "suspicious": "Şüpheli çeviri",
     "spelling": "Yazım",
     "ascii_turkish": "Türkçe harf eksik",
@@ -168,8 +171,12 @@ def check_row(
     *,
     spell: SpellChecker | None = None,
     spell_extra: frozenset[str] = frozenset(),
+    widths: WidthMeasure | None = None,
 ) -> list[QaIssue]:
     """Tek bir satırı denetler. `transliterated`: dışa aktarırken dönüştürülecek harfler.
+
+    `widths`: fontla genişlik ölçümü (kutular tüm projeden bir kez hesaplanır, `fitwidth.build_measure`); verilmezse
+    genişlik denetlenmez.
 
     `spell` verilirse çevirideki sözlükte olmayan sözcükler de bildirilir; `spell_extra` ek kabul edilen sözcüklerdir
     (ör. oyun sözlüğündeki terimler).
@@ -248,6 +255,9 @@ def check_row(
             SEVERITY_WARNING,
             f"Orijinalde {row.source.count(chr(10))}, çeviride {row.translation.count(chr(10))} satır sonu var.",
         )
+    wide = widths.problem(row) if widths is not None else None
+    if wide is not None:
+        add(KIND_TOO_WIDE, SEVERITY_WARNING, width_message(wide.ratio, wide.tolerance, wide.box))
     for term, pattern in glossary or ():
         if pattern.search(row.source) and turkish_lower(term.translation) not in turkish_lower(row.translation):
             add("glossary", SEVERITY_WARNING, f"Terminolojide “{term.term}” → “{term.translation}” var; çeviride yok.")
@@ -350,8 +360,12 @@ def run_checks(
     spell_ignored: Collection[str] = (),
     terms: Mapping[str, str] | None = None,
     progress: ProgressCallback | None = None,
+    widths: WidthMeasure | None = None,
 ) -> list[QaIssue]:
     """Satırları denetler. `terms`: terim sözlüğü (`project_terms`); verilmezse `rows`tan çıkarılır.
+
+    `widths`: tüm projeden hesaplanmış genişlik ölçümü (birkaç satır denetlenirken kutular o satırlardan
+    çıkarılmaz).
 
     Birkaç satırı yeniden denetlerken (yerinde düzenleme) terimler tüm projeden çıkarılıp `terms` ile verilir.
     `progress`: her satırdan sonra (denetlenen, toplam, açıklama) bildirilir; toplam, satırlara ek olarak satır
@@ -366,7 +380,11 @@ def run_checks(
     total = count + tail
     out: list[QaIssue] = []
     for done, row in enumerate(rows, 1):
-        out.extend(check_row(row, missing_letters, transliterated, patterns, fit, spell=spell, spell_extra=extra))
+        out.extend(
+            check_row(
+                row, missing_letters, transliterated, patterns, fit, spell=spell, spell_extra=extra, widths=widths
+            )
+        )
         if progress is not None:
             progress(done, total, "")
     out.extend(consistency_issues(rows))

@@ -259,7 +259,7 @@ class WidthProblem(NamedTuple):
     ratio: float
 
 
-def _is_single_line(source: str, kind_of: KindOf) -> bool:
+def is_single_line(source: str, kind_of: KindOf) -> bool:
     """Orijinal tek satır mı: satır sonu (`\\n` ya da satır sonu kodu) ve sayfa sonu kodu yok."""
     if len(split_lines(source, kind_of)) != 1:
         return False
@@ -280,7 +280,7 @@ def width_problem(
 
     Çok satırlı (satır sonu ya da sayfa sonu içeren) orijinalde, boş çeviride, kutu sıfır ya da bilinmiyorsa `None`.
     """
-    if not translation.strip() or not _is_single_line(source, kind_of):
+    if not translation.strip() or not is_single_line(source, kind_of):
         return None
     base = box if box is not None else visible_pixels(source, kind_of, table, variable_width=variable_width)
     if base <= 0:
@@ -311,7 +311,7 @@ def group_boxes(
     boxes: dict[str, float] = {}
     for key, source in rows:
         group = group_of(key)
-        if group is None or not _is_single_line(source, kind_of):
+        if group is None or not is_single_line(source, kind_of):
             continue
         width = visible_pixels(source, kind_of, table, variable_width=variable_width)
         boxes[group] = max(boxes.get(group, 0.0), width)

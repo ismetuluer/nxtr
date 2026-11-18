@@ -296,6 +296,22 @@ def test_scan_reports_patchable_letters(font_game: tuple[Inputs, Path]) -> None:
     assert ana.missing(patched=True) == "ö"
 
 
+def test_scan_captures_tmp_widths_and_picks_measuring_font(font_game: tuple[Inputs, Path]) -> None:
+    """Tarama TMP glif tablosundan harf genişliklerini alır; ölçüm fontu dile özgü olmayan Latin statik fonttur."""
+    inputs, _tmp = font_game
+    report = scan_sources(inputs, TaskContext())
+    with opened_view(inputs, TaskContext()) as view:
+        fonts = scan_fonts(view, report)
+    ana = next(f for f in fonts.fonts if f.name == "Ana SDF")
+    assert ana.widths is not None
+    assert ana.widths.advances["B"] == 14.0  # elle yapılan atlas: genişlik 10 + 4
+    assert ana.widths.advances["A"] == 30.0  # yama kaynağı "A" daha geniş çizilmiş: 26 + 4
+    table = fonts.measuring_table()
+    assert table is not None
+    assert table.name == "Ana SDF"  # "Mincho SDF" dile özgü bundle'da: seçilmez
+    assert not table.approximate
+
+
 def test_export_with_font_patch(font_game: tuple[Inputs, Path]) -> None:
     inputs, tmp_path = font_game
     report = scan_sources(inputs, TaskContext())

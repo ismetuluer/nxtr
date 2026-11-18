@@ -23,6 +23,7 @@ from nxceviri.core.qa.checks import (
 )
 from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.translate.fitconfig import FitConfig
+from nxceviri.core.translate.fitwidth import KIND_TOO_WIDE, WidthMeasure
 from nxceviri.core.translate.providers.base import GlossaryTerm
 
 log = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ LIVE_KINDS: tuple[str, ...] = (
     "line_too_long",
     "page_too_tall",
     "bad_break",
+    KIND_TOO_WIDE,
     "spaces",
     "double_space",
     "repeated_word",
@@ -69,6 +71,7 @@ KIND_HINTS: dict[str, str] = {
     "line_too_long": "Bir satır sığdırma kuralındaki karakter sınırını aşıyor.",
     "page_too_tall": "Bir sayfada izin verilenden çok satır var.",
     "bad_break": "Satır gereksiz kısa kesilmiş.",
+    KIND_TOO_WIDE: "Fontla ölçülen genişlik orijinal kutuyu aşıyor (kapsamda açıksa).",
     "spaces": "Baştaki ya da sondaki boşluk orijinalle aynı değil.",
     "double_space": "Metnin içinde çift boşluk var.",
     "repeated_word": "Aynı sözcük art arda yazılmış.",
@@ -114,6 +117,8 @@ class LiveContext:
     kinds: frozenset[str] = DEFAULT_LIVE_KINDS
     #: Projede yazım bulgusu üretmeyecek sözcükler (Yazım Denetimi penceresinde "Yoksay").
     spell_ignored: frozenset[str] = frozenset()
+    #: Fontla genişlik ölçümü (kutular tüm projeden); kimlikle karşılaştırılır, ayar ya da satırlar değişince yenilenir.
+    widths: WidthMeasure | None = None
 
 
 @dataclass(frozen=True)
@@ -141,6 +146,7 @@ def _base_issues(
             ctx.fit,
             spell=ctx.spell,
             spell_extra=extra,
+            widths=ctx.widths,
         )
         if i.kind in ctx.kinds and i.kind in KIND_LABELS and i.kind != "untranslated"
     ]
