@@ -12,7 +12,8 @@ description: NXTR'de oyundaki menü, düğme, başlık veya hikâye kartı gibi 
    `python -m nxceviri.arac ara "<yazı>" …` ile kanıtla, resim biçimini söyle.
 4. Kullanıcı isterse `grafik_temizleme/orijinal` (eklenti çıkarır) ve `grafik_temizleme/turkce` (kullanıcı
    Türkçeleştirir, aynı ad; eski `temiz` adı hâlâ okunur) düzenini kur. Kullanıcıyı resim hazırlama konusunda
-   yönlendir; çizimi ajan yapmaz.
+   yönlendir; çizimi ajan yapmaz. Hazırlanan resimleri uygulamada **Kontrol Et → Grafik** sekmesinde denetlet
+   (boyut, saydamlık, eksik, değişmemiş; onay); eklentisiz oyunda klasör orada **Klasör Seç…** ile seçilir.
 5. Resim kodu (çıkarma, çözme/kodlama, geri yazma) oyunun eklentisinin içinde yazılır, `nxceviri/` altına yazılmaz.
    Geri yazmayı testle (aynı biçim, boyut, mip), moda yerleştir. Cihazda görsel doğrulamayı kullanıcıdan iste; BC7
    gibi kayıplı kodlama sınırlarını raporla.

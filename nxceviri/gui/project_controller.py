@@ -66,6 +66,7 @@ class ProjectController:
         win.translate_page.set_qa_issues([], [])  # önceki projenin denetim sonuçları taşınmaz
         win._fit_recheck_timer.stop()  # bekleyen ayar yenilemesi eski projeye aitti
         win.qa_page.reset()
+        win.graphics_check.project_replaced()  # süren grafik denetimi durur; klasör yeni projeden bulunur
         win._qa_count = None
         win._qa_errors = False
         win.translate_page.set_project_key(

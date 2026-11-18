@@ -4,6 +4,14 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
 
 ## [Yayımlanmadı]
 
+### Eklendi
+- **Kontrol Et → Grafik sekmesi:** `orijinal/` ve `turkce/` klasörlerindeki resimler arka planda denetlenir (eksik,
+  özgünle aynı, boyutu farklı, saydamlığı kaybolmuş, kenara değen yazı, adı yanlış ya da bozuk dosya) ve gözle
+  karşılaştırılır: yan yana, üst üste (sürgüyle geçiş) ya da gidip gel (tıklama/Boşluk); Kılavuz özgün yazının alanını
+  gösterir. Bakılan resim **Onayla** (`Ctrl+Enter`) ile işaretlenir; dosya değişince onay kendiliğinden kalkar. Sekme
+  başlığı sorunlu resim sayısını gösterir. Klasöre resim kaydedilince liste kendiliğinden yenilenir. Resim çevirisini
+  bilmeyen oyunlarda **Klasör Seç…** ile herhangi bir grafik klasörü karşılaştırılabilir (moda yerleşmez).
+
 ### Değişti
 - **Ana pencere kodu bölündü (iç düzen):** güncelleme, yazım denetimi, terimler, font ve görseller, dış redaksiyon,
   geçmiş ve geri al, tarama ve arayüz kurulumu ayrı dosyalarda; ana pencere ~3.370 satırdan 1.798 satıra indi.

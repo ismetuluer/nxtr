@@ -48,4 +48,19 @@ sayar ya da sözlüğe eklersiniz. **Tek önerisi olanları düzelt** harf hatas
 işte düzeltir (Geri Al hepsini geri alır); önce Öneri sütununa bakın, doğru ama sözlükte olmayan sözcükleri Yoksay ya da
 Sözlüğe Ekle ile ayırın.
 
+## Grafik
+
+Menü, düğme ve başlık gibi resimlerdeki yazıları çeviriyorsanız Türkçe resimlerinizi burada denetleyin. Program
+`orijinal/` klasöründeki özgün resimleri `turkce/` klasöründeki aynı adlı Türkçeleriyle karşılaştırır: eksik olanları,
+özgünle aynı kalanları, boyutu farklı olanları, arka plan saydamlığı kaybolanları ve kenara değen yazıları gösterir.
+
+Oyun resim çevirisini destekliyorsa klasör kendiliğinden bulunur; özgünler henüz yoksa **Görselleri Çıkar**'a basın.
+Desteklemiyorsa **Klasör Seç…** ile içinde `orijinal/` ve `turkce/` bulunan klasörü seçin; bu durumda resimler yalnızca
+karşılaştırılır, moda kendiliğinden yerleşmez.
+
+Sağda resmi **Yan yana**, **Üst üste** (sürgüyle özgünden Türkçeye geçin) ya da **Gidip gel** (resme tıklayın ya da
+Boşluk) kipinde inceleyin. **Kılavuz** özgün yazının alanını gösterir. Baktığınız resmi **Onayla** (`Ctrl+Enter`)
+ile işaretleyin; resmi yeniden kaydederseniz onay kalkar. Klasöre kaydettiğiniz resimler listeye kendiliğinden gelir.
+Sekme başlığındaki sayı, onaylanmamış sorunlu resimlerdir.
+
 Font ve Türkçe harfler için **Font ve harfler** konusuna bakın.

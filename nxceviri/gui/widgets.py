@@ -373,7 +373,7 @@ class DropZone(QFrame):
 class EmptyState(QWidget):
     """Boş durum: maskot (Ayarlar'dan kapatılabilir), başlık, kısa yönlendirme ve isteğe bağlı düğme."""
 
-    def __init__(self, title: str, text: str, action: QPushButton | None = None, mood: str = MOOD_IDLE) -> None:
+    def __init__(self, title: str, text: str, action: QWidget | None = None, mood: str = MOOD_IDLE) -> None:
         super().__init__()
         lay = QVBoxLayout(self)
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)

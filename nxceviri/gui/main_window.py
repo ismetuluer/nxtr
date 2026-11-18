@@ -95,6 +95,7 @@ from nxceviri.gui.exchange_controller import ExchangeController
 from nxceviri.gui.export_controller import ExportController
 from nxceviri.gui.export_page import ExportPage
 from nxceviri.gui.fonts_controller import FontsController
+from nxceviri.gui.graphics_controller import GraphicsController
 from nxceviri.gui.help_window import STEP_TOPICS, TOPIC_START, HelpWindow
 from nxceviri.gui.history_controller import HistoryController
 from nxceviri.gui.jobs import new_job_id
@@ -374,6 +375,8 @@ class MainWindow(QMainWindow):
         self.spelling = SpellController(self)
         self.terms = TermsController(self)
         self.fonts = FontsController(self)
+        #: Kontrol Et → Grafik: resim klasörü, arka plan denetimi, klasör izleme, onay; durumu da orada.
+        self.graphics_check = GraphicsController(self)
         self.exchange = ExchangeController(self)
         self.history = HistoryController(self)
         #: Anahtarlar, kaynak dosyalar, tarama ve metin aktarma; durum pencerede kalır.
@@ -836,6 +839,7 @@ class MainWindow(QMainWindow):
                 self.scan_page.show_empty()
         elif row == STEP_QA:
             self._refresh_qa()
+            self.graphics_check.shown()
         elif row == STEP_EXPORT and not self.busy:
             self._refresh_export()
 
@@ -1763,6 +1767,7 @@ class MainWindow(QMainWindow):
         self.hide()  # bekleme sürerken pencere "yanıt vermiyor" görünmesin
         for thread in running:
             thread.wait()  # ağ zaman aşımlarıyla sınırlı; çalışan iş parçacığı yok edilemez
+        self.graphics_check.shutdown()  # izleyici durur, süren grafik denetimi iptal edilip beklenir
         self._recovery_timer.stop()
         self._mascot_rest.stop()
         self._mascot_poll.stop()

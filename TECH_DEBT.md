@@ -37,6 +37,9 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     klasörü bir betikle (`export_originals`) üretildi; klasör oyun dosyalarının yanındaki
     `grafik_temizleme` ya da `NXCEVIRI_YS_GRAFIK` ortam değişkenidir. fsd biçimi grafikleriyle aynı
     sınır (TECH_DEBT 49 civarı). *Ne zaman:* arayüzde "Grafikler" ayarı eklendiğinde (iki oyun için ortak).
+    *Kısmen (2026-11-18):* Kontrol Et → Grafik sekmesi klasörü bulur (eklentinin `GraphicsSupport`'u) ya da elle
+    seçtirir (`graphics/folder`) ve denetler; ancak elle seçilen klasör yalnızca karşılaştırma içindir, yerleştirme
+    hâlâ ortam değişkenini okur (ARCHITECTURE 231).
 
 83. **Bir Unity oyununda metin aktarma yavaş (0.45.0): ≈3 dk.** 179 Unity dosyası (en büyüğü 280 MB)
     üçer kez (`collect_context`, `language`, `extract`) UnityPy ile yükleniyor; metin yalnızca
@@ -55,6 +58,8 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     `GraphicsSupport` uygulayınca Dışa Aktar'da kart çıkar. Paket içindeki fontlar (Unity bundle,
     SARC/BFFNT) dışa/içe aktarılamaz; yalnızca serbest TTF/OTF. Gerçek oyunda Görseller kartı ve font
     içe alma elle denenmedi. *Ne zaman:* ilgili oyun yeniden çevrilirken.
+    *Kısmen (2026-11-18):* `GraphicsSupport` sunmayan oyunların klasörleri Kontrol Et → Grafik'te Klasör Seç… ile
+    denetlenip karşılaştırılabilir; yerleştirme ve çıkarma kartı yine `GraphicsSupport` ister.
 
 97. **Unreal argüman ekleri kısmen çözüldü (2026-11-17).** Yalnızca yalın çoğul ifadesi (`{N}|plural(one=a,other=b)`)
     parçalanır (ARCHITECTURE 220). Tırnaklı ya da boş değerli çoğul ve başka ekler (`|gender(…)`, `|ordinal(…)`)

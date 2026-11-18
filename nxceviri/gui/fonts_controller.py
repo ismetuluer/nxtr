@@ -272,8 +272,9 @@ class FontsController:
         found = win._graphics()
         if found is None:
             win.export_page.set_graphics(None, (0, 0))
-            return
-        win.export_page.set_graphics(found[1], graphics_status(found[1]))
+        else:
+            win.export_page.set_graphics(found[1], graphics_status(found[1]))
+        win.graphics_check.sync_folder()  # Kontrol Et → Grafik: yeni oluşan klasörler izlenir, liste yenilenir
 
     def extract_graphics(self) -> None:
         """Dışa Aktar → Görseller: yazı içeren resimlerin özgünlerini PNG olarak oyun klasörünün yanına çıkarır."""

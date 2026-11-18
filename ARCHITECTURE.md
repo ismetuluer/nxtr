@@ -115,6 +115,7 @@ nxceviri/
     fontpatch/             # M8: sdf.py (mesafe alanı), tmp.py (glif üretimi/atlas), unity.py (bundle)
     qa/transliterate.py    # harf dönüştürme (yalnızca dışa aktarırken)
     qa/checks.py           # satır denetimleri
+    qa/graphics.py         # grafik denetimi: orijinal/ ile turkce/ resimlerini karşılaştırma (karar 231)
     export/layeredfs.py    # Atmosphère / emülatör mod klasörü, atomik ve doğrulamalı
   gui/                     # PySide6; iş mantığı içermez
     main_window.py         # adımlar arası akış, menüler, arka plan işleri
@@ -126,6 +127,8 @@ nxceviri/
     spell_controller.py    # yazım denetimi: pencere, sözcük değiştirme, kullanıcı sözlüğü (karar 221)
     terms_controller.py    # terimler: Terminoloji penceresi, satırlardan terim ekleme, Ollama ile terim önerisi (karar 221)
     fonts_controller.py    # font ve görseller: font taraması/yaması, düzenli font içe alma, oyun resimlerini çıkarma (karar 221)
+    graphics_check.py      # Kontrol Et → Grafik sekmesi: resim listesi, karşılaştırma görünümü; mantık yok (karar 231)
+    graphics_controller.py # Grafik sekmesinin iş akışı: klasör bulma/seçme, arka plan denetimi, izleme, onay (karar 231)
     exchange_controller.py # dış redaksiyon/çeviri TXT-XLSX-CSV dışa/içe aktarma, hazır çeviri içe aktarma (karar 221)
     history_controller.py  # son işin değişiklikleri, satır geçmişi, geri döndürme, Geri Al / Yinele (karar 221)
     main_layout.py         # ana pencerenin arayüz kurulumu (build_layout) ve sayfa sinyal bağlantıları (connect_pages); mantık yok (karar 221)
@@ -1303,6 +1306,37 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     bildirir; karar tek yerde, `pipeline.file_language` (eklenti bildirimi, yoksa ya da None ise genel kural).
     Kullanan iki yer: `available_languages` (kaynak dil listesi) ve aktarmada dil süzgeci. Bildirmeyen eklentide
     davranış değişmez. Test: `tests/test_plugin_archives.py` (arşiv üyelerinde dil listesi ve atlama).
+231. **Kontrol Et → Grafik sekmesi (ürün sahibi, 2026-11-18):** `orijinal/` ile `turkce/` resimleri `core/qa/graphics`
+    ile denetlenir ve gözle karşılaştırılır. Görünüm `gui/graphics_check.py` `GraphicsCheckTab` (iş mantığı yok),
+    iş akışı `gui/graphics_controller.py` `GraphicsController` (pencerede `self.graphics_check`; 221 düzeni, ancak
+    durumunu kendisi tutar: son sonuçlar, arka plan işi, izleyici, zamanlayıcı; izleyici ve zamanlayıcı pencerenin
+    çocuğudur). **Klasör:** oyunun eklentisi `GraphicsSupport` sunuyorsa onun klasörü (elle seçilemez, Klasör Seç…
+    gizlenir; orijinal yoksa boş durumda "Görselleri Çıkar"), yoksa proje ayarı `graphics/folder` (Klasör Seç…; içinde
+    `orijinal/` ve `turkce/` ya da eski `temiz/` olmalı, yoksa ayar yazılmaz ve hata bildirilir), yoksa boş durum.
+    Eklentisiz oyunda üstte "yalnızca karşılaştırılır" bilgisi durur: resimler moda kendiliğinden yerleşmez.
+    Kayıtlı klasör silinmiş/taşınmışsa "bulunamadı" boş durumu ve Klasör Seç… gösterilir. **Onay:** proje ayarı
+    `graphics/approved` JSON {ad: Türkçe dosyanın sha1'i}; onaylı = kayıtlı özet güncel özete eşit, dosya değişince
+    onay kendiliğinden düşer (kayıt silinmez, eşleşmez). Hatalı resim onaylanamaz; değişmemiş ve uyarılı resim
+    onaylanabilir (bilerek aynı bırakılmış olabilir). Rozet önceliği: Eksik, Hata, Onaylandı, Değişmemiş, Uyarı, Hazır.
+    Sekme başlığındaki sayı ("Grafik (3)") ve "Sorunlu" süzgeci onaylanmamış Hata/Uyarı/Değişmemiş resimleridir.
+    Ayar yazımı diğer ayarlar gibi `set_setting` (işlem içinde) + `_mark_changed`. Onay kısayolu katalogda
+    `qa.graphics_approve` (varsayılan `Ctrl+Return`; yalnızca sekme odaktayken: `WidgetWithChildrenShortcut`),
+    gidip gel kipinde Boşluk karşılaştırma görünümünün kendi tuşudur (katalogda değil; Boşluk ayrılmış tuştur).
+    **Arka plan:** denetim pencerenin tek-iş kilidini (`win.task`) tutmayan ayrı bir `Task`'tır (yazım taraması gibi);
+    yalnızca sekme görünürken başlar (Kontrol Et adımı açık ve sekme seçili), görünmezken tetikler sonucu "bayat"
+    işaretler, sekme açılınca denetlenir. Böylece açılışta ve sekmeye bakılmayan oturumlarda (ve testlerde) iş
+    parçacığı açılmaz. Yeni istek süren işi iptal eder, bitince yenisi başlar; nesil sayacı ve proje kimliği bayat
+    sonucu atar. Proje değişince (`replace_project`) ve pencere kapanırken (`closeEvent`, onaylardan sonra) iş iptal
+    edilip beklenir, izleyici boşaltılır. **İzleme:** `QFileSystemWatcher` dosyaları değil klasörleri izler (grafik
+    klasörü, `orijinal/`, etkin Türkçe klasör; yalnızca var olanlar, her senkronda yeniden kurulur: çıkarma klasörleri
+    sonradan oluşturur); olaylar 300 ms'de toplanır. Çekirdek okuma hatası (`OSError`, yarım yazılmış/kilitli dosya)
+    izleyicinin tetiklediği denetimde gösterilmez: önceki liste kalır, en çok 3 kez kısa süre sonra yeniden denenir;
+    Yenile'de ya da ilk denetimde hata durumu gösterilir. Çekirdeğin kuralları değişmedi. **Görünüm:** sol liste (ad,
+    ilk sorun, rozet; süzgeç Sorunlu/Eksik/Hepsi; sayaç "12 / 40 hazır · 3 sorun · 5 eksik"), sağda dama tahtası
+    zeminli karşılaştırma (Yan yana, Üst üste + sürgü, Gidip gel), Kılavuz (özgünün içerik kutusu kesikli, Türkçenin
+    kutusu düz; özgünü aşıyorsa kırmızı), Sığdır / %100 (bir resim pikseli bir ekran pikseli). Qt'nin açamadığı DDS
+    Pillow ile yüklenir. `_refresh_graphics` (Dışa Aktar sayfası, çıkarma sonrası) sekmeyi `sync_folder` ile tazeler;
+    klasör ve izlenen alt klasörler aynıysa bir şey yapmaz.
 
 ## 5. Bilinen sınırlar
 

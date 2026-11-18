@@ -29,9 +29,28 @@ Resmin içindeki yazı çeviri tablosuna girmez. İş akışı iki yarıdır:
 - Boyut değişmişse özgün boya ölçeklenir. PNG saydamlık kaydetmediyse özgünün alfa kanalı korunur.
 - Oyunun resim biçimi korunur: NNI arşivli oyunun DDS'inde özgün başlık, biçim (BC3/BC1) ve mip sayısı aynen kalır, her mip
   seviyesi yeniden kodlanır, dosya boyu doğrulanır.
-- Klasörü ortam değişkeni gösterir (arayüzde ayar yoktur, TECH_DEBT 75): `NXCEVIRI_NNI_GRAFIK` (NNI arşivli oyun; yoksa
+- Yerleştirme klasörünü ortam değişkeni gösterir (Kontrol Et → Grafik'teki Klasör Seç… yalnızca karşılaştırma
+  içindir, yerleştirmeyi değiştirmez; TECH_DEBT 75): `NXCEVIRI_NNI_GRAFIK` (NNI arşivli oyun; yoksa
   oyun dosyalarının yanındaki `grafik_temizleme`), `NXCEVIRI_FSD_GRAFIK` (`.fsd`/`.msg` biçimli oyun). 0.59.0 ve
   öncesinin adları (`NXCEVIRI_YS_GRAFIK`, `NXCEVIRI_DMC1_GRAFIK`) yeni ad tanımlı değilse okunmaya devam eder.
+
+## Kontrol Et → Grafik sekmesi (denetim ve onay)
+Kullanıcı Türkçe resimleri hazırladıkça uygulamada **Kontrol Et → Grafik** sekmesine bakar:
+- **Klasör:** resim çevirisini bilen oyunda (eklenti `GraphicsSupport` sunuyor) klasör kendiliğinden bulunur; özgünler
+  yoksa sekmedeki **Görselleri Çıkar** düğmesi (Dışa Aktar → Görseller ile aynı iş). Bilmeyen oyunda **Klasör Seç…**
+  ile içinde `orijinal/` ve `turkce/` (ya da eski `temiz/`) bulunan klasör seçilir; seçim projeye kaydedilir. Bu
+  durumda sekme yalnızca karşılaştırır, resimleri moda yerleştirmez (yerleştirme eklentinin işidir).
+- **Liste:** her resim için durum: Onaylandı, Hazır, Uyarı, Hata, Eksik, Değişmemiş. Hatalar: boyut özgünden farklı,
+  arka plan saydamlığı kaybolmuş, `orijinal/`de aynı adlı resim yok, dosya açılamıyor. Uyarılar: özgünle aynı
+  (düzenlenmemiş), yazı resmin kenarına değiyor (oyunda kesilebilir). Süzgeç: Sorunlu / Eksik / Hepsi.
+- **Karşılaştırma:** Yan yana, Üst üste (sürgü özgünden Türkçeye geçer), Gidip gel (resme tıklayın ya da Boşluk).
+  **Kılavuz** özgün yazının alanını kesikli çerçeveyle, Türkçe yazınınkini düz çerçeveyle gösterir (özgünü aşıyorsa
+  kırmızı; bu otomatik sorun sayılmaz, Türkçe yazı doğal olarak daha geniş olabilir). Sığdır / %100.
+- **Onayla** (`Ctrl+Enter`): resme gözle bakıldığını işaretler; dosya değişirse onay kalkar. Hatalı resim onaylanmaz.
+- Liste, klasöre dosya kaydedilince kendiliğinden yenilenir; **Yenile** elle yeniden denetler.
+
+Ajan bu sekmeyi kullanıcıya önerir; denetim sonucunu (ör. "3 resmin boyutu farklı") kullanıcıya iletir, resimleri
+kendisi düzenlemez.
 
 ## Çözülmüş örnekler
 

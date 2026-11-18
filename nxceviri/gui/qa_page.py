@@ -62,6 +62,7 @@ from nxceviri.core.translate.codekinds import KIND_NAMES, CodeKinds
 from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, PROBLEM_LINE, PROBLEM_PAGE, FitRules
 from nxceviri.core.translate.fitconfig import EACH_GROUP, GROUP_PREFIX, FitConfig
 from nxceviri.core.translate.limits import SCOPE_GROUP, SCOPE_KEY
+from nxceviri.gui.graphics_check import GraphicsCheckTab
 from nxceviri.gui.icons import bind_icon, icon
 from nxceviri.gui.issue_chips import Disclosure
 from nxceviri.gui.issue_kinds import IGNORED_KIND, KIND_GROUPS, KindList
@@ -90,6 +91,7 @@ _FIT_RESULT_EMPTY = "Henüz denetlenmedi. Önce Sorunlar sekmesinde “Denetle�
 _FIT_RESULT_CHECKING = "Denetleniyor…"
 #: Denetim sürerken sağdaki liste yerine görünen bekleme: başlık (ardına "%N" gelir) ve ilk açıklama.
 _CHECKING_TITLE = "Denetleniyor…"
+GRAPHICS_TAB_TITLE = "Grafik"
 _CHECKING_PREPARING = "Denetim hazırlanıyor…"
 _CHECK_STOPPED = "Denetim durduruldu."
 _CHECK_STOPPED_CHANGED = "Denetim durduruldu; değişen {count} satır denetlenmedi. Denetle'ye basın."
@@ -335,6 +337,7 @@ class QaPage(QWidget):
     ignore_requested = Signal(list)  # [(satır kimliği, tür)]: bulguları yok say
     unignore_requested = Signal(list)  # [(satır kimliği, tür)]: yok saymayı kaldır
     fit_tab_shown = Signal()  # Sığdırma sekmesi görünür oldu (sınırlar tablosu ağır hesaplar ister)
+    graphics_tab_shown = Signal()  # Grafik sekmesi görünür oldu (bayatsa resimler denetlenir)
 
     def __init__(self) -> None:
         super().__init__()
@@ -528,6 +531,9 @@ class QaPage(QWidget):
         self.tabs.addTab(check_tab, "Sorunlar")
         self._fit_tab = self.tabs.addTab(self._build_fit_tab(), "Sığdırma")
         self.tabs.addTab(scroll, "Font ve harfler")
+        #: Özgün ve Türkçe resimlerin karşılaştırılması (iş akışı `GraphicsController`'da).
+        self.graphics = GraphicsCheckTab()
+        self._graphics_tab = self.tabs.addTab(self.graphics, GRAPHICS_TAB_TITLE)
         self.tabs.currentChanged.connect(self._tab_changed)
         self._refilter()
         self._update_check_button()
@@ -541,6 +547,13 @@ class QaPage(QWidget):
     def _tab_changed(self, index: int) -> None:
         if index == self._fit_tab:
             self.fit_tab_shown.emit()
+        elif index == self._graphics_tab:
+            self.graphics_tab_shown.emit()
+
+    def set_graphics_count(self, count: int) -> None:
+        """Grafik sekmesinin başlığı sorunlu resim sayısını gösterir: "Grafik (3)"; sorun yoksa yalnızca "Grafik"."""
+        title = f"{GRAPHICS_TAB_TITLE} ({format_int(count)})" if count > 0 else GRAPHICS_TAB_TITLE
+        self.tabs.setTabText(self._graphics_tab, title)
 
     # --- satır sığdırma -----------------------------------------------------------------
 

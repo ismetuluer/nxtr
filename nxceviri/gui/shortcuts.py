@@ -108,6 +108,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("tools.spell_dictionary", "Yazım Sözlüğü", CATEGORY_TOOLS),
     Command("tools.plugins", "Eklentiler", CATEGORY_TOOLS),
     Command("tools.diagnosis", "Teşhis Raporu", CATEGORY_TOOLS),
+    Command("qa.graphics_approve", "Grafiği Onayla (Kontrol Et → Grafik)", CATEGORY_TOOLS, "Ctrl+Return"),
     # Yardım
     Command("help.contents", "Yardım", CATEGORY_HELP, "F1"),
 )
