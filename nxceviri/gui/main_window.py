@@ -13,7 +13,6 @@ from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, QUrl
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QGuiApplication
 from PySide6.QtWidgets import (
     QApplication,
-    QFileDialog,
     QHBoxLayout,
     QMainWindow,
     QMenu,
@@ -26,7 +25,6 @@ from PySide6.QtWidgets import (
 )
 
 from nxceviri import __version__
-from nxceviri.arac.teshis import RAPOR_ADI, UYARI, rapor_uret
 from nxceviri.core.errors import NxError
 from nxceviri.core.export.layeredfs import (
     INFO_FILE,
@@ -39,23 +37,17 @@ from nxceviri.core.formats.registry import (
     user_plugin_report,
 )
 from nxceviri.core.formats.scanner import ScanReport
-from nxceviri.core.keys import KeySet, load_keys, load_title_keys
+from nxceviri.core.keys import KeySet
 from nxceviri.core.pipeline import (
     Inputs,
-    TextExtraction,
     check_sources,
     clear_cache,
     default_cache_dir,
     dir_size,
-    extract_sources,
     extract_texts,
-    is_supported_file,
     opened_view,
-    read_source,
-    scan_sources,
 )
 from nxceviri.core.plugins.loader import PluginInfo, PluginReport
-from nxceviri.core.plugins.record import record_extraction
 from nxceviri.core.plugins.trust import PluginTrust
 from nxceviri.core.progress import ProgressCallback, TaskContext
 from nxceviri.core.project import Change, Project, SourceRecord, TranslationRow, row_group
@@ -158,6 +150,7 @@ from nxceviri.gui.provider_probe import ProviderProbe
 from nxceviri.gui.qa_page import QaPage
 from nxceviri.gui.recent import RecentProjects
 from nxceviri.gui.recovery import RecoveryFile, RecoveryKeeper, default_recovery_dir
+from nxceviri.gui.scan_controller import ScanController
 from nxceviri.gui.scan_page import ScanPage
 from nxceviri.gui.settings_dialog import KEY_SPELL_COPIED, PAGE_VIEW, SettingsDialog
 from nxceviri.gui.shortcuts import ShortcutRegistry
@@ -193,7 +186,7 @@ from nxceviri.gui.widgets import button, format_int, format_size, tip_html
 #: buradan da alınabilsinler diye yeniden verilir. `implicit_terms`'i makine denetleyicisi bu modülden okur (testler
 #: onu burada değiştirir); `UpdateDialog`'u güncelleme, `replace_unknown`'u yazım denetimi denetleyicisi okur;
 #: `opened_view`, `check_sources` ve `member_reader`'ı font ve görseller denetleyicisi, `CsvExportDialog` ile
-#: `ChangesDialog`'u dış redaksiyon denetleyicisi okur.
+#: `ChangesDialog`'u dış redaksiyon denetleyicisi, `check_sources` ile `extract_texts`'i tarama denetleyicisi okur.
 __all__ = [
     "MANUAL_LIMIT_KEY",
     "MASCOT_SLEEP_S",
@@ -212,6 +205,7 @@ __all__ = [
     "build_save_box",
     "check_sources",
     "choose_button",
+    "extract_texts",
     "implicit_terms",
     "log_dir",
     "member_reader",
@@ -358,6 +352,7 @@ class MainWindow(QMainWindow):
         self._confirmed_removals: set[str] = (
             set()
         )  # son aktarmada kullanıcının kaldırılmasını onayladığı proje dosyaları
+        self._import_language: str  # son aktarmanın kaynak dili (aktarma başlarken yazılır)
         self.project = Project.new()
         self.dirty = False
         self.task: Task | None = None
@@ -375,6 +370,8 @@ class MainWindow(QMainWindow):
         self.fonts = FontsController(self)
         self.exchange = ExchangeController(self)
         self.history = HistoryController(self)
+        #: Anahtarlar, kaynak dosyalar, tarama ve metin aktarma; durum pencerede kalır.
+        self.scanning = ScanController(self)
         #: Makine işleri (çevir, yeniden çevir, talimatla düzelt); durum pencerede kalır.
         self.machine = MachineController(self)
         #: Çeviri satırları her yeniden kurulduğunda artar; satırlara bağlı ağır hesapların önbelleği buna bağlıdır.
@@ -1123,295 +1120,68 @@ class MainWindow(QMainWindow):
     # --- anahtarlar ----------------------------------------------------------------------
 
     def _restore_keys(self) -> None:
-        saved = self.settings.value("keys/prod", "")
-        if saved:
-            self.load_keys_file(Path(str(saved)), remember=False)
-        else:
-            self.add_page.set_keys_state("neutral", None)
-            self._show_keys_status()
-        saved_title = self.settings.value("keys/title", "")
-        if saved_title:
-            self.load_title_keys_file(Path(str(saved_title)), remember=False)
+        return self.scanning._restore_keys()
 
     def _choose_keys(self) -> None:
-        start = str(self.keys.source_path.parent) if self.keys and self.keys.source_path else str(Path.home())
-        path, _ = QFileDialog.getOpenFileName(
-            self, "prod.keys dosyasını seçin", start, "Anahtar dosyası (*.keys *.txt);;Tüm dosyalar (*)"
-        )
-        if path:
-            self.load_keys_file(Path(path))
+        return self.scanning._choose_keys()
 
     def load_keys_file(self, path: Path, remember: bool = True) -> bool:
-        try:
-            keys = load_keys(path)
-        except NxError as exc:
-            self.keys = None
-            self.add_page.set_keys_state("danger", path, exc.user_text())
-            self._show_keys_status(path)
-            self._refresh()
-            return False
-        self.keys = keys
-        summary = keys.summary()
-        newest = summary.newest_generation
-        self.add_page.set_keys_state("success", path)
-        self._keys_detail = f"{len(keys)} anahtar, nesiller 0–{max(summary.key_area_generations)}."
-        if newest < 0:
-            self._keys_detail += "\nUyarı: anahtar alanı ve titlekek nesilleri eşleşmiyor; bazı oyunlar açılamayabilir."
-        self._show_keys_status(path)
-        if remember:
-            self.settings.setValue("keys/prod", str(path))
-        self._refresh()
-        return True
+        return self.scanning.load_keys_file(path, remember)
 
     def _choose_title_keys(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(
-            self, "title.keys dosyasını seçin", str(Path.home()), "Anahtar dosyası (*.keys *.txt);;Tüm dosyalar (*)"
-        )
-        if path:
-            self.load_title_keys_file(Path(path))
+        return self.scanning._choose_title_keys()
 
     def load_title_keys_file(self, path: Path, remember: bool = True) -> bool:
-        try:
-            self.title_keys = load_title_keys(path)
-        except NxError as exc:
-            self.title_keys = None
-            self.title_keys_path = None
-            self.add_page.set_files_message("danger", exc.user_text())
-            self._show_keys_status(self._keys_path())
-            return False
-        self.title_keys_path = path
-        self._show_keys_status(self._keys_path())
-        if remember:
-            self.settings.setValue("keys/title", str(path))
-        return True
+        return self.scanning.load_title_keys_file(path, remember)
 
     def _clear_title_keys(self) -> None:
-        self.title_keys = None
-        self.title_keys_path = None
-        self.settings.remove("keys/title")
-        self._show_keys_status(self._keys_path())
+        return self.scanning._clear_title_keys()
 
     def _keys_path(self) -> Path | None:
-        return self.keys.source_path if self.keys is not None else None
+        return self.scanning._keys_path()
 
     def _show_keys_status(self, path: Path | None = None) -> None:
-        """Durum çubuğundaki anahtar bölmesi ve menüdeki title.keys eylemi (anahtar değerleri gösterilmez)."""
-        if self.keys is not None:
-            state, text, lines = "success", "Anahtarlar doğrulandı", [f"prod.keys: {path}", self._keys_detail]
-        elif path is not None:
-            state, text, lines = "danger", "Anahtar geçersiz", [f"prod.keys okunamadı: {path}"]
-        else:
-            state, text, lines = "neutral", "Anahtar seçilmedi", ["prod.keys seçmek için tıklayın."]
-        if self.title_keys_path is not None and self.title_keys is not None:
-            lines.append(f"title.keys: {self.title_keys_path} ({len(self.title_keys)} kayıt)")
-        else:
-            lines.append("title.keys: seçilmedi (isteğe bağlı; oyun dosyasında bilet yoksa gerekir)")
-        lines.append("Değiştirmek için: Dosya → Anahtarlar")
-        self.status_segments.set_keys(state, text, "\n".join(lines))
-        self.title_keys_clear_action.setEnabled(self.title_keys_path is not None)
+        return self.scanning._show_keys_status(path)
 
     # --- kaynak dosyalar -------------------------------------------------------------------
 
     def _browse_files(self) -> None:
-        paths, _ = QFileDialog.getOpenFileNames(
-            self,
-            "Oyun dosyalarını seçin",
-            str(self.settings.value("ui/last_dir", str(Path.home()))),
-            "Switch oyun dosyaları (*.nsp *.nsz)",
-        )
-        if paths:
-            self.settings.setValue("ui/last_dir", str(Path(paths[0]).parent))
-            self.add_files([Path(p) for p in paths])
+        return self.scanning._browse_files()
 
     def add_files(self, paths: list[Path]) -> None:
-        if self.busy or self.keys is None:
-            return
-        known = {s.path.resolve() for s in self.sources}
-        new = [p for p in paths if is_supported_file(p) and p.resolve() not in known]
-        skipped = [p.name for p in paths if not is_supported_file(p)]
-        if not new:
-            msg = "Bu dosyalar zaten eklenmiş." if not skipped else "Yalnızca .nsp ve .nsz dosyaları eklenebilir."
-            self.add_page.set_files_message("warning", msg)
-            return
-        keys = self.keys
-        title_keys = self.title_keys
-
-        def work(ctx: TaskContext) -> object:
-            records: list[SourceRecord] = []
-            errors: list[str] = []
-            for i, p in enumerate(new):
-                ctx.report(i, len(new), f"Okunuyor: {p.name}")
-                try:
-                    records.append(read_source(p, keys, title_keys))
-                except NxError as exc:
-                    errors.append(f"{p.name}: {exc.user_text()}")
-            return records, errors
-
-        self.add_page.set_busy(True, f"{len(new)} dosya okunuyor…")
-        self._run(
-            work,
-            "Oyun dosyaları okunuyor",
-            on_success=lambda r: self._files_added(r, skipped),
-            on_failure=self._files_failed,
-        )
+        return self.scanning.add_files(paths)
 
     def _files_added(self, result: object, skipped: list[str]) -> None:
-        assert isinstance(result, tuple)
-        records, errors = result
-        self.sources = sorted(
-            [*self.sources, *records], key=lambda s: ({"base": 0, "update": 1}.get(s.kind, 2), s.title_id, s.version)
-        )
-        self._sources_changed()
-        messages = list(errors)
-        if skipped:
-            messages.append("Desteklenmeyen dosyalar atlandı: " + ", ".join(skipped))
-        if messages:
-            self.add_page.set_files_message("danger" if errors else "warning", "\n\n".join(messages))
-        if records:
-            self.statusBar().showMessage(f"{len(records)} dosya eklendi.", 5000)
+        return self.scanning._files_added(result, skipped)
 
     def _files_failed(self, text: str) -> None:
-        self.add_page.set_files_message("danger", text)
+        return self.scanning._files_failed(text)
 
     def _remove_source(self, row: int) -> None:
-        if self.busy or not 0 <= row < len(self.sources):
-            return
-        del self.sources[row]
-        self._sources_changed()
+        return self.scanning._remove_source(row)
 
     def _sources_changed(self) -> None:
-        try:
-            self.project.set_sources(self.sources)
-            if self.report is not None:
-                self.project.clear_scan()
-        except NxError as exc:
-            self.notify(LEVEL_ERROR, "Proje", exc.user_text())
-        self.report = None
-        self._mark_changed()
+        return self.scanning._sources_changed()
 
     # --- tarama ----------------------------------------------------------------------------
 
     def _go_scan(self) -> None:
-        """“Metinleri Tara”: güncel rapor varsa onu gösterir, yoksa taramayı hemen başlatır."""
-        if self.report is None:
-            self.start_scan()
-        else:
-            self.nav.setCurrentRow(STEP_SCAN)
+        return self.scanning._go_scan()
 
     def start_scan(self) -> None:
-        if self.busy:
-            return
-        problems = check_sources(self.sources)
-        if self.keys is None or problems:
-            self.scan_page.show_error(" ".join(problems) or "Önce geçerli bir anahtar dosyası seçin.")
-            return
-        inputs = self._inputs()
-        self.nav.setCurrentRow(STEP_SCAN)
-        self.scan_page.show_loading("Oyun dosyaları taranıyor")
-        self._run(
-            lambda ctx: scan_sources(inputs, ctx),
-            "Tarama",
-            on_success=self._scan_done,
-            on_failure=self.scan_page.show_error,
-            on_progress=self.scan_page.loading.update_progress,
-            on_cancel=self._scan_cancelled,
-        )
+        return self.scanning.start_scan()
 
     def _scan_done(self, result: object) -> None:
-        assert isinstance(result, ScanReport)
-        self.report = result
-        try:
-            self.project.set_game(result.game_name, result.title_id)
-            self.project.save_scan(result)
-        except NxError as exc:
-            self.notify(LEVEL_ERROR, "Proje", exc.user_text())
-        self._mark_changed()
-        self._show_scan_report(result)
-        self.statusBar().showMessage(f"Tarama {result.duration_s:.1f} saniyede tamamlandı.", 8000)
+        return self.scanning._scan_done(result)
 
     def _scan_cancelled(self) -> None:
-        if self.report is not None:
-            self._show_scan_report(self.report)
-        else:
-            self.scan_page.show_empty()
-        self.statusBar().showMessage("Tarama iptal edildi.", 5000)
+        return self.scanning._scan_cancelled()
 
     def _extract(self, mode: str) -> None:
-        if self.busy or self.report is None or self.keys is None:
-            return
-        problems = check_sources(self.sources)
-        if problems:
-            self.notify(LEVEL_ERROR, "Dosyalar çıkarılamıyor", " ".join(problems))
-            return
-        folder = QFileDialog.getExistingDirectory(self, "Dosyaların çıkarılacağı boş klasörü seçin", str(Path.home()))
-        if not folder:
-            return
-        dest = Path(folder)
-        only = {e.path for e in self.report.text_candidates} if mode == "candidates" else None
-        inputs = self._inputs()
-        report = self.report
-        self.scan_page.show_loading("Dosyalar klasöre çıkarılıyor")
-
-        def done(result: object) -> None:
-            self._show_scan_report(report)
-            self.notify(LEVEL_INFO, "Çıkarma tamamlandı", f"{result} dosya şuraya yazıldı:\n{dest}")
-            QDesktopServices.openUrl(QUrl.fromLocalFile(str(dest)))
-
-        def failed(text: str) -> None:
-            self._show_scan_report(report)
-            self.notify(LEVEL_ERROR, "Çıkarma tamamlanamadı", text)
-
-        def cancelled() -> None:
-            self._show_scan_report(report)
-            self.statusBar().showMessage("Çıkarma iptal edildi; yarım kalan dosyalar silindi.", 6000)
-
-        self._run(
-            lambda ctx: extract_sources(inputs, dest, only, ctx),
-            "Dosyalar çıkarılıyor",
-            on_success=done,
-            on_failure=failed,
-            on_progress=self.scan_page.loading.update_progress,
-            on_cancel=cancelled,
-        )
+        return self.scanning._extract(mode)
 
     def _diagnosis_report(self) -> None:
-        """Araçlar > Teşhis Raporu: oyunun yapısını inceleyen bir rapor yazar."""
-        if self.busy or self.report is None or self.keys is None:
-            return
-        problems = check_sources(self.sources)
-        if problems:
-            self.notify(LEVEL_ERROR, "Teşhis raporu oluşturulamıyor", " ".join(problems))
-            return
-        start = str(self.settings.value("ui/last_dir", str(Path.home())))
-        folder = QFileDialog.getExistingDirectory(self, f"{RAPOR_ADI} dosyasının yazılacağı klasörü seçin", start)
-        if not folder:
-            return
-        dest = Path(folder)
-        inputs = self._inputs()
-        report = self.report
-        self.scan_page.show_loading("Teşhis raporu hazırlanıyor")
-
-        def done(result: object) -> None:
-            self._show_scan_report(report)
-            self.notify(LEVEL_INFO, "Teşhis raporu hazır", f"{result}\n\n{UYARI}")
-            QDesktopServices.openUrl(QUrl.fromLocalFile(str(dest)))
-
-        def failed(text: str) -> None:
-            self._show_scan_report(report)
-            self.notify(LEVEL_ERROR, "Teşhis raporu oluşturulamadı", text)
-
-        def cancelled() -> None:
-            self._show_scan_report(report)
-            self.statusBar().showMessage("Teşhis raporu iptal edildi.", 5000)
-
-        self._run(
-            lambda ctx: str(rapor_uret(inputs, dest, ctx)),
-            "Teşhis raporu hazırlanıyor",
-            on_success=done,
-            on_failure=failed,
-            on_progress=self.scan_page.loading.update_progress,
-            on_cancel=cancelled,
-        )
+        return self.scanning._diagnosis_report()
 
     # --- kontrol (QA) ----------------------------------------------------------------------
 
@@ -1908,105 +1678,19 @@ class MainWindow(QMainWindow):
     # --- çeviri tablosu ---------------------------------------------------------------------
 
     def import_texts(self) -> None:
-        if self.busy or self.report is None or self.keys is None:
-            return
-        problems = check_sources(self.sources)
-        if problems:
-            self.notify(LEVEL_ERROR, "Metinler aktarılamıyor", " ".join(problems))
-            return
-        inputs = self._inputs()
-        report = self.report
-        language = self.scan_page.report.language.currentData()
-        source_language = str(language) if language else None
-        chosen = self.scan_page.report.selected_paths()  # tarama sayfasında işaretli dosyalar
-        self._import_language = source_language or "en"
-        # Aktarma, projeyi seçime göre eşitler: seçilmeyen proje dosyaları çevirileriyle silinir. Önce sorulur.
-        self._confirmed_removals = set()
-        dropped = self._files_to_remove(chosen)
-        if dropped and not self._confirm_removal(dropped):
-            return
-        self._confirmed_removals = dropped
-        self.scan_page.show_loading("Metinler oyundan çıkarılıyor")
-
-        def failed(text: str) -> None:
-            self._show_scan_report(report)
-            self.notify(LEVEL_ERROR, "Metinler aktarılamadı", text)
-
-        def cancelled() -> None:
-            self._show_scan_report(report)
-            self.statusBar().showMessage("Aktarma iptal edildi; projede değişiklik yapılmadı.", 6000)
-
-        self._run(
-            lambda ctx: extract_texts(inputs, report, ctx, source_language, chosen),
-            "Metinler çıkarılıyor",
-            on_success=self._texts_extracted,
-            on_failure=failed,
-            on_progress=self.scan_page.loading.update_progress,
-            on_cancel=cancelled,
-        )
+        return self.scanning.import_texts()
 
     def _files_to_remove(self, kept: Collection[str]) -> set[str]:
-        """Projede aktarılmış olup `kept` içinde olmayan dosyalar (aktarma bunları çevirileriyle siler)."""
-        return {path for path in self.project.translated_counts_by_file() if path not in kept}
+        return self.scanning._files_to_remove(kept)
 
     def _confirm_removal(self, paths: Collection[str]) -> bool:
-        counts = self.project.translated_counts_by_file()
-        return self.ask_remove_files(len(paths), sum(counts.get(p, 0) for p in paths))
+        return self.scanning._confirm_removal(paths)
 
     def ask_remove_files(self, files: int, translated: int) -> bool:
-        """Seçilmeyen dosyaların projeden kaldırılmasını onaylatır (testlerde değiştirilir)."""
-        box = QMessageBox(self)
-        box.setIcon(QMessageBox.Icon.Warning)
-        box.setWindowTitle("Dosyalar projeden kaldırılacak")
-        lines = (
-            f"Bu dosyalarda {format_int(translated)} çevrilmiş satır var; çevirileri silinir ve geri alınamaz."
-            if translated
-            else "Bu dosyalarda çevrilmiş satır yok."
-        )
-        box.setText(f"Seçmediğiniz {format_int(files)} dosya projeden kaldırılacak. {lines}")
-        remove = box.addButton("Kaldır ve Aktar", QMessageBox.ButtonRole.DestructiveRole)
-        cancel = box.addButton("Vazgeç", QMessageBox.ButtonRole.RejectRole)
-        box.setDefaultButton(cancel)
-        box.setEscapeButton(cancel)
-        box.exec()
-        return box.clickedButton() is remove
+        return self.scanning.ask_remove_files(files, translated)
 
     def _texts_extracted(self, result: object) -> None:
-        assert isinstance(result, TextExtraction)
-        if self.report is not None:
-            self._show_scan_report(self.report)
-        # İçerikten dil nedeniyle düşen dosyalar da silinir: onaylanandan fazlası yazmadan önce yeniden sorulur.
-        actual = self._files_to_remove({f.path for f in result.files})
-        if actual - self._confirmed_removals and not self._confirm_removal(actual):
-            self.statusBar().showMessage("Aktarma durduruldu; projede değişiklik yapılmadı.", 6000)
-            return
-        try:
-            stats = self.project.import_texts(result.files)
-            self.project.set_setting("source_language", self._import_language)
-            record_extraction(self.project, (fmt for _path, _tid, fmt in self.project.text_files()))
-        except NxError as exc:
-            self.notify(LEVEL_ERROR, "Metinler aktarılamadı", exc.user_text())
-            return
-        self._reload_rows()
-        self._mark_changed()
-        summary = (
-            f"{format_int(stats.files)} dosyadan metinler aktarıldı: {format_int(stats.added)} yeni, "
-            f"{format_int(stats.changed)} değişen, {format_int(stats.unchanged)} aynı kalan, "
-            f"{format_int(stats.removed)} kaldırılan satır."
-        )
-        if result.skipped_languages:
-            skipped = sum(result.skipped_languages.values())
-            summary += f" Kaynak dil dışındaki {format_int(skipped)} dil dosyası atlandı."
-        if stats.changed:
-            summary += " Orijinali değişen ve çevirisi olan satırlar gözden geçirilmek üzere “Hatalı” işaretlendi."
-        if result.warnings:
-            shown = result.warnings[:5]
-            more = len(result.warnings) - len(shown)
-            summary += "\n\nAçılamayan dosyalar:\n• " + "\n• ".join(shown)
-            if more > 0:
-                summary += f"\n… ve {more} dosya daha"
-        self.translate_page.show_notice("warning" if result.warnings else "success", summary)
-        self.nav.setCurrentRow(STEP_TRANSLATE)
+        return self.scanning._texts_extracted(result)
 
     # --- makine çevirisi ve sözlük ---------------------------------------------------------
 

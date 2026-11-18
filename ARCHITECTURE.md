@@ -128,6 +128,7 @@ nxceviri/
     fonts_controller.py    # font ve görseller: font taraması/yaması, düzenli font içe alma, oyun resimlerini çıkarma (karar 221)
     exchange_controller.py # dış redaksiyon/çeviri TXT-XLSX-CSV dışa/içe aktarma, hazır çeviri içe aktarma (karar 221)
     history_controller.py  # son işin değişiklikleri, satır geçmişi, geri döndürme, Geri Al / Yinele (karar 221)
+    scan_controller.py     # anahtarlar, oyun dosyaları, tarama, dosya çıkarma, teşhis raporu, metin aktarma (karar 221)
     icons.py + icons/*.svg # Lucide simgeleri; temaya uyan QIcon, bind_icon/refresh_icons
     appicon/               # uygulama simgesi: nxtr.svg + nxtr-kucuk.svg (kaynak) → .ico/.png (packaging/make_icon.py)
     step_nav.py            # simgeli kenar çubuğu (StepNav) ve proje başlığı
@@ -1142,6 +1143,10 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     Dokuzuncu adım: son işin değişiklikleri, satır geçmişi, geri döndürme, bul-değiştir yazımı ve Geri Al / Yinele
     `gui/history_controller.py` `HistoryController`'da (`self.history`); `ChangesDialog` çağrı anında
     `_mw.ChangesDialog` ile okunur, gezinti/menü yöntemleri ve `_machine_results` pencerede kalır.
+    Onuncu adım: anahtar dosyaları, oyun dosyalarını ekleme/kaldırma, tarama, dosya çıkarma, teşhis raporu ve metinleri
+    projeye aktarma `gui/scan_controller.py` `ScanController`'da (`self.scanning`); `check_sources` ve `extract_texts`
+    çağrı anında `_mw.<ad>` ile okunur, `_cache_dir`, `_inputs` (font, görsel, dışa aktarma da kullanır) ve
+    `_show_scan_report` pencerede kalır.
 
 ### 4.55 2026-11-17 kararları (çeviri kaynağı, Sorunlar panosu)
 
