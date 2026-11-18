@@ -18,13 +18,17 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from nxceviri.core.errors import NxError
-from nxceviri.core.project import Change
+from nxceviri.core.project import Change, TranslationRow
+from nxceviri.core.qa.checks import QaIssue
 from nxceviri.core.translate.csvio import (
     CsvError,
+    export_findings_txt,
+    export_findings_xlsx,
     export_translation_txt,
     export_translation_xlsx,
     export_txt,
     export_xlsx,
+    finding_notes,
     plan_import,
     prepare_correction,
     read_revision_file,
@@ -32,10 +36,10 @@ from nxceviri.core.translate.csvio import (
 from nxceviri.core.translate.origin import NO_ORIGIN
 from nxceviri.core.translate.port import ReadyTranslations, port_translations, read_ready_translations
 from nxceviri.core.translate.status import Status
-from nxceviri.gui.csv_dialog import FORMAT_TXT, MODE_REDACTION, MODE_TRANSLATION
+from nxceviri.gui.csv_dialog import FORMAT_TXT, MODE_FINDINGS, MODE_REDACTION, MODE_TRANSLATION
 from nxceviri.gui.jobs import new_job_id
 from nxceviri.gui.machine_controller import REVISE_INSTRUCTION_KEY
-from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_INFO
+from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_INFO, LEVEL_SUCCESS
 from nxceviri.gui.step_nav import STEP_TRANSLATE
 from nxceviri.gui.widgets import format_int
 
@@ -188,6 +192,75 @@ class ExchangeController:
                 f"{format_int(len(dialog.rows()))} satır yazıldı: {files}. Model için hazır talimat panoya kopyalandı. "
                 "Redakte edilen dosyaları Araçlar → “Dış Redaksiyondan İçe Aktar” ile geri yükleyin.",
             )
+
+    def export_findings(self) -> None:
+        """Kontrol Et'te görünen (ya da seçili) bulguları satırlarıyla dış redaksiyon dosyasına yazar.
+
+        Dosya redaksiyon dosyasıyla aynıdır, sonunda salt okunur `bulgu` sütunu bulunur; düzeltilmiş dosya
+        “Dış Redaksiyondan İçe Aktar” ile geri yüklenir.
+        """
+        from nxceviri.gui import main_window as _mw  # noqa: PLC0415
+
+        win = self._win
+        title = "Bulguları dışa aktar"
+        if win.busy:
+            return
+        visible = win.qa_page.visible_findings()
+        if not visible:
+            win.notify(
+                LEVEL_INFO,
+                title,
+                "Dışa aktarılacak bulgu yok. Kontrol Et'te önce “Denetle”yi çalıştırın; soldaki süzgeç "
+                "bulguları gizliyorsa “Tüm bulgular”ı seçin.",
+            )
+            return
+        by_id = {r.id: r for r in win.project.translation_rows()}
+
+        def rows_of(issues: list[QaIssue]) -> list[TranslationRow]:
+            ids = dict.fromkeys(i.row_id for i in issues)  # tablodaki sıra, her satır bir kez
+            return [by_id[i] for i in ids if i in by_id]
+
+        dialog = _mw.CsvExportDialog(
+            win,
+            selected=rows_of(win.qa_page.selected_findings()),
+            visible=rows_of(visible),
+            all_rows=[],
+            instruction=win.project.setting(REVISE_INSTRUCTION_KEY),
+            mode=MODE_FINDINGS,
+        )
+        if dialog.exec() != _mw.CsvExportDialog.DialogCode.Accepted or not dialog.rows():
+            return
+        rows = dialog.rows()
+        txt = dialog.format() == FORMAT_TXT
+        suffix = ".txt" if txt else ".xlsx"
+        name = (win.project.path.stem if win.project.path else "ceviriler") + "_bulgular"
+        start = Path(str(win.settings.value("csv/dir", str(Path.home())))) / f"{name}{suffix}"
+        filters = (
+            "Metin dosyaları (*.txt);;Excel dosyaları (*.xlsx);;Tüm dosyalar (*)"
+            if txt
+            else "Excel dosyaları (*.xlsx);;Metin dosyaları (*.txt);;Tüm dosyalar (*)"
+        )
+        target, _ = QFileDialog.getSaveFileName(win, "Bulgu dosyasını kaydet", str(start), filters)
+        if not target:
+            return
+        path = Path(target)
+        if path.suffix.lower() != suffix:
+            path = path.with_name(path.name + suffix)
+        win.settings.setValue("csv/dir", str(path.parent))
+        try:
+            export = export_findings_txt if txt else export_findings_xlsx
+            paths = export(rows, finding_notes(visible), path, dialog.part_rows(), by_group=dialog.by_group())
+        except CsvError as exc:
+            win.notify(LEVEL_ERROR, title, exc.user_text())
+            return
+        QGuiApplication.clipboard().setText(dialog.prompt.toPlainText())
+        files = paths[0].name if len(paths) == 1 else f"{format_int(len(paths))} dosya ({paths[0].name} …)"
+        win.notify(
+            LEVEL_SUCCESS,
+            title,
+            f"{format_int(len(rows))} satır bulgularıyla yazıldı: {files}. Model için hazır talimat panoya "
+            "kopyalandı. Düzeltilen dosyaları Araçlar → “Dış Redaksiyondan İçe Aktar” ile geri yükleyin.",
+        )
 
     def import_csv(self) -> None:
         """Redakte edilmiş dış TXT/XLSX/CSV dosyalarını projeye aktarır."""

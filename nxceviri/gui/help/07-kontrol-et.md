@@ -11,6 +11,13 @@ orijinal metin, en altta çeviri. Sıra önemden başlar (hata, uyarı, bilgi), 
 Bir satıra çift tıklayın ya da Enter'a basın: satır çeviri ekranında düzenlemeye açılır. Çeviri satırına çift
 tıklayarak (ya da `F2` ile) çeviriyi burada da düzeltebilirsiniz.
 
+**Bulguları dışa aktarma:** listede sağ tık → **Bulguları dışa aktar…** (ya da Çeviri → Dış Redaksiyon →
+Kontrol Bulgularını Dosyaya Yaz…) görünen bulguları, seçili bulgu varsa yalnızca onların satırlarını yazar. Dosya dış
+redaksiyon dosyasıyla aynıdır (`orijinal`, `çeviri`, `düzeltme`, `grup`) ve en sonda `bulgu` sütunu bulunur: satırın
+bütün bulguları tek hücrede, `|` ile ayrılmış. `bulgu` yalnızca bilgi içindir; düzeltmeyi **düzeltme** sütununa
+yazın (bulgusu olmayan satırlar dosyaya girmez; hazır model talimatı panoya kopyalanır). Düzeltilen dosyayı
+Araçlar → **Dış Redaksiyondan İçe Aktar** ile geri yükleyin; önizlemede değişiklikleri görür, geri alabilirsiniz.
+
 Denetimler: kontrol kodu (sayı, tür, sıra), boş çeviri, taşma, terim tutarsızlığı, aynı metnin farklı çevirisi,
 noktalama, çift boşluk, yazım ve uydurma şüphesi. Satırlar düzenlenirken de anlık denetlenir.
 

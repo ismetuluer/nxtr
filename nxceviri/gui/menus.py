@@ -340,6 +340,14 @@ class Menus:
         )
         redaction = self._submenu(menu, "Dış Redaksiyon", "user-check")
         self._needs_rows.append(self._add(redaction, "Dosya Oluştur (TXT/XLSX)…", w.export_csv, icon="file-up"))
+        self._add(
+            redaction,
+            "Kontrol Bulgularını Dosyaya Yaz…",
+            w.export_findings,
+            command="qa.export_findings",
+            icon="file-up",
+            tip="Kontrol Et'te görünen ya da seçili bulguları satırlarıyla dışa aktarır.",
+        )
         self._needs_rows.append(self._add(redaction, "İçe Aktar…", w.import_csv, icon="file-down"))
         external = self._submenu(menu, "Dış Çeviri", "languages")
         self._needs_rows.append(self._add(external, "Dosya Oluştur (TXT/XLSX)…", w.export_translation, icon="file-up"))

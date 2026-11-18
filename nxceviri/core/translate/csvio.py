@@ -23,7 +23,7 @@ import csv
 import io
 import re
 import zipfile
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from xml.etree import ElementTree as ET
@@ -31,6 +31,7 @@ from xml.sax.saxutils import escape
 
 from nxceviri.core.errors import NxError
 from nxceviri.core.project import TranslationRow, row_group
+from nxceviri.core.qa.checks import KIND_LABELS, SEVERITY_LABELS, QaIssue
 from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.cleanup import clean_output
 from nxceviri.core.translate.runner import match_edges, repair_codes
@@ -39,6 +40,8 @@ from nxceviri.core.translate.status import Status
 COLUMNS = ("id", "anahtar", "orijinal", "ceviri")
 TXT_COLUMNS = ("orijinal", "çeviri", "düzeltme", "grup")
 TRANSLATION_COLUMNS = ("orijinal", "çeviri", "yeni çeviri", "grup")
+#: Kontrol Et bulgularının dosyası: redaksiyon sütunları + salt okunur `bulgu` (en sonda).
+FINDING_COLUMNS = (*TXT_COLUMNS, "bulgu")
 #: Bölerek dışa aktarmada varsayılan parça boyu (ücretsiz sohbet modellerinin bir yanıtta rahat işlediği kadar).
 DEFAULT_PART_ROWS = 150
 
@@ -89,6 +92,8 @@ _GROUP_NAMES = {
     "dosya",
     "file",
 }
+#: Salt okunur bağlam sütunu: bulgu dosyasındaki `bulgu`. İçe aktarmada okunmaz ve düzeltmeye karışmaz.
+_FINDING_NAMES = {"bulgu", "bulgular", "finding", "findings", "issue", "issues", "sorun", "sorunlar"}
 _FENCE_RE = re.compile(r"^\s*```[\w-]*\s*$")
 
 
@@ -324,6 +329,80 @@ def _write_parts(
     return [t for t, _ in jobs]
 
 
+def finding_notes(issues: Sequence[QaIssue]) -> dict[int, str]:
+    """Satır kimliği → o satırın bütün bulguları (`bulgu` sütunu): "<Önem> <tür>: <ileti> | …".
+
+    Satırlar bulguların ilk göründüğü sırayla (tablodaki sıra) gelir; boşluk, sekme ve satır sonları tek boşluğa
+    inerek hücrenin tek satırda kalması sağlanır.
+    """
+    parts: dict[int, list[str]] = {}
+    for issue in issues:
+        kind = KIND_LABELS.get(issue.kind, issue.kind)
+        text = " ".join(f"{SEVERITY_LABELS.get(issue.severity, '')} {kind}: {issue.message}".split())
+        parts.setdefault(issue.row_id, []).append(text)
+    return {row_id: " | ".join(texts) for row_id, texts in parts.items()}
+
+
+def rows_findings_txt(rows: Sequence[TranslationRow], notes: Mapping[int, str]) -> str:
+    """Bulgu TXT tablosu: `orijinal`, `çeviri`, `düzeltme` (boş), `grup`, `bulgu` (salt okunur bağlam)."""
+    lines = ["\t".join(FINDING_COLUMNS)]
+    lines += [
+        "\t".join(
+            (
+                _escape_txt(r.source),
+                _escape_txt(r.translation),
+                "",
+                _escape_txt(row_group(r)),
+                _escape_txt(notes.get(r.id, "")),
+            )
+        )
+        for r in rows
+    ]
+    return "\r\n".join(lines) + "\r\n"
+
+
+def rows_findings_xlsx(rows: Sequence[TranslationRow], notes: Mapping[int, str]) -> bytes:
+    """Bulgu XLSX tablosu: redaksiyon sütunları ve sonda `bulgu` (bkz. `rows_findings_txt`)."""
+    return table_xlsx(
+        FINDING_COLUMNS,
+        [(r.source, r.translation, "", row_group(r), notes.get(r.id, "")) for r in rows],
+        sheet="Bulgular",
+    )
+
+
+def export_findings_txt(
+    rows: Sequence[TranslationRow],
+    notes: Mapping[int, str],
+    path: Path,
+    part_rows: int = 0,
+    *,
+    by_group: bool = False,
+) -> list[Path]:
+    """Bulgulu satırları TXT olarak yazar; dosya adlandırma ve parçalama `export_txt` ile aynıdır."""
+    return _write_parts(
+        rows,
+        path,
+        part_rows,
+        by_group,
+        kind="TXT",
+        render=lambda items: rows_findings_txt(items, notes).encode("utf-8-sig"),
+    )
+
+
+def export_findings_xlsx(
+    rows: Sequence[TranslationRow],
+    notes: Mapping[int, str],
+    path: Path,
+    part_rows: int = 0,
+    *,
+    by_group: bool = False,
+) -> list[Path]:
+    """Bulgulu satırları XLSX olarak yazar; dosya adlandırma ve parçalama `export_xlsx` ile aynıdır."""
+    return _write_parts(
+        rows, path, part_rows, by_group, kind="XLSX", render=lambda items: rows_findings_xlsx(items, notes)
+    )
+
+
 def export_csv(rows: Sequence[TranslationRow], path: Path, part_rows: int = 0, *, by_group: bool = False) -> list[Path]:
     """Satırları CSV olarak yazar (eski biçim; yalnızca geriye uyum için).
 
@@ -429,6 +508,41 @@ def revision_prompt_txt(instruction: str = "") -> str:
     if instruction.strip():
         lines += ["", "Ek talimat:", instruction.strip()]
     return "\n".join(lines)
+
+
+_FINDING_RULE = (
+    "“bulgu” sütunu yalnızca bilgi içindir: satırda denetimin bulduğu sorunları söyler. Değiştirme; "
+    "düzeltmeyi “düzeltme” sütununa yaz ve bulguyu giderecek biçimde düzelt."
+)
+
+
+def _five_columns(prompt: str) -> str:
+    prompt = prompt.replace("dört sütun hâlinde", "beş sütun hâlinde", 1)
+    prompt = prompt.replace(
+        "“düzeltme” (boş) ve “grup” (metnin oyun içindeki yeri).",
+        "“düzeltme” (boş), “grup” (metnin oyun içindeki yeri) ve “bulgu” (denetimin bulduğu sorunlar).",
+        1,
+    )
+    prompt = prompt.replace("düzeltme ve grup adları", "düzeltme, grup ve bulgu adları", 1)
+    return prompt.replace("aynı dört sütunlu", "aynı beş sütunlu", 1)
+
+
+def findings_prompt_txt(instruction: str = "") -> str:
+    """Bulgu TXT dosyasıyla birlikte verilecek istem: redaksiyon istemi artı  sütunu kuralı."""
+    return _with_finding_rule(_five_columns(revision_prompt_txt(instruction)), instruction)
+
+
+def findings_prompt_xlsx(instruction: str = "") -> str:
+    """Bulgu XLSX dosyasıyla birlikte verilecek istem (bkz. )."""
+    return _with_finding_rule(_five_columns(revision_prompt_xlsx(instruction)), instruction)
+
+
+def _with_finding_rule(prompt: str, instruction: str) -> str:
+    """İstemin kural listesinin sonuna `bulgu` kuralını numaralı ekler (ek talimat varsa ondan önce)."""
+    head, sep, tail = prompt.partition("\n\nEk talimat:") if instruction.strip() else (prompt, "", "")
+    numbered = [line for line in head.splitlines() if line[:1].isdigit() and line[1:3] == ". "]
+    number = len(numbered) + 1
+    return f"{head}\n{number}. {_FINDING_RULE}{sep}{tail}"
 
 
 def revision_prompt_xlsx(instruction: str = "") -> str:
@@ -586,6 +700,7 @@ class _Layout:
     text: int
     correction: int
     group: int | None  # eski üç sütunlu dosyalarda None
+    finding: int | None = None  # bulgu dosyasındaki salt okunur sütun; okunmaz
 
     @property
     def last(self) -> int:
@@ -598,6 +713,10 @@ _DEFAULT_LAYOUT = _Layout(0, 1, 2, None)
 def _txt_layout(cells: Sequence[str]) -> _Layout | None:
     """Başlık satırıysa sütun düzeni; değilse `None`. Adlar İngilizceye çevrilse de tanınır."""
     names = [_norm(c) for c in cells]
+    finding = next((i for i, n in enumerate(names) if n in _FINDING_NAMES), None)
+    if finding is not None:
+        # Sütunlar `bulgu` olmadan çözülür; değerler okunurken bu sütun hücrelerden çıkarılır.
+        names = [n for i, n in enumerate(names) if i != finding]
     source = next((i for i, n in enumerate(names) if n in _SOURCE_NAMES), None)
     # “yeni çeviri” hem metin hem düzeltme adı olabilir; düzeltme sütunu sayılmasın diye önce yalın adlar aranır.
     text = next((i for i, n in enumerate(names) if n in _TEXT_NAMES and n not in _CORRECTION_NAMES), None)
@@ -613,7 +732,7 @@ def _txt_layout(cells: Sequence[str]) -> _Layout | None:
         correction = text if names[text] in _CORRECTION_NAMES else text + 1
     if group is None and len(names) >= 4 and correction < len(names) - 1:
         group = len(names) - 1  # adı tanınmasa da düzeltmeden sonraki son sütun bağlamdır
-    return _Layout(source, text, correction, group)
+    return _Layout(source, text, correction, group, finding)
 
 
 def _layout_values(cells: Sequence[str], layout: _Layout) -> tuple[str, str, str, str]:
@@ -621,7 +740,10 @@ def _layout_values(cells: Sequence[str], layout: _Layout) -> tuple[str, str, str
 
     Eksik sütunlar boş sayılır. Beklenenden fazla sekme varsa fazlalık düzeltmeye katılır (modelin metne
     yazdığı gerçek sekme); grup fazlalıktan doldurulmaz, çünkü modelin grup sütununu silmesi yaygındır.
+    Başlıkta `bulgu` sütunu varsa o hücre önce çıkarılır (fazla sekme mantığı ona uygulanmaz).
     """
+    if layout.finding is not None and layout.finding < len(cells):
+        cells = [c for i, c in enumerate(cells) if i != layout.finding]
     if len(cells) > layout.last + 1:
         if layout.group is None:  # eski üç sütunlu dosya: fazlalığın tamamı düzeltmedir
             cells = [*cells[: layout.correction], "\t".join(cells[layout.correction :])]

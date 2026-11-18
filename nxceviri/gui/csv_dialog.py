@@ -20,6 +20,8 @@ from PySide6.QtWidgets import (
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.translate.csvio import (
     DEFAULT_PART_ROWS,
+    findings_prompt_txt,
+    findings_prompt_xlsx,
     group_rows,
     revision_prompt_txt,
     revision_prompt_xlsx,
@@ -32,13 +34,15 @@ FORMAT_TXT = "txt"
 FORMAT_XLSX = "xlsx"
 MODE_REDACTION = "redaction"
 MODE_TRANSLATION = "translation"
+MODE_FINDINGS = "findings"
 
 
 class CsvExportDialog(QDialog):
     """Hangi biçimde, hangi satırların, kaç parçada yazılacağını seçtirir ve dış model için hazır istemi gösterir.
 
     `accepted` ile kapanırsa `format()`, `rows()` ve `part_rows()` kullanılır; dosya adını çağıran sorar.
-    `mode=MODE_TRANSLATION` ise sütunlar ve hazır istem dış çeviri içindir.
+    `mode=MODE_TRANSLATION` ise sütunlar ve hazır istem dış çeviri içindir; `mode=MODE_FINDINGS` ise Kontrol Et
+    bulgularının dosyasıdır (`bulgu` sütunu eklenir; kapsam yalnızca seçili ya da görünen bulgular).
     """
 
     def __init__(
@@ -54,6 +58,7 @@ class CsvExportDialog(QDialog):
         super().__init__(parent)
         self._instruction = instruction
         self._translation = mode == MODE_TRANSLATION
+        self._findings = mode == MODE_FINDINGS
         if self._translation:
             self.setWindowTitle("Dış çeviri dosyası oluştur")
             heading = "Çevirileri dış çeviri için dışa aktar"
@@ -62,6 +67,15 @@ class CsvExportDialog(QDialog):
                 "Araçlar → “Dış Çeviriden İçe Aktar” ile geri yükleyebilirsiniz."
             )
             column_word = "yeni çeviri"
+        elif self._findings:
+            self.setWindowTitle("Kontrol bulgularını dışa aktar")
+            heading = "Kontrol Et bulgularını satırlarıyla dışa aktar"
+            description = (
+                "Her satırın bulguları “bulgu” sütununa yazılır (yalnızca bilgi içindir). Dosyayı bir sohbet "
+                "modeline aşağıdaki talimatla verip düzelttirebilir, sonucu Araçlar → “Dış Redaksiyondan İçe "
+                "Aktar” ile geri yükleyebilirsiniz."
+            )
+            column_word = "düzeltme"
         else:
             self.setWindowTitle("Dış redaksiyon dosyası oluştur")
             heading = "Çevirileri dış redaksiyon için dışa aktar"
@@ -74,13 +88,14 @@ class CsvExportDialog(QDialog):
         lay = QVBoxLayout(self)
         lay.addWidget(title_row(heading, description, "cardTitle"))
 
+        columns, extra = ("beş sütun", ", bulgu") if self._findings else ("dört sütun", "")
         self.format_group = QButtonGroup(self)
-        self.txt_radio = QRadioButton(f"TXT — dört sütun: orijinal, çeviri, {column_word}, grup")
+        self.txt_radio = QRadioButton(f"TXT — {columns}: orijinal, çeviri, {column_word}, grup{extra}")
         self.txt_radio.setToolTip(
             f"Model yalnızca “{column_word}” sütununu doldurur; boş bıraktığı satır değişmez. “grup” sütunu "
             "bağlam verir, salt okunurdur. Kontrol kodları en az bozulur."
         )
-        self.xlsx_radio = QRadioButton(f"XLSX — Excel'de dört sütun: orijinal, çeviri, {column_word}, grup")
+        self.xlsx_radio = QRadioButton(f"XLSX — Excel'de {columns}: orijinal, çeviri, {column_word}, grup{extra}")
         self.xlsx_radio.setToolTip(
             f"Excel'de açılır; {column_word} hücreleri boş bırakılabilir. “grup” sütunu bağlam verir, "
             "değiştirilmez. Çok kontrol kodu olan metinde TXT daha güvenlidir."
@@ -93,17 +108,25 @@ class CsvExportDialog(QDialog):
 
         self._scopes: list[Sequence[TranslationRow]] = []
         self.scope_group = QButtonGroup(self)
-        for text, rows in (
-            ("Seçili satırlar", selected),
-            ("Tabloda görünen satırlar (arama ve filtrelere uyanlar)", visible),
-            ("Tüm satırlar", all_rows),
-        ):
+        choices = (
+            (("Seçili bulguların satırları", selected), ("Görünen bulguların satırları", visible))
+            if self._findings
+            else (
+                ("Seçili satırlar", selected),
+                ("Tabloda görünen satırlar (arama ve filtrelere uyanlar)", visible),
+                ("Tüm satırlar", all_rows),
+            )
+        )
+        for text, rows in choices:
             radio = QRadioButton(f"{text} ({format_int(len(rows))})")
             radio.setEnabled(bool(rows))
             self.scope_group.addButton(radio, len(self._scopes))
             self._scopes.append(rows)
             lay.addWidget(radio)
-        default = 0 if len(selected) > 1 else 1 if 0 < len(visible) < len(all_rows) else 2
+        if self._findings:
+            default = 0 if selected else 1
+        else:
+            default = 0 if len(selected) > 1 else 1 if 0 < len(visible) < len(all_rows) else 2
         default_button = self.scope_group.button(default)
         assert default_button is not None
         default_button.setChecked(True)
@@ -164,6 +187,8 @@ class CsvExportDialog(QDialog):
     def _update_prompt(self) -> None:
         if self._translation:
             prompt = translation_prompt_txt if self.format() == FORMAT_TXT else translation_prompt_xlsx
+        elif self._findings:
+            prompt = findings_prompt_txt if self.format() == FORMAT_TXT else findings_prompt_xlsx
         else:
             prompt = revision_prompt_txt if self.format() == FORMAT_TXT else revision_prompt_xlsx
         self.prompt.setPlainText(prompt(self._instruction))

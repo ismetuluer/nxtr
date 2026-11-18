@@ -166,6 +166,7 @@ def connect_pages(win: MainWindow) -> None:
     win.qa_page.font_patch_changed.connect(win._set_font_patch)
     win.qa_page.open_row.connect(win._open_row)
     win.qa_page.fix_requested.connect(win.apply_fixes)
+    win.qa_page.export_findings_requested.connect(win.export_findings)
     win.qa_page.fix_planner = win._plan_fix_bar
     win.qa_page.translation_edited.connect(win._edit_from_issues)
     win.qa_page.report_requested.connect(win.show_job_changes)

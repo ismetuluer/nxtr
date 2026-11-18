@@ -1657,6 +1657,9 @@ class MainWindow(QMainWindow):
     def export_translation(self) -> None:
         return self.exchange.export_translation()
 
+    def export_findings(self) -> None:
+        return self.exchange.export_findings()
+
     def _export_external(self, *, translation: bool) -> None:
         return self.exchange._export_external(translation=translation)
 

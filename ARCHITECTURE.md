@@ -1384,6 +1384,19 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     düzenleme** (Dışa Aktar / İçe Al) bu türde kapalıdır: içe alınan TTF dışa aktarmada özgün başlık/anahtarla yeniden
     paketlenmeliydi ve arşiv içindeki fontlarda çalışmazdı; düğmeler seçili Switch fontunda devre dışı, ipucu nedenini
     söyler.
+235. **Kontrol Et bulguları, dış redaksiyon dosyasının `bulgu` sütunuyla dışa aktarılır (2026-11-18):** kullanıcı
+    bulguları (ve satırlarını) dışarıda bir modele ya da kendisi düzelttirip geri almak ister; yeni bir dosya biçimi
+    ve yeni bir içe aktarma yolu açmak yerine mevcut redaksiyon dosyası (`orijinal, çeviri, düzeltme, grup`) sonuna
+    salt okunur bir `bulgu` sütunu alır ve içe aktarma aynı kalır (Araçlar → "Dış Redaksiyondan İçe Aktar": önizleme,
+    kod denetimi, geri alma hazırdır). `bulgu` başlığı (`bulgular`, `finding`, `issue`, `sorun` da) `_txt_layout`
+    tarafından adıyla tanınır ve hücreler çözülürken çıkarılır; TXT'te fazla sekme düzeltmeye katılma kuralı ona
+    uygulanmaz, böylece model sütunu koruyunca bulgu metni düzeltmeye sızmaz. Başlıksız ya da 3/4 sütunlu eski
+    dosyaların davranışı değişmez. Bir satırın bütün bulguları tek hücrede "<Önem> <tür>: <ileti>" biçiminde `" | "`
+    ile birleşir (satır sonu ve sekme tek boşluğa iner); dosyada her satır bir kez, kartların tablodaki sırasıyla
+    yer alır. Kapsam tablodaki görünen bulgulardır (süzgeçler uygulanır, yok sayılanlar girmez); seçili bulgu varsa
+    "seçili bulguların satırları" varsayılandır. Dışa aktarma çalışmayla aynı `CsvExportDialog`'u (`MODE_FINDINGS`)
+    kullanır: biçim, gruba bölme ve parçalama hazır gelir. Hazır istem `bulgu` sütununun yalnızca bilgi olduğunu
+    söyler.
 
 ## 5. Bilinen sınırlar
 
