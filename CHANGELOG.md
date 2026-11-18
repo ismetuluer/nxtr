@@ -2,7 +2,7 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
-## [Yayımlanmadı]
+## [0.65.1] — 2026-11-18 — Açılışta titreme düzeltmesi
 
 ### Düzeltildi
 - **Açılışta ekran titremesi:** ana pencere kurulurken kart başlıkları ve kenar çubuğu başlığı ebeveyne bağlanmadan

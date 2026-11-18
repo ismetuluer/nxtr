@@ -1,6 +1,9 @@
-# HANDOFF — oturum devri (2026-11-17, 0.65.0)
+# HANDOFF — oturum devri (2026-11-18, 0.65.1)
 
 ## Durum
+- **Sürüm 0.65.1** (2026-11-18; CHANGELOG 0.65.1): açılış titremesi düzeltildi. Ebeveynsiz
+  widget'a `setVisible(True)` bir anlığına üst düzey pencere açıyordu (`widgets.Card` başlık satırı,
+  `MainWindow.nav_header`); görünürlük ebeveyne bağlandıktan sonra ayarlanıyor. Bekçi: `tests/test_acilis_pencere.py`.
 - **Sürüm 0.65.0** (2026-11-17; CHANGELOG 0.65.0): eklenti arşiv kancası `archive_formats()` → `ArchiveFormat`
   (`core/formats/base.py`; `registry.archive_formats`, `registry.member_reader`, `GuardedArchiveFormat`; ARCHITECTURE
   228), güncelleme TitleID'li dosyaların ana ağaca yazılması (229), `path_language` (230). Kullanıcının bir oyun
