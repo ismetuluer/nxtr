@@ -33,28 +33,6 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     `CONTEXT_AFTER=3`). *Ne zaman:* kullanıcı bir Unity oyununda birkaç sahneyi yeniden çevirip
     karşılaştırınca; gerekirse sayılar ve kurallar ayarlanır.
 
-69. **`gui/main_window.py` hâlâ büyük (0.57.0, ~3.700 satır; 0.63.0'da ~4.100).** Denetimdeki M1'in ilk adımı:
-    makine işi iletileri `gui/jobs.py`'ye, son projeler `gui/recent.py`'ye, kurtarma kopyası
-    `gui/recovery.py`'ye taşındı. İkinci adım (2026-11-17, ARCHITECTURE karar 221): Kontrol Et
-    `gui/checks_controller.py`'ye, Dışa Aktar `gui/export_controller.py`'ye taşındı; pencere ~3.600 satır.
-    Üçüncü adım (2026-11-17, karar 221): proje yaşam döngüsü `gui/project_controller.py`'ye, makine işleri
-    (çevir / yeniden çevir / talimatla düzelt) `gui/machine_controller.py`'ye taşındı; pencere ~3.370 satır.
-    Dördüncü adım: güncelleme `gui/update_controller.py`'ye taşındı; pencere 3.259 satır.
-    Beşinci adım: yazım denetimi penceresi `gui/spell_controller.py`'ye taşındı; pencere 3.107 satır.
-    Altıncı adım: terimler ve terim önerileri `gui/terms_controller.py`'ye taşındı; pencere 2.970 satır.
-    Yedinci adım: font ve görseller `gui/fonts_controller.py`'ye taşındı; pencere 2.780 satır.
-    Sekizinci adım: dış redaksiyon/çeviri içe-dışa aktarma ve hazır çeviri `gui/exchange_controller.py`'ye taşındı;
-    pencere 2.493 satır.
-    Dokuzuncu adım: son işin değişiklikleri, satır geçmişi, geri al/yinele `gui/history_controller.py`'ye taşındı;
-    pencere 2.344 satır.
-    Onuncu adım: anahtarlar, oyun dosyaları, tarama ve metin aktarma `gui/scan_controller.py`'ye taşındı; pencere
-    2.028 satır. Ardından sığdırma ve anlık denetim `gui/checks_controller.py`'ye taşındı; pencere 1.915 satır.
-    On birinci adım: arayüz kurulumu ve sayfa sinyal bağlantıları `gui/main_layout.py` işlevlerine taşındı; pencere
-    1.798 satır (`wc -l nxceviri/gui/main_window.py`). Planlanan bölme tamamlandı: pencerede kalan ince yönlendirmeler,
-    sinyal bağlantıları, `_run`/`Task` ve durum alanları ARCHITECTURE karar 221 gereği bilerek orada durur (testler
-    pencerenin yöntemlerini değiştirerek çalışır). Açık iş yok; yeni bir bölüm büyürse aynı düzenle ayrı
-    denetleyiciye alınır.
-
 75. **NNI arşivli oyun: grafik klasörünü üretmek ve seçmek için arayüz yok (0.39.0).** `orijinal/`
     klasörü bir betikle (`export_originals`) üretildi; klasör oyun dosyalarının yanındaki
     `grafik_temizleme` ya da `NXCEVIRI_YS_GRAFIK` ortam değişkenidir. fsd biçimi grafikleriyle aynı
@@ -318,6 +296,12 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     bildirimi göstermez.
 
 ## 3. Kapananlar
+
+69. ~~`gui/main_window.py` çok büyük (~4.100 satır).~~ — **Kapandı (2026-11-18):** pencere ARCHITECTURE karar 221
+    düzeniyle denetleyicilere bölündü: `checks`, `export`, `project`, `machine`, `update`, `spell`, `terms`, `fonts`,
+    `exchange`, `history`, `scan` (`gui/*_controller.py`) ve arayüz kurulumu `gui/main_layout.py`. Pencere 1.798 satır;
+    kalan ince yönlendirmeler, sinyal bağlantıları, `_run`/`Task` ve durum alanları bilerek pencerede durur (testler
+    pencerenin yöntemlerini değiştirerek çalışır). Yeni bir bölüm büyürse aynı düzenle ayrı denetleyiciye alınır.
 
 12. ~~Python 3.12 ile test edilmedi.~~ — **Kapandı (2026-11-17):** python.org'un resmî 3.12.10 paketiyle ayrı bir
     ortamda tam test seti çalıştırıldı: 2877/2877 geçti (3.13'te de aynı).

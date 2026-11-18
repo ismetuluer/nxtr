@@ -2,6 +2,13 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [Yayımlanmadı]
+
+### Değişti
+- **Ana pencere kodu bölündü (iç düzen):** güncelleme, yazım denetimi, terimler, font ve görseller, dış redaksiyon,
+  geçmiş ve geri al, tarama ve arayüz kurulumu ayrı dosyalarda; ana pencere ~3.370 satırdan 1.798 satıra indi.
+  Kullanıcının göreceği bir davranış değişmedi (TECH_DEBT 69 kapandı).
+
 ## [0.65.1] — 2026-11-18 — Açılışta titreme düzeltmesi
 
 ### Düzeltildi
