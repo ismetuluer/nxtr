@@ -7,8 +7,8 @@ import io
 import pytest
 from PIL import Image
 
-from nxceviri.core.fontpatch import nni_fonts
-from nxceviri.core.fontpatch.bmfont import BmFont, BmFontError, Part, add_missing
+from nxceviri.core.fontpatch import nni_fonts, sources
+from nxceviri.core.fontpatch.bmfont import BmFont, BmFontError, Part, add_missing, patch_missing
 from tests.nnicpkbuild import build_bmfont, latin_glyphs
 
 LETTERS = "ğĞşŞıİ"
@@ -102,7 +102,8 @@ def test_patch_fonts_returns_fnt_and_png_for_every_latin_font() -> None:
     assert sorted(out) == sorted(names)
     assert not warnings
     assert len(notes) == len(nni_fonts.FONTS)
-    assert all(n.split(": ")[1].split(" (")[0].replace(" ", "") == LETTERS for n in notes)
+    assert all(n.split(": ", 1)[1].split(" — ")[0].replace(" ", "") == LETTERS for n in notes)
+    assert all("ş: ç'nin çengeli" in n for n in notes)  # işaret kaynakları satırda
     font = BmFont(
         out[f"{nni_fonts.FONT_DIR}ysfont.fnt"], Image.open(io.BytesIO(out[f"{nni_fonts.FONT_DIR}ysfont.png"]))
     )
@@ -133,3 +134,83 @@ def test_fonts_that_already_have_the_letters_are_left_alone() -> None:
     out, notes, _warnings = nni_fonts.patch_fonts(files.__getitem__, list(files))
     assert out == {}
     assert notes == []
+
+
+def _font_with(changes: dict[str, tuple[Image.Image, int, int] | None]) -> BmFont:
+    glyphs = latin_glyphs(outline=True)
+    for ch, glyph in changes.items():
+        if glyph is None:
+            glyphs.pop(ch, None)
+        else:
+            glyphs[ch] = glyph
+    fnt, sheet = build_bmfont(glyphs, atlas=(128, 128))
+    return BmFont(fnt, sheet)
+
+
+def _blob(w: int, h: int, parts: list[tuple[int, int, int, int]] | None = None) -> Image.Image:
+    from tests.nnicpkbuild import _blob as blob
+
+    return blob(w, h, outline=True, parts=parts)
+
+
+def test_sources_follow_the_shared_order() -> None:
+    result = patch_missing(make_font(), LETTERS)
+    assert result.added == LETTERS
+    assert result.sources == {
+        "ğ": sources.DRAWN,
+        "Ğ": sources.DRAWN,
+        "ş": "ç'nin çengeli",
+        "Ş": "Ç'nin çengeli",
+        "ı": "i'den nokta silindi",
+        "İ": "i'nin noktası",
+    }
+
+
+def test_breve_is_taken_from_a_breve() -> None:
+    # ă: 8 piksel genişliğinde kavis (satır 0-2), boş satır, gövde (4-12)
+    font = _font_with({"ă": (_blob(8, 13, [(0, 0, 8, 3), (0, 4, 8, 9)]), 1, 4)})
+    result = patch_missing(font, "ğĞ")
+    assert result.sources == {"ğ": "ă'nın kavisi", "Ğ": "ă'nın kavisi"}
+    g, breve = font.chars[ord("g")], font.chars[ord("ğ")]
+    assert breve.w >= 8  # kavis ă'dan olduğu gibi (8 piksel), g'den geniş
+    assert breve.yoffset == g.yoffset - 4  # kavis (3 satır) + ă'daki boşluk (1 satır)
+
+
+def test_spacing_breve_is_used_when_there_is_no_a_breve() -> None:
+    font = _font_with({"\u02d8": (_blob(8, 3), 1, 4)})
+    result = patch_missing(font, "ğ")
+    assert result.sources == {"ğ": sources.label("ğ", sources.SPACING_BREVE)}
+    assert font.chars[ord("ğ")].w >= 8
+
+
+def test_dot_of_z_dot_is_used_without_i() -> None:
+    font = _font_with({"i": None, "ż": (_blob(6, 12, [(1, 0, 4, 3), (0, 4, 6, 8)]), 1, 4)})
+    result = patch_missing(font, "İ")
+    assert result.sources == {"İ": "ż'nin noktası"}
+    big_i, dotted = font.chars[ord("I")], font.chars[ord("İ")]
+    assert dotted.yoffset < big_i.yoffset
+    with pytest.raises(BmFontError, match=r"Temel harfler.*i"):
+        patch_missing(font, "ı")  # ı'nın tabanı i'dir
+
+
+def test_one_dot_of_o_diaeresis_is_used_after_z_dot() -> None:
+    font = _font_with({"i": None, "ö": (_blob(7, 12, [(0, 0, 2, 3), (5, 0, 2, 3), (0, 4, 7, 8)]), 1, 4)})
+    result = patch_missing(font, "İ")
+    assert result.sources == {"İ": "ö'nün noktası"}
+    big_i, dotted = font.chars[ord("I")], font.chars[ord("İ")]
+    assert dotted.w == big_i.w  # tek nokta: I'dan geniş değil
+
+
+def test_comma_and_drawn_marks_without_donors() -> None:
+    font = _font_with({"ç": None, "Ç": None, ",": (_blob(3, 5), 1, 14)})
+    result = patch_missing(font, "şŞ")
+    assert result.sources == {"ş": "virgül", "Ş": "virgül"}
+    s_glyph, cedilla = font.chars[ord("s")], font.chars[ord("ş")]
+    assert cedilla.yoffset + cedilla.h > s_glyph.yoffset + s_glyph.h  # virgül taban çizgisinin altına iner
+    drawn = _font_with({"ç": None, "Ç": None, "i": None})
+    result = patch_missing(drawn, "İşŞğĞ")
+    assert result.sources == dict.fromkeys("İşŞğĞ", sources.DRAWN)
+    ch = drawn.chars
+    assert ch[ord("İ")].yoffset < ch[ord("I")].yoffset
+    assert ch[ord("ş")].yoffset + ch[ord("ş")].h > ch[ord("s")].yoffset + ch[ord("s")].h
+    assert ch[ord("ğ")].yoffset < ch[ord("g")].yoffset

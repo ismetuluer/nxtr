@@ -3,27 +3,32 @@
 NNI biçimli oyunun yazı tipleri `*.fnt` (BMFont ikili biçimi) + `*.png` (glif atlası) çiftidir ve yalnızca Latin-1
 harflerini içerir: `ç ö ü` vardır, `ğ ş ı İ Ğ Ş` yoktur. Eksik harfler yazı tipinin **kendi glifleriyle**
 türetilir, böylece
-dış çizgi, gölge ve renk aynı kalır:
+dış çizgi, gölge ve renk aynı kalır. İşaretin kaynağı ortak sıradadır (`fontpatch/sources.py`):
 
-- `ı` = `i`nin noktasız gövdesi; `İ` = `I` + `i`nin noktası;
-- `ş`/`Ş` = `s`/`S` + `ç`/`Ç`nin sedil parçası;
-- `ğ`/`Ğ` = `g`/`G` + `i`nin noktasının küçültülmüş örneklerinden yayla çizilen breve.
+- `ı` = `i`nin noktasız gövdesi (nokta gövdeden ayrılamıyorsa eklenemez; bit eşlemde `I` küçültülmez);
+- `İ` = `I` + nokta: `i` → `ż Ż ċ Ċ ė Ė` → `ö`/`Ö`'nün soldaki noktası → `.` → çizilen kare nokta;
+- `ş`/`Ş` = `s`/`S` + `ç`/`Ç`nin gövdesinin altındaki parça (diğer büyüklükteki de olur) → `,` → çizilen çengel;
+- `ğ`/`Ğ` = `g`/`G` + `ă`/`Ă`'nın kavisi → `˘` → `ŭ Ŭ ŏ Ŏ` → kalem izleriyle çizilen breve (kalem `i`nin
+  noktasından, `i` yoksa taban harfin dolgusundan kesilir).
+
+Harften alınan işaret taban harfe yatayda ortalanır ve kaynaktaki gövdeye uzaklığını korur; ölçeklenmez.
 
 Parçalar "daha açık olan kazanır" (kanal başına en büyük değer) kuralıyla birleştirilir; açık dolgu koyu dış çizgi ve
 gölgenin üstüne çıkar. Yeni glifler atlasın boş bir yerine konur; atlasın boyutu değişmez. Görünüm yaklaşıktır
-(TECH_DEBT 50 ile aynı sınır): breve fontun kendi çizimi değildir.
+(TECH_DEBT 50 ile aynı sınır): `ă`/`˘` yoksa breve fontun kendi çizimi değildir.
 """
 
 from __future__ import annotations
 
 import io
 import struct
-from dataclasses import astuple, dataclass
+from dataclasses import astuple, dataclass, field
 from typing import cast
 
 from PIL import Image, ImageChops, ImageFilter
 
 from nxceviri.core.errors import NxError
+from nxceviri.core.fontpatch import sources
 
 MAGIC = b"BMF\x03"
 _INFO, _COMMON, _PAGES, _CHARS = 1, 2, 3, 4
@@ -41,7 +46,6 @@ RECIPES: dict[str, tuple[str, str]] = {
     "ğ": ("g", "breve"),
     "Ğ": ("G", "breve"),
 }
-_CEDILLA_SOURCE = {"s": ("ç", "c"), "S": ("Ç", "C")}
 
 
 class BmFontError(NxError):
@@ -217,15 +221,57 @@ def _core_bbox(image: Image.Image) -> tuple[int, int, int, int] | None:
     return _fill_mask(image).getbbox()
 
 
+def _split_rows(image: Image.Image) -> tuple[int, int] | None:
+    """(üstteki işaretin bittiği satır, gövdenin başladığı satır); aralarında boş satır yoksa None."""
+    rows = _core_rows(image)
+    if True not in rows:
+        return None
+    end = rows.index(True)
+    while end < len(rows) and rows[end]:
+        end += 1
+    start = end
+    while start < len(rows) and not rows[start]:
+        start += 1
+    return (end, start) if start < len(rows) else None
+
+
+def _left_column_run(image: Image.Image) -> int | None:
+    """İki noktalı işarette (ö) soldaki noktanın bittiği yer: iki nokta arasındaki boşluğun ortası."""
+    mask = _fill_mask(image)
+    w, h = image.size
+    pixels = mask.tobytes()
+    cols = [any(pixels[y * w + x] for y in range(h)) for x in range(w)]
+    if True not in cols:
+        return None
+    end = cols.index(True)
+    while end < w and cols[end]:
+        end += 1
+    start = end
+    while start < w and not cols[start]:
+        start += 1
+    return (end + start) // 2 if start < w else None
+
+
+@dataclass(frozen=True)
+class Mark:
+    """Kaynak harften kesilmiş işaret ve kaynakta gövdeyle arasındaki boş satır sayısı."""
+
+    part: Part
+    gap: int
+
+
 class Deriver:
-    """Bir yazı tipinin kendi glifleriyle eksik harfleri üretir.
+    """Bir yazı tipinin kendi glifleriyle eksik harfleri üretir; işaret kaynakları `fontpatch/sources.py` sırasıyladır.
 
     Glif kutuları gölge/ışıma payı içerdiğinden (`yoffset` farkı güvenilir değildir) parçalar, harfin opak çekirdeğinin
     satırlarına bakılarak ayrılır."""
 
     def __init__(self, font: BmFont) -> None:
         self.font = font
-        self._split = self._split_i()
+        self._i_dot = self._mark("i", single=True)
+
+    def _has(self, ch: str) -> bool:
+        return ord(ch) in self.font.chars
 
     def _core_top(self, ch: str) -> int:
         """Harfin opak çekirdeğinin satır koordinatındaki üst kenarı."""
@@ -238,63 +284,92 @@ class Deriver:
         box = _core_bbox(part.image)
         return part.top + (box[3] if box else part.image.height)
 
-    def _split_i(self) -> tuple[int, int, int]:
-        """`i` glifinde (nokta bitişi, gövde başı, aradaki boş satır sayısı); numaralar glif görüntüsüne göredir."""
-        rows = _core_rows(self.font.part("i").image)
-        if True not in rows:
-            raise BmFontError("'i' glifinde opak piksel yok.")
-        dot_end = rows.index(True)
-        while dot_end < len(rows) and rows[dot_end]:
-            dot_end += 1
-        stem = dot_end
-        while stem < len(rows) and not rows[stem]:
-            stem += 1
-        if stem >= len(rows):
-            raise BmFontError("'i' glifinde nokta ile gövde ayrılamadı.")
-        return dot_end, stem, stem - dot_end
+    def _gap(self) -> int:
+        """İşaretle gövde arasındaki boşluk: i'deki kadar (i yoksa 1 satır)."""
+        return max(1, self._i_dot.gap) if self._i_dot is not None else 1
 
-    def _dot(self) -> Part:
-        part = self.font.part("i")
-        cut = sum(self._split[:2]) // 2
-        dot = _bbox_part(part.image.crop((0, 0, part.image.width, cut)), part.left, part.top)
-        if dot is None:
-            raise BmFontError("'i' glifinde nokta bulunamadı.")
-        return dot
+    def _mark(self, ch: str, single: bool) -> Mark | None:
+        """Harfin gövdesinin üstündeki işaret (`single`: iki noktadan soldaki); ayrılamıyorsa None."""
+        if not self._has(ch):
+            return None
+        part = self.font.part(ch)
+        if ch == sources.SPACING_BREVE:
+            whole = _bbox_part(part.image, part.left, part.top)
+            return Mark(whole, self._gap()) if whole is not None else None
+        split = _split_rows(part.image)
+        if split is None:
+            return None
+        end, start = split
+        mark = _bbox_part(part.image.crop((0, 0, part.image.width, (end + start) // 2)), part.left, part.top)
+        if mark is not None and single:
+            cut = _left_column_run(mark.image)
+            if cut is not None:
+                mark = _bbox_part(mark.image.crop((0, 0, cut, mark.image.height)), mark.left, mark.top)
+        return Mark(mark, start - end) if mark is not None else None
 
-    def _dot_above(self, base_ch: str, base: Char) -> Part:
-        """Noktayı, taban harfin çekirdeğinin üstüne `i`deki boşlukla koyar (yatayda ortalı)."""
-        dot = self._dot()
-        gap = max(1, self._split[2])
-        core_end = (_core_bbox(dot.image) or (0, 0, 0, dot.image.height))[3]
-        top = self._core_top(base_ch) - gap - core_end
-        left = round(base.xoffset + base.w / 2 - dot.image.width / 2)
-        return Part(dot.image, left, top)
+    def _place_above(self, mark: Mark, base_ch: str, base: Char) -> Part:
+        """İşareti, taban harfin çekirdeğinin üstüne kaynaktaki boşlukla koyar (yatayda ortalı)."""
+        image = mark.part.image
+        core_end = (_core_bbox(image) or (0, 0, 0, image.height))[3]
+        top = self._core_top(base_ch) - max(1, mark.gap) - core_end
+        left = round(base.xoffset + base.w / 2 - image.width / 2)
+        return Part(image, left, top)
 
-    def _breve(self, base_ch: str, base: Char) -> Part:
-        """Taban harfin çekirdeğinin üstünde, ortalanmış yay.
-
-        Kalem, noktanın çekirdeğinden kesilen küçük bir kare; parlaklığı taban harfinki kadar yükseltilir ve
-        noktanın dış çizgi rengiyle bir kenarlık eklenir (yalnızca alfa kanallı yazı tiplerinde kenarlık olmaz)."""
-        dot = self._dot().image
-        box = _core_bbox(dot) or (0, 0, dot.width, dot.height)
-        pen_size = max(1, round((box[3] - box[1]) * 0.55))
+    def _pen(self, base_ch: str) -> tuple[Image.Image, Image.Image]:
+        """(çizim kalemi, dış çizgi rengi için örnek): i'nin noktasından, yoksa taban harfin dolgusundan kesilir."""
+        source = self._i_dot.part.image if self._i_dot is not None else self.font.part(base_ch).image
+        box = _core_bbox(source) or (0, 0, source.width, source.height)
+        if self._i_dot is not None:
+            pen_size = max(1, round((box[3] - box[1]) * 0.55))
+        else:
+            pen_size = max(1, round(min(box[2] - box[0], box[3] - box[1]) * 0.3))
         left = box[0] + (box[2] - box[0] - pen_size) // 2
         top = box[1] + (box[3] - box[1] - pen_size) // 2
-        pen = dot.crop((left, top, left + pen_size, top + pen_size))
+        return source.crop((left, top, left + pen_size, top + pen_size)), source
+
+    def _stroked(self, pens: list[Part], base_ch: str, sample: Image.Image) -> Part:
+        """Kalem izlerini birleştirir, parlaklığı taban harfinkine çıkarır, dış çizgi ekler."""
+        core = self._match_brightness(merge(pens), self.font.part(base_ch).image)
+        outline = self._outline(core, sample)
+        return merge([outline, core]) if outline is not None else core
+
+    def _drawn_dot(self, base_ch: str, base: Char) -> Part:
+        pen, sample = self._pen(base_ch)
+        size = pen.width
+        square = [
+            Part(pen, dx, dy) for dx in range(0, size + 1, max(1, size)) for dy in range(0, size + 1, max(1, size))
+        ]
+        dot = self._stroked(square, base_ch, sample)
+        return self._place_above(Mark(dot, self._gap()), base_ch, base)
+
+    def _breve(self, base_ch: str, base: Char) -> Part:
+        """Taban harfin çekirdeğinin üstünde, ortalanmış yay (kalem: i'nin noktasından ya da taban harften).
+
+        Kalemin parlaklığı taban harfinki kadar yükseltilir ve dış çizgi rengiyle bir kenarlık eklenir (yalnızca alfa
+        kanallı yazı tiplerinde kenarlık olmaz)."""
+        pen, sample = self._pen(base_ch)
+        pen_size = pen.width
         base_box = _core_bbox(self.font.part(base_ch).image)
         base_width = (base_box[2] - base_box[0]) if base_box else base.w
         width = max(3 * pen_size, round(base_width * 0.55))
         depth = max(1, round(width * 0.16))
-        bottom = self._core_top(base_ch) - max(1, self._split[2])
+        bottom = self._core_top(base_ch) - self._gap()
         center = base.xoffset + ((base_box[0] + base_box[2]) / 2 if base_box else base.w / 2)
         parts = []
         for step in range(width):
             t = (2 * step / (width - 1) - 1) if width > 1 else 0.0
             sink = round(depth * (1 - t * t))  # ortada en aşağıda: kâse biçimi
             parts.append(Part(pen, round(center - width / 2) + step, bottom - pen_size - depth + sink))
-        core = self._match_brightness(merge(parts), self.font.part(base_ch).image)
-        outline = self._outline(core, dot)
-        return merge([outline, core]) if outline is not None else core
+        return self._stroked(parts, base_ch, sample)
+
+    def _drawn_cedilla(self, base_ch: str, base: Char) -> Part:
+        """Taban harfin altında kısa, sola kıvrılan çengel (kalem izleri)."""
+        pen, sample = self._pen(base_ch)
+        size = pen.width
+        center = round(base.xoffset + base.w / 2 - size / 2)
+        top = self._core_bottom(base_ch) - 1
+        steps = [(center, top + k) for k in range(2 * size + 1)] + [(center - size, top + 2 * size)]
+        return self._stroked([Part(pen, x, y) for x, y in steps], base_ch, sample)
 
     @staticmethod
     def _match_brightness(part: Part, reference: Image.Image) -> Part:
@@ -308,7 +383,7 @@ class Deriver:
 
     @staticmethod
     def _outline(core: Part, dot: Image.Image) -> Part | None:
-        """Çekirdeğin bir piksel genişletilmişi; renk, noktanın koyu ve opak (dış çizgi) piksellerinin ortalaması."""
+        """Çekirdeğin bir piksel genişletilmişi; renk, örneğin koyu ve opak (dış çizgi) piksellerinin ortalaması."""
         raw = dot.tobytes()
         pixels = [px for px in zip(raw[0::4], raw[1::4], raw[2::4], raw[3::4], strict=True) if px[3] >= _CORE_ALPHA]
         if not pixels:
@@ -330,54 +405,115 @@ class Deriver:
         ring.putalpha(padded.getchannel("A").filter(ImageFilter.MaxFilter(3)))
         return Part(ring, core.left - 1, core.top - 1)
 
-    def _cedilla(self, base_ch: str, target: Char) -> Part:
-        with_ch, without_ch = _CEDILLA_SOURCE[base_ch]
-        glyph = self.font.chars[ord(with_ch)]
-        part = self.font.part(with_ch)
-        start = max(0, self._core_bottom(without_ch) - glyph.yoffset - 1)
-        crop = _bbox_part(part.image.crop((0, start, part.image.width, part.image.height)), part.left, part.top + start)
-        if crop is None:
-            raise BmFontError(f"'{with_ch}' glifinde sedil bulunamadı.")
-        shift = round((target.xoffset + target.w / 2) - (glyph.xoffset + glyph.w / 2))
-        return Part(crop.image, crop.left + shift, crop.top)
+    def _hook(self, donor: str, base_ch: str, target: Char) -> Part | None:
+        """`ç`/`Ç`'nin gövdesinin altındaki parçası (çengel), taban harfin altına; çengel yoksa None.
 
-    def derive(self, letter: str) -> tuple[Part, int]:
-        """(glif parçası, xadvance)."""
+        Gövdenin alt kenarı `c`/`C`'den (yoksa taban harften) okunur; diğer büyüklükteki kaynaktan alınan çengel
+        taban harfin alt kenarına göre kaydırılır."""
+        if not self._has(donor):
+            return None
+        plain = {"ç": "c", "Ç": "C"}[donor]
+        body = plain if self._has(plain) else base_ch
+        glyph = self.font.chars[ord(donor)]
+        part = self.font.part(donor)
+        start = max(0, self._core_bottom(body) - glyph.yoffset - 1)
+        crop = _bbox_part(part.image.crop((0, start, part.image.width, part.image.height)), part.left, part.top + start)
+        if crop is None or crop.top + crop.image.height <= self._core_bottom(body):
+            return None
+        shift = round((target.xoffset + target.w / 2) - (glyph.xoffset + glyph.w / 2))
+        drop = self._core_bottom(base_ch) - self._core_bottom(body)
+        return Part(crop.image, crop.left + shift, crop.top + drop)
+
+    def _comma(self, base_ch: str, target: Char) -> Part | None:
+        if not self._has(sources.COMMA):
+            return None
+        part = self.font.part(sources.COMMA)
+        whole = _bbox_part(part.image, 0, 0)
+        if whole is None:
+            return None
+        left = round(target.xoffset + target.w / 2 - whole.image.width / 2)
+        return Part(whole.image, left, self._core_bottom(base_ch) - 1)
+
+    def _above(self, letter: str, base_ch: str, base: Char) -> tuple[Part, str]:
+        for donor in sources.donors(letter):
+            if donor == sources.PERIOD:
+                if not self._has(donor):
+                    continue
+                part = self.font.part(donor)
+                period = _bbox_part(part.image, part.left, part.top)
+                if period is not None:
+                    return self._place_above(Mark(period, self._gap()), base_ch, base), sources.label(letter, donor)
+                continue
+            mark = self._mark(donor, single=letter == "İ")
+            if mark is not None:
+                return self._place_above(mark, base_ch, base), sources.label(letter, donor)
+        drawn = self._drawn_dot(base_ch, base) if letter == "İ" else self._breve(base_ch, base)
+        return drawn, sources.DRAWN
+
+    def _below(self, letter: str, base_ch: str, base: Char) -> tuple[Part, str]:
+        for donor in sources.donors(letter):
+            hook = self._comma(base_ch, base) if donor == sources.COMMA else self._hook(donor, base_ch, base)
+            if hook is not None:
+                return hook, sources.label(letter, donor)
+        return self._drawn_cedilla(base_ch, base), sources.DRAWN
+
+    def derive(self, letter: str) -> tuple[Part, int, str]:
+        """(glif parçası, xadvance, işaretin kaynağı)."""
         base_ch, kind = RECIPES[letter]
         base = self.font.chars[ord(base_ch)]
         part = self.font.part(base_ch)
         if kind == "dotless":
-            cut = max(0, self._split[1] - 1)
+            split = _split_rows(part.image)
+            if split is None:
+                raise BmFontError("'i' glifinde nokta ile gövde ayrılamadı.")
+            cut = max(0, split[1] - 1)
             body = _bbox_part(part.image.crop((0, cut, part.image.width, part.image.height)), part.left, part.top + cut)
             if body is None:
                 raise BmFontError("'ı' gövdesi çıkarılamadı.")
-            return body, base.xadvance
-        if kind == "dot":
-            return merge([part, self._dot_above(base_ch, base)]), base.xadvance
-        if kind == "cedilla":
-            return merge([part, self._cedilla(base_ch, base)]), base.xadvance
-        return merge([part, self._breve(base_ch, base)]), base.xadvance
+            return body, base.xadvance, sources.DOTLESS_FROM_I
+        mark, why = self._below(letter, base_ch, base) if kind == "cedilla" else self._above(letter, base_ch, base)
+        return merge([part, mark]), base.xadvance, why
 
 
-def add_missing(font: BmFont, letters: str) -> str:
-    """Yazı tipinde olmayan harfleri türetip ekler; eklenenleri döndürür."""
+@dataclass(frozen=True)
+class PatchResult:
+    """Eklenen harfler ve her birinin işaret kaynağı (`sources.label`)."""
+
+    added: str = ""
+    sources: dict[str, str] = field(default_factory=dict)
+
+
+def patch_missing(font: BmFont, letters: str) -> PatchResult:
+    """Yazı tipinde olmayan harfleri türetip ekler. Taban harfi (i, I, s, S, g, G) olmayan harf varsa hata."""
     wanted = [c for c in letters if ord(c) not in font.chars]
     if not wanted:
-        return ""
-    needed = {"i"}
-    for letter in wanted:
-        base, kind = RECIPES[letter]
-        needed.add(base)
-        if kind == "cedilla":
-            needed.update(_CEDILLA_SOURCE[base])
-    missing = sorted(ch for ch in needed if ord(ch) not in font.chars)
+        return PatchResult()
+    missing = sorted({RECIPES[c][0] for c in wanted} - {chr(c) for c in font.chars})
     if missing:
         raise BmFontError(f"Temel harfler yazı tipinde yok: {' '.join(missing)}")
     deriver = Deriver(font)
+    found: dict[str, str] = {}
     for letter in wanted:
-        part, advance = deriver.derive(letter)
+        part, advance, why = deriver.derive(letter)
         font.add(letter, part, advance)
-    return "".join(wanted)
+        found[letter] = why
+    return PatchResult("".join(wanted), found)
 
 
-__all__ = ["RECIPES", "BmFont", "BmFontError", "Char", "Deriver", "Part", "add_missing", "merge"]
+def add_missing(font: BmFont, letters: str) -> str:
+    """Yazı tipinde olmayan harfleri türetip ekler; eklenenleri döndürür (`patch_missing`)."""
+    return patch_missing(font, letters).added
+
+
+__all__ = [
+    "RECIPES",
+    "BmFont",
+    "BmFontError",
+    "Char",
+    "Deriver",
+    "Part",
+    "PatchResult",
+    "add_missing",
+    "merge",
+    "patch_missing",
+]

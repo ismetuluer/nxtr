@@ -16,7 +16,8 @@ from collections.abc import Callable, Collection
 
 from PIL import Image
 
-from nxceviri.core.fontpatch.bmfont import BmFont, BmFontError, add_missing
+from nxceviri.core.fontpatch import sources
+from nxceviri.core.fontpatch.bmfont import BmFont, BmFontError, patch_missing
 
 FONT_DIR = "ys_data/data/extension/font/"
 FONTS = ("arial", "ysfont", "linuxwhite", "linuxshadow", "linuxwhitesmall")
@@ -28,7 +29,7 @@ def _find(files: Collection[str], wanted: str) -> str | None:
 
 
 def patch_fonts(read: Callable[[str], bytes], files: Collection[str]) -> tuple[dict[str, bytes], list[str], list[str]]:
-    """(yeni dosyalar {RomFS yolu → bayt}, eklenen harfleri anlatan satırlar, uyarılar)."""
+    """(yeni dosyalar {RomFS yolu → bayt}, eklenen harfleri ve işaret kaynaklarını anlatan satırlar, uyarılar)."""
     out: dict[str, bytes] = {}
     notes: list[str] = []
     warnings: list[str] = []
@@ -41,14 +42,15 @@ def patch_fonts(read: Callable[[str], bytes], files: Collection[str]) -> tuple[d
         try:
             font = BmFont(read(fnt_path), Image.open(io.BytesIO(read(png_path))))
             before = font.scale_h
-            added = add_missing(font, LETTERS)
+            result = patch_missing(font, LETTERS)
         except (BmFontError, OSError) as exc:
             warnings.append(f"Yazı tipi {name} yamalanamadı: {getattr(exc, 'message', exc)}")
             continue
+        added = result.added
         if not added:
             continue
         out[fnt_path] = font.serialize()
         out[png_path] = font.atlas_png()
         grown = f" (atlas {font.scale_w}×{before} → {font.scale_w}×{font.scale_h})" if font.scale_h != before else ""
-        notes.append(f"{name}: {' '.join(added)}{grown}")
+        notes.append(f"{name}: {' '.join(added)} — {sources.describe(result.sources)}{grown}")
     return out, notes, warnings
