@@ -24,6 +24,26 @@ oyunda görünmez. Üç çözüm vardır; bu sırayla düşün:
 3. **Harf dönüştürme:** eksik harf yakın karşılığa çevrilir (ğ→g, ş→s, ı→i, İ→I). Yalnızca üretilen moda uygulanır,
    projedeki çeviriler değişmez. Font yamasının kanıtla imkânsız olduğu durumda son çare.
 
+## Harfler nasıl türetilir
+
+Üç yamacı (vektör TTF/OTF ve Switch sistem fontu, TextMeshPro atlası, BMFont) işareti aynı sırayla arar
+(`nxceviri/core/fontpatch/sources.py`, `ARCHITECTURE.md` karar 234):
+
+| Harf | Kaynak sırası (ilk uygun olan kullanılır) |
+|---|---|
+| ı | `i`'nin noktası silinir → (yalnızca vektör fontta) `I` x-yüksekliğine küçültülür |
+| İ | `I` + nokta: `i`'nin noktası → `ż Ż ċ Ċ ė Ė` noktası → `ö`/`Ö`'nün bir noktası → nokta işareti (`.`) → çizilir |
+| ş | `s` + çengel: `ç`'nin taban çizgisi altı → `Ç`'ninki → virgül (`,`) → çizilir |
+| Ş | `S` + çengel: `Ç`'nin → `ç`'nin → virgül → çizilir |
+| ğ | `g` + kavis: `ă` → `˘` (U+02D8) → `ŭ` / `ŏ` → `Ă` / `Ŭ` / `Ŏ` → çizilir |
+| Ğ | `G` + kavis: `Ă` → `˘` → `Ŭ` / `Ŏ` → `ă` / `ŭ` / `ŏ` → çizilir |
+
+İşaret kaynaktan olduğu gibi alınır, ölçeklenmez (küçük harften alınıp büyük harfe konduğunda da); yalnızca taban harfe
+ortalanır ve kaynaktaki yüksekliği korunur. Bilgi dosyasında her font satırı hangi kaynağın kullanıldığını yazar
+(`bigtext (resources.assets): ı İ ş Ş ğ Ğ — ı: i'den nokta silindi, …, ğ: çizildi`). "çizildi" gören harf fontun
+kendi çizimi değildir; cihazda ona özellikle bak. Vektör fontta yeni harfler taban harfin kerning'ini devralır; işaret
+fontun üst sınırını aşıyorsa satırda "oyunda kesilebilir" notu çıkar (metrikler değiştirilmez).
+
 ## Adımlar (uygulamadaki yol)
 1. **4. Kontrol Et → "Font ve harfler" sekmesi → Fontları Tara.** Tablo: Font, Tür, Eksik Türkçe harfler, Yamayla
    eklenir, Dosya. Okuma:
@@ -82,7 +102,8 @@ dosyalar. Raporda "atlandı" gördüğünde o fontun gerçekten oyunda kullanıl
 ## Bilinen tuzaklar
 - Atlas büyütülünce `m_AtlasHeight`, `m_CreationSettings.atlasHeight` ve atlası kullanan malzemelerin
   `_TextureHeight` değeri güncellenir; elle yazıyorsan unutma.
-- Breve (ğ'nin üstü) fontun kendi çizimi değildir (TECH_DEBT 50/76); el yazısı fontlarda biraz farklı görünür.
+- Fontta `ă`, `˘`, `ŭ`, `ŏ` yoksa breve (ğ'nin üstü) çizilir, fontun kendi çizimi değildir (TECH_DEBT 50/76); el
+  yazısı fontlarda biraz farklı görünür. Bilgi dosyasında "ğ: çizildi" yazar.
 - Bazı Unity oyunlarında fontlar yalnızca "font" adlı paketlerde değil, ana sahne paketinde ve
   `resources.assets` içindedir; tarama bunları bulur ve projeye `font_files` olarak kaydeder.
 - Unity Addressables kataloğu değiştirilmiş bir bundle'ı CRC nedeniyle reddedebilir (`docs/formats/unity.md`

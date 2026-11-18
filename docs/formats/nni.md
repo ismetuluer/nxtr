@@ -75,8 +75,9 @@ dış çizgi, gölge, altın dolgu). Hepsinde `ç ö ü Ç Ö Ü` vardır, `ğ �
 
 Dışa aktarma bu altı harfi **yazı tipinin kendi glifleriyle** türetip ekler (`fontpatch/bmfont.py`):
 
-- `ı` = `i`nin gövdesi (nokta atılır), `İ` = `I` + `i`nin noktası (aynı boşlukla);
-- `ş`/`Ş` = `s`/`S` + `ç`/`Ç`nin sedili; `ğ`/`Ğ` = `g`/`G` + breve (noktalardan yaylanır).
+- `ı` = `i`nin gövdesi (nokta atılır), `İ` = `I` + `i`nin noktası (aynı boşlukla; `i` yoksa `ż`, `ö`, `.`, çizilir);
+- `ş`/`Ş` = `s`/`S` + `ç`/`Ç`nin sedili (yoksa `,`, çizilir); `ğ`/`Ğ` = `g`/`G` + `ă`/`˘`/`ŭ`/`ŏ`'nun kavisi, yoksa
+  breve (noktalardan yaylanır). Sıra üç yamacıda ortaktır (karar 234); bilgi dosyası kaynağı yazar.
 
 Parçalar "açık olan kazanır" (kanal başına en büyük değer) ile birleşir. Glif kutuları gölge payı içerdiğinden satır
 ayırma opak çekirdek (dolgu) satırlarına göre yapılır. Yeni glifler atlasın boş bir yerine konur; yer yoksa atlasın

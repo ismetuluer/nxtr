@@ -30,8 +30,8 @@ yamalanmaz ve genişlik ölçümünde kullanılmaz.
 
 ## Yama ve yazım
 
-`ttf.patch_font(..., allow_cjk=True)` eksik `ı İ ş Ş ğ Ğ` harflerini fontun kendi `i I s S g G`, nokta ve virgül
-çizimlerinden türetir (`tmp-font.md` "Vektör fontlar"); `ç ö ü Ç Ö Ü` türetilmez. Yamalı sfnt aynı anahtarla
+`ttf.patch_font(..., allow_cjk=True)` eksik `ı İ ş Ş ğ Ğ` harflerini fontun kendi `i I s S g G` harflerinden ve ortak
+kaynak sırasıyla bulunan nokta, çengel ve kavisten türetir (`tmp-font.md` "Vektör fontlar", karar 234); `ç ö ü Ç Ö Ü` türetilmez. Yamalı sfnt aynı anahtarla
 XOR'lanır, aynı başlığın arkasına konur ve özgün dosya sıkıştırılmışsa zstd ile (düzey 19) sıkıştırılır. Sonuç yeniden
 açılır; eklenen her harf cmap'te değilse yama hata verir ve dosya moda yazılmaz. Hiçbir harf eklenemezse özgün baytlar
 kalır, dosya moda yazılmaz.

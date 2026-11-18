@@ -1385,6 +1385,41 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     paketlenmeliydi ve arşiv içindeki fontlarda çalışmazdı; düğmeler seçili Switch fontunda devre dışı, ipucu nedenini
     söyler.
 
+### 4.56 Yayımlanmamış kararlar (Türkçe harf işaretlerinin kaynağı)
+
+234. **Türkçe harf işaretlerinin kaynağı üç yamacıda ortaktır; kaynak raporlanır, kerning devralınır (2026-11-18):**
+    `ttf` (vektör, Switch sistem fontu dahil), `tmp` (TMP SDF atlası) ve `bmfont` (bit eşlem) işareti farklı yerlerden
+    alıyordu (ş: vektörde virgül, TMP/BMFont'ta ç'nin çengeli; ğ: hep çizilen yay). Sıra artık tek yerdedir
+    (`core/fontpatch/sources.py`, Qt'siz); her yamacı yalnızca kendi geometrisini (kontur / SDF parçası / piksel
+    satırı) uygular. Sıra:
+
+    | Harf | Kaynak sırası (ilk uygun olan kullanılır) |
+    |---|---|
+    | ı | `i`'nin noktası silinir → (yalnızca vektör fontta) `I` x-yüksekliğine küçültülür |
+    | İ | `I` + nokta: `i`'nin noktası → `ż Ż ċ Ċ ė Ė` noktası → `ö`/`Ö`'nün bir noktası → nokta işareti (`.`) → çizilir |
+    | ş | `s` + çengel: `ç`'nin taban çizgisi altı → `Ç`'ninki → virgül (`,`) → çizilir |
+    | Ş | `S` + çengel: `Ç`'nin → `ç`'nin → virgül → çizilir |
+    | ğ | `g` + kavis: `ă` → `˘` (U+02D8) → `ŭ` / `ŏ` → `Ă` / `Ŭ` / `Ŏ` → çizilir |
+    | Ğ | `G` + kavis: `Ă` → `˘` → `Ŭ` / `Ŏ` → `ă` / `ŭ` / `ŏ` → çizilir |
+
+    Fontun kendi işareti çizilenden önce gelir; aynı büyüklükteki kaynak diğerinden önce gelir. İşaret ölçeklenmez
+    (küçük harften büyüğe de); taban harfe ortalanır, kaynaktaki gövde uzaklığını korur (çengel taban çizgisindeki
+    yerini). TMP'de `Ö` varsa İ'nin noktası onun yüksekliğine konur (eski kural); TMP'de çizilen breve ü/Ü'nün
+    noktalarıyla ölçülür, ü/Ü yoksa eklenmez; BMFont'ta çizilen işaretlerin kalemi i'nin noktasından (yoksa taban
+    harften) kesilir. **Bit eşlem/TMP'de ı için `I` küçültülmez** (ölçekleme pikselleri bozar; nokta ayrılamıyorsa
+    BMFont yazı tipi önceki gibi uyarıyla yamalanmaz, TMP'de harf eklenmez ya da noktasız i'ye bağlanır). **Kaynak:** sonuçlar (`ttf`/`switchfont`/`tmp` `FontPatchResult`,
+    `unity.FontPatch`, `bmfont.PatchResult`) `sources: dict[str, str]` (harf → kısa etiket: "ç'nin çengeli",
+    "ă'nın kavisi", "i'den nokta silindi", "çizildi") taşır; vektörde ayrıca `notes`. Bilgi dosyasının font satırı:
+    `font (dosya): harfler — ş: ç'nin çengeli, ğ: çizildi — eklenemeyen: … — notlar`. **Kerning** (yalnızca vektör,
+    `core/fontpatch/kerning.py`): yeni glif tabanının (ş←s, İ←I, ı←i…) çiftlerine sol ve sağ üye olarak katılır;
+    `kern` biçim 0 çiftleri kopyalanır (16 bit sınırı aşılırsa not), GPOS PairPos biçim 1'de PairSet/kayıt kopyası,
+    biçim 2'de ClassDef1/ClassDef2 sınıfı ve Coverage; Extension (tür 9) açılır. Yeni gliflerin numarası en büyük
+    olduğundan listelerin sonuna numara sırasıyla eklemek sıralamayı korur. Tanınmayan yapı değiştirilmeden atlanır ve
+    not düşülür; kerning'li font derlenemezse yama özgün baytlardan kerning'siz yeniden yapılır (not: "kerning
+    aktarılamadı"). **Üst sınır:** İ/Ğ'nin işareti `hhea.ascent`'i ya da (sıfır değilse) OS/2 `usWinAscent`'i
+    aşarsa "işaret fontun üst sınırını aşıyor; oyunda kesilebilir" notu düşülür; metrikler sessizce değiştirilmez
+    (satır aralığı oyunun düzenini kaydırabilir; karar kullanıcının cihaz denemesine kalır).
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

@@ -195,8 +195,9 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     Unreal fontları, GFMSG fontları, BFFNT ve BFTTF fontları ile tip ağacı silinmiş dosyalardaki TMP
     fontları (bir Unity oyunu) yamalanamaz; bu oyunlarda harf dönüştürme kullanılmalı.
 
-50. **Üretilen harflerin görünümü yaklaşıktır.** "ğ"/"Ğ"deki kısa çizgi fontun kendi çizimi değildir
-    (noktaların ölçüsünden çizilir); el yazısı veya süslü fontlarda biçim farkı görülebilir. Kutulu
+50. **Üretilen harflerin görünümü yaklaşıktır.** Fontta `ă Ă ˘ ŭ Ŭ ŏ Ŏ` yoksa "ğ"/"Ğ"deki kısa çizgi fontun
+    kendi çizimi değildir (noktaların ölçüsünden çizilir; bilgi dosyasında "çizildi"); el yazısı veya süslü fontlarda
+    biçim farkı görülebilir. Kutulu
     "etiket" fontlarında İ, ğ, Ğ üretilemez (raporlanır).
 
 51. **Yamalanan font bundle'ları büyür** (atlas verisi bundle'a gömülür, büyütülen atlas iki kat):
@@ -285,7 +286,7 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     metin var mı bakılmadı (taramada yalnızca `LOC/` aranır).
 
 76. **NNI arşivli oyun yazı tipi yaması görünümü yaklaşıktır (0.39.0).** Breve (`ğ Ğ`) fontun kendi
-    çizimi değildir (noktalardan yaylanır); Arial'da çok ince, küçük Libertine'de biraz kalın görünür.
+    çizimi değildir (yazı tiplerinde `ă`/`˘` yok; noktalardan yaylanır); Arial'da çok ince, küçük Libertine'de biraz kalın görünür.
     Yamanın oyunda doğru çizildiği (özellikle `linuxshadow` gölgesi, atlas büyütülmüş fontlar) cihazda
     görülecek. *Ne zaman:* cihaz denemesinde bozuk görünen bir font olursa o font için glif elle çizilir.
 

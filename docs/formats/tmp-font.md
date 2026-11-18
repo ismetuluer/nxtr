@@ -28,9 +28,11 @@ Atlas SDF'tir (render modu 4165 = SDFAA): kenar ≈127,5; örnek oyunda eğim pi
 |---|---|---|
 | ı | i | En büyük bileşen (gövde) tutulur, nokta atılır; yeni SDF uzaklık dönüşümüyle |
 | ı (büyük harf fontu) | i | "i"nin noktası yoksa "ı" aynı glife bağlanır (atlasa çizilmez) |
-| İ | I + (i'nin noktası, yoksa Ö'nün noktalarından biri) | Nokta, Ö'nün noktalarının yüksekliğine, I'nın ortasına |
-| ş, Ş | s/S + ç/Ç'nin taban çizgisi altı | Çengel gövdeden kopuksa yukarı kaydırılıp 1 piksel bindirilir. Aynı büyüklükte donör yoksa (`Ç` yok) `ç` kullanılır; çengel büyütülmez |
-| ğ, Ğ | g/G + ü/Ü'nün noktaları | Kısa çizgi (breve) Pillow ile 4× örneklenip çizilir; genişliği iki noktanın açıklığı ×0,8, kalınlığı nokta yüksekliği ×0,45. Aynı büyüklükte donör yoksa (`Ü` yok) `ü` kullanılır; breve büyütülmez |
+| İ | I + nokta: i → ż Ż ċ Ċ ė Ė → ö/Ö'nün bir noktası → `.` → çizilen daire | `Ö` varsa nokta onun noktalarının yüksekliğine, yoksa kaynaktaki gövde uzaklığıyla; I'nın ortasına. Çizilen daire I'nın çizgi kalınlığında |
+| ş, Ş | s/S + çengel: ç/Ç'nin taban çizgisi altı (diğer büyüklükteki de olur) → `,` → çizilen çengel | Çengel gövdeden kopuksa yukarı kaydırılıp 1 piksel bindirilir; virgül ve çizilen çengel tabana 1 piksel bindirilir. Çengel büyütülmez |
+| ğ, Ğ | g/G + kavis: ă/Ă → `˘` → ŭ Ŭ ŏ Ŏ → ü/Ü'nün noktalarına göre çizilen breve | Alınan kavis tabana ortalanır, kaynaktaki gövde uzaklığını korur. Çizilen breve Pillow ile 4× örneklenir; genişliği iki noktanın açıklığı ×0,8, kalınlığı nokta yüksekliği ×0,45; ü/Ü yoksa eklenmez |
+
+Kaynak sırası üç yamacıda ortaktır (`fontpatch/sources.py`, karar 234); sonuçta harf başına kaynak etiketi döner.
 
 "İşaret" sayılması için parça en az 6 piksel ve gövdenin %1'i kadar olmalı (el yazısı fontlardaki
 lekeler nokta sanılmaz). Parçalar birleştirilirken SDF değerlerinin en büyüğü alınır; özgün glif
@@ -60,9 +62,13 @@ anahtarlı CFF'ler ve Çince/Japonca/Korece (≥ 200 CJK karakteri olan) fontlar
 | Harf | Türetme |
 |---|---|
 | ı | `i`'nin noktası atılır (gövdenin üstünde, onunla çakışmayan konturlar). Nokta gövdeye kaynamışsa `I`, x-yüksekliğine ölçeklenir |
-| İ | `I` + fontun `period` şekli, büyük harf yüksekliğinin üstüne (boşluk = nokta yüksekliğinin yarısı) |
-| ş, Ş | `s`/`S` + fontun `comma` şekli (×0,85), tabanın altına; dolu fontlarda kuşak taban çizgisine biraz bindirilir |
-| ğ, Ğ | `g`/`G` + yarım elips kuşağı; genişlik gövdenin %55'i, kalınlık nokta genişliğinin yarısı |
+| İ | `I` + nokta: `i` → `ż Ż ċ Ċ ė Ė` → `ö`/`Ö`'nün soldaki noktası (konturlar kopyalanır, kaynaktaki gövde uzaklığıyla) → `period` (boşluk = nokta yüksekliğinin yarısı) → çizilen daire |
+| ş, Ş | `s`/`S` + `ç`/`Ç`'nin taban çizgisi altındaki ayrı kontur(lar)ı (yatay konumu ç gövdesine göre, yüksekliği aynı) → `comma` (×0,85, tabanın altına; dolu fontlarda biraz bindirilir) → çizilen kuşak |
+| ğ, Ğ | `g`/`G` + `ă`/`Ă`'nın kavisi → `˘` → `ŭ Ŭ ŏ Ŏ` → yarım elips kuşağı (genişlik gövdenin %55'i, kalınlık nokta genişliğinin yarısı) |
+
+İşaret tek kontura kaynamışsa (gövdeden ayrılamıyorsa) o kaynak geçilir. Yeni glifler taban harfin kerning'ini devralır
+(`kern` biçim 0, GPOS PairPos biçim 1/2, Extension; `fontpatch/kerning.py`); kerning'li font derlenemezse yama
+kerning'siz yapılır ve not düşülür. İşaret `hhea.ascent` / `usWinAscent`'i aşarsa not düşülür.
 
 Nokta/virgül fontun kendi çiziminden alındığından el yazısı ve halka (yalnızca anahatlı) fontlarda işaretler fontun
 üslubuna uyar; font bunları içermiyorsa çokgen çizilir (yönü fontun dış konturlarıyla aynı). Tablolardan `hdmx`, `LTSH`,

@@ -4,16 +4,16 @@ Statik bir TMP fontu yalnızca atlas dokusunda çizili karakterleri gösterebili
 aynı fontun var olan gliflerinden üretilir; böylece yazı tipi, kalınlık ve SDF ayarları tutarlı
 kalır:
 
-| Harf | Nasıl |
+| Harf | Nasıl (kaynak sırası ortak: `fontpatch/sources.py`) |
 |---|---|
-| ı | "i"nin noktası kaldırılır |
-| İ | "I"nın üstüne "i"nin noktası konur ("Ö"nün noktalarının yüksekliğinde) |
-| ş, Ş | "s"/"S"nin altına "ç"/"Ç"nin çengeli konur |
-| ğ, Ğ | "g"/"G"nin üstüne kısa çizgi (breve) çizilir; boyutu "ü"/"Ü"nün noktalarından alınır |
+| ı | "i"nin noktası kaldırılır ("i" noktasızsa "ı" aynı glife bağlanır) |
+| İ | "I"nın üstüne nokta: "i" → "ż ċ ė" → "ö"/"Ö"nün bir noktası → "." → çizilen daire (yükseklik "Ö"dan) |
+| ş, Ş | "s"/"S"nin altına "ç"/"Ç"nin çengeli → virgül → çizilen çengel |
+| ğ, Ğ | "g"/"G"nin üstüne "ă"/"Ă"nın kavisi → "˘" → "ŭ ŏ" → kısa çizgi çizilir (boyutu "ü"/"Ü"nün noktalarından) |
 
-Aynı büyüklükteki donör harf fontta yoksa (ör. yalnızca `ç` var, `Ç` yok) diğer
-büyüklükteki donör kullanılır. Çengel ve breve büyük/küçük harfte aynı boyuttadır;
-donörün işareti ölçeklenmez, yalnızca taban harfin boyuna göre konumlandırılır.
+Aynı büyüklükteki kaynak harf fontta yoksa (ör. yalnızca `ç` var, `Ç` yok) diğer
+büyüklükteki kullanılır. İşaret ölçeklenmez, yalnızca taban harfin boyuna göre
+konumlandırılır. Kullanılan kaynak `FontPatchResult.sources`'ta harf başına bildirilir.
 
 Yeni glifler atlastaki boş alana (MaxRects serbest dikdörtgenleri) yerleştirilir; yer yetmezse
 atlas yukarı doğru iki katına çıkarılır (sol-alt başlangıçlı koordinatlar değişmediği için var olan

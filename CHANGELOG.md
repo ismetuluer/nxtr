@@ -2,6 +2,20 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [Yayımlanmadı]
+
+### Değişti
+- **Font yaması: Türkçe harflerin işareti fontun kendisinden, her font türünde aynı sırayla alınır.** İ'nin noktası
+  `i` → `ż ċ ė` → `ö` → nokta işaretinden; ş/Ş'nin çengeli `ç`/`Ç`'den (önceden TTF ve Switch fontlarında virgülden) →
+  virgülden; ğ/Ğ'nin kavisi `ă`/`Ă` → `˘` → `ŭ`/`ŏ`'dan alınır, hiçbiri yoksa önceki gibi çizilir. TextMeshPro ve
+  BMFont fontlarında kaynak harf hiç yoksa nokta ve çengel artık çizilerek eklenir (önceden eklenmiyordu).
+- **Bilgi dosyası** her yamalanan font için işaretin nereden alındığını yazar: `bigtext (resources.assets): ı İ ş Ş ğ
+  Ğ — ı: i'den nokta silindi, İ: i'nin noktası, ş: ç'nin çengeli, …, ğ: çizildi`. "çizildi" görülen harfe cihazda
+  özellikle bakın.
+- **TTF/OTF ve Switch sistem fontları:** eklenen harfler taban harfin harf aralığı (kerning) çiftlerini devralır
+  (ş ← s, İ ← I, ğ ← g …); `kern` tablosu ve GPOS çift konumlandırması (glif ve sınıf çiftleri). İşaret fontun üst
+  sınırını aşıyorsa bilgi dosyasında "oyunda kesilebilir" notu çıkar.
+
 ## [0.67.0] — 2026-11-18 — Fontla genişlik denetimi, Switch sistem fontları
 
 ### Eklendi
