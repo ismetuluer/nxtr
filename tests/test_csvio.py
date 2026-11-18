@@ -757,6 +757,31 @@ def test_txt_bulgu_before_group_and_dropped_bulgu() -> None:
     assert (dropped.correction, dropped.group) == ("Selam", "UI")
 
 
+def test_findings_prompts_say_five_columns() -> None:
+    for prompt in (
+        findings_prompt_txt(),
+        findings_prompt_xlsx(),
+        findings_prompt_txt("ek"),
+        findings_prompt_xlsx("ek"),
+    ):
+        assert "beş sütun" in prompt
+        assert "dört sütun" not in prompt
+
+
+def test_untranslated_row_correction_imports(tmp_path: Path) -> None:
+    p = _project()
+    rows = _rows(p)
+    p.set_translations([(rows["a"].id, "")])
+    row = _rows(p)["a"]
+    path = export_findings_txt([row], {row.id: "Uyarı Çevrilmedi: boş"}, tmp_path / "b.txt")[0]
+    lines = path.read_text(encoding="utf-8-sig").splitlines()
+    cells = lines[1].split("\t")
+    cells[2] = "Merhaba dostum"
+    path.write_text("\n".join([lines[0], "\t".join(cells)]), encoding="utf-8")
+    plan = plan_import(p.translation_rows(), read_revision_file(path))
+    assert plan.changes == [(row.id, "Merhaba dostum")]
+
+
 def test_findings_prompts_mention_bulgu_column() -> None:
     for prompt in (findings_prompt_txt(), findings_prompt_xlsx()):
         assert "bulgu" in prompt

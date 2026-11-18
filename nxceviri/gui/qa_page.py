@@ -1662,7 +1662,7 @@ class QaPage(QWidget):
                 )
                 ignore.triggered.connect(lambda: self.ignore_requested.emit(ignorable))
             menu.addSeparator()
-        if not self._ignored_view and self.proxy.rowCount():
+        if issues and not self._ignored_view:
             export = menu.addAction(icon("file-up"), "Bulguları dışa aktar…")
             export.setToolTip(
                 tip_html(

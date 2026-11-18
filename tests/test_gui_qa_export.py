@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QItemSelectionModel, QSettings
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QFileDialog
 from pytestqt.qtbot import QtBot
@@ -144,10 +144,15 @@ def test_selected_scope_exports_selected_rows(
         if page.model.issues[page.proxy.mapToSource(page.proxy.index(r, 0)).row()].row_id == target_id:
             page.table.selectRow(r)
             break
+    page.table.selectRow(0)
+    page.table.selectionModel().select(
+        page.proxy.index(1, 0),
+        QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+    )
     target = tmp_path / "bulgular.txt"
-    _accept(monkeypatch, target)  # seçim varken varsayılan kapsam: seçili bulgular
+    _accept(monkeypatch, target, scope=0)
     window.export_findings()
-    assert [r.source for r in parse_txt(target.read_text(encoding="utf-8-sig"))] == ["Hello "]
+    assert len(parse_txt(target.read_text(encoding="utf-8-sig"))) == 2  # üç bulgulu satırdan yalnızca seçili ikisi
 
 
 def test_no_findings_shows_message_and_writes_nothing(

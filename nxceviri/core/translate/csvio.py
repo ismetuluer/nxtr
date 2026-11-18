@@ -524,7 +524,8 @@ def _five_columns(prompt: str) -> str:
         1,
     )
     prompt = prompt.replace("düzeltme ve grup adları", "düzeltme, grup ve bulgu adları", 1)
-    return prompt.replace("aynı dört sütunlu", "aynı beş sütunlu", 1)
+    prompt = prompt.replace("aynı dört sütunlu", "aynı beş sütunlu", 1)
+    return prompt.replace("dört sütunlu TXT", "beş sütunlu TXT", 1)
 
 
 def findings_prompt_txt(instruction: str = "") -> str:

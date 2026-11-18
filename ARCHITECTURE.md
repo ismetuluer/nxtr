@@ -1394,7 +1394,7 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     dosyaların davranışı değişmez. Bir satırın bütün bulguları tek hücrede "<Önem> <tür>: <ileti>" biçiminde `" | "`
     ile birleşir (satır sonu ve sekme tek boşluğa iner); dosyada her satır bir kez, kartların tablodaki sırasıyla
     yer alır. Kapsam tablodaki görünen bulgulardır (süzgeçler uygulanır, yok sayılanlar girmez); seçili bulgu varsa
-    "seçili bulguların satırları" varsayılandır. Dışa aktarma çalışmayla aynı `CsvExportDialog`'u (`MODE_FINDINGS`)
+    "seçili bulguların satırları" varsayılandır. Dışa aktarma dış redaksiyonla aynı `CsvExportDialog`'u (`MODE_FINDINGS`)
     kullanır: biçim, gruba bölme ve parçalama hazır gelir. Hazır istem `bulgu` sütununun yalnızca bilgi olduğunu
     söyler.
 

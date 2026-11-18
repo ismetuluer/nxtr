@@ -124,7 +124,7 @@ class CsvExportDialog(QDialog):
             self._scopes.append(rows)
             lay.addWidget(radio)
         if self._findings:
-            default = 0 if selected else 1
+            default = 0 if len(selected) > 1 else 1
         else:
             default = 0 if len(selected) > 1 else 1 if 0 < len(visible) < len(all_rows) else 2
         default_button = self.scope_group.button(default)
