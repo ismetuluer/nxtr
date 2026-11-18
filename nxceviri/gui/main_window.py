@@ -101,20 +101,19 @@ from nxceviri.core.translate.fitconfig import (
     save_config,
     separate_groups,
 )
-from nxceviri.core.translate.glossary_io import merge_terms, plan_terms_from_rows
 from nxceviri.core.translate.origin import NO_ORIGIN, MachineOrigin
 from nxceviri.core.translate.port import ReadyTranslations, port_translations, read_ready_translations
 from nxceviri.core.translate.probe import deepl_summary, ollama_summary
 from nxceviri.core.translate.providers.base import ProviderError, TranslationProvider
 from nxceviri.core.translate.providers.deepl import DeepLProvider
-from nxceviri.core.translate.providers.ollama import DEFAULT_URL, OllamaProvider
+from nxceviri.core.translate.providers.ollama import DEFAULT_URL
 from nxceviri.core.translate.report import job_label, mark_label
 from nxceviri.core.translate.runner import (
     ACTION_TRANSLATE,
     MachineJob,
 )
 from nxceviri.core.translate.status import TRANSLATED_STATUSES, Status
-from nxceviri.core.translate.terms import TermCandidate, TermSuggestion, find_candidates, suggest_glossary
+from nxceviri.core.translate.terms import TermCandidate
 from nxceviri.core.translate.uppercase import UppercaseRules
 from nxceviri.core.update import (
     Updater,
@@ -137,10 +136,7 @@ from nxceviri.gui.machine_dialogs import (
     PROVIDER_DEEPL,
     PROVIDER_OLLAMA,
     SCOPE_ALL,
-    AddTermsDialog,
-    GlossaryDialog,
     MachineSettings,
-    TermSuggestionsDialog,
     make_provider,
 )
 from nxceviri.gui.mascot import (
@@ -176,7 +172,7 @@ from nxceviri.gui.qa_page import QaPage
 from nxceviri.gui.recent import RecentProjects
 from nxceviri.gui.recovery import RecoveryFile, RecoveryKeeper, default_recovery_dir
 from nxceviri.gui.scan_page import ScanPage
-from nxceviri.gui.settings_dialog import KEY_SPELL_COPIED, PAGE_PROVIDERS, PAGE_VIEW, SettingsDialog
+from nxceviri.gui.settings_dialog import KEY_SPELL_COPIED, PAGE_VIEW, SettingsDialog
 from nxceviri.gui.shortcuts import ShortcutRegistry
 from nxceviri.gui.spell_controller import SpellController
 from nxceviri.gui.spell_window import SpellWindow
@@ -193,6 +189,7 @@ from nxceviri.gui.step_nav import (
     StepNav,
 )
 from nxceviri.gui.tasks import Task, release_thread
+from nxceviri.gui.terms_controller import TermsController
 from nxceviri.gui.theme import (
     DEFAULT_FONT_SIZE,
     FONT_SIZES,
@@ -383,6 +380,7 @@ class MainWindow(QMainWindow):
         self.projects = ProjectController(self)
         self.updates = UpdateController(self)
         self.spelling = SpellController(self)
+        self.terms = TermsController(self)
         #: Makine işleri (çevir, yeniden çevir, talimatla düzelt); durum pencerede kalır.
         self.machine = MachineController(self)
         #: Çeviri satırları her yeniden kurulduğunda artar; satırlara bağlı ağır hesapların önbelleği buna bağlıdır.
@@ -2276,151 +2274,16 @@ class MainWindow(QMainWindow):
     # --- makine çevirisi ve sözlük ---------------------------------------------------------
 
     def edit_glossary(self) -> None:
-        start = Path(str(self.settings.value("glossary/dir", str(Path.home()))))
-        dialog = GlossaryDialog(self, self.project.glossary(), start, can_suggest=not self.busy)
-        accepted = dialog.exec() == GlossaryDialog.DialogCode.Accepted
-        self.settings.setValue("glossary/dir", str(dialog.start_dir))
-        if not accepted:
-            return
-        try:
-            self.project.set_glossary(dialog.terms())
-        except NxError as exc:
-            self.notify(LEVEL_ERROR, "Terminoloji kaydedilemedi", exc.user_text())
-            return
-        self._mark_changed()
-        self._sync_spell()
-        self.statusBar().showMessage(f"Terminoloji kaydedildi ({len(dialog.terms())} terim).", 5000)
-        if dialog.wants_suggestions:
-            self.suggest_glossary_terms()
+        return self.terms.edit_glossary()
 
     def add_rows_to_terminology(self) -> None:
-        """Seçili satırların orijinal ve çevirisi (ayıklanarak) onaydan sonra terminolojiye eklenir."""
-        rows = self.translate_page.selected_rows()
-        if not rows:
-            self.notify(LEVEL_WARNING, "Önce satır seçin", "Terminolojiye eklenecek satırları tabloda seçin.")
-            return
-        plan = plan_terms_from_rows(rows, self.project.glossary())
-        if not plan.new and not plan.conflicts:
-            self.notify(LEVEL_INFO, "Eklenecek terim yok", "Seçili satırlar zaten terminolojide ya da çevirisiz.")
-            return
-        dialog = AddTermsDialog(self, plan.new, plan.conflicts)
-        if dialog.exec() != AddTermsDialog.DialogCode.Accepted or not dialog.selected():
-            return
-        merged, added, updated = merge_terms(self.project.glossary(), dialog.selected())
-        try:
-            self.project.set_glossary(merged)
-        except NxError as exc:
-            self.notify(LEVEL_ERROR, "Terminoloji kaydedilemedi", exc.user_text())
-            return
-        self._mark_changed()
-        self._sync_spell()
-        self._sync_live()
-        self.notify(
-            LEVEL_SUCCESS,
-            "Terminoloji güncellendi",
-            f"{format_int(added)} terim eklendi · {format_int(updated)} terim güncellendi",
-        )
+        return self.terms.add_rows_to_terminology()
 
     def find_term_candidates(self) -> list[TermCandidate]:
-        """Terim önerisinin adayları: metinlerde sık geçen, terminolojide olmayan özel adlar."""
-        return find_candidates(self.project.translation_rows(), self.project.glossary())
+        return self.terms.find_term_candidates()
 
     def suggest_glossary_terms(self) -> None:
-        """Metinlerde sık geçen adları bulur, Ollama'dan karşılık ister; onaylananlar terminolojiye katılır."""
-        if self.busy:
-            return
-        page = self.translate_page
-        model = str(self.settings.value("ollama/model", ""))
-        if str(self.settings.value("translate/provider", PROVIDER_OLLAMA)) != PROVIDER_OLLAMA or not model:
-            self.notify(
-                LEVEL_WARNING,
-                "Terim önerisi için Ollama gerekli",
-                "Otomatik Çeviri'de sağlayıcı olarak Ollama'yı ve bir model seçin.",
-                (NoticeAction("Otomatik Çeviri…", lambda: self.start_machine_translation(ACTION_TRANSLATE)),),
-            )
-            return
-        candidates = self.find_term_candidates()
-        if not candidates:
-            self.notify(
-                LEVEL_INFO,
-                "Önerilecek terim yok",
-                "Cümle ortasında en az iki kez büyük harfle geçen yeni bir ad bulunamadı.",
-            )
-            return
-        notes = self.project.setting("translation_notes")
-        chosen = MachineSettings(PROVIDER_OLLAMA, str(self.settings.value("ollama/url", DEFAULT_URL)), model, notes)
-        try:
-            provider = self.provider_factory(chosen)
-        except NxError as exc:
-            page.show_notice("danger", exc.user_text())
-            return
-        if not isinstance(provider, OllamaProvider):
-            page.show_notice("danger", "Terim önerisi yalnızca Ollama ile yapılabilir.")
-            return
-        source_lang = self.project.setting("source_language", "en")
-
-        def work(ctx: TaskContext) -> list[TermSuggestion]:
-            provider.cancel_token = ctx.token
-            try:
-                status = provider.test_connection()
-                if not status.ok:
-                    raise ProviderError(status.message)
-                return suggest_glossary(provider, candidates, source_lang, notes, ctx)
-            finally:
-                provider.close()
-
-        def failed(text: str) -> None:
-            page.set_machine_running(False)
-            title, rest = split_notice(text)
-            if "bağlanılamadı" in title:
-                title = "Ollama'ya bağlanılamadı"
-            self.notify(
-                LEVEL_ERROR,
-                title,
-                rest,
-                (NoticeAction("Ayarları Aç", lambda: self.open_settings(PAGE_PROVIDERS)),),
-            )
-
-        def cancelled() -> None:
-            page.set_machine_running(False)
-            self.notify(LEVEL_WARNING, "Terim önerisi durduruldu", "Terminoloji değişmedi.")
-
-        def done(result: object) -> None:
-            assert isinstance(result, list)
-            page.set_machine_running(False)
-            if not result:
-                self.notify(
-                    LEVEL_INFO, "Terim önerilmedi", f"Model {format_int(len(candidates))} aday için bir terim önermedi."
-                )
-                return
-            dialog = TermSuggestionsDialog(self, result)
-            if dialog.exec() != TermSuggestionsDialog.DialogCode.Accepted or not dialog.selected():
-                page.show_notice("success", "Terim önerileri eklenmedi.")
-                return
-            merged, added, updated = merge_terms(self.project.glossary(), dialog.selected())
-            try:
-                self.project.set_glossary(merged)
-            except NxError as exc:
-                page.show_notice("danger", exc.user_text())
-                return
-            self._mark_changed()
-            self._sync_spell()
-            self.notify(
-                LEVEL_SUCCESS,
-                "Terminoloji güncellendi",
-                f"{format_int(added)} terim eklendi · {format_int(updated)} terim güncellendi",
-            )
-
-        page.set_machine_running(True)
-        page.show_notice("success", "")
-        self._run(
-            work,
-            "Terim önerisi",
-            on_success=done,
-            on_failure=failed,
-            on_progress=page.update_machine_progress,
-            on_cancel=cancelled,
-        )
+        return self.terms.suggest_glossary_terms()
 
     def open_settings(self, page: str | None = None) -> None:
         """Ayarlar penceresini açar (`page`: açılacak sayfa, ör. `PAGE_PROVIDERS`)."""

@@ -124,6 +124,7 @@ nxceviri/
     machine_controller.py  # makine işleri: çevir, yeniden çevir, talimatla düzelt penceresi ve iş (karar 221)
     update_controller.py   # güncelleme: denetim penceresi, paket kurulumu, açılıştaki sessiz denetim (karar 221)
     spell_controller.py    # yazım denetimi: pencere, sözcük değiştirme, kullanıcı sözlüğü (karar 221)
+    terms_controller.py    # terimler: Terminoloji penceresi, satırlardan terim ekleme, Ollama ile terim önerisi (karar 221)
     icons.py + icons/*.svg # Lucide simgeleri; temaya uyan QIcon, bind_icon/refresh_icons
     appicon/               # uygulama simgesi: nxtr.svg + nxtr-kucuk.svg (kaynak) → .ico/.png (packaging/make_icon.py)
     step_nav.py            # simgeli kenar çubuğu (StepNav) ve proje başlığı
@@ -1125,6 +1126,8 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     Beşinci adım: yazım denetimi (pencere, sözcük değiştirme, kullanıcı sözlüğü) `gui/spell_controller.py`
     `SpellController`'da (`self.spelling`); durum ve zamanlayıcı bağlantısı pencerede kalır, `replace_unknown`,
     `SPELL_SYNC_ROWS` ve `_preview` gecikmeli içe aktarılan pencere modülünden okunur.
+    Altıncı adım: terimler (Terminoloji penceresi, satırlardan terim ekleme, terim önerisi) `gui/terms_controller.py`
+    `TermsController`'da (`self.terms`); durum pencerede kalır, terim yok sayma Kontrol Et denetleyicisinde kaldı.
 
 ### 4.55 2026-11-17 kararları (çeviri kaynağı, Sorunlar panosu)
 

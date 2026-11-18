@@ -41,8 +41,9 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     (çevir / yeniden çevir / talimatla düzelt) `gui/machine_controller.py`'ye taşındı; pencere ~3.370 satır.
     Dördüncü adım: güncelleme `gui/update_controller.py`'ye taşındı; pencere 3.259 satır.
     Beşinci adım: yazım denetimi penceresi `gui/spell_controller.py`'ye taşındı; pencere 3.107 satır.
+    Altıncı adım: terimler ve terim önerileri `gui/terms_controller.py`'ye taşındı; pencere 2.970 satır.
     Kalan: son işin değişiklikleri ve satır geçmişi (`show_job_changes`, `_revert`; testler `ChangesDialog`'u
-    pencere modülünde değiştirir), terimler ve terim önerileri, dış redaksiyon
+    pencere modülünde değiştirir), dış redaksiyon
     içe/dışa aktarma (`CsvExportDialog` pencere modülünde değiştirilir) ve görseller
     hâlâ pencere sınıfında. Aynı düzenle (karar 221: yönlendirme + pencere üzerinden çağrı, pencere modülünde
     değiştirilen adlar gecikmeli içe aktarılan pencere modülünden) adım adım taşınmalı.
