@@ -66,8 +66,6 @@ from nxceviri.core.qa import ignored, transliterate
 from nxceviri.core.qa.autofix import FixPlan, plan_reflow
 from nxceviri.core.qa.checks import (
     QaIssue,
-    glossary_words,
-    spell_extra_words,
 )
 from nxceviri.core.qa.fixrun import FixSettings
 from nxceviri.core.qa.fonts import FontReport, looks_like_font
@@ -80,7 +78,7 @@ from nxceviri.core.selfupdate import PreparedInstall, current_install, launch_in
 from nxceviri.core.spell.checker import SpellChecker, turkish_lower
 from nxceviri.core.spell.loader import load_spell_checker
 from nxceviri.core.spell.report import UnknownWordCache, replace_unknown
-from nxceviri.core.spell.suggest import Suggestion, suggestions
+from nxceviri.core.spell.suggest import Suggestion
 from nxceviri.core.spell.userdict import UserDictionary, default_user_dictionary_path
 from nxceviri.core.translate.codekinds import suspected_line_breaks
 from nxceviri.core.translate.csvio import (
@@ -180,7 +178,7 @@ from nxceviri.gui.recovery import RecoveryFile, RecoveryKeeper, default_recovery
 from nxceviri.gui.scan_page import ScanPage
 from nxceviri.gui.settings_dialog import KEY_SPELL_COPIED, PAGE_PROVIDERS, PAGE_VIEW, SettingsDialog
 from nxceviri.gui.shortcuts import ShortcutRegistry
-from nxceviri.gui.spell_dialogs import AddSpellWordsDialog, UserDictionaryDialog
+from nxceviri.gui.spell_controller import SpellController
 from nxceviri.gui.spell_window import SpellWindow
 from nxceviri.gui.spring import SPRING_SOFT, SpringAnimator
 from nxceviri.gui.statusbar import StatusSegments
@@ -209,7 +207,7 @@ from nxceviri.gui.widgets import button, format_int, format_size, tip_html
 
 #: Modülün dışa verdiği adlar; adım sabitleri `step_nav`'da, talimat anahtarları `machine_controller`'da tanımlıdır,
 #: buradan da alınabilsinler diye yeniden verilir. `implicit_terms`'i makine denetleyicisi bu modülden okur (testler
-#: onu burada değiştirir); `UpdateDialog`'u güncelleme denetleyicisi bu modülden okur.
+#: onu burada değiştirir); `UpdateDialog`'u güncelleme, `replace_unknown`'u yazım denetimi denetleyicisi okur.
 __all__ = [
     "MANUAL_LIMIT_KEY",
     "MASCOT_SLEEP_S",
@@ -227,6 +225,7 @@ __all__ = [
     "choose_button",
     "implicit_terms",
     "log_dir",
+    "replace_unknown",
 ]
 
 log = logging.getLogger(__name__)
@@ -383,6 +382,7 @@ class MainWindow(QMainWindow):
         #: Proje yaşam döngüsü (yeni, aç, kaydet, son projeler, kurtarma); durum pencerede kalır.
         self.projects = ProjectController(self)
         self.updates = UpdateController(self)
+        self.spelling = SpellController(self)
         #: Makine işleri (çevir, yeniden çevir, talimatla düzelt); durum pencerede kalır.
         self.machine = MachineController(self)
         #: Çeviri satırları her yeniden kurulduğunda artar; satırlara bağlı ağır hesapların önbelleği buna bağlıdır.
@@ -1930,201 +1930,49 @@ class MainWindow(QMainWindow):
     # --- Yazım Denetimi penceresi ----------------------------------------------------------
 
     def open_spell_window(self) -> None:
-        """Araçlar → Yazım Denetimi: kipsiz tek pencere; açıksa öne gelir."""
-        if self.spell is None or not self.translate_page.model.rows:
-            return
-        win = self._spell_window
-        if win is None:
-            win = SpellWindow(self)
-            win.show_row.connect(self._open_row)
-            win.ignore_requested.connect(self.ignore_spell_words)
-            win.add_requested.connect(self._add_from_spell_window)
-            win.replace_requested.connect(self._replace_spell_word)
-            win.fix_all_requested.connect(self._fix_spell_words)
-            win.suggest_fn = self._spell_hint
-            self._spell_window = win
-        self._refresh_spell_window(force=True)
-        win.show()
-        win.raise_()
-        win.activateWindow()
+        return self.spelling.open_spell_window()
 
     def _refresh_spell_window(self, force: bool = False) -> None:
-        """Pencere görünürken (ya da `force`) sözcük listesini güncel satırlardan kurar."""
-        win = self._spell_window
-        if win is None or not (force or win.isVisible()):
-            return
-        if self.spell is None:
-            win.set_words([])
-            return
-        rows = self.translate_page.model.rows
-        extra = glossary_words(self.project.glossary())
-        if extra != self._spell_extra_key:
-            self._spell_cache.clear()
-            self._spell_hints.clear()
-            self._spell_extra_key = extra
-        stale = self._spell_cache.stale(rows)
-        if len(stale) > SPELL_SYNC_ROWS:
-            win.set_scanning(True)
-            self._start_spell_scan(stale, self.spell, extra)
-            return
-        self._spell_cache.store(self._spell_cache.scan(stale, self.spell, extra))
-        words = self._spell_cache.words(rows, self._spell_ignored())
-        wanted = {i for w in words for i in w.row_ids}
-        previews = {r.id: _preview(r.translation) for r in rows if r.id in wanted}
-        win.set_words(words, previews)
+        return self.spelling._refresh_spell_window(force)
 
     def _start_spell_scan(self, stale: list[TranslationRow], spell: SpellChecker, extra: frozenset[str]) -> None:
-        """Çok sayıda satırı arka planda tarar (aynı anda tek tarama); biterken pencere yeniden tazelenir."""
-        if self._spell_scan is not None:
-            return  # sürüyor: bitince kalan değişen satırlar için yeniden başlatılır
-
-        def work(ctx: TaskContext) -> object:
-            scanned: dict[int, tuple[TranslationRow, tuple[str, ...]]] = {}
-            for start in range(0, len(stale), SPELL_SYNC_ROWS):
-                ctx.check()
-                scanned |= UnknownWordCache.scan(stale[start : start + SPELL_SYNC_ROWS], spell, extra)
-            return scanned
-
-        owner = self.project
-
-        def done(result: object) -> None:
-            assert isinstance(result, dict)
-            # Tarama sürerken proje ya da sözlük değiştiyse sonuç atılır (satır kimlikleri başka projeye karışmaz).
-            if owner is self.project and spell is self.spell and extra == self._spell_extra_key:
-                self._spell_cache.store(result)
-            self._spell_scan_ok = True
-
-        scan = Task(work, "Yazım taraması")
-        self._spell_scan = scan
-        self._spell_scan_ok = False
-        scan.succeeded.connect(done)
-        scan.finished.connect(self._spell_scan_finished)
-        scan.start()
+        return self.spelling._start_spell_scan(stale, spell, extra)
 
     def _spell_scan_finished(self) -> None:
-        scan, self._spell_scan = self._spell_scan, None
-        if scan is not None:
-            release_thread(scan)
-        if self._spell_scan_ok:
-            self._refresh_spell_window()  # tarama sürerken değişen satırlar için
-        elif self._spell_window is not None:
-            self._spell_window.set_scanning(False)
+        return self.spelling._spell_scan_finished()
 
     def _add_from_spell_window(self, words: list[str]) -> None:
-        self.add_spell_words([str(w) for w in words])
-        self._refresh_spell_window()
+        return self.spelling._add_from_spell_window(words)
 
     def _spell_hint(self, word: str, edits: bool) -> Suggestion:
-        """Pencerenin öneri kaynağı: yazım sözlüğü ve oyun sözlüğüyle üretilir, sözcük başına bellekte tutulur."""
-        key = (word, edits)
-        found = self._spell_hints.get(key)
-        if found is None:
-            if self.spell is None:
-                return Suggestion()
-            extra = self._spell_extra_key if self._spell_extra_key is not None else frozenset()
-            found = self._spell_hints[key] = suggestions(word, self.spell, extra, edits=edits)
-        return found
+        return self.spelling._spell_hint(word, edits)
 
     def _spell_word_rows(self, words: list[str]) -> dict[str, list[TranslationRow]] | None:
-        """Her sözcüğün geçtiği satırlar (pencerenin listelediği geçişler); yalnızca değişen satırlar taranır.
-
-        Tarama büyük bir değişiklikten sonra arka planda sürüyorsa `None` döner ve neden durum çubuğunda söylenir.
-        """
-        spell = self.spell
-        if spell is None:
-            return None
-        rows = self.translate_page.model.rows
-        extra = glossary_words(self.project.glossary())
-        if extra != self._spell_extra_key:
-            self._spell_cache.clear()
-            self._spell_hints.clear()
-            self._spell_extra_key = extra
-        stale = self._spell_cache.stale(rows)
-        if len(stale) > SPELL_SYNC_ROWS:
-            self.statusBar().showMessage("Sözcükler taranıyor; tarama bitince yeniden deneyin.", 5000)
-            return None
-        self._spell_cache.store(self._spell_cache.scan(stale, spell, extra))
-        by_id = {r.id: r for r in rows}
-        return {w: [by_id[i] for i in ids if i in by_id] for w, ids in self._spell_cache.row_ids(words).items()}
+        return self.spelling._spell_word_rows(words)
 
     def _spell_changes(self, pairs: list[tuple[str, str]]) -> list[tuple[int, str]] | None:
-        """Sözcük çiftlerinin yalnızca geçtiği satırlardaki değişiklikleri; her satır için tek yeni metin.
-
-        Kaynakta da geçen, tamamı büyük harfli, özel ad ve çevrilmemiş kopya geçişlere dokunulmaz (pencere de
-        bunları saymaz); böylece değişen satır sayısı penceredeki sayıyla aynıdır.
-        """
-        spell = self.spell
-        found = self._spell_word_rows([old for old, _new in pairs])
-        if spell is None or found is None:
-            return None
-        extra = glossary_words(self.project.glossary())
-        texts: dict[int, str] = {}
-        for old, new in pairs:
-            for row in found[old]:
-                text = replace_unknown(texts.get(row.id, row.translation), row.source, spell, extra, word=old, new=new)
-                if text != row.translation:
-                    texts[row.id] = text
-        return list(texts.items())
+        return self.spelling._spell_changes(pairs)
 
     def _replace_spell_word(self, old: str, new: str) -> None:
-        """Sözcüğü pencerenin listelediği geçişlerde değiştirir; tek iştir, Geri Al hepsini geri alır."""
-        self._apply_spell_changes([(old, new)])
+        return self.spelling._replace_spell_word(old, new)
 
     def _fix_spell_words(self, pairs: list[tuple[str, str]]) -> None:
-        """ "Tek önerisi olanları düzelt": bütün çiftler tek işte uygulanır; onaylı satırlar onaylı kalır."""
-        self._apply_spell_changes([(str(old), str(new)) for old, new in pairs])
+        return self.spelling._fix_spell_words(pairs)
 
     def _apply_spell_changes(self, pairs: list[tuple[str, str]]) -> None:
-        if not pairs or self.spell is None:
-            return
-        if self.busy:
-            self.statusBar().showMessage("Bir iş sürerken değiştirilemez; iş bitince yeniden deneyin.", 5000)
-            return
-        changes = self._spell_changes(pairs)
-        if not changes:
-            return
-        rows = self._replace_translations(changes)
-        if rows is None:
-            return  # neden Çevir sayfasında bildirildi
-        self.statusBar().showMessage(f"{format_int(len(changes))} satırda değiştirildi.", 5000)
-        self._refresh_spell_window()
-        self._recheck_board_later(rows)
+        return self.spelling._apply_spell_changes(pairs)
 
     def _sync_spell(self) -> None:
-        """Editördeki yazım işaretlerini güncel denetleyici ve oyun sözlüğüyle yeniler."""
-        self._spell_cache.clear()  # sözlük ya da yoksayılanlar değişti
-        self._spell_hints.clear()
-        self.translate_page.set_spell(self.spell, spell_extra_words(self.project.glossary(), self._spell_ignored()))
-        self._sync_live(force=True)
-        self.update_menu_state()
-        self._refresh_spell_window()
+        return self.spelling._sync_spell()
 
     def add_spell_words(self, words: list[str]) -> None:
-        """Sözcükleri kalıcı kullanıcı sözlüğüne ekler; editör ve (yapıldıysa) denetim sonucu yenilenir."""
-        try:
-            added = self.user_dictionary.add(words)
-        except OSError as exc:
-            self.notify(LEVEL_ERROR, "Yazım sözlüğü", f"Sözlük kaydedilemedi: {exc.strerror or exc}")
-            return
-        if self.spell is not None:
-            self.spell.add_user_words(words)
-        self._sync_spell()
-        self.statusBar().showMessage(f"{format_int(added)} sözcük yazım sözlüğüne eklendi.", 5000)
-        self._recheck_if_done()
+        return self.spelling.add_spell_words(words)
 
     def add_spelling_from_qa(self, words: list[str]) -> None:
-        dialog = AddSpellWordsDialog(self, [str(w) for w in words])
-        if dialog.exec() == AddSpellWordsDialog.DialogCode.Accepted and dialog.selected():
-            self.add_spell_words(dialog.selected())
+        return self.spelling.add_spelling_from_qa(words)
 
     def edit_user_dictionary(self) -> None:
-        dialog = UserDictionaryDialog(self, self.user_dictionary)
-        dialog.exec()
-        if dialog.removed:
-            self.spell = load_spell_checker(self.user_dictionary)
-            self._apply_spell_copied()
-            self._sync_spell()
-            self._recheck_if_done()
+        return self.spelling.edit_user_dictionary()
 
     def _reflow(self, rows: list[TranslationRow]) -> list[TranslationRow] | None:
         """Satırların satır sonlarını yeniden böler; tek iş olarak geçmişe yazılır (Ctrl+Z). Hata olursa `None`.

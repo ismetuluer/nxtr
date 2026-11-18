@@ -123,6 +123,7 @@ nxceviri/
     project_controller.py  # proje yaşam döngüsü: yeni, aç, kaydet, son projeler, kurtarma (karar 221)
     machine_controller.py  # makine işleri: çevir, yeniden çevir, talimatla düzelt penceresi ve iş (karar 221)
     update_controller.py   # güncelleme: denetim penceresi, paket kurulumu, açılıştaki sessiz denetim (karar 221)
+    spell_controller.py    # yazım denetimi: pencere, sözcük değiştirme, kullanıcı sözlüğü (karar 221)
     icons.py + icons/*.svg # Lucide simgeleri; temaya uyan QIcon, bind_icon/refresh_icons
     appicon/               # uygulama simgesi: nxtr.svg + nxtr-kucuk.svg (kaynak) → .ico/.png (packaging/make_icon.py)
     step_nav.py            # simgeli kenar çubuğu (StepNav) ve proje başlığı
@@ -1121,6 +1122,9 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     Dördüncü adım: güncelleme (denetim penceresi, paket kurulumu, açılıştaki sessiz denetim) `gui/update_controller.py`
     `UpdateController`'da (`self.updates`); testlerin pencere modülünde değiştirdiği `UpdateDialog` gecikmeli
     içe aktarılan pencere modülünden okunur (`_mw.UpdateDialog`), `main_window` `__all__` ile yeniden verir.
+    Beşinci adım: yazım denetimi (pencere, sözcük değiştirme, kullanıcı sözlüğü) `gui/spell_controller.py`
+    `SpellController`'da (`self.spelling`); durum ve zamanlayıcı bağlantısı pencerede kalır, `replace_unknown`,
+    `SPELL_SYNC_ROWS` ve `_preview` gecikmeli içe aktarılan pencere modülünden okunur.
 
 ### 4.55 2026-11-17 kararları (çeviri kaynağı, Sorunlar panosu)
 
