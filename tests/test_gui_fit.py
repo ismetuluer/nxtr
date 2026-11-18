@@ -103,8 +103,13 @@ def test_no_rules_message(window: MainWindow) -> None:
     assert not page.fit_enabled.isChecked()
     assert page.fit_note.isVisibleTo(page)
     assert page.fit_note.text() == "Sınır girilmedi; sığdırma kapalı."
-    for widget in (page.fit_width, page.fit_lines, page.fit_learn, page.fit_kinds, page.fit_scope):
+    for widget in (page.fit_width, page.fit_lines, page.fit_learn, page.fit_kinds):
         assert not widget.isEnabled()
+    # Kapsam ve genişlik denetimi kapalıyken de seçilebilir (yalnızca genişlik denetimi karakter sınırı gerektirmez).
+    assert page.fit_scope.isEnabled()
+    assert page.fit_width_check.isEnabled()
+    assert not page.fit_width_check.isChecked()
+    assert not page.fit_width_tolerance.isEnabled()
     page.check_button.click()
     finish_task(window)
     assert not _kinds_found(page) & FIT_KINDS

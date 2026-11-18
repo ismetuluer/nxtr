@@ -27,6 +27,8 @@ from nxceviri.core.progress import TaskContext
 from nxceviri.core.qa import transliterate
 from nxceviri.core.qa.fonts import FontReport, looks_like_font
 from nxceviri.core.qa.fonts import scan_fonts as scan_font_files
+from nxceviri.core.translate import widths
+from nxceviri.core.translate.fitwidth import SETTING_WIDTHS
 from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_INFO, LEVEL_SUCCESS, LEVEL_WARNING, NoticeAction
 from nxceviri.gui.widgets import format_int
 
@@ -216,6 +218,9 @@ class FontsController:
                 win.project.set_setting("font_missing_patched", result.missing_letters(patched=True))
                 win.project.set_setting("font_patchable", result.patchable_letters)
                 win.project.set_setting("font_files", json.dumps(list(result.patch_files), ensure_ascii=False))
+                # Sığdırmada genişlik ölçümünün fontu (yalnızca harf genişlikleri); yoksa boş: yaklaşık tablo.
+                table = result.measuring_table()
+                win.project.set_setting(SETTING_WIDTHS, widths.dump(table) if table is not None else "")
             except NxError as exc:
                 win.notify(LEVEL_ERROR, "Proje", exc.user_text())
             win._mark_changed()

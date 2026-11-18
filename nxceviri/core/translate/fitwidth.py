@@ -15,7 +15,7 @@ Modül saftır; arayüz bilmez.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import NamedTuple
 
 from nxceviri.core.project import TranslationRow
@@ -102,6 +102,25 @@ class WidthMeasure:
             return None
         found = self.reading(row, row.translation)
         return found if found is not None and found.over else None
+
+
+def box_shape(config: FitConfig) -> FitConfig:
+    """Kutuları belirleyen ayar: toleranslar sıfırlanmış kopya. İki ayarın biçimi aynıysa kutular yeniden
+    hesaplanmaz (pay değiştirmek büyük projede tüm satırları yeniden ölçtürmesin)."""
+
+    def flat(rules: WidthRules | None) -> WidthRules | None:
+        return None if rules is None else replace(rules, tolerance=0.0)
+
+    def flat_map(rules: Mapping[str, WidthRules]) -> dict[str, WidthRules]:
+        return {name: replace(each, tolerance=0.0) for name, each in rules.items()}
+
+    return replace(
+        config,
+        width_default=flat(config.width_default),
+        width_files=flat_map(config.width_files),
+        width_groups=flat_map(config.width_groups),
+        width_keys=flat_map(config.width_keys),
+    )
 
 
 def _box_of(config: FitConfig, row: TranslationRow) -> tuple[str, WidthRules] | None:

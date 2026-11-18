@@ -50,6 +50,7 @@ from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.codekinds import KindOf
 from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, FitRules, split_lines, split_pages, visible_width
+from nxceviri.core.translate.fitwidth import WidthMeasure, WidthReading
 from nxceviri.core.translate.status import STATUS_LABELS, Status
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.shortcuts import ShortcutRegistry
@@ -332,6 +333,8 @@ class EditorPane(QWidget):
         self._number: int | None = None
         self._kind_of: KindOf = lambda _n: "other"
         self._rules: FitRules | None = None
+        #: Fontla genişlik ölçümü (anlık denetim bağlamından); satırın kapsamında açık değilse gösterge gizlidir.
+        self._widths: WidthMeasure | None = None
         self._saved: str | None = None
         self._symbols = False
         self._loading = False
@@ -405,8 +408,12 @@ class EditorPane(QWidget):
         self.limit_spin.setValue(DEFAULT_MANUAL_LIMIT)
         self.limit_spin.setToolTip("Satır başına en çok karakter.")
         self.limit_spin.hide()
+        self.width_label = label("", "muted")
+        self.width_label.hide()
         counter_row = QHBoxLayout()
-        counter_row.addWidget(self.counter_label, 1)
+        counter_row.addWidget(self.counter_label)
+        counter_row.addWidget(self.width_label)
+        counter_row.addStretch(1)
         counter_row.addWidget(self.limit_box)
         counter_row.addWidget(self.limit_spin)
         self.warning_label = label("", "warning", wrap=True)
@@ -699,9 +706,36 @@ class EditorPane(QWidget):
         self.counter_label.setProperty("role", "danger" if counter.state == "danger" else "muted")
         self.counter_label.style().unpolish(self.counter_label)
         self.counter_label.style().polish(self.counter_label)
+        self._refresh_width(text)
         source = self._row.source if self._row is not None else ""
         extra = bool(trailing_space_spans(text)) and not trailing_space_spans(source)
         self.warning_label.setText("Satır sonunda boşluk var" if extra and self._row is not None else "")
+
+    def set_width_measure(self, measure: WidthMeasure | None) -> None:
+        """Fontla genişlik ölçümü; satırın kapsamında genişlik denetimi açıksa sayacın yanında oran görünür."""
+        self._widths = measure
+        self._refresh_width(self.translation_edit.toPlainText())
+
+    def width_reading(self) -> WidthReading | None:
+        """Düzenlenen metnin kutuya göre genişliği; gösterge gizliyse `None`."""
+        if self._widths is None or self._row is None:
+            return None
+        return self._widths.reading(self._row, self.translation_edit.toPlainText())
+
+    def _refresh_width(self, text: str) -> None:
+        reading = None if self._widths is None or self._row is None else self._widths.reading(self._row, text)
+        self.width_label.setVisible(reading is not None)
+        if reading is None or self._widths is None:
+            return
+        self.width_label.setText(f"Genişlik %{round(reading.ratio * 100)}")
+        basis = "kapsamdaki en geniş orijinal" if reading.box == "group" else "satırın orijinali"
+        font = self._widths.table.name if not self._widths.table.approximate else "yaklaşık tablo"
+        self.width_label.setToolTip(
+            f"Fontla ölçülen genişlik; kutu: {basis}. Sınır %{round(reading.limit * 100)}. Ölçüm: {font}."
+        )
+        self.width_label.setProperty("role", "warning" if reading.over else "muted")
+        self.width_label.style().unpolish(self.width_label)
+        self.width_label.style().polish(self.width_label)
 
     def set_spell(self, spell: SpellChecker | None, extra: frozenset[str]) -> None:
         """Yazım denetleyicisini ve ek kabul edilen sözcükleri (oyun sözlüğü) ayarlar; işaretler yenilenir."""

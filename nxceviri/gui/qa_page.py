@@ -60,8 +60,10 @@ from nxceviri.core.qa.checks import (
 from nxceviri.core.qa.fonts import FontReport, font_advice, is_editable_font
 from nxceviri.core.translate.codekinds import KIND_NAMES, CodeKinds
 from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, PROBLEM_LINE, PROBLEM_PAGE, FitRules
-from nxceviri.core.translate.fitconfig import EACH_GROUP, GROUP_PREFIX, FitConfig
+from nxceviri.core.translate.fitconfig import BOX_GROUP, BOX_ROW, EACH_GROUP, GROUP_PREFIX, FitConfig, WidthRules
+from nxceviri.core.translate.fitwidth import KIND_TOO_WIDE
 from nxceviri.core.translate.limits import SCOPE_GROUP, SCOPE_KEY
+from nxceviri.core.translate.widths import DEFAULT_TOLERANCE, WidthTable
 from nxceviri.gui.graphics_check import GraphicsCheckTab
 from nxceviri.gui.icons import bind_icon, icon
 from nxceviri.gui.issue_chips import Disclosure
@@ -96,8 +98,12 @@ _CHECKING_PREPARING = "Denetim hazırlanıyor…"
 _CHECK_STOPPED = "Denetim durduruldu."
 _CHECK_STOPPED_CHANGED = "Denetim durduruldu; değişen {count} satır denetlenmedi. Denetle'ye basın."
 _FIT_RESULT_FAILED = "Denetim yenilenemedi. Sorunlar sekmesinde “Denetle”ye basarak yeniden deneyin."
-#: "Taşıyor" sayılan bulgu türleri: satır ya da sayfa sınırını aşanlar (kötü bölünme taşma değildir).
-_OVERFLOW_KINDS = (PROBLEM_LINE, PROBLEM_PAGE)
+#: "Taşıyor" sayılan bulgu türleri: satır ya da sayfa sınırını ve fontla ölçülen kutuyu aşanlar (kötü bölünme taşma
+#: değildir).
+_OVERFLOW_KINDS = (PROBLEM_LINE, PROBLEM_PAGE, KIND_TOO_WIDE)
+#: Genişlik denetiminin kutu seçenekleri (gösterilen ad, değer).
+_WIDTH_BOXES = (("Kapsamdaki en geniş orijinal", BOX_GROUP), ("Satırın kendi orijinali", BOX_ROW))
+_WIDTH_FONT_APPROX = "Ölçüm: yaklaşık tablo — daha doğru sonuç için Font ve harfler'den fontları tarayın"
 
 
 #: Satırın çeviri ekranında nasıl açılacağı; hücre ipuçlarının sonuna eklenir.
@@ -562,6 +568,10 @@ class QaPage(QWidget):
         self._per_file: dict[str, FitRules] = {}
         self._per_group: dict[str, FitRules] = {}
         self._per_key: dict[str, FitRules] = {}
+        self._width_default: WidthRules | None = None
+        self._width_files: dict[str, WidthRules] = {}
+        self._width_groups: dict[str, WidthRules] = {}
+        self._width_keys: dict[str, WidthRules] = {}
         self._kinds: dict[str, str] = {}
         self._enabled = True
         self._pending = False  # "Orijinalden öğren" önerisi kutularda, henüz kaydedilmedi
@@ -623,7 +633,36 @@ class QaPage(QWidget):
         )
         self.fit_lines.valueChanged.connect(lambda _v: self._fit_changed())
         form.addRow("Sayfada en çok satır:", self.fit_lines)
+        self.fit_width_check = QCheckBox("Genişliği fontla denetle")
+        self.fit_width_check.setToolTip(
+            tip_html(
+                "Seçili kapsamda çevirinin ekrandaki genişliği oyunun fontuyla ölçülür ve orijinal kutuyla "
+                "karşılaştırılır. Menü ve düğme gibi kısa metinler için; aşan satır uyarı olarak görünür."
+            )
+        )
+        self.fit_width_check.toggled.connect(lambda _c: self._width_changed())
+        form.addRow("Genişlik:", self.fit_width_check)
+        self.fit_width_tolerance = QSpinBox()
+        self.fit_width_tolerance.setRange(0, 200)
+        self.fit_width_tolerance.setPrefix("%")
+        self.fit_width_tolerance.setValue(round(DEFAULT_TOLERANCE * 100))
+        self.fit_width_tolerance.setToolTip(tip_html("Çevirinin kutudan ne kadar geniş olabileceği; fazlası uyarıdır."))
+        self.fit_width_tolerance.valueChanged.connect(lambda _v: self._width_changed())
+        form.addRow("Genişlik payı:", self.fit_width_tolerance)
+        self.fit_width_box = QComboBox()
+        for name, value in _WIDTH_BOXES:
+            self.fit_width_box.addItem(name, value)
+        self.fit_width_box.setToolTip(
+            tip_html(
+                "Kutu: kapsamdaki en geniş tek satırlı orijinal (menü öğeleri aynı kutuyu paylaşır; daha az yanlış "
+                "uyarı) ya da satırın kendi orijinali."
+            )
+        )
+        self.fit_width_box.currentIndexChanged.connect(lambda _i: self._width_changed())
+        form.addRow("Kutu:", self.fit_width_box)
         body.addLayout(form)
+        self.fit_width_font = label(_WIDTH_FONT_APPROX, "muted", wrap=True)
+        body.addWidget(self.fit_width_font)
         learn_row = QHBoxLayout()
         self.fit_learn = button("Orijinalden öğren")
         self.fit_learn.setToolTip(
@@ -853,6 +892,10 @@ class QaPage(QWidget):
         self._per_file = dict(config.per_file)
         self._per_group = dict(config.per_group)
         self._per_key = dict(config.per_key)
+        self._width_default = config.width_default
+        self._width_files = dict(config.width_files)
+        self._width_groups = dict(config.width_groups)
+        self._width_keys = dict(config.width_keys)
         self._kinds = dict(config.kinds.mapping)
         self._enabled = config.enabled
         self._apply_fit_widgets(files, labels, groups)
@@ -867,7 +910,16 @@ class QaPage(QWidget):
             self.fit_enabled.isChecked(),
             dict(self._per_group),
             dict(self._per_key),
+            width_default=self._width_default,
+            width_files=dict(self._width_files),
+            width_groups=dict(self._width_groups),
+            width_keys=dict(self._width_keys),
         )
+
+    def set_width_font(self, table: WidthTable) -> None:
+        """Genişlik ölçümünde kullanılan tablonun adı (oyunun fontu ya da yaklaşık tablo)."""
+        text = _WIDTH_FONT_APPROX if table.approximate else f"Ölçüm: {table.name} (oyunun fontu)"
+        self.fit_width_font.setText(text)
 
     def show_learned(self, rules: FitRules | None) -> None:
         """Öğrenilen öneriyi kutulara yazar; kullanıcı bir değeri değiştirene veya denetleyene dek kaydedilmez."""
@@ -953,12 +1005,67 @@ class QaPage(QWidget):
             self.fit_width.setValue(rules.width if rules else _FIT_START_WIDTH)
             self.fit_lines.setValue(rules.max_lines if rules else _FIT_START_LINES)
         self.fit_inherit.setVisible(own is not None)
+        self._show_width()
         self._pending = False
         self.fit_learn_note.setText("")
         self._update_fit_enabled()
 
+    def _own_width(self, scope: str) -> tuple[dict[str, WidthRules], str] | None:
+        """Kapsamın kendi genişlik ayarı sözlüğü ve anahtarı (proje ayarı `_width_default`'tadır)."""
+        if scope.startswith(GROUP_PREFIX):
+            return self._width_groups, scope[len(GROUP_PREFIX) :]
+        if scope and scope != EACH_GROUP:
+            return self._width_files, scope
+        return None
+
+    def _scope_width(self, scope: str) -> WidthRules | None:
+        """Kapsamda geçerli genişlik ayarı: kendi girdisi, yoksa proje ayarı."""
+        own = self._own_width(scope)
+        if own is not None and own[1] in own[0]:
+            return own[0][own[1]]
+        return self._width_default
+
+    def _show_width(self) -> None:
+        """Seçili kapsamın genişlik ayarını denetimlere yazar (kayıt yapılmaz)."""
+        rules = self._scope_width(self._scope()) or WidthRules(enabled=False)
+        with _Blocked(self.fit_width_check, self.fit_width_tolerance, self.fit_width_box):
+            self.fit_width_check.setChecked(rules.enabled)
+            self.fit_width_tolerance.setValue(round(rules.tolerance * 100))
+            self.fit_width_box.setCurrentIndex(max(self.fit_width_box.findData(rules.box), 0))
+
+    def _width_changed(self) -> None:
+        """Genişlik denetimlerini seçili kapsamın ayarı yapar. Açmak sığdırmayı da açar ama karakter sınırı eklemez."""
+        scope = self._scope()
+        if scope == EACH_GROUP:
+            return
+        rules = WidthRules(
+            self.fit_width_check.isChecked(),
+            self.fit_width_tolerance.value() / 100,
+            str(self.fit_width_box.currentData() or BOX_GROUP),
+        )
+        own = self._own_width(scope)
+        if own is None:
+            self._width_default = rules
+        else:
+            own[0][own[1]] = rules
+        if rules.enabled and not self.fit_enabled.isChecked():
+            with _Blocked(self.fit_enabled):
+                self.fit_enabled.setChecked(True)
+            self._enabled = True
+        self._update_fit_enabled()
+        self.fit_changed.emit()
+
     def _has_rules(self) -> bool:
-        return self._default is not None or bool(self._per_file) or bool(self._per_group) or bool(self._per_key)
+        """Kaydedilmiş bir sınır ya da açık genişlik denetimi var mı (yalnızca genişlik de sığdırmayı açık tutar)."""
+        widths = [self._width_default, *self._width_files.values(), *self._width_groups.values()]
+        widths += self._width_keys.values()
+        return (
+            self._default is not None
+            or bool(self._per_file)
+            or bool(self._per_group)
+            or bool(self._per_key)
+            or any(w is not None and w.enabled for w in widths)
+        )
 
     def _update_fit_enabled(self) -> None:
         on = self.fit_enabled.isChecked()
@@ -968,7 +1075,6 @@ class QaPage(QWidget):
         scope = self._scope()
         inherit = scope == EACH_GROUP or (self._own_rules(scope) is not None and self.fit_inherit.isChecked())
         for widget in (
-            self.fit_scope,
             self.fit_inherit,
             self.fit_learn,
             self.fit_kinds,
@@ -976,6 +1082,12 @@ class QaPage(QWidget):
             widget.setEnabled(on)
         for spin in (self.fit_width, self.fit_lines):
             spin.setEnabled(on and not inherit)
+        # Kapsam ve genişlik denetimi sığdırma kapalıyken de seçilebilir: yalnızca genişlik denetimi isteyen kullanıcı
+        # karakter sınırı girmek zorunda kalmaz. "Her grup ayrı"nın tek bir genişlik ayarı yoktur.
+        width_on = scope != EACH_GROUP
+        self.fit_width_check.setEnabled(width_on)
+        self.fit_width_tolerance.setEnabled(width_on and self.fit_width_check.isChecked())
+        self.fit_width_box.setEnabled(width_on and self.fit_width_check.isChecked())
 
     def _fit_changed(self) -> None:
         """Kutulardaki değerleri seçili kapsamın sınırı yapar (değişken genişliği korunur) ve bildirir."""

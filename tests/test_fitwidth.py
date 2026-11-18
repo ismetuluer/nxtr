@@ -299,3 +299,12 @@ def test_load_table_falls_back_to_approximate(caplog: pytest.LogCaptureFixture) 
     assert stored.name == "Birim"
     assert not stored.approximate
     assert SETTING_WIDTHS == "fit_widths"
+
+
+def test_box_shape_ignores_tolerance_only() -> None:
+    from nxceviri.core.translate.fitwidth import box_shape
+
+    a = FitConfig(width_default=WidthRules(tolerance=0.1), width_files={"m": WidthRules(tolerance=0.3)})
+    b = FitConfig(width_default=WidthRules(tolerance=0.4), width_files={"m": WidthRules(tolerance=0.2)})
+    assert box_shape(a) == box_shape(b)
+    assert box_shape(a) != box_shape(FitConfig(width_default=WidthRules(box=BOX_ROW)))

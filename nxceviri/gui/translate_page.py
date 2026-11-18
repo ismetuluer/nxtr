@@ -1392,8 +1392,9 @@ class TranslatePage(QWidget):
         self._schedule_fit_rows()
 
     def set_live_context(self, context: LiveContext) -> None:
-        """Anlık denetimin bağlamı: durum simgesi, ipucu ve renkler bundan beslenir."""
+        """Anlık denetimin bağlamı: durum simgesi, ipucu ve renkler bundan beslenir (panelin genişlik göstergesi de)."""
         self.model.set_live_context(context)
+        self.pane.set_width_measure(context.widths)
         self._schedule_fit_rows()
 
     def set_spell(self, spell: SpellChecker | None, extra: frozenset[str]) -> None:

@@ -68,6 +68,7 @@ from nxceviri.core.spell.userdict import UserDictionary, default_user_dictionary
 from nxceviri.core.translate.fitconfig import (
     FitConfig,
 )
+from nxceviri.core.translate.fitwidth import WidthMeasure
 from nxceviri.core.translate.origin import MachineOrigin
 from nxceviri.core.translate.probe import deepl_summary, ollama_summary
 from nxceviri.core.translate.providers.base import ProviderError, TranslationProvider
@@ -80,6 +81,7 @@ from nxceviri.core.translate.runner import (
 from nxceviri.core.translate.status import TRANSLATED_STATUSES, Status
 from nxceviri.core.translate.terms import TermCandidate
 from nxceviri.core.translate.uppercase import UppercaseRules
+from nxceviri.core.translate.widths import WidthTable
 from nxceviri.core.update import (
     Updater,
     app_root,
@@ -387,6 +389,9 @@ class MainWindow(QMainWindow):
         self._rows_version = 0
         self._fit_lists_cache: tuple[int, list[str], list[str], list[str]] | None = None
         self._limits_key: tuple[object, ...] | None = None
+        #: Genişlik ölçümü: (satır sürümü, sığdırma ayarı, tablo, ölçüm) ve ölçüm tablosu (ayar metni, tablo).
+        self._width_cache: tuple[int, FitConfig, WidthTable, WidthMeasure] | None = None
+        self._width_table_cache: tuple[str, WidthTable] | None = None
         self._live_context: LiveContext | None = None
         #: Açık Yazım Denetimi penceresi için satır başına bilinmeyen sözcükler (yalnızca değişen satırlar taranır).
         self._spell_cache = UnknownWordCache()
@@ -1141,6 +1146,12 @@ class MainWindow(QMainWindow):
 
     def _fit_config(self) -> FitConfig:
         return self.checks._fit_config()
+
+    def _width_table(self) -> WidthTable:
+        return self.checks._width_table()
+
+    def _width_measure(self) -> WidthMeasure | None:
+        return self.checks._width_measure()
 
     def _save_fit(self) -> None:
         return self.checks._save_fit()

@@ -5,8 +5,9 @@ durumunu (proje, sayfalar, iş) her çağrıda pencereden okur ve pencerede yön
 pencere üzerinden çağırır (`self._win.<ad>`): testler pencerenin yöntemlerini değiştirerek çalışır,
 bağlı yöntem önceden saklanırsa değiştirilen yol sınanmaz. Sinyal bağlantıları ve kısayollar pencerede kalır.
 Sığdırma ve anlık denetimin önbellek durumu (`_rows_version`, `_fit_lists_cache`, `_limits_key`, `_live_context`,
-`_live_kinds`) ve `_fit_recheck_timer` pencerede kalır. Tabloyu projeden yenileyen `_reload_rows` tarama, makine ve
-dış redaksiyon denetleyicilerinin de kullandığı genel pencere yapıştırıcısı olduğundan pencerede kalır.
+`_live_kinds`, `_width_cache`, `_width_table_cache`) ve `_fit_recheck_timer` pencerede kalır. Tabloyu projeden
+yenileyen `_reload_rows` tarama, makine ve dış redaksiyon denetleyicilerinin de kullandığı genel pencere
+yapıştırıcısı olduğundan pencerede kalır.
 """
 
 from __future__ import annotations
@@ -42,7 +43,9 @@ from nxceviri.core.translate.fitconfig import (
     save_config,
     separate_groups,
 )
+from nxceviri.core.translate.fitwidth import SETTING_WIDTHS, WidthMeasure, box_shape, build_measure, load_table
 from nxceviri.core.translate.status import Status
+from nxceviri.core.translate.widths import WidthTable
 from nxceviri.gui.jobs import new_job_id
 from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_INFO, LEVEL_SUCCESS, LEVEL_WARNING, NoticeAction
 from nxceviri.gui.settings_dialog import KEY_SPELL_COPIED
@@ -88,6 +91,7 @@ class ChecksController:
         missing, transliterated = self._win._missing_letters(), self._win._transliterate_letters()
         glossary, fit, spell = self._win.project.glossary(), self._win._fit_config(), self._win.spell
         ignored_terms, spell_ignored = self._win._terms_ignored(), self._win._spell_ignored()
+        widths = self._win._width_measure()
 
         def job(progress: ProgressCallback | None = None) -> list[QaIssue]:
             return run_qa_checks(
@@ -100,6 +104,7 @@ class ChecksController:
                 ignored_terms=ignored_terms,
                 spell_ignored=spell_ignored,
                 progress=progress,
+                widths=widths,
             )
 
         return job
@@ -281,6 +286,7 @@ class ChecksController:
             self._win._fit_config(),
         )
         spell, spell_ignored = self._win.spell, self._win._spell_ignored()
+        widths = self._win._width_measure()
         kept = (
             [i for i in self._win.qa_page.all_issues() if i.kind == "term" and i.row_id in group_ids]
             if keep_terms
@@ -298,6 +304,7 @@ class ChecksController:
                 ignored_terms=ignored_terms,
                 spell_ignored=spell_ignored,
                 terms={} if keep_terms else project_terms(all_rows, glossary, ignored_terms),
+                widths=widths,
             )
             by_row: dict[int, list[QaIssue]] = {}
             for issue in [*issues, *kept]:
@@ -595,12 +602,50 @@ class ChecksController:
         win.qa_page.set_mode(mode, win._missing_letters(), win._font_patch_on())
         config = win._fit_config()
         win.qa_page.set_fit(config, *win._fit_lists())
+        win.qa_page.set_width_font(win._width_table())
         win._refresh_limits()
         win._sync_live()
 
     def _rows_replaced(self) -> None:
-        """Çeviri satırları yeniden kuruldu: satırlara bağlı önbellekler geçersiz."""
+        """Çeviri satırları yeniden kuruldu: satırlara bağlı önbellekler geçersiz.
+
+        Genişlik denetimi açıksa kutular yeni orijinallerden hesaplanıp anlık denetime verilir."""
         self._win._rows_version += 1
+        if self._win._fit_config().has_width_rules:
+            self._win._sync_live()
+
+    def _width_table(self) -> WidthTable:
+        """Genişlik ölçümünün tablosu: fontlar tarandıysa oyunun fontu, yoksa yaklaşık tablo (ayar metnine bağlı)."""
+        win = self._win
+        text = win.project.setting(SETTING_WIDTHS)
+        cached = win._width_table_cache
+        if cached is None or cached[0] != text:
+            cached = (text, load_table(text))
+            win._width_table_cache = cached
+        return cached[1]
+
+    def _width_measure(self) -> WidthMeasure | None:
+        """Fontla genişlik ölçümü (kapsam kutuları tüm satırlardan); hiçbir kapsamda açık değilse `None`.
+
+        Kutular yalnızca orijinallere bağlıdır: satırlar yeniden kurulana, ayar ya da tablo değişene dek aynı nesne
+        döner (anlık denetim bağlamı kimlikle karşılaştırılır, önbelleği boşalmaz). Yalnızca pay değiştiyse kutular
+        yeniden ölçülmez."""
+        win = self._win
+        config = win._fit_config()
+        if not config.has_width_rules:
+            return None
+        table = win._width_table()
+        cached = win._width_cache
+        if cached is not None and cached[0] == win._rows_version and cached[2] is table:
+            if cached[1] == config:
+                return cached[3]
+            if box_shape(cached[1]) == box_shape(config):
+                measure = WidthMeasure(config, table, cached[3].boxes)
+                win._width_cache = (win._rows_version, config, table, measure)
+                return measure
+        measure = build_measure(win.translate_page.model.rows, config, table)
+        win._width_cache = (win._rows_version, config, table, measure)
+        return measure
 
     def _fit_lists(self) -> tuple[list[str], list[str], list[str]]:
         """Sığdırma sekmesinin dosya, kod etiketi ve grup listeleri (satırlar değişmedikçe önbellekten)."""
@@ -665,6 +710,7 @@ class ChecksController:
             spell=win.spell,
             kinds=win._live_kinds,
             spell_ignored=frozenset(turkish_lower(w) for w in win._spell_ignored()),
+            widths=win._width_measure(),
         )
         if not force and context == win._live_context:
             return
