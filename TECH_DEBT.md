@@ -198,7 +198,8 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
 50. **Üretilen harflerin görünümü yaklaşıktır.** Fontta `ă Ă ˘ ŭ Ŭ ŏ Ŏ` yoksa "ğ"/"Ğ"deki kısa çizgi fontun
     kendi çizimi değildir (noktaların ölçüsünden çizilir; bilgi dosyasında "çizildi"); el yazısı veya süslü fontlarda
     biçim farkı görülebilir. Kutulu
-    "etiket" fontlarında İ, ğ, Ğ üretilemez (raporlanır).
+    "etiket" fontlarında işaret fontun kendi harflerinden alınamaz: İ'nin noktası çizilir, ğ, Ğ çoğu zaman
+    üretilemez (raporlanır).
 
 51. **Yamalanan font bundle'ları büyür** (atlas verisi bundle'a gömülür, büyütülen atlas iki kat):
     Bir Unity oyununda `fonts_assets_all.bundle` 4,2 MB → 8,1 MB.

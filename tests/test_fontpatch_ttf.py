@@ -13,6 +13,7 @@ from fontTools.pens.t2CharStringPen import T2CharStringPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont, newTable
 from fontTools.ttLib.tables._k_e_r_n import KernTable_format_0
+from fontTools.ttLib.tables.DefaultTable import DefaultTable
 
 from nxceviri.core.fontpatch import sources, ttf
 
@@ -458,6 +459,29 @@ def test_cjk_fonts_are_language_specific_and_silently_skipped(is_glyf: bool) -> 
     assert not ttf.is_cjk_chars(range(0x20, 0x250))
     assert ttf.plan(out.getvalue()) == ("", {})
     assert ttf.patch_font(out.getvalue()).data == out.getvalue()
+
+
+def test_unreadable_gpos_does_not_stop_the_patch(is_glyf: bool) -> None:
+    font = TTFont(io.BytesIO(make_font(is_glyf)))
+    junk = DefaultTable("GPOS")
+    junk.data = b"\x00\x01\x00\x00" + b"\xff" * 16  # fontTools'un çözemeyeceği GPOS
+    font["GPOS"] = junk
+    out = io.BytesIO()
+    font.save(out)
+    result = ttf.patch_font(out.getvalue())
+    assert result.added == ttf.PATCHABLE
+    assert any(note.startswith("kerning aktarılamadı") for note in result.notes)
+    assert TTFont(io.BytesIO(result.data)).reader["GPOS"] == junk.data  # GPOS'a dokunulmadı
+
+
+def test_kerning_error_of_any_kind_falls_back_to_no_kerning(monkeypatch: pytest.MonkeyPatch) -> None:
+    def failing(font: TTFont, bases: dict[str, str]) -> list[str]:
+        raise RuntimeError("beklenmeyen")
+
+    monkeypatch.setattr("nxceviri.core.fontpatch.kerning.inherit", failing)
+    result = ttf.patch_font(make_font(features="feature kern { pos s x -40; } kern;"))
+    assert result.added == ttf.PATCHABLE
+    assert any("RuntimeError" in note for note in result.notes)
 
 
 def test_kerning_that_does_not_compile_falls_back_to_no_kerning(monkeypatch: pytest.MonkeyPatch) -> None:

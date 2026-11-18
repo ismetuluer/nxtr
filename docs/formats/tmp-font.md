@@ -49,8 +49,9 @@ kalır; `m_AtlasHeight`, `m_CreationSettings.atlasHeight` ve atlası kullanan ma
 
 - Dinamik fontlar, gerçekten birden çok atlaslı fontlar, atlası başka dosyada veya başka fontla ortak olanlar.
 - Dile özgü bundle'lar (`fonts-japanese…`) ve dile özgü adlı fontlar.
-- Kaynak harfi olmayan fontlar (ör. yalnızca rakam içeren saat fontu) veya yapısı beklenmedik olanlar
-  (ör. harflerin kutu içinde olduğu "etiket" fontu).
+- Taban harfi (I, i, s, S, g, G) olmayan fontlar (ör. yalnızca rakam içeren saat fontu); ğ/Ğ için kavis
+  kaynağı da ü/Ü de olmayan fontlar; yapısı beklenmedik olanlar (ör. harflerin kutu içinde olduğu "etiket"
+  fontunda ğ, Ğ). Nokta ve çengel kaynağı olmayan fontlarda bu işaretler artık çizilir ("çizildi").
 - Tip ağacı silinmiş dosyalardaki fontlar (bir I2 oyununun `resources.assets` dosyası) — okunamaz.
 
 ## Vektör fontlar (TTF/OTF): `core/fontpatch/ttf.py`

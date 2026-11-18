@@ -533,21 +533,35 @@ def _patch(data: bytes, letters: str, allow_cjk: bool, *, kerning: bool) -> Font
             notes.append(note)
     if not added:
         return FontPatchResult(data, "", skipped)
-    if kerning:
-        notes += kerning_tables.inherit(font, inherited)
-    for tag in _DROPPED_TABLES:
-        if tag in font:
-            del font[tag]
     out = io.BytesIO()
+    # fontTools'un okuma/derleme hataları tek türde değildir (struct.error, KeyError, taşma…): kerning adımında ya da
+    # kerning'li fontu yazıp yeniden okurken çıkan her hata, yamayı özgün baytlardan kerning'siz yeniden yaptırır.
     try:
+        if kerning:
+            notes += kerning_tables.inherit(font, inherited)
+        for tag in _DROPPED_TABLES:
+            if tag in font:
+                del font[tag]
         font.save(out)
-    except Exception as exc:  # fontTools derleme hataları tek türde değildir; kerning'siz yeniden denenir
+        if kerning:
+            _reopen_kerning(out.getvalue())
+    except Exception as exc:
         if not kerning:
             raise
         raise _KerningCompileError(type(exc).__name__) from exc
     result_bytes = out.getvalue()
     _verify(result_bytes, added)
     return FontPatchResult(result_bytes, added, skipped, found, tuple(dict.fromkeys(notes)))
+
+
+def _reopen_kerning(data: bytes) -> None:
+    """Yazılan fontun kerning tabloları baştan sona yeniden çözülür (bozuksa fontTools hata yükseltir)."""
+    font = TTFont(io.BytesIO(data))
+    for tag in ("kern", "GPOS"):
+        if tag in font:
+            table = font[tag]
+            if hasattr(table, "ensureDecompiled"):
+                table.ensureDecompiled(recurse=True)
 
 
 def _verify(data: bytes, added: str) -> None:

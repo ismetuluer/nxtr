@@ -18,8 +18,9 @@ konumlandırılır. Kullanılan kaynak `FontPatchResult.sources`'ta harf başın
 Yeni glifler atlastaki boş alana (MaxRects serbest dikdörtgenleri) yerleştirilir; yer yetmezse
 atlas yukarı doğru iki katına çıkarılır (sol-alt başlangıçlı koordinatlar değişmediği için var olan
 glifler yerinde kalır; `m_AtlasHeight` ve malzemenin `_TextureHeight` değeri güncellenir). Glif ve
-karakter tabloları ile kullanılan/boş dikdörtgen listeleri güncellenir. Kaynak glif (donör)
-yoksa o harf eklenmez ve raporda belirtilir; uygulama sahte veri üretmez.
+karakter tabloları ile kullanılan/boş dikdörtgen listeleri güncellenir. Taban harf (I, i, s, S,
+g, G) yoksa, ya da kavis kaynağı da çizilecek breve için ü/Ü de yoksa o harf eklenmez ve raporda
+belirtilir. Nokta ve çengel için fontta hiçbir kaynak yoksa işaret çizilir ("çizildi" etiketiyle).
 
 Koordinatlar: TMP glif dikdörtgenleri atlasın **sol altından** ölçülür; glif metrikleri piksel
 birimindedir (atlas `m_FaceInfo.m_PointSize` ile örneklenmiştir). Kullanılan dikdörtgen, glifin

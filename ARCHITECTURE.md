@@ -1415,7 +1415,8 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     `kern` biçim 0 çiftleri kopyalanır (16 bit sınırı aşılırsa not), GPOS PairPos biçim 1'de PairSet/kayıt kopyası,
     biçim 2'de ClassDef1/ClassDef2 sınıfı ve Coverage; Extension (tür 9) açılır. Yeni gliflerin numarası en büyük
     olduğundan listelerin sonuna numara sırasıyla eklemek sıralamayı korur. Tanınmayan yapı değiştirilmeden atlanır ve
-    not düşülür; kerning'li font derlenemezse yama özgün baytlardan kerning'siz yeniden yapılır (not: "kerning
+    not düşülür; kerning adımı (okunamayan GPOS dahil), derleme ya da yeniden okuma hata verirse yama özgün baytlardan
+    kerning'siz yeniden yapılır (not: "kerning
     aktarılamadı"). **Üst sınır:** İ/Ğ'nin işareti `hhea.ascent`'i ya da (sıfır değilse) OS/2 `usWinAscent`'i
     aşarsa "işaret fontun üst sınırını aşıyor; oyunda kesilebilir" notu düşülür; metrikler sessizce değiştirilmez
     (satır aralığı oyunun düzenini kaydırabilir; karar kullanıcının cihaz denemesine kalır).
