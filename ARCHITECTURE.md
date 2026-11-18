@@ -104,6 +104,7 @@ nxceviri/
       status.py            # satır durumları (çevrilmedi/makine/onaylandı/hatalı)
       codekinds.py         # kontrol kodu türleri (satır sonu, sayfa sonu, değişken, sembol, biçim, diğer): kodun yer/uzunluk etkisi
       fit.py               # saf sığdırma: sayfa/satır ayrıştırma, sorun bulma, noktalama→kelime bitimi bölme (Qt'siz, projesiz)
+      widths.py            # piksel genişliği: font tablosu (TTF/TMP/BMFont) ya da yaklaşık tablo, orijinale göre bağıl genişlik denetimi (Qt'siz)
       fitconfig.py         # sınırlar + seçenekler + kod türlerinin `settings` tablosundan okunması/yazılması, orijinalden öğrenme
       providers/base.py    # TranslationProvider sözleşmesi, ProviderError
       providers/ollama.py  # Ollama (yerel) sağlayıcısı
