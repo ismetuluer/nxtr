@@ -43,9 +43,10 @@ Her madde: ne eksik, neden bırakıldı, kullanıcıya etkisi, ne zaman ele alı
     Beşinci adım: yazım denetimi penceresi `gui/spell_controller.py`'ye taşındı; pencere 3.107 satır.
     Altıncı adım: terimler ve terim önerileri `gui/terms_controller.py`'ye taşındı; pencere 2.970 satır.
     Yedinci adım: font ve görseller `gui/fonts_controller.py`'ye taşındı; pencere 2.780 satır.
+    Sekizinci adım: dış redaksiyon/çeviri içe-dışa aktarma ve hazır çeviri `gui/exchange_controller.py`'ye taşındı;
+    pencere 2.493 satır.
     Kalan: son işin değişiklikleri ve satır geçmişi (`show_job_changes`, `_revert`; testler `ChangesDialog`'u
-    pencere modülünde değiştirir) ve dış redaksiyon
-    içe/dışa aktarma (`CsvExportDialog` pencere modülünde değiştirilir)
+    pencere modülünde değiştirir)
     hâlâ pencere sınıfında. Aynı düzenle (karar 221: yönlendirme + pencere üzerinden çağrı, pencere modülünde
     değiştirilen adlar gecikmeli içe aktarılan pencere modülünden) adım adım taşınmalı.
     *Ne zaman:* bu bölümlerden birine büyük bir özellik eklenirken o bölüm ayrı bir denetleyiciye taşınır.

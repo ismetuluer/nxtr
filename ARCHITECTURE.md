@@ -126,6 +126,7 @@ nxceviri/
     spell_controller.py    # yazım denetimi: pencere, sözcük değiştirme, kullanıcı sözlüğü (karar 221)
     terms_controller.py    # terimler: Terminoloji penceresi, satırlardan terim ekleme, Ollama ile terim önerisi (karar 221)
     fonts_controller.py    # font ve görseller: font taraması/yaması, düzenli font içe alma, oyun resimlerini çıkarma (karar 221)
+    exchange_controller.py # dış redaksiyon/çeviri TXT-XLSX-CSV dışa/içe aktarma, hazır çeviri içe aktarma (karar 221)
     icons.py + icons/*.svg # Lucide simgeleri; temaya uyan QIcon, bind_icon/refresh_icons
     appicon/               # uygulama simgesi: nxtr.svg + nxtr-kucuk.svg (kaynak) → .ico/.png (packaging/make_icon.py)
     step_nav.py            # simgeli kenar çubuğu (StepNav) ve proje başlığı
@@ -1134,6 +1135,9 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     (resimleri çıkarma, klasörü açma) `gui/fonts_controller.py` `FontsController`'da (`self.fonts`); `font_report`
     durumu pencerede kalır, `opened_view`, `check_sources` ve `member_reader` gecikmeli içe aktarılan pencere
     modülünden okunur (`_mw.<ad>`; `main_window` `__all__` ile yeniden verir), `_graphics` pencerede yönlendirme kalır.
+    Sekizinci adım: dış redaksiyon / dış çeviri dışa-içe aktarma ve hazır çeviriyi içe aktarma
+    `gui/exchange_controller.py` `ExchangeController`'da (`self.exchange`); testlerin pencere modülünde değiştirdiği
+    `CsvExportDialog` ve `ChangesDialog` çağrı anında `_mw.<ad>` ile okunur.
 
 ### 4.55 2026-11-17 kararları (çeviri kaynağı, Sorunlar panosu)
 

@@ -78,16 +78,6 @@ from nxceviri.core.spell.report import UnknownWordCache, replace_unknown
 from nxceviri.core.spell.suggest import Suggestion
 from nxceviri.core.spell.userdict import UserDictionary, default_user_dictionary_path
 from nxceviri.core.translate.codekinds import suspected_line_breaks
-from nxceviri.core.translate.csvio import (
-    CsvError,
-    export_translation_txt,
-    export_translation_xlsx,
-    export_txt,
-    export_xlsx,
-    plan_import,
-    prepare_correction,
-    read_revision_file,
-)
 from nxceviri.core.translate.fitconfig import (
     EACH_GROUP,
     GROUP_PREFIX,
@@ -98,8 +88,7 @@ from nxceviri.core.translate.fitconfig import (
     save_config,
     separate_groups,
 )
-from nxceviri.core.translate.origin import NO_ORIGIN, MachineOrigin
-from nxceviri.core.translate.port import ReadyTranslations, port_translations, read_ready_translations
+from nxceviri.core.translate.origin import MachineOrigin
 from nxceviri.core.translate.probe import deepl_summary, ollama_summary
 from nxceviri.core.translate.providers.base import ProviderError, TranslationProvider
 from nxceviri.core.translate.providers.deepl import DeepLProvider
@@ -122,7 +111,8 @@ from nxceviri.gui import motion
 from nxceviri.gui.add_game_page import AddGamePage
 from nxceviri.gui.changes_dialog import ChangesDialog
 from nxceviri.gui.checks_controller import ChecksController
-from nxceviri.gui.csv_dialog import FORMAT_TXT, MODE_REDACTION, MODE_TRANSLATION, CsvExportDialog
+from nxceviri.gui.csv_dialog import CsvExportDialog
+from nxceviri.gui.exchange_controller import ExchangeController
 from nxceviri.gui.export_controller import ExportController
 from nxceviri.gui.export_page import ExportPage
 from nxceviri.gui.fonts_controller import FontsController
@@ -203,7 +193,8 @@ from nxceviri.gui.widgets import button, format_int, format_size, tip_html
 #: Modülün dışa verdiği adlar; adım sabitleri `step_nav`'da, talimat anahtarları `machine_controller`'da tanımlıdır,
 #: buradan da alınabilsinler diye yeniden verilir. `implicit_terms`'i makine denetleyicisi bu modülden okur (testler
 #: onu burada değiştirir); `UpdateDialog`'u güncelleme, `replace_unknown`'u yazım denetimi denetleyicisi okur;
-#: `opened_view`, `check_sources` ve `member_reader`'ı font ve görseller denetleyicisi okur.
+#: `opened_view`, `check_sources` ve `member_reader`'ı font ve görseller denetleyicisi, `CsvExportDialog` ile
+#: `ChangesDialog`'u dış redaksiyon denetleyicisi okur.
 __all__ = [
     "MANUAL_LIMIT_KEY",
     "MASCOT_SLEEP_S",
@@ -214,6 +205,8 @@ __all__ = [
     "STEP_SCAN",
     "STEP_TRANSLATE",
     "TRANSLATE_INSTRUCTION_KEY",
+    "ChangesDialog",
+    "CsvExportDialog",
     "MainWindow",
     "UpdateDialog",
     "ask_full_folder",
@@ -381,6 +374,7 @@ class MainWindow(QMainWindow):
         self.spelling = SpellController(self)
         self.terms = TermsController(self)
         self.fonts = FontsController(self)
+        self.exchange = ExchangeController(self)
         #: Makine işleri (çevir, yeniden çevir, talimatla düzelt); durum pencerede kalır.
         self.machine = MachineController(self)
         #: Çeviri satırları her yeniden kurulduğunda artar; satırlara bağlı ağır hesapların önbelleği buna bağlıdır.
@@ -1909,74 +1903,7 @@ class MainWindow(QMainWindow):
     # --- hazır çeviriyi içe aktarma -----------------------------------------------------------
 
     def import_ready_translation(self) -> None:
-        """Oyunun hazır bir Türkçe yamasındaki (Unity metin tabloları) çevirileri projeye aktarır."""
-        if self.busy:
-            return
-        if not self.project.translation_rows():
-            self.notify(
-                LEVEL_INFO,
-                "Hazır çeviriyi içe aktar",
-                "Önce “Metinleri Tara” adımından metinleri çeviri tablosuna aktarın.",
-            )
-            return
-        start = str(self.settings.value("import/dir", str(Path.home())))
-        folder = QFileDialog.getExistingDirectory(self, "Çeviri yamasının klasörünü seçin", start)
-        if not folder:
-            return
-        self.settings.setValue("import/dir", folder)
-        root = Path(folder)
-
-        def confirm(result: object) -> None:
-            assert isinstance(result, ReadyTranslations)
-            self.statusBar().showMessage("Hazır", 2000)
-            plan = port_translations(self.project, result, apply=False)
-            lines = [
-                f"Yamada {format_int(plan.found)} metin var; {format_int(plan.matched)} tanesi bu projeyle eşleşti.",
-                f"Yazılacak: {format_int(plan.applied)} satır (zaten aynı olan {format_int(plan.unchanged)}).",
-                f"Onayladığınız veya redakte ettiğiniz {format_int(plan.protected)} satıra dokunulmaz.",
-            ]
-            if plan.source_changed:
-                lines.append(
-                    f"{format_int(plan.source_changed)} satırın özgün metni oyunun bu sürümünde yamadan farklı; "
-                    "bunlara dokunulmaz, çevrilmeleri gerekir."
-                )
-            if plan.code_problems:
-                lines.append(
-                    f"{format_int(len(plan.code_problems))} satırın kontrol kodları uyuşmuyor; bunlar yazılmaz "
-                    "ve mevcut çevirileri korunur."
-                )
-            lines.append("\nÇeviriler “Makine” durumuyla yazılır; gözden geçirebilirsiniz. Devam edilsin mi?")
-            if plan.applied == 0:
-                self.notify(
-                    LEVEL_INFO, "Hazır çeviriyi içe aktar", "Yazılacak yeni bir çeviri yok.\n\n" + "\n".join(lines[:3])
-                )
-                return
-            answer = QMessageBox.question(self, "Hazır çeviriyi içe aktar", "\n".join(lines))
-            if answer != QMessageBox.StandardButton.Yes:
-                return
-            try:
-                report = port_translations(self.project, result)
-            except NxError as exc:
-                self.notify(LEVEL_ERROR, "Hazır çeviriyi içe aktar", exc.user_text())
-                return
-            self._mark_changed()
-            self._reload_rows()
-            text = f"{format_int(report.applied)} satır hazır çeviriden aktarıldı."
-            if report.code_problems:
-                text += f" {format_int(len(report.code_problems))} satır kontrol kodları uyuşmadığı için atlandı."
-            self.nav.setCurrentRow(STEP_TRANSLATE)
-            self.translate_page.show_notice("success", text)
-
-        def failed(text: str) -> None:
-            self.notify(LEVEL_ERROR, "Hazır çeviriyi içe aktar", text)
-
-        self._run(
-            lambda ctx: read_ready_translations(root, ctx),
-            "Hazır çeviri okunuyor",
-            on_success=confirm,
-            on_failure=failed,
-            on_progress=lambda _d, _t, message: self.statusBar().showMessage(message),
-        )
+        return self.exchange.import_ready_translation()
 
     # --- çeviri tablosu ---------------------------------------------------------------------
 
@@ -2405,236 +2332,22 @@ class MainWindow(QMainWindow):
     # --- dış dosya: dışa / içe aktarma (redaksiyon ve çeviri) ------------------------------------
 
     def export_csv(self) -> None:
-        """Çevirileri dış redaksiyon için TXT/XLSX olarak dışa aktarır."""
-        self._export_external(translation=False)
+        return self.exchange.export_csv()
 
     def export_translation(self) -> None:
-        """Çevirileri dış çeviri (çevirmen/model) için TXT/XLSX olarak dışa aktarır."""
-        self._export_external(translation=True)
+        return self.exchange.export_translation()
 
     def _export_external(self, *, translation: bool) -> None:
-        page = self.translate_page
-        if self.busy or not self._to_translate_step():
-            return
-        dialog = CsvExportDialog(
-            self,
-            selected=page.selected_rows(),
-            visible=page.filtered_rows(),
-            all_rows=page.model.rows,
-            instruction=self.project.setting(REVISE_INSTRUCTION_KEY),
-            mode=MODE_TRANSLATION if translation else MODE_REDACTION,
-        )
-        if dialog.exec() != CsvExportDialog.DialogCode.Accepted or not dialog.rows():
-            return
-        txt = dialog.format() == FORMAT_TXT
-        suffix = ".txt" if txt else ".xlsx"
-        name = self.project.path.stem if self.project.path else "ceviriler"
-        if translation:
-            name += "_ceviri"
-        start = Path(str(self.settings.value("csv/dir", str(Path.home())))) / f"{name}{suffix}"
-        filters = (
-            "Metin dosyaları (*.txt);;Excel dosyaları (*.xlsx);;Tüm dosyalar (*)"
-            if txt
-            else "Excel dosyaları (*.xlsx);;Metin dosyaları (*.txt);;Tüm dosyalar (*)"
-        )
-        title = "Dış çeviri dosyasını kaydet" if translation else "Dış redaksiyon dosyasını kaydet"
-        target, _ = QFileDialog.getSaveFileName(self, title, str(start), filters)
-        if not target:
-            return
-        path = Path(target)
-        if path.suffix.lower() != suffix:
-            path = path.with_name(path.name + suffix)
-        self.settings.setValue("csv/dir", str(path.parent))
-        try:
-            if translation:
-                export = export_translation_txt if txt else export_translation_xlsx
-            else:
-                export = export_txt if txt else export_xlsx
-            paths = export(dialog.rows(), path, dialog.part_rows(), by_group=dialog.by_group())
-        except CsvError as exc:
-            page.show_notice("danger", exc.user_text())
-            return
-        QGuiApplication.clipboard().setText(dialog.prompt.toPlainText())
-        files = paths[0].name if len(paths) == 1 else f"{format_int(len(paths))} dosya ({paths[0].name} …)"
-        if translation:
-            shown = "TXT" if txt else "XLSX"
-            page.show_notice(
-                "success",
-                f"{format_int(len(dialog.rows()))} satır {shown} çeviri dosyasına yazıldı: {files}. Çeviri talimatı "
-                "panoya kopyalandı. Çevrilen dosyaları Araçlar → “Dış Çeviriden İçe Aktar” ile geri yükleyin.",
-            )
-        else:
-            page.show_notice(
-                "success",
-                f"{format_int(len(dialog.rows()))} satır yazıldı: {files}. Model için hazır talimat panoya kopyalandı. "
-                "Redakte edilen dosyaları Araçlar → “Dış Redaksiyondan İçe Aktar” ile geri yükleyin.",
-            )
+        return self.exchange._export_external(translation=translation)
 
     def import_csv(self) -> None:
-        """Redakte edilmiş dış TXT/XLSX/CSV dosyalarını projeye aktarır."""
-        self._import_external(translation=False)
+        return self.exchange.import_csv()
 
     def import_translation(self) -> None:
-        """Dış çeviri dosyalarındaki yeni çevirileri projeye aktarır."""
-        self._import_external(translation=True)
+        return self.exchange.import_translation()
 
     def _import_external(self, *, translation: bool) -> None:
-        page = self.translate_page
-        if self.busy:
-            return
-        title = "Dış çeviriden içe aktar" if translation else "Dış redaksiyondan içe aktar"
-        column = "yeni çeviri" if translation else "düzeltme"
-        status_name = "Makine" if translation else "Redakte"
-        job_kind = "translation" if translation else "csv"
-        if not page.model.rows:
-            self.notify(LEVEL_INFO, title, "Önce “Metinleri Tara” adımından metinleri çeviri tablosuna aktarın.")
-            return
-        start = str(self.settings.value("csv/dir", str(Path.home())))
-        pick_title = (
-            "Çevrilmiş TXT, XLSX veya CSV dosyalarını seçin"
-            if translation
-            else "Redakte edilmiş TXT, XLSX veya CSV dosyalarını seçin"
-        )
-        targets, _ = QFileDialog.getOpenFileNames(
-            self,
-            pick_title,
-            start,
-            "TXT/XLSX/CSV dosyaları (*.txt *.xlsx *.csv);;Metin dosyaları (*.txt);;"
-            "Excel dosyaları (*.xlsx);;CSV dosyaları (*.csv);;Tüm dosyalar (*)",
-        )
-        if not targets:
-            return
-        self.settings.setValue("csv/dir", str(Path(targets[0]).parent))
-        try:
-            csv_rows = [r for t in targets for r in read_revision_file(Path(t))]
-        except CsvError as exc:
-            self.notify(LEVEL_ERROR, title, exc.user_text())
-            return
-        rows = self.project.translation_rows()
-        plan = plan_import(rows, csv_rows)
-        labels = {r.id: r.context or r.key for r in rows}
-        lines = [f"Dosyalarda {format_int(plan.found)} satır var."]
-        if plan.no_correction:
-            lines.append(
-                f"{column.capitalize()} sütunu boş: {format_int(plan.no_correction)} satırın çevirisi değişmeyecek."
-            )
-        lines.append(
-            f"Değişecek: {format_int(len(plan.changes))} satır (zaten aynı olan {format_int(plan.unchanged)})."
-        )
-        if plan.approved:
-            lines.append(f"Değişenlerin {format_int(plan.approved)} tanesi onaylıydı; durumları “{status_name}” olur.")
-        if plan.cleaned:
-            lines.append(
-                f"{format_int(plan.cleaned)} satırdaki fazla etiket veya bozuk kod yazımı programca düzeltildi."
-            )
-        skipped = []
-        if plan.code_problems:
-            skipped.append(f"{format_int(len(plan.code_problems))} satırın kontrol kodları uymuyor")
-        if plan.source_mismatch:
-            skipped.append(f"{format_int(len(plan.source_mismatch))} satırın orijinal metni projedekinden farklı")
-        if plan.unknown:
-            skipped.append(f"{format_int(plan.unknown)} satırın kimliği bu projede yok")
-        if plan.unmatched:
-            skipped.append(f"{format_int(plan.unmatched)} satır projedeki bir satırla eşleşmedi")
-        if plan.empty:
-            skipped.append(f"{format_int(plan.empty)} satırın çevirisi boş")
-        if skipped:
-            lines.append("Yazılmayacak: " + "; ".join(skipped) + ". Bu satırların mevcut çevirileri korunur.")
-        for entry_id, problem in plan.code_problems[:5]:
-            lines.append(f"  • {labels.get(entry_id, entry_id)}: {problem}")
-        if len(plan.code_problems) > 5:
-            lines.append(f"  … ve {format_int(len(plan.code_problems) - 5)} satır daha.")
-        if plan.unknown and plan.unknown == plan.found:
-            lines.append("\nDosya başka bir projeden dışa aktarılmış olabilir.")
-        if plan.unmatched and plan.unmatched == plan.found:
-            lines.append(
-                "\nDosya başka bir projeden dışa aktarılmış veya orijinal/çeviri metinleri değiştirilmiş olabilir."
-            )
-        if not plan.changes:
-            self.notify(LEVEL_INFO, title, "Yazılacak bir değişiklik yok.\n\n" + "\n".join(lines))
-            return
-        lines.append(
-            f"Değişiklikler “{status_name}” durumuyla yazılır; “Son İşin Değişiklikleri” veya Geri Al ile geri "
-            "alabilirsiniz."
-        )
-        changed = dict(plan.changes)
-        preview = [
-            Change(
-                row.id,
-                labels.get(row.id, row.key),
-                row.source,
-                row.translation,
-                row.status,
-                row.note,
-                changed[row.id],
-                job_kind,
-                "",
-            )
-            for row in rows
-            if row.id in changed
-        ]
-        dialog = ChangesDialog(
-            self,
-            title,
-            preview,
-            preview=True,
-            summary=lines,
-            free_codes={r.id: r.free_codes for r in rows if r.id in changed},
-        )
-        if dialog.exec() != ChangesDialog.DialogCode.Accepted:
-            return
-        accepted = dialog.accepted_changes()
-        by_id = {r.id: r for r in rows}
-        planned = dict(plan.changes)
-        applied: list[tuple[int, str]] = []
-        edit_problems: list[str] = []
-        for change in accepted:
-            row = by_id.get(change.entry_id)
-            if row is None:
-                continue
-            final: str
-            issues: list[str]
-            if change.new_text == planned.get(row.id):
-                final, issues = change.new_text, []  # plan zaten onardı ve denetledi
-            else:
-                final, issues = prepare_correction(row, change.new_text)
-            if issues:
-                edit_problems.append(f"• {change.label}: {' '.join(issues)}")
-                continue
-            if final == row.translation:
-                continue  # kullanıcı düzeltmeyi eski metne çevirdi: yazacak bir şey yok
-            applied.append((row.id, final))
-        if not applied:
-            note = "Hiçbir satır yazılmadı: seçilen düzeltmeler değişiklik bırakmadı."
-            if edit_problems:
-                note += "\n\n" + "\n".join(edit_problems[:8])
-            self.notify(LEVEL_INFO, title, note)
-            return
-        job_id = new_job_id(job_kind)
-        try:
-            updated = self.project.set_translations(
-                applied,
-                status=None if translation else Status.REDACTED,
-                machine=translation,
-                overwrite_approved=True,
-                job=job_id,
-                # Dış çeviri metni baştan değiştirir (makine kaynağı artık bilinmez); redaksiyon taslağı düzeltir.
-                origin=NO_ORIGIN if translation else None,
-            )
-        except NxError as exc:
-            self.notify(LEVEL_ERROR, title, exc.user_text())
-            return
-        page.model.update_rows(updated)
-        self._mark_changed()
-        self._refresh_marks()
-        count = self._set_last_job(job_id)
-        self._to_translate_step()
-        source_word = "dış çeviriden" if translation else "dış redaksiyondan"
-        text = f"{format_int(count)} satırın çevirisi {source_word} güncellendi."
-        skipped_count = len(plan.code_problems) + len(edit_problems)
-        if skipped_count:
-            text += f" {format_int(skipped_count)} satır kontrol kodları uymadığı için yazılmadı."
-        page.show_notice("success" if not skipped_count else "warning", text)
+        return self.exchange._import_external(translation=translation)
 
     def unapprove(self, ids: list[int]) -> None:
         try:
