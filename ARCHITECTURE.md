@@ -125,6 +125,7 @@ nxceviri/
     update_controller.py   # güncelleme: denetim penceresi, paket kurulumu, açılıştaki sessiz denetim (karar 221)
     spell_controller.py    # yazım denetimi: pencere, sözcük değiştirme, kullanıcı sözlüğü (karar 221)
     terms_controller.py    # terimler: Terminoloji penceresi, satırlardan terim ekleme, Ollama ile terim önerisi (karar 221)
+    fonts_controller.py    # font ve görseller: font taraması/yaması, düzenli font içe alma, oyun resimlerini çıkarma (karar 221)
     icons.py + icons/*.svg # Lucide simgeleri; temaya uyan QIcon, bind_icon/refresh_icons
     appicon/               # uygulama simgesi: nxtr.svg + nxtr-kucuk.svg (kaynak) → .ico/.png (packaging/make_icon.py)
     step_nav.py            # simgeli kenar çubuğu (StepNav) ve proje başlığı
@@ -1106,10 +1107,11 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     (`MainWindow._run`, `Task`) pencerede kalır; pencere taşınan bütün eski adları (iç yardımcılar dahil) ince
     yönlendirme ve okuma/yazma property'si (`_qa_count`, `_board_task`…) olarak korur. Taşınan modül adları
     (`run_qa_checks`, `FIX_SYNC_ROWS`, `FIX_RECHECK_ROWS`, `KEPT_ROWS_SHOWN`) artık denetleyici modülündedir; onları
-    değiştiren testler denetleyici modülünü içe aktarır. Testlerin pencere modülünde değiştirdiği `choose_button`,
-    `opened_view`, `MemberReader` orada kalır: dolu klasör sorusu `MainWindow._ask_full_folder` üzerinden,
-    görsel çıkarma pencerede. Dışa aktarma `check_sources`'u kendi modülünden çağırır; pencere modülündeki adı
-    değiştirmek artık yalnızca pencerede kalan yolları (ekleme, görseller, font) etkiler. Adım sabitleri
+    değiştiren testler denetleyici modülünü içe aktarır. Testlerin pencere modülünde değiştirdiği `choose_button`
+    orada kalır: dolu klasör sorusu `MainWindow._ask_full_folder` üzerinden; `opened_view`, `check_sources` ve
+    `member_reader` font ve görseller denetleyicisinde `_mw.<ad>` ile okunur. Dışa aktarma `check_sources`'u kendi
+    modülünden çağırır; pencere modülündeki adı değiştirmek artık yalnızca pencerede kalan yolları (ekleme) ve
+    font/görsel yollarını etkiler. Adım sabitleri
     `gui/step_nav.py`'dedir, `main_window` `__all__` ile yeniden verir.
     Üçüncü adım (aynı düzen): proje yaşam döngüsü (yeni, aç, kaydet, farklı kaydet, son projeler, kurtarma kopyası)
     `gui/project_controller.py` `ProjectController`'da (`self.projects`), makine işleri (çevir / yeniden çevir /
@@ -1128,6 +1130,10 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     `SPELL_SYNC_ROWS` ve `_preview` gecikmeli içe aktarılan pencere modülünden okunur.
     Altıncı adım: terimler (Terminoloji penceresi, satırlardan terim ekleme, terim önerisi) `gui/terms_controller.py`
     `TermsController`'da (`self.terms`); durum pencerede kalır, terim yok sayma Kontrol Et denetleyicisinde kaldı.
+    Yedinci adım: font (tarama, yama ve harf dönüştürme ayarları, düzenli font içe alma/dışa aktarma) ve görseller
+    (resimleri çıkarma, klasörü açma) `gui/fonts_controller.py` `FontsController`'da (`self.fonts`); `font_report`
+    durumu pencerede kalır, `opened_view`, `check_sources` ve `member_reader` gecikmeli içe aktarılan pencere
+    modülünden okunur (`_mw.<ad>`; `main_window` `__all__` ile yeniden verir), `_graphics` pencerede yönlendirme kalır.
 
 ### 4.55 2026-11-17 kararları (çeviri kaynağı, Sorunlar panosu)
 

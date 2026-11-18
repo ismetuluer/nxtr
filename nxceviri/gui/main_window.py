@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import html
-import json
 import logging
 import os
 import time
@@ -33,12 +32,11 @@ from nxceviri.core.errors import NxError
 from nxceviri.core.export.layeredfs import (
     INFO_FILE,
 )
-from nxceviri.core.formats.derived import GraphicsSupport, graphics_status
+from nxceviri.core.formats.derived import GraphicsSupport
 from nxceviri.core.formats.registry import (
     BUILTIN_PLUGINS,
     load_user_plugins,
     member_reader,
-    plugin_for_kind,
     user_plugin_report,
 )
 from nxceviri.core.formats.scanner import ScanReport
@@ -68,8 +66,7 @@ from nxceviri.core.qa.checks import (
     QaIssue,
 )
 from nxceviri.core.qa.fixrun import FixSettings
-from nxceviri.core.qa.fonts import FontReport, looks_like_font
-from nxceviri.core.qa.fonts import scan_fonts as scan_font_files
+from nxceviri.core.qa.fonts import FontReport
 from nxceviri.core.qa.live import SETTING_KEY as LIVE_KINDS_KEY
 from nxceviri.core.qa.live import LiveContext, format_live_kinds, parse_live_kinds
 from nxceviri.core.qa.terms import implicit_terms
@@ -128,6 +125,7 @@ from nxceviri.gui.checks_controller import ChecksController
 from nxceviri.gui.csv_dialog import FORMAT_TXT, MODE_REDACTION, MODE_TRANSLATION, CsvExportDialog
 from nxceviri.gui.export_controller import ExportController
 from nxceviri.gui.export_page import ExportPage
+from nxceviri.gui.fonts_controller import FontsController
 from nxceviri.gui.help_window import STEP_TOPICS, TOPIC_START, HelpWindow
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.jobs import new_job_id
@@ -204,7 +202,8 @@ from nxceviri.gui.widgets import button, format_int, format_size, tip_html
 
 #: Modülün dışa verdiği adlar; adım sabitleri `step_nav`'da, talimat anahtarları `machine_controller`'da tanımlıdır,
 #: buradan da alınabilsinler diye yeniden verilir. `implicit_terms`'i makine denetleyicisi bu modülden okur (testler
-#: onu burada değiştirir); `UpdateDialog`'u güncelleme, `replace_unknown`'u yazım denetimi denetleyicisi okur.
+#: onu burada değiştirir); `UpdateDialog`'u güncelleme, `replace_unknown`'u yazım denetimi denetleyicisi okur;
+#: `opened_view`, `check_sources` ve `member_reader`'ı font ve görseller denetleyicisi okur.
 __all__ = [
     "MANUAL_LIMIT_KEY",
     "MASCOT_SLEEP_S",
@@ -219,9 +218,12 @@ __all__ = [
     "UpdateDialog",
     "ask_full_folder",
     "build_save_box",
+    "check_sources",
     "choose_button",
     "implicit_terms",
     "log_dir",
+    "member_reader",
+    "opened_view",
     "replace_unknown",
 ]
 
@@ -260,9 +262,6 @@ def _preview(text: str) -> str:
     flat = " ".join(text.split())
     return flat if len(flat) <= PREVIEW_CHARS else flat[: PREVIEW_CHARS - 1] + "…"
 
-
-#: Proje ayarı: içe alınmış düzenli fontlar (JSON: RomFS yolu → kullanıcının dosyası).
-FONT_OVERRIDES_KEY = "font_overrides"
 
 #: Arka plan işinin bildirimdeki adı ("<ad> bitti / başarısız / durduruldu"); yoksa işin açıklaması kullanılır.
 _TASK_LABELS = {
@@ -381,6 +380,7 @@ class MainWindow(QMainWindow):
         self.updates = UpdateController(self)
         self.spelling = SpellController(self)
         self.terms = TermsController(self)
+        self.fonts = FontsController(self)
         #: Makine işleri (çevir, yeniden çevir, talimatla düzelt); durum pencerede kalır.
         self.machine = MachineController(self)
         #: Çeviri satırları her yeniden kurulduğunda artar; satırlara bağlı ağır hesapların önbelleği buna bağlıdır.
@@ -1422,135 +1422,40 @@ class MainWindow(QMainWindow):
     # --- kontrol (QA) ----------------------------------------------------------------------
 
     def _font_patch_on(self) -> bool:
-        return self.project.setting("font_patch") == "1" and bool(self._patchable_letters())
+        return self.fonts._font_patch_on()
 
     def _stored_font_overrides(self) -> dict[str, str]:
-        """İçe alınmış düzenli fontlar: RomFS yolu → kullanıcının dosyası (proje ayarı; bozuksa boş)."""
-        try:
-            data = json.loads(self.project.setting(FONT_OVERRIDES_KEY) or "{}")
-        except ValueError:
-            log.warning("İçe alınan font ayarı bozuk; yok sayıldı")
-            return {}
-        return {str(k): str(v) for k, v in data.items()} if isinstance(data, dict) else {}
+        return self.fonts._stored_font_overrides()
 
     def _save_font_overrides(self, overrides: dict[str, str]) -> None:
-        self.project.set_setting(FONT_OVERRIDES_KEY, json.dumps(overrides, ensure_ascii=False))
-        self._mark_changed()
-        self.qa_page.set_font_overrides(overrides)
+        return self.fonts._save_font_overrides(overrides)
 
     def _title_id_hex(self) -> str:
-        """Modun klasör adı olan TitleID (metin dosyalarınınki; yoksa projeninki)."""
-        files = self.project.text_files()
-        return str(files[0][1]) if files else self.project.title_id
+        return self.fonts._title_id_hex()
 
     def _font_overrides(self) -> dict[str, dict[str, bytes]]:
-        """Dışa aktarmada moda konacak düzenli fontlar; dosyası bulunamayan atlanır ve bildirilir."""
-        found: dict[str, bytes] = {}
-        lost: list[str] = []
-        for source, stored in self._stored_font_overrides().items():
-            try:
-                found[source] = Path(stored).read_bytes()
-            except OSError:
-                lost.append(Path(stored).name)
-        if lost:
-            self.notify(
-                LEVEL_WARNING,
-                "İçe alınan font bulunamadı",
-                f"{', '.join(lost)} taşınmış ya da silinmiş; modda özgün font kalır.",
-            )
-        return {self._title_id_hex(): found} if found else {}
+        return self.fonts._font_overrides()
 
     def import_edited_font(self, source: str) -> None:
-        """Kontrol Et → Font: dışarıda düzenlenen TTF/OTF dosyası, dışa aktarılan modda bu fontun yerine konur."""
-        start = str(self.settings.value("fonts/dir", str(Path.home())))
-        path, _ = QFileDialog.getOpenFileName(
-            self, "Düzenlenmiş fontu seçin", start, "Fontlar (*.ttf *.otf);;Tüm dosyalar (*)"
-        )
-        if not path:
-            return
-        self.settings.setValue("fonts/dir", str(Path(path).parent))
-        if not looks_like_font(Path(path)):
-            self.notify(LEVEL_ERROR, "Bu dosya bir font değil", "TTF ya da OTF dosyası seçin.")
-            return
-        overrides = self._stored_font_overrides()
-        overrides[source] = path
-        self._save_font_overrides(overrides)
-        self.notify(
-            LEVEL_SUCCESS,
-            "Düzenlenmiş font içe alındı",
-            f"{Path(path).name}, dışa aktarılan modda {source.rsplit('/', 1)[-1]} yerine kullanılacak.",
-        )
+        return self.fonts.import_edited_font(source)
 
     def reset_edited_font(self, source: str) -> None:
-        overrides = self._stored_font_overrides()
-        if overrides.pop(source, None) is not None:
-            self._save_font_overrides(overrides)
-            self.notify(
-                LEVEL_INFO, "Özgün fonta dönüldü", f"Modda oyunun özgün {source.rsplit('/', 1)[-1]} fontu kalır."
-            )
+        return self.fonts.reset_edited_font(source)
 
     def export_font_file(self, source: str) -> None:
-        """Seçili fontu oyun dosyalarından okuyup bir klasöre kaydeder (font düzenleyicide açmak için)."""
-        if self.busy:
-            return
-        problems = check_sources(self.sources)
-        if self.keys is None or problems:
-            self.notify(LEVEL_ERROR, "Font okunamadı", " ".join(problems) or "Önce anahtar dosyasını seçin.")
-            return
-        start = str(self.settings.value("fonts/dir", str(Path.home())))
-        folder = QFileDialog.getExistingDirectory(self, "Fontun kaydedileceği klasörü seçin", start)
-        if not folder:
-            return
-        self.settings.setValue("fonts/dir", folder)
-        target = Path(folder) / source.rsplit("/", 1)[-1]
-        inputs = self._inputs()
-
-        def work(ctx: TaskContext) -> object:
-            with opened_view(inputs, ctx) as view:
-                for tree in view.trees:  # fontun bulunduğu içerik ağacı (oyun, DLC)
-                    if source in tree.view.files:
-                        data = tree.view.open(source).read_all()
-                        break
-                else:
-                    raise NxError(f"Font oyun dosyalarında bulunamadı: {source}")
-            target.write_bytes(data)
-            return target
-
-        def done(_result: object) -> None:
-            self.notify(
-                LEVEL_SUCCESS,
-                "Font dışa aktarıldı",
-                f"{target.name} kaydedildi. Düzenledikten sonra “Düzenlenmiş Fontu İçe Al” ile geri alın.",
-                (NoticeAction("Klasörü Aç", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(folder))),),
-            )
-
-        self._run(work, "Font dışa aktarılıyor", on_success=done, on_failure=lambda _t: None)
+        return self.fonts.export_font_file(source)
 
     def _font_files(self) -> frozenset[str]:
-        """Font yamasının uygulanacağı dosyalar (son font taramasından)."""
-        if self.font_report is not None:
-            return frozenset(self.font_report.patch_files)
-        try:
-            files = json.loads(self.project.setting("font_files") or "[]")
-        except ValueError:
-            return frozenset()
-        return frozenset(f for f in files if isinstance(f, str))
+        return self.fonts._font_files()
 
     def _patchable_letters(self) -> str:
-        if self.font_report is not None:
-            return self.font_report.patchable_letters
-        return self.project.setting("font_patchable")
+        return self.fonts._patchable_letters()
 
     def _missing_letters(self) -> str:
-        """Dönüştürülecek "eksik" harfler; font yaması açıksa yamanın ekleyeceği harfler hariç."""
-        patched = self._font_patch_on()
-        if self.font_report is not None:
-            return self.font_report.missing_letters(patched=patched)
-        return self.project.setting("font_missing_patched" if patched else "font_missing")
+        return self.fonts._missing_letters()
 
     def _transliterate_letters(self) -> str:
-        mode = self.project.setting("transliterate_mode", transliterate.MODE_NONE)
-        return transliterate.letters_for(mode, self._missing_letters())
+        return self.fonts._transliterate_letters()
 
     def _refresh_qa(self) -> None:
         self.qa_page.show_font_report(self.font_report, self.project.setting("font_missing"))
@@ -1709,65 +1614,13 @@ class MainWindow(QMainWindow):
         self.qa_page.show_learned(rules)
 
     def scan_fonts(self) -> None:
-        if self.busy:
-            return
-        problems = check_sources(self.sources)
-        if self.keys is None or problems or self.report is None:
-            reason = " ".join(problems) or "Fontları taramak için anahtar dosyası ve tarama sonucu gerekli."
-            self.qa_page.font_banner.show_message("danger", reason)
-            return
-        inputs = self._inputs()
-        report = self.report
-
-        def work(ctx: TaskContext) -> object:
-            with opened_view(inputs, ctx) as view:
-                return scan_font_files(view, report, ctx)
-
-        def done(result: object) -> None:
-            assert isinstance(result, FontReport)
-            self.font_report = result
-            try:
-                self.project.set_setting("font_missing", result.missing_letters())
-                self.project.set_setting("font_missing_patched", result.missing_letters(patched=True))
-                self.project.set_setting("font_patchable", result.patchable_letters)
-                self.project.set_setting("font_files", json.dumps(list(result.patch_files), ensure_ascii=False))
-            except NxError as exc:
-                self.notify(LEVEL_ERROR, "Proje", exc.user_text())
-            self._mark_changed()
-            self.qa_page.set_font_busy(False)
-            self._refresh_qa()
-
-        def failed(text: str) -> None:
-            self.qa_page.set_font_busy(False)
-            self.qa_page.font_banner.show_message("danger", text)
-
-        self.qa_page.set_font_busy(True)
-        self._run(
-            work,
-            "Fontlar taranıyor",
-            on_success=done,
-            on_failure=failed,
-            on_cancel=lambda: self.qa_page.set_font_busy(False),
-        )
+        return self.fonts.scan_fonts()
 
     def _set_transliterate(self, mode: str) -> None:
-        try:
-            self.project.set_setting("transliterate_mode", mode)
-        except NxError as exc:
-            self.notify(LEVEL_ERROR, "Proje", exc.user_text())
-            return
-        self._mark_changed()
-        self.qa_page.set_mode(mode, self._missing_letters(), self._font_patch_on())
-        self._sync_live()
+        return self.fonts._set_transliterate(mode)
 
     def _set_font_patch(self, enabled: bool) -> None:
-        try:
-            self.project.set_setting("font_patch", "1" if enabled else "")
-        except NxError as exc:
-            self.notify(LEVEL_ERROR, "Proje", exc.user_text())
-            return
-        self._mark_changed()
-        self._refresh_qa()
+        return self.fonts._set_font_patch(enabled)
 
     # --- Kontrol Et: iş akışı `checks_controller.ChecksController`'dadır ------------------------------------
     # Aşağıdakiler yalnızca yönlendirmedir: sinyaller, menüler ve testler pencerenin bu adlarını kullanır.
@@ -2014,59 +1867,16 @@ class MainWindow(QMainWindow):
     # --- dışa aktarma ----------------------------------------------------------------------
 
     def _graphics(self) -> tuple[GraphicsSupport, Path] | None:
-        """Projenin oyunu resim çevirisini destekliyorsa (destek, klasör); klasör oyun dosyalarının yanındadır."""
-        if not self.sources:
-            return None
-        for _path, title_id, kind in self.project.text_files():
-            support = getattr(plugin_for_kind(kind, title_id), "graphics", None)
-            if isinstance(support, GraphicsSupport):
-                return support, self.sources[0].path.parent / support.folder_name
-        return None
+        return self.fonts._graphics()
 
     def _refresh_graphics(self) -> None:
-        found = self._graphics()
-        if found is None:
-            self.export_page.set_graphics(None, (0, 0))
-            return
-        self.export_page.set_graphics(found[1], graphics_status(found[1]))
+        return self.fonts._refresh_graphics()
 
     def extract_graphics(self) -> None:
-        """Dışa Aktar → Görseller: yazı içeren resimlerin özgünlerini PNG olarak oyun klasörünün yanına çıkarır."""
-        found = self._graphics()
-        if self.busy or found is None:
-            return
-        support, folder = found
-        problems = check_sources(self.sources)
-        if self.keys is None or problems:
-            self.notify(LEVEL_ERROR, "Görseller çıkarılamadı", " ".join(problems) or "Önce anahtar dosyasını seçin.")
-            return
-        inputs = self._inputs()
-
-        def work(ctx: TaskContext) -> object:
-            names: list[str] = []
-            with opened_view(inputs, ctx) as view:
-                for tree in view.trees:
-                    names += support.export(member_reader(tree), tree.view.files, folder)
-            return names
-
-        def done(result: object) -> None:
-            assert isinstance(result, list)
-            self._refresh_graphics()
-            self.notify(
-                LEVEL_SUCCESS,
-                "Görseller çıkarıldı",
-                f"{format_int(len(result))} resim orijinal/ klasöründe. Türkçesini turkce/ klasörüne aynı adla koyun.",
-                (NoticeAction("Klasörü Aç", self.open_graphics),),
-            )
-
-        self._run(work, "Görseller çıkarılıyor", on_success=done, on_failure=lambda _t: None)
+        return self.fonts.extract_graphics()
 
     def open_graphics(self) -> None:
-        found = self._graphics()
-        if found is None:
-            return
-        found[1].mkdir(parents=True, exist_ok=True)
-        QDesktopServices.openUrl(QUrl.fromLocalFile(str(found[1])))
+        return self.fonts.open_graphics()
 
     # --- Dışa Aktar: iş akışı `export_controller.ExportController`'dadır -------------------------------------
     # Aşağıdakiler yalnızca yönlendirmedir: sinyaller, adım geçişi ve testler pencerenin bu adlarını kullanır.
