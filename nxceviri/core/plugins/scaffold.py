@@ -151,6 +151,45 @@ Bu eklentinin neyi çevirdiğini, biçimin yapısını ve bilinen tuzakları bur
 -
 """
 
+#: Ajanın devir günlüğü: kotası biten ajanın yerine geçen (başka sağlayıcının ajanı da olabilir) işi baştan yapmasın.
+WORK_LOG = "CALISMA_GUNLUGU.md"
+
+_WORK_LOG = """# __AD__ — çalışma günlüğü
+
+Bu eklenti üzerinde çalışan yapay zekâ ajanının günlüğü. İşi devralan ajan **önce bu dosyayı** baştan sona okur ve
+"Sıradaki adım"dan devam eder; burada yazan işleri baştan yapmaz. Her adımdan sonra (işin sonunda değil) güncellenir:
+kota ya da oturum her an bitebilir. En yeni bilgi en üstteki iki bölümdedir.
+
+Yazılmaz: anahtar dosyası içeriği, oyundan uzun metin ya da resim, kullanıcının kişisel yolları (`<oyun klasörü>`
+yaz). Bu dosya eklentinin onay parmak izine girmez; güncellemek eklentiyi yeniden onaylatmaz.
+
+## Şimdiki durum
+
+- Son güncelleme (tarih, ajan/model):
+- Aşama (docs/rehber/yeni-oyun.md adımı):
+- Çalışan / çalışmayan:
+
+## Sıradaki adım
+
+1.
+
+## Yapılanlar
+
+<!-- En yeni üstte. Her madde: ne yapıldı, hangi komut, sonucun kısa özeti (sayılar; uzun çıktı değil). -->
+
+## Engeller ve çözümler
+
+<!-- Engel → nasıl anlaşıldı → çözüm (ya da çözülemediyse kanıt: komut ve hata). -->
+
+## Denenip işe yaramayanlar
+
+<!-- Ne denendi, neden olmadı; aynı yolu yeniden denememek için. -->
+
+## Açık sorular
+
+<!-- Kullanıcıya sorulacaklar ya da emin olunamayanlar. -->
+"""
+
 
 def validate_name(ad: str) -> None:
     if not _NAME.match(ad):
@@ -173,6 +212,7 @@ def create_plugin(ad: str, target_root: Path) -> Path:
         "eklenti.toml": _MANIFEST,
         "plugin.py": _PLUGIN,
         "NOT.md": _NOTE,
+        WORK_LOG: _WORK_LOG,
         f"tests/test_{ad}.py": _TEST,
     }
     try:

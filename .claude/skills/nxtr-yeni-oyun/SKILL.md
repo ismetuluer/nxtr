@@ -7,6 +7,10 @@ description: NXTR'de yeni bir Switch oyununun metinlerine erişmek, çeviri tabl
 
 1. `AGENTS.md`'yi baştan sona oku; anahtar, oyun dosyası, orijinal dosya ve **ana koda yazma yasağı** kuralları
    bağlayıcıdır.
+1b. **Devir:** eklenti klasörü zaten varsa önce içindeki `CALISMA_GUNLUGU.md`'yi baştan sona oku ve kaldığı yerden
+   devam et. Her adımdan sonra (işin sonunda değil) günlüğü güncelle: şimdiki durum ve sıradaki adım, yapılanlar
+   (komut + sonuç özeti), engeller ve çözümleri, denenip işe yaramayanlar, açık sorular. Kota/oturum her an bitebilir;
+   başka bir ajan bu dosyadan devam edebilmeli. Anahtar içeriği, uzun oyun metni, kişisel yol yazma.
 2. `docs/rehber/yeni-oyun.md` rehberini baştan sona oku ("Bağlayıcı kurallar" dahil). Eklenti yazılacaksa
    `docs/rehber/eklenti-yazma.md`'yi de oku (izinli çekirdek modülleri, çok dosyalı eklenti, font/resim kancaları).
 3. Bütün kod (metin, font, resim) **tek bir eklenti klasöründe** durur; `nxceviri/` altında dosya oluşturma ya da
@@ -18,6 +22,6 @@ description: NXTR'de yeni bir Switch oyununun metinlerine erişmek, çeviri tabl
    `grafik_temizleme/orijinal` + `turkce`) → uygulamada Tara/Çevir/Dışa Aktar. Kullanıcı başka dil demedikçe yalnızca
    İngilizce. Çözülmüş biçimler için `docs/formats/README.md`'ye bak; çözülmüşse yeni kod yazma.
 5. Bitti demeden: `dogrula` geçti ve `İçe aktarma:` bulgusu yok, `python -m nxceviri.arac eklentiler` temiz,
-   `git status --porcelain nxceviri/` boş, font durumu raporda; komut çıktılarını göster. Cihazda denenmeyen işi öyle
+   `git status --porcelain nxceviri/` boş, font durumu raporda, `CALISMA_GUNLUGU.md` güncel; komut çıktılarını göster. Cihazda denenmeyen işi öyle
    raporla.
 6. Kullanıcıya kısa Türkçe rapor ver (rehberin "Kullanıcıya rapor" bölümü). Kurulum eksikse önce `docs/rehber/baslarken.md`.

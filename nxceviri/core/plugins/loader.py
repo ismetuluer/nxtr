@@ -310,15 +310,22 @@ def _archive_formats(plugin: object, ad: str) -> tuple[tuple[ArchiveFormat, ...]
 TrustCheck = Callable[[Path, str], bool]
 
 
+#: Parmak izine girmeyen dosya: ajanın devir günlüğü (kod değil; her adımda güncellenir, onayı bozmamalı).
+FINGERPRINT_EXCLUDED = frozenset({"CALISMA_GUNLUGU.md"})
+
+
 def plugin_fingerprint(folder: Path) -> str:
-    """Eklenti klasörünün SHA-256 parmak izi: tüm dosyalar (göreli yol + içerik, sıralı); `__pycache__` hariç.
+    """Eklenti klasörünün SHA-256 parmak izi: tüm dosyalar (göreli yol + içerik, sıralı); `__pycache__` ve kökteki
+    çalışma günlüğü (`FINGERPRINT_EXCLUDED`) hariç.
 
     Yol ve içerik uzunluk önekiyle eklenir; iki dosyanın sınırı kayarak aynı iz üretilemez. Okunamayan dosya
     `OSError` verir."""
     files = sorted(
         (path.relative_to(folder).as_posix(), path)
         for path in folder.rglob("*")
-        if path.is_file() and "__pycache__" not in path.relative_to(folder).parts
+        if path.is_file()
+        and "__pycache__" not in path.relative_to(folder).parts
+        and path.relative_to(folder).as_posix() not in FINGERPRINT_EXCLUDED
     )
     digest = hashlib.sha256()
     for rel, path in files:

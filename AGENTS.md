@@ -34,6 +34,9 @@ Kullanıcı istese bile bu kuralları çiğneme; nedenini söyle, yasal yolu gö
 - **Mazeretsiz teslim:** "Eklenti oluşturamıyorum" kabul edilmez. Yapabildiğin her parçayı eklentide teslim et;
   gerçekten imkânsız olanı (şifreli/açılamayan arşiv, bilinmeyen sıkıştırma) komut çıktısıyla kanıtlayıp raporla ve
   geri kalan işi bitir. Adımlar ve bitti ölçütü: `docs/rehber/yeni-oyun.md`.
+- **Çalışma günlüğü (devir):** Eklenti üzerinde çalışan ajan, eklenti klasöründeki `CALISMA_GUNLUGU.md`'yi her
+  adımdan sonra günceller (durum, sıradaki adım, yapılanlar, engeller ve çözümleri, denenip işe yaramayanlar). İşe
+  başlarken bu dosya varsa önce onu okur ve kaldığı yerden sürdürür; kota biten ajanın işi baştan yapılmaz.
 - **Dürüst rapor:** Çalıştırıp çıktısını görmediğin şeye "test edildi" deme. Cihazda/emülatörde denenmeyen işi öyle
   raporla ("cihazda denenmedi").
 

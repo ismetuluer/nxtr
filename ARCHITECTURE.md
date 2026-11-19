@@ -1490,6 +1490,13 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     Denetimi'ndedir (yeni kalıcı düğme yok). Anlık denetim türü `profanity` `LIVE_KINDS`'tadır; "Bulguyu yok say"
     genel mekanizmayla çalışır. Sözlük pakete veri dosyası olarak girer (`package-data`; PyInstaller
     `collect_data_files("nxceviri")` ile alır).
+239. **Eklenti ajanının devir günlüğü `CALISMA_GUNLUGU.md` (ürün sahibi, 2026-11-19):** eklentiyi yazan ajanın
+    kotası bitince yerine geçen ajan (başka sağlayıcınınki de) işi baştan yapıyordu; `NOT.md` biçimi anlatır, çalışmanın
+    nerede kaldığını anlatmaz. İskelet (`plugins/scaffold.py` `WORK_LOG`) durum / sıradaki adım / yapılanlar / engeller
+    ve çözümler / denenip işe yaramayanlar / açık sorular başlıklı bir şablon yazar; `AGENTS.md`, `yeni-oyun.md` (kural
+    8, adım 0, bitti ölçütü) ve `nxtr-yeni-oyun` skill'i her adımdan sonra güncellemeyi ve devralınca önce okumayı
+    ister. Dosya `loader.plugin_fingerprint`'e girmez (`FINGERPRINT_EXCLUDED`, yalnızca kökteki bu ad): her adımda
+    güncellenen bir not eklentiyi yeniden onaylatmamalı; içe aktarılan kod değildir, onayın koruduğu şeyi değiştirmez.
 
 ## 5. Bilinen sınırlar
 

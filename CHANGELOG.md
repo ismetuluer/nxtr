@@ -5,6 +5,11 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
 ## [Yayımlanmadı]
 
 ### Eklendi
+- **Eklenti çalışma günlüğü:** `eklenti-olustur` iskeletine `CALISMA_GUNLUGU.md` eklendi (şimdiki durum, sıradaki adım,
+  yapılanlar, engeller ve çözümler, denenip işe yaramayanlar, açık sorular). Rehber, skill ve `AGENTS.md` ajanın bu
+  dosyayı her adımdan sonra güncellemesini, işi devralan ajanın da önce onu okuyup kaldığı yerden sürdürmesini ister;
+  kotası biten ajanın yerine geçen ajan işi baştan yapmaz. Günlük eklentinin onay parmak izine girmez: güncellemek
+  eklentiyi yeniden onaylatmaz.
 - **Zamanlayıcı:** Çeviri → "Zamanlayıcı…" (kısayol atanmamıştır) haftalık takvimde (günler × saatler; tıkla ya da
   sürükleyerek seç) belirlenen saatlerde **otomatik çeviri** ya da **redaksiyon** yaptırır. Yalnızca program ve proje
   açıkken, proje bir dosyaya kaydedilmişse çalışır. Çeviri yalnızca çevrilmemiş satırlara, redaksiyon yalnızca henüz

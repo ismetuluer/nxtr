@@ -28,8 +28,18 @@ seçili olması. Oyun dosyası aranmaz, indirilmez.
    kullanıcı isterse `grafik_temizleme/orijinal/` ve `grafik_temizleme/turkce/` klasörleri kurulur ve eklenti
    `turkce/`deki resimleri moda yerleştirir.
 7. **Hepsi tek eklentide:** metin, font ve resim kodu aynı eklenti klasöründe.
+8. **Çalışma günlüğü (devir için).** Eklenti klasöründeki `CALISMA_GUNLUGU.md` her adımdan sonra güncellenir, işin
+   sonunda değil: ajanın kotası ya da oturumu her an bitebilir, işi başka bir ajan (başka bir sağlayıcının ajanı da)
+   sürdürebilmelidir. İşe başlarken klasörde bu dosya varsa **önce onu baştan sona oku** ve kaldığı yerden devam et;
+   yapılanları baştan yapma. Günlükte: şimdiki durum ve sıradaki adım (en üstte), yapılanlar (çalıştırılan komut ve
+   sonucun özeti), karşılaşılan engeller ve nasıl çözüldüğü, denenip işe yaramayanlar (neden), açık sorular.
+   Yazılmaz: anahtar içeriği, oyundan uzun metin ya da resim, kullanıcının kişisel yolları (`<oyun klasörü>` yaz).
 
 ## Adımlar
+
+### 0. Önceki çalışmayı oku
+Eklenti klasörü zaten varsa `CALISMA_GUNLUGU.md`'yi baştan sona oku; "Şimdiki durum" ve "Sıradaki adım"dan devam
+et. Dosyada yazan komut sonuçlarını yeniden üretme gerekmez; yalnızca şüpheliysen tekrar çalıştır.
 
 ### 1. Teşhis
 ```
@@ -99,7 +109,7 @@ Kısa tarifler; ayrıntı ilgili not dosyasında (`docs/formats/README.md` dizin
 python -m nxceviri.arac eklenti-olustur <ad>
 ```
 Kullanıcı eklentisi `eklentiler/<ad>/` (kaynak kurulum) ya da `%LOCALAPPDATA%\NXCeviri\eklentiler\` altında bir
-klasördür: `eklenti.toml` + `plugin.py` + `tests/` + `NOT.md`; yardımcı kod `plugin.py`'nin yanında ayrı modüller
+klasördür: `eklenti.toml` + `plugin.py` + `tests/` + `NOT.md` + `CALISMA_GUNLUGU.md` (devir günlüğü, kural 8); yardımcı kod `plugin.py`'nin yanında ayrı modüller
 olarak durur (`from . import arsiv`; `eklenti-yazma.md` "Ana koda yazma yasağı ve çok dosyalı eklenti"). `nxceviri/`
 altına hiçbir şey yazma. **Önce testi yaz** (`eklenti-yazma.md`): elle üretilmiş
 küçük örnek dosya üretici + round-trip testi, başarısız olduğunu gör, sonra `extract` / `inject`'i yaz. Sözleşme ve
@@ -189,6 +199,8 @@ Uygulamayı aç (`NX Ceviri Studyosu.bat` ya da `python -m nxceviri`):
 7. **Resim:** yazılı resimlerin sayısı ve örnek adları kullanıcıya bildirildi; kullanıcı istediyse `orijinal/` ve
    `turkce/` düzeni kuruldu, `turkce/`deki resimler moda yerleşti.
 8. `NOT.md` yazıldı (font sonucu, kapsam tablosu dahil). Cihazda deneme yapılmadıysa raporda "cihazda denenmedi" yazar.
+9. `CALISMA_GUNLUGU.md` güncel: durum "bitti" (ya da kalan iş), engeller ve çözümleri, sıradaki adım (kullanıcının
+   cihazda denemesi) yazılı.
 
 ## Kullanıcıya rapor
 Kısa Türkçe: oyun ve motor, eklenti klasörünün yolu (ve `nxceviri/` altında değişiklik olmadığı), kaç dosyadan kaç

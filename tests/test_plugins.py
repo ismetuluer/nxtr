@@ -22,6 +22,7 @@ from nxceviri.core.keys import load_keys
 from nxceviri.core.pipeline import Inputs, extract_texts, importable_entries, scan_sources
 from nxceviri.core.plugins import EKLENTI_API, load_plugins, user_plugin_dirs
 from nxceviri.core.plugins.install import PluginExistsError, PluginInstallError, install_plugin
+from nxceviri.core.plugins.loader import plugin_fingerprint
 from nxceviri.core.plugins.record import SETTING_KEY, plugin_warnings, record_extraction
 from nxceviri.core.plugins.scaffold import create_plugin, validate_name
 from nxceviri.core.progress import TaskContext
@@ -326,12 +327,36 @@ def test_scaffold_rejects_bad_names(bad: str) -> None:
         validate_name(bad)
 
 
+def test_scaffold_has_work_log_template_for_handover(tmp_path: Path) -> None:
+    log = (create_plugin("ornek_oyun", tmp_path) / "CALISMA_GUNLUGU.md").read_text(encoding="utf-8")
+    for heading in (
+        "## Şimdiki durum",
+        "## Sıradaki adım",
+        "## Yapılanlar",
+        "## Engeller ve çözümler",
+        "## Denenip işe yaramayanlar",
+        "## Açık sorular",
+    ):
+        assert heading in log
+    assert "önce bu dosyayı" in log  # devralan ajana ilk talimat
+
+
+def test_work_log_does_not_change_plugin_fingerprint(tmp_path: Path) -> None:
+    folder = create_plugin("ornek_oyun", tmp_path)
+    before = plugin_fingerprint(folder)
+    (folder / "CALISMA_GUNLUGU.md").write_text("güncellendi", encoding="utf-8")
+    assert plugin_fingerprint(folder) == before  # günlüğü güncellemek eklentiyi yeniden onaylatmaz
+    (folder / "NOT.md").write_text("değişti", encoding="utf-8")
+    assert plugin_fingerprint(folder) != before
+
+
 def test_scaffold_output_loads_and_its_own_tests_pass(tmp_path: Path) -> None:
     folder = create_plugin("ornek_oyun", tmp_path)
     assert {p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file()} == {
         "eklenti.toml",
         "plugin.py",
         "NOT.md",
+        "CALISMA_GUNLUGU.md",
         "tests/test_ornek_oyun.py",
     }
     (info,) = load_plugins([tmp_path], set()).infos
