@@ -154,9 +154,6 @@ class ScheduleGrid(QWidget):
                 if not selected:
                     painter.setPen(border)
                     painter.drawRect(rect.adjusted(0, 0, -1, -1))
-        if self.hasFocus():
-            painter.setPen(QPen(QColor(tokens["accent"]), 1, Qt.PenStyle.DotLine))
-            painter.drawRect(self.rect().adjusted(0, 0, -1, -1))
         painter.end()
 
     # --- fare -----------------------------------------------------------------------------

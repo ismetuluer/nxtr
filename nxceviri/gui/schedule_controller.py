@@ -230,14 +230,9 @@ class ScheduleController(QObject):
             if revise
             else ("" if chosen.classic else win.project.setting(TRANSLATE_INSTRUCTION_KEY)),
         )
-        name = JOB_TITLES[sched.action]
-        end = sched.slot_end(now)
-        win.notify(
-            LEVEL_INFO,
-            f"{PREFIX}{name} başladı",
-            f"{format_int(len(target))} satır · bitiş {format_slot(end)}. Yetişmeyen satırlar sonraki zaman dilimine "
-            "kalır.",
-        )
+        # İlerleme ve Durdur düğmesi Çevir adımında; iş sürerken kenar çubuğu kilitlendiği için önce oraya geçilir
+        # (Otomatik Çeviri menüsüyle aynı).
+        win._to_translate_step()
         page = win.translate_page
         before = win.task
         win._launch_machine(
@@ -251,6 +246,12 @@ class ScheduleController(QObject):
         )
         if win.task is not None and win.task is not before and not self._done:
             self._task = win.task
+            win.notify(
+                LEVEL_INFO,
+                f"{PREFIX}{JOB_TITLES[sched.action]} başladı",
+                f"{format_int(len(target))} satır · bitiş {format_slot(sched.slot_end(now))}. Yetişmeyen satırlar "
+                "sonraki zaman dilimine kalır.",
+            )
 
     def _outcome(self, kind: str, _summary: RunSummary | None) -> None:
         self._task = None

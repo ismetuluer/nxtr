@@ -18,14 +18,15 @@ from nxceviri.core.formats.base import TextEntry
 from nxceviri.core.progress import TaskContext
 from nxceviri.core.project import ImportedFile, Project
 from nxceviri.core.secrets import MemoryStore, api_key_name
-from nxceviri.core.translate.providers.base import BatchItem, BatchResult, ProviderStatus, Scene
+from nxceviri.core.translate.providers.base import BatchItem, BatchResult, ProviderError, ProviderStatus, Scene
 from nxceviri.core.translate.runner import ACTION_REVISE, ACTION_TRANSLATE
 from nxceviri.core.translate.schedule import SCHEDULE_KEY, Schedule
 from nxceviri.core.translate.status import Status
 from nxceviri.gui.machine_dialogs import MachineSettings
 from nxceviri.gui.main_window import MainWindow
-from nxceviri.gui.schedule_controller import MAX_RETRIES, RETRY_DELAY
+from nxceviri.gui.schedule_controller import CHECK_MS, MAX_RETRIES, RETRY_DELAY
 from nxceviri.gui.schedule_dialog import ScheduleDialog
+from nxceviri.gui.step_nav import STEP_QA, STEP_TRANSLATE
 
 pytestmark = pytest.mark.gui
 
@@ -179,6 +180,49 @@ def test_starts_at_slot_start_and_translates(qtbot: QtBot, window: MainWindow, t
     window.scheduler.tick()
     assert window.task is None
     assert len(calls) == 1
+
+
+def test_timer_drives_checks(qtbot: QtBot, window: MainWindow, tmp_path: Path) -> None:
+    timer = window.scheduler.timer
+    assert timer.isActive()
+    assert timer.interval() == CHECK_MS
+    _save(window, tmp_path)
+    _set_schedule(window)
+    calls = _use(window, FakeProvider())
+    window.scheduler.clock = Clock(START)
+    timer.timeout.emit()
+    _wait_idle(qtbot, window)
+    assert calls
+    window.dirty = False
+    window.close()
+    assert not timer.isActive()
+
+
+def test_start_switches_to_translate_step(qtbot: QtBot, window: MainWindow, tmp_path: Path) -> None:
+    """İlerleme ve Durdur düğmesi Çevir adımında; iş sürerken kenar çubuğu kilitli olduğundan oraya geçilir."""
+    _save(window, tmp_path)
+    _set_schedule(window)
+    _use(window, FakeProvider())
+    window.nav.setCurrentRow(STEP_QA)
+    window.scheduler.clock = Clock(START)
+    window.scheduler.tick()
+    assert window.nav.currentRow() == STEP_TRANSLATE
+    _wait_idle(qtbot, window)
+
+
+def test_setup_failure_has_no_start_notice(window: MainWindow, tmp_path: Path) -> None:
+    _save(window, tmp_path)
+    _set_schedule(window)
+
+    def broken(_s: MachineSettings) -> FakeProvider:
+        raise ProviderError("Hizmet kurulamadı.")
+
+    window.provider_factory = broken
+    window.scheduler.clock = Clock(START)
+    window.scheduler.tick()
+    titles = _titles(window)
+    assert not any("başladı" in t for t in titles)
+    assert any("başlamadı" in t for t in titles)
 
 
 def test_no_rows_no_restart(window: MainWindow, tmp_path: Path) -> None:
@@ -462,6 +506,9 @@ def test_dialog_defaults_to_last_used_provider(window: MainWindow) -> None:
 
 def test_dialog_settings_persist_in_project(window: MainWindow, tmp_path: Path) -> None:
     _save(window, tmp_path)
+    # `save` hemen denetler: gerçek saat ve gerçek sağlayıcı kullanılmasın (dilim dışında sahte saat).
+    window.scheduler.clock = Clock(datetime(2026, 11, 15, 12))
+    _use(window, FakeProvider())
     dialog = _dialog(window)
     dialog.set_provider("ollama")
     dialog.model.setEditText("gemma4:12b")
@@ -482,6 +529,19 @@ def test_dialog_settings_persist_in_project(window: MainWindow, tmp_path: Path) 
     window.scheduler.clock = Clock(datetime(2026, 11, 15, 12))
     window.scheduler.tick()
     assert window.scheduler.status_text() == "Zamanlayıcı: sonraki Pzt 01:00"
+
+
+def test_dialog_test_connection(window: MainWindow) -> None:
+    provider = FakeProvider()
+    calls = _use(window, provider)
+    dialog = _dialog(window, Schedule(provider="ollama", model="m"))
+    assert dialog.test_connection()
+    assert calls[-1].model == "m"
+    assert "Bağlandı" in dialog.status.text.text()
+    provider.ok = False
+    assert not dialog.test_connection()
+    assert "bağlanılamadı" in dialog.status.text.text()
+    dialog.deleteLater()
 
 
 def test_dialog_refuses_enable_without_hours(window: MainWindow) -> None:
