@@ -109,6 +109,8 @@ class StatusSegments(QObject):
         self.problems_button.clicked.connect(self.problems_clicked)
         self.provider_icon = _icon_label("cpu")
         self.provider_label = QLabel()
+        self.schedule_icon = _icon_label("clock")
+        self.schedule_label = QLabel()
         self.cursor_label = QLabel()
         self.symbols_button = QToolButton()
         self.symbols_button.setProperty("role", "viewTool")
@@ -125,6 +127,7 @@ class StatusSegments(QObject):
         self._problems = _Segment(self.problems_button)
         self._provider = _Segment(self.provider_icon, self.provider_label)
         self._provider.tooltip_requested.connect(self.provider_tip_requested)
+        self._schedule = _Segment(self.schedule_icon, self.schedule_label)
         self._cursor = _Segment(self.cursor_label)
         self._symbols = _Segment(self.symbols_button)
         self._save = _Segment(self.save_dot)
@@ -134,6 +137,7 @@ class StatusSegments(QObject):
             self._progress,
             self._problems,
             self._provider,
+            self._schedule,
             self._cursor,
             self._symbols,
             self._save,
@@ -141,7 +145,7 @@ class StatusSegments(QObject):
         for segment in self._segments:
             bar.addPermanentWidget(segment)
         bar.addPermanentWidget(update_badge)
-        for segment in (self._rows, self._progress, self._problems, self._provider, self._cursor):
+        for segment in (self._rows, self._progress, self._problems, self._provider, self._schedule, self._cursor):
             segment.hide()
         self._texts[self.keys_button] = ("", KEYS_LABEL)
         bar.installEventFilter(self)
@@ -195,6 +199,12 @@ class StatusSegments(QObject):
         self._cursor.setVisible(visible)
         if visible:
             self._set_text(self.cursor_label, f"Satır {line} · Sütun {column}")
+
+    def set_schedule(self, text: str, tip: str = "") -> None:
+        """Zamanlayıcı durumu ("Zamanlayıcı: sonraki Pzt 01:00"); boş metin bölmeyi gizler."""
+        self._schedule.setVisible(bool(text))
+        self._schedule.setToolTip(tip)
+        self._set_text(self.schedule_label, text)
 
     def set_provider_tip(self, text: str) -> None:
         """Sağlayıcı ipucunu günceller; ipucu o sırada açıksa yerinde yenilenir."""

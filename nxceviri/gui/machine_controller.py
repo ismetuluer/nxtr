@@ -50,6 +50,12 @@ if TYPE_CHECKING:
 REVISE_INSTRUCTION_KEY = "revise_instruction"
 TRANSLATE_INSTRUCTION_KEY = "translate_instruction"
 
+#: `launch_machine(on_outcome=...)` sonuçları: bitti, hata verdi, durduruldu, sağlayıcı kurulamadı (iş başlamadı).
+OUTCOME_SUCCESS = "success"
+OUTCOME_FAILED = "failed"
+OUTCOME_CANCELLED = "cancelled"
+OUTCOME_SETUP = "setup"
+
 
 class MachineController:
     """Makine işlerinin iş akışı; pencere bunun yöntemlerine ince yönlendirmelerle bağlanır."""
@@ -137,9 +143,6 @@ class MachineController:
 
     def start_machine_translation(self, action: str = ACTION_TRANSLATE, from_selection: bool = False) -> None:
         """Çevir / yeniden çevir / talimatla düzelt penceresini açar ve seçilen işi başlatır."""
-        # Döngüsel içe aktarma; testler `implicit_terms`'i pencere modülünde değiştirir.
-        from nxceviri.gui import main_window as _mw  # noqa: PLC0415
-
         win = self._win
         if win.busy:
             return
@@ -157,7 +160,21 @@ class MachineController:
             else scopes.get(chosen.scope, [])
         )
         target = target_rows(scope_rows, chosen.action, chosen.include_approved)
-        job = MachineJob(
+        win._launch_machine(
+            chosen,
+            self.build_job(chosen, target),
+            set_running=page.set_machine_running,
+            on_progress=page.update_machine_progress,
+            report=page.show_notice,
+        )
+
+    def build_job(self, chosen: MachineSettings, target: list[TranslationRow]) -> MachineJob:
+        """Seçilen ayarlarla `target` satırlarına uygulanacak iş (pencereden ve zamanlayıcıdan aynı yol)."""
+        # Döngüsel içe aktarma; testler `implicit_terms`'i pencere modülünde değiştirir.
+        from nxceviri.gui import main_window as _mw  # noqa: PLC0415
+
+        win = self._win
+        return MachineJob(
             rows=target,
             source_lang=win.project.setting("source_language", "en"),
             notes=chosen.notes,
@@ -171,13 +188,6 @@ class MachineController:
             instruction=chosen.instruction,
             all_rows=win.project.translation_rows(),
         )
-        win._launch_machine(
-            chosen,
-            job,
-            set_running=page.set_machine_running,
-            on_progress=page.update_machine_progress,
-            report=page.show_notice,
-        )
 
     def launch_machine(
         self,
@@ -188,11 +198,15 @@ class MachineController:
         on_progress: Callable[[int, int, str], None],
         report: Callable[[str, str], None],
         job_id: str = "",
+        on_outcome: Callable[[str, RunSummary | None], None] | None = None,
+        title_prefix: str = "",
     ) -> None:
         """Makine işini arka planda çalıştırır; sonuçlar parti parti projeye yazılır.
 
         Değişen her satırın önceki hâli `job_id` adıyla geçmişe yazılır; iş bitince değişiklikler
         "Son İşin Değişiklikleri" penceresinde gösterilir (çeviri işinde yalnızca düğmeyle).
+        `on_outcome` iş bitince sonucu alır (`OUTCOME_*`, başarıda özet); `title_prefix` bildirim başlıklarının
+        önüne eklenir (ör. zamanlayıcının başlattığı iş).
         """
         win = self._win
         job_id = job_id or new_job_id(job.action)
@@ -200,6 +214,8 @@ class MachineController:
             provider = win.provider_factory(chosen)
         except NxError as exc:
             report("danger", exc.user_text())
+            if on_outcome is not None:
+                on_outcome(OUTCOME_SETUP, None)
             return
         set_running(True)
         report("success", "")
@@ -218,13 +234,25 @@ class MachineController:
                 actions.append(NoticeAction("Değişiklikleri Gör", win.show_job_changes))
             if details:
                 actions.append(NoticeAction("Ayrıntılar", lambda: QMessageBox.information(win, title, details)))
-            win.notify(level, title, text, tuple(actions))
+            win.notify(level, title_prefix + title, text, tuple(actions))
 
         def done(result: object) -> None:
             assert isinstance(result, RunSummary)
             level, title, text = short_summary(job.action, result)
             details, _state = describe_summary(job.action, result)
             finish(level, title, text, details if level != LEVEL_SUCCESS else "")
+            if on_outcome is not None:
+                on_outcome(OUTCOME_SUCCESS, result)
+
+        def failed(text: str) -> None:
+            finish(LEVEL_ERROR, f"{name} durdu", f"{text} Yapılanlar kaydedildi. {resume}")
+            if on_outcome is not None:
+                on_outcome(OUTCOME_FAILED, None)
+
+        def cancelled() -> None:
+            finish(LEVEL_WARNING, f"{name} durduruldu", f"Yapılanlar kaydedildi. {resume}")
+            if on_outcome is not None:
+                on_outcome(OUTCOME_CANCELLED, None)
 
         resume = (
             "Yeniden başlatınca kaldığı yerden devam eder."
@@ -236,9 +264,9 @@ class MachineController:
             lambda ctx: run_and_close(provider, job, ctx),
             name,
             on_success=done,
-            on_failure=lambda text: finish(LEVEL_ERROR, f"{name} durdu", f"{text} Yapılanlar kaydedildi. {resume}"),
+            on_failure=failed,
             on_progress=on_progress,
-            on_cancel=lambda: finish(LEVEL_WARNING, f"{name} durduruldu", f"Yapılanlar kaydedildi. {resume}"),
+            on_cancel=cancelled,
             on_partial=lambda results: win._machine_results(
                 results, chosen.include_approved, job_id, origin=origin, memory_ids=memory_ids
             ),

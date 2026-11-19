@@ -97,6 +97,7 @@ COMMANDS: tuple[Command, ...] = (
     Command("translate.add_terms", "Terminolojiye Ekle", CATEGORY_TRANSLATE, "Ctrl+Shift+G"),
     Command("translate.changes", "Son İşin Değişiklikleri", CATEGORY_TRANSLATE),
     Command("translate.history", "Çeviri Geçmişi", CATEGORY_TRANSLATE),
+    Command("translate.schedule", "Zamanlayıcı", CATEGORY_TRANSLATE),
     # Git (adımlar)
     Command("go.add", "Oyunu Ekle", CATEGORY_GO, "Alt+1"),
     Command("go.scan", "Metinleri Tara", CATEGORY_GO, "Alt+2"),

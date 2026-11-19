@@ -77,6 +77,7 @@ from nxceviri.core.translate.providers.ollama import DEFAULT_URL
 from nxceviri.core.translate.runner import (
     ACTION_TRANSLATE,
     MachineJob,
+    RunSummary,
 )
 from nxceviri.core.translate.status import TRANSLATED_STATUSES, Status
 from nxceviri.core.translate.terms import TermCandidate
@@ -144,6 +145,7 @@ from nxceviri.gui.recent import RecentProjects
 from nxceviri.gui.recovery import RecoveryFile, RecoveryKeeper, default_recovery_dir
 from nxceviri.gui.scan_controller import ScanController
 from nxceviri.gui.scan_page import ScanPage
+from nxceviri.gui.schedule_controller import ScheduleController
 from nxceviri.gui.settings_dialog import PAGE_VIEW, SettingsDialog
 from nxceviri.gui.shortcuts import ShortcutRegistry
 from nxceviri.gui.spell_controller import SpellController
@@ -484,6 +486,9 @@ class MainWindow(QMainWindow):
 
         connect_pages(self)
 
+        #: Haftalık zamanlayıcı (seçilen saatlerde otomatik çeviri / redaksiyon); dakikada bir denetler.
+        self.scheduler = ScheduleController(self)
+        self.scheduler.timer.start()
         self._build_menus()
         self._restore_keys()
         self.nav.setCurrentRow(STEP_ADD)
@@ -1553,10 +1558,19 @@ class MainWindow(QMainWindow):
         on_progress: Callable[[int, int, str], None],
         report: Callable[[str, str], None],
         job_id: str = "",
+        on_outcome: Callable[[str, RunSummary | None], None] | None = None,
+        title_prefix: str = "",
     ) -> None:
         """Makine işini arka planda çalıştırır; sonuçlar parti parti projeye yazılır."""
         self.machine.launch_machine(
-            chosen, job, set_running=set_running, on_progress=on_progress, report=report, job_id=job_id
+            chosen,
+            job,
+            set_running=set_running,
+            on_progress=on_progress,
+            report=report,
+            job_id=job_id,
+            on_outcome=on_outcome,
+            title_prefix=title_prefix,
         )
 
     # --- değişiklikler ve geçmiş -------------------------------------------------------------
@@ -1781,6 +1795,7 @@ class MainWindow(QMainWindow):
         self.translate_page.find_window.close()  # açık Bul penceresinin konumu kaybolmasın
         self.translate_page.cancel_precheck()
         self.checks.pending_edits.clear()  # kullanıcı vazgeçmeyi onayladı; kapanan projeye geç yazılmasın
+        self.scheduler.timer.stop()  # kapanırken yeni iş başlatılmasın
         running = [t for t in (self.task, self._update_task, self._spell_scan, self._board_task) if t is not None]
         for thread in running:
             thread.cancel()

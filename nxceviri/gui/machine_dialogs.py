@@ -73,7 +73,9 @@ SCOPE_PATTERN = "pattern"
 PROVIDER_OLLAMA = "ollama"
 PROVIDER_DEEPL = "deepl"
 #: Seçim listesinin sırası; OpenAI uyumlu hizmetler tek seçenek altında ayrı listeden seçilir.
-_PROVIDER_ORDER = ("ollama", "anthropic", "gemini", OPENAI_GROUP, "deepl", "google_translate")
+PROVIDER_ORDER = ("ollama", "anthropic", "gemini", OPENAI_GROUP, "deepl", "google_translate")
+#: Seçim listesinde "OpenAI uyumlu" seçeneğinin adı.
+OPENAI_GROUP_LABEL = "OpenAI uyumlu (OpenAI, OpenRouter, Groq, Mistral, DeepSeek, LM Studio…)"
 
 _ACTIONS = (
     (
@@ -373,9 +375,9 @@ class MachineDialog(QDialog):
         )
         form = QFormLayout()
         self.provider = QComboBox()
-        for item in _PROVIDER_ORDER:
+        for item in PROVIDER_ORDER:
             if item == OPENAI_GROUP:
-                self.provider.addItem("OpenAI uyumlu (OpenAI, OpenRouter, Groq, Mistral, DeepSeek, LM Studio…)", item)
+                self.provider.addItem(OPENAI_GROUP_LABEL, item)
             else:
                 self.provider.addItem(spec(item).label, item)
         self.provider.setToolTip(

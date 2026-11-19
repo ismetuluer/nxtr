@@ -83,6 +83,7 @@ class ProjectController:
         # Süren grafik denetimi durur, klasör yeni projeden bulunur; adım değiştiği için sekme görünmez, denetim
         # başlamaz (sekme açılınca başlar).
         win.graphics_check.project_replaced()
+        win.scheduler.project_replaced()  # zamanlayıcı yalnızca açık projede çalışır; durumu sıfırlanır
         win._refresh()
         return True
 
@@ -156,6 +157,7 @@ class ProjectController:
         win._recovery_due = False
         win.dirty = False
         win._refresh()
+        win.scheduler.refresh_status()  # kaydedilmemiş projede kapalı duran zamanlayıcı artık çalışabilir
         win.statusBar().showMessage(f"Proje kaydedildi: {win.project.path}", 5000)
         return True
 

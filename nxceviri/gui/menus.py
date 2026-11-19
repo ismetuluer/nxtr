@@ -305,6 +305,15 @@ class Menus:
             icon="pen-line",
             tip="Seçili satırları bir talimata göre düzeltir.",
         )
+        # İş sürerken de açık: kullanıcı zamanlayıcıyı her an kapatabilsin.
+        self._add(
+            menu,
+            "Zamanlayıcı…",
+            lambda: w.scheduler.open_dialog(),  # noqa: PLW0108 (testler yöntemi sonradan değiştirir)
+            command="translate.schedule",
+            icon="clock",
+            tip="Haftanın seçtiğiniz saatlerinde otomatik çeviri ya da redaksiyon (program ve proje açıkken).",
+        )
         menu.addSeparator()
         self._add(
             menu,
