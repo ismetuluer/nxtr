@@ -1,6 +1,7 @@
-# HANDOFF — oturum devri (2026-11-18, 0.67.0)
+# HANDOFF — oturum devri (2026-11-19, 0.68.0)
 
 ## Durum
+- **Sürüm 0.68.0** (2026-11-19; CHANGELOG 0.68.0): Türkçe harf işaretlerinin ortak kaynak sırası, kaynak etiketi ve kerning (core/fontpatch/sources.py, kerning.py; ARCHITECTURE 234); Kontrol Et bulgularını bulgu sütunlu redaksiyon dosyasına aktarma (235); Claude, Gemini, OpenAI uyumlu ve Google Translate sağlayıcıları, ortak LLM katmanı providers/llm.py (236; gerçek hizmetlerde denenmedi); haftalık zamanlayıcı (core/translate/schedule.py, gui/schedule_controller.py; 237); küfür / argo denetimi (core/qa/profanity.py; 238); eklenti devir günlüğü CALISMA_GUNLUGU.md (239).
 - **Sürüm 0.67.0** (2026-11-18; CHANGELOG 0.67.0): Sığdırma'da fontla genişlik denetimi (core/translate/widths.py, fitwidth.py; ARCHITECTURE 232), Switch sistem fontları (.bfttf/.bfotf) font denetimi ve yamasına bağlandı (ARCHITECTURE 233); dile özgü kuralı gerçek oyuna göre (Avrupa harflerinin %75'i).
 - **Sürüm 0.66.0** (2026-11-18; CHANGELOG 0.66.0): Kontrol Et → Grafik sekmesi (core/qa/graphics.py, gui/graphics_check.py, gui/graphics_controller.py; ARCHITECTURE 231); ana pencere denetleyicilere bölündü (TECH_DEBT 69 kapandı; ARCHITECTURE 221).
 - **Sürüm 0.65.1** (2026-11-18; CHANGELOG 0.65.1): açılış titremesi düzeltildi. Ebeveynsiz

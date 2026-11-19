@@ -2,7 +2,7 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
-## [Yayımlanmadı]
+## [0.68.0] — 2026-11-19 — Zamanlayıcı, yeni çeviri hizmetleri, küfür denetimi, bulgu dışa aktarma
 
 ### Eklendi
 - **Eklenti çalışma günlüğü:** `eklenti-olustur` iskeletine `CALISMA_GUNLUGU.md` eklendi (şimdiki durum, sıradaki adım,
