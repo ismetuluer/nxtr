@@ -40,6 +40,14 @@ bulguya sağ tıklayıp **Şununla düzelt** altından doğru yazımı seçin, s
 Hata olmayan bir bulgu için sağ tık → **Bulguyu yok say** der; bulgu listeden çıkar, çeviri değişirse geri gelir, soldaki
 **Yok sayılanlar**dan **Yok saymayı kaldır** ile geri alınır.
 
+**Küfür / argo (çocuklara yönelik oyunlar):** **Araçlar → Küfür / Argo Denetimi** projeye özgüdür ve varsayılan
+olarak **Kapalı**dır. **Yalnızca ağır küfür** ağır küfür ve sövgüleri, **Ağır küfür ve argo** buna ek olarak "lan",
+"bok", "defol" gibi kaba argoyu işaretler. Bulgu uyarıdır ve dışa aktarmayı engellemez; satırda bulunan sözcükler
+listelenir. Sözlük elle yazılmıştır ve her masum sözcüğü ayıramaz: yanlış işaretlenen sözcük için sağ tık → **Bu
+kelime argo değil** der, sözcük bu projede bir daha işaretlenmez. Orijinal metinde aynen geçen sözcük (özel ad) ve üç
+harfe kadar BÜYÜK HARFLİ kısaltma (LAN) argo olarak sayılmaz. Orijinalde de kaba bir İngilizce ifade varsa ileti bunu
+söyler; çeviri o zaman sadıktır.
+
 ## Sığdırma
 
 Oyunun metin kutusuna sığmayan satırlar için satırda en çok karakter ve sayfada en çok satır sınırı verin; bilmiyorsanız

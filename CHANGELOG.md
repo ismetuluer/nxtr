@@ -13,6 +13,12 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
   anahtar yoksa bildirir. Hizmet, model ve adres zamanlayıcıda ayrı seçilir (varsayılan: Otomatik Çeviri'de son
   kullanılan); ayar projede saklanır, anahtar saklanmaz. Durum çubuğunda sonraki çalışma ("Zamanlayıcı: sonraki Pzt
   01:00") görünür; iş başlayınca ve bitince bildirim gelir.
+- **Küfür / argo denetimi (Kontrol Et):** çocuklara yönelik oyunlarda çeviride Türkçe ağır küfür ve kaba argo çıkmasın
+  diye **Araçlar → Küfür / Argo Denetimi** (projeye özgü; Kapalı, Yalnızca ağır küfür, Ağır küfür ve argo; varsayılan
+  kapalı). Bulgu türü "Küfür / argo" bir uyarıdır, dışa aktarmayı engellemez, anlık denetim türlerinde açıksa orada da çalışır ve "Bulguyu
+  yok say" ile susturulur. Elle yazılmış sözlük (`nxceviri/core/qa/data/kufur.txt`) sözcük kökü ve ek eşleşmesi yapar;
+  masum sözcükler (sikke, götürmek, boks…) elenir. Yanlış işaretlenen sözcük için sağ tık → "Bu kelime argo değil"
+  projenin izin listesine yazar. Orijinalde de kaba İngilizce ifade varsa ileti bunu söyler.
 - **Kontrol Et bulgularını dışa aktarma:** Kontrol Et'te görünen (ya da seçili) bulgular satırlarıyla birlikte
   dış redaksiyon dosyası biçiminde (TXT ya da XLSX) dışa aktarılır; sütunlar `orijinal, çeviri, düzeltme, grup` ve en
   sonda salt okunur `bulgu` (satırın bütün bulguları tek hücrede). Bulgu listesinin sağ tık menüsünde

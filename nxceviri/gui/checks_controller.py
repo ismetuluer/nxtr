@@ -30,6 +30,8 @@ from nxceviri.core.qa.checks import run_checks as run_qa_checks
 from nxceviri.core.qa.fixrun import FixSettings, plan_for_issues, plan_for_rows
 from nxceviri.core.qa.live import SETTING_KEY as LIVE_KINDS_KEY
 from nxceviri.core.qa.live import LiveContext, format_live_kinds, parse_live_kinds
+from nxceviri.core.qa.profanity import LEVEL_LABELS as PROFANITY_LEVELS
+from nxceviri.core.qa.profanity import ProfanityConfig, parse_level
 from nxceviri.core.qa.terms import project_terms
 from nxceviri.core.spell.checker import turkish_lower
 from nxceviri.core.translate.codekinds import suspected_line_breaks
@@ -61,6 +63,9 @@ MANUAL_LIMIT_KEY = "translate_manual_limit"
 #: Proje ayarları: yazım denetiminde yoksayılan sözcükler ve "terim değil" denen ifadeler (JSON listesi).
 SPELL_IGNORED_KEY = "spell_ignored"
 TERMS_IGNORED_KEY = "terms_ignored"
+#: Proje ayarları: küfür / argo denetiminin düzeyi (`profanity.LEVEL_*`; yoksa kapalı) ve "argo değil" sözcükleri.
+PROFANITY_LEVEL_KEY = "profanity_level"
+PROFANITY_ALLOWED_KEY = "profanity_allowed"
 #: Düzelt'in denetimi ve planı bu satır sayısına kadar ana iş parçacığında (anında), fazlası arka plan işinde yapılır.
 FIX_SYNC_ROWS = 200
 #: Düzeltmeden sonra değişen satırlar bu sayıya kadar panoda yerinde yenilenir; fazlası arka planda tam denetlenir.
@@ -92,6 +97,7 @@ class ChecksController:
         glossary, fit, spell = self._win.project.glossary(), self._win._fit_config(), self._win.spell
         ignored_terms, spell_ignored = self._win._terms_ignored(), self._win._spell_ignored()
         widths = self._win._width_measure()
+        profanity = self._win._profanity_config()
 
         def job(progress: ProgressCallback | None = None) -> list[QaIssue]:
             return run_qa_checks(
@@ -105,6 +111,7 @@ class ChecksController:
                 spell_ignored=spell_ignored,
                 progress=progress,
                 widths=widths,
+                profanity=profanity,
             )
 
         return job
@@ -287,6 +294,7 @@ class ChecksController:
         )
         spell, spell_ignored = self._win.spell, self._win._spell_ignored()
         widths = self._win._width_measure()
+        profanity = self._win._profanity_config()
         kept = (
             [i for i in self._win.qa_page.all_issues() if i.kind == "term" and i.row_id in group_ids]
             if keep_terms
@@ -305,6 +313,7 @@ class ChecksController:
                 spell_ignored=spell_ignored,
                 terms={} if keep_terms else project_terms(all_rows, glossary, ignored_terms),
                 widths=widths,
+                profanity=profanity,
             )
             by_row: dict[int, list[QaIssue]] = {}
             for issue in [*issues, *kept]:
@@ -419,6 +428,36 @@ class ChecksController:
     def terms_ignored(self) -> list[str]:
         """Bu projede "terim değil" denen ifadeler (ayar bozuksa boş, günlüğe uyarı)."""
         return parse_word_list(self._win.project.setting(TERMS_IGNORED_KEY), TERMS_IGNORED_KEY)
+
+    def profanity_config(self) -> ProfanityConfig:
+        """Bu projenin küfür / argo denetimi ayarı (düzey yok ya da bozuksa kapalı; izin listesi bozuksa boş)."""
+        project = self._win.project
+        allowed = parse_word_list(project.setting(PROFANITY_ALLOWED_KEY), PROFANITY_ALLOWED_KEY)
+        return ProfanityConfig(
+            parse_level(project.setting(PROFANITY_LEVEL_KEY)), frozenset(turkish_lower(w) for w in allowed)
+        )
+
+    def set_profanity_level(self, level: str) -> None:
+        """Araçlar → Küfür / Argo Denetimi: düzeyi projeye yazar; anlık denetim ve Kontrol Et sonucu yenilenir."""
+        level = parse_level(level)
+        if level == self.profanity_config().level:
+            return
+        self._win.project.set_setting(PROFANITY_LEVEL_KEY, level)
+        self._win._mark_changed()
+        self._win.statusBar().showMessage(f"Küfür / argo denetimi: {PROFANITY_LEVELS[level]}.", 5000)
+        self._win._sync_live()
+        self._win._recheck_if_done()
+
+    def allow_profanity_words(self, words: list[str]) -> None:
+        """Sorunlar panosunda "Bu kelime argo değil": sözcükler bu projede küfür / argo bulgusu üretmez."""
+        current = [
+            turkish_lower(w)
+            for w in parse_word_list(self._win.project.setting(PROFANITY_ALLOWED_KEY), PROFANITY_ALLOWED_KEY)
+        ]
+        self._store_ignored(PROFANITY_ALLOWED_KEY, current, [turkish_lower(str(w)) for w in words])
+        self._win.statusBar().showMessage(f"{format_int(len(words))} sözcük argo sayılmayacak.", 5000)
+        self._win._sync_live()
+        self._win._recheck_if_done()
 
     def _store_ignored(self, key: str, current: list[str], additions: list[str]) -> None:
         merged = list(dict.fromkeys([*current, *additions]))
@@ -711,6 +750,7 @@ class ChecksController:
             kinds=win._live_kinds,
             spell_ignored=frozenset(turkish_lower(w) for w in win._spell_ignored()),
             widths=win._width_measure(),
+            profanity=win._profanity_config(),
         )
         if not force and context == win._live_context:
             return

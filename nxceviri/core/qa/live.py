@@ -21,6 +21,7 @@ from nxceviri.core.qa.checks import (
     glossary_patterns,
     spell_extra_words,
 )
+from nxceviri.core.qa.profanity import NO_PROFANITY, ProfanityConfig
 from nxceviri.core.spell.checker import SpellChecker
 from nxceviri.core.translate.fitconfig import FitConfig
 from nxceviri.core.translate.fitwidth import KIND_TOO_WIDE, WidthMeasure
@@ -54,6 +55,7 @@ LIVE_KINDS: tuple[str, ...] = (
     "suspicious",
     "inconsistent",
     "spelling",
+    "profanity",
 )
 DEFAULT_LIVE_KINDS: frozenset[str] = frozenset(LIVE_KINDS)
 
@@ -83,6 +85,7 @@ KIND_HINTS: dict[str, str] = {
     "suspicious": "Çeviri uydurma gibi görünüyor (İngilizce kalmış, tekrar vb.).",
     "inconsistent": "Aynı metin farklı biçimlerde çevrilmiş.",
     "spelling": "Yazım sözlüğünde olmayan sözcük var.",
+    "profanity": "Çeviride küfür ya da argo var (Araçlar menüsünden açılır).",
 }
 
 SETTING_KEY = "qa/live_kinds"
@@ -119,6 +122,8 @@ class LiveContext:
     spell_ignored: frozenset[str] = frozenset()
     #: Fontla genişlik ölçümü (kutular tüm projeden); kimlikle karşılaştırılır, ayar ya da satırlar değişince yenilenir.
     widths: WidthMeasure | None = None
+    #: Küfür / argo denetiminin proje ayarı (kapalıysa bulgu üretilmez).
+    profanity: ProfanityConfig = NO_PROFANITY
 
 
 @dataclass(frozen=True)
@@ -147,6 +152,7 @@ def _base_issues(
             spell=ctx.spell,
             spell_extra=extra,
             widths=ctx.widths,
+            profanity=ctx.profanity,
         )
         if i.kind in ctx.kinds and i.kind in KIND_LABELS and i.kind != "untranslated"
     ]

@@ -57,6 +57,7 @@ from nxceviri.core.qa.checks import (
 from nxceviri.core.qa.fixrun import FixSettings
 from nxceviri.core.qa.fonts import FontReport
 from nxceviri.core.qa.live import LiveContext
+from nxceviri.core.qa.profanity import ProfanityConfig
 from nxceviri.core.qa.terms import implicit_terms
 from nxceviri.core.secrets import DEEPL_API_KEY, KeyringStore, SecretStore
 from nxceviri.core.selfupdate import PreparedInstall, current_install, launch_installer
@@ -1277,6 +1278,15 @@ class MainWindow(QMainWindow):
 
     def ignore_terms(self, phrases: list[str]) -> None:
         self.checks.ignore_terms(phrases)
+
+    def _profanity_config(self) -> ProfanityConfig:
+        return self.checks.profanity_config()
+
+    def set_profanity_level(self, level: str) -> None:
+        self.checks.set_profanity_level(level)
+
+    def allow_profanity_words(self, words: list[str]) -> None:
+        self.checks.allow_profanity_words(words)
 
     def ignore_spell_words(self, words: list[str]) -> None:
         self.checks.ignore_spell_words(words)
