@@ -124,7 +124,9 @@ def test_stopped_check_drops_issues_of_rows_changed_since(
     rows = _board(w, "spaces")
     first = rows[0]
     w.project.set_translations([(first.id, "Düzeltildi")])  # Düzelt/düzenleme: çeviri panodaki anlık görüntüden ayrıldı
-    w.translate_page.model.update_rows([next(r for r in w.project.translation_rows() if r.id == first.id)])
+    # Tablo değişikliği panoyu artık kendiliğinden yeniler; panonun eski kaldığı durumu (değişiklik denetim
+    # sürerken gelir) kurmak için yenilemeyi çağıranın üstlendiği yol kullanılır.
+    w.checks._update_rows_handled([next(r for r in w.project.translation_rows() if r.id == first.id)])
     seen: list[int] = []
     real = page.update_check_progress
 

@@ -241,6 +241,8 @@ class TranslationModel(QAbstractTableModel):
     """Binlerce satırda akıcı çalışan sanal model. Düzenlemeler `commit` ile hemen kaydedilir."""
 
     commit_failed = Signal(str)
+    #: Satırlar yerinde değişti (düzenleme, Geri Al, bul-değiştir, makine işi…): değişen satırlar.
+    rows_updated = Signal(list)
 
     def __init__(self) -> None:
         super().__init__()
@@ -372,6 +374,8 @@ class TranslationModel(QAbstractTableModel):
             self._row_changed(self._pos[r.id])
         # Aynı kaynaklı öteki satırların "tutarsız" durumu değişmiş olabilir.
         self._ids_changed(peers)
+        if known:
+            self.rows_updated.emit(known)
 
     def neighbors(self, row_id: int, count: int = 2) -> tuple[list[TranslationRow], list[TranslationRow]]:
         """Aktarım sırasında satırdan önceki ve sonraki en çok `count` satır (aynı dosyadan; sıralamadan bağımsız)."""

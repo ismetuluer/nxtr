@@ -207,8 +207,7 @@ class SpellController:
         if rows is None:
             return  # neden Çevir sayfasında bildirildi
         self._win.statusBar().showMessage(f"{format_int(len(changes))} satırda değiştirildi.", 5000)
-        self._win._refresh_spell_window()
-        self._win._recheck_board_later(rows)
+        self._win._refresh_spell_window()  # pano, tablonun `rows_updated` bildirimiyle yenilenir
 
     def _sync_spell(self) -> None:
         """Editördeki yazım işaretlerini güncel denetleyici ve oyun sözlüğüyle yeniler."""

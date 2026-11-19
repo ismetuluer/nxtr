@@ -2,6 +2,15 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [Yayımlanmadı]
+
+### Düzeltildi
+- **Kontrol Et bulgu listesi düzeltmelerle azalmıyordu:** liste yalnızca Kontrol Et'te yerinde düzenleme ya da
+  "Düzelt" ile yenileniyordu; Çevir tablosunda düzenleme, Geri Al, bul-değiştir, makine çevirisi/redaksiyon ve
+  içe aktarmadan sonra eski bulgular kalıyordu. Artık çeviri tablosunda değişen her satır (ve aynı orijinali
+  paylaşan satırlar) Kontrol Et listesinde arka planda yeniden denetlenir; düzelen bulgu listeden ve sayaçtan
+  düşer, Geri Al ile geri gelir.
+
 ## [0.68.0] — 2026-11-19 — Zamanlayıcı, yeni çeviri hizmetleri, küfür denetimi, bulgu dışa aktarma
 
 ### Eklendi

@@ -86,6 +86,8 @@ class ChecksController:
         self.board_task: Task | None = None
         self.check_task: Task | None = None  # Durdur'un iptal edeceği tam denetim işi
         self.board_pending: dict[int, TranslationRow] = {}
+        #: Panoyu kendisi hemen yenileyen yol (yerinde düzenleme, Düzelt) sürerken `rows_updated` bir şey yapmaz.
+        self._board_handled = False
         self.recheck_pending = False
         #: İş sürerken Sorunlar'da yerinde yapılan düzenlemeler: satır → (proje, o anki çeviri, yeni metin).
         self.pending_edits: dict[int, tuple[Project, str, str]] = {}
@@ -230,8 +232,23 @@ class ChecksController:
             return
         if not rows:
             return
-        self._win.translate_page.model.update_rows(rows)
+        self._update_rows_handled(rows)
         self._win._recheck_board_rows(rows)
+
+    def _update_rows_handled(self, rows: list[TranslationRow]) -> None:
+        """Çeviri tablosunu yeniler; panoyu çağıran yenileyeceği için `rows_updated` ikinci bir denetim açmaz."""
+        self._board_handled = True
+        try:
+            self._win.translate_page.model.update_rows(rows)
+        finally:
+            self._board_handled = False
+
+    def rows_updated(self, rows: Sequence[TranslationRow]) -> None:
+        """Çeviri tablosunda satırlar değişti (Çevir'de düzenleme, Geri Al, bul-değiştir, makine işi, içe aktarma…):
+        Kontrol Et çalıştırılmışsa bu satırlar panoda arka planda yeniden denetlenir, düzeltilen bulgu listeden düşer.
+        """
+        if not self._board_handled:
+            self.recheck_board_later(rows)
 
     def flush_pending_edits(self) -> None:
         """İş bitince saklanan yerinde düzenlemeleri yazar. İş satırı bu arada değiştirdiyse ezmez: metin bildirimde
@@ -511,7 +528,6 @@ class ChecksController:
         if rows is None:
             return  # neden Çevir sayfasında bildirildi
         self._win.statusBar().showMessage(f"{format_int(len(changes))} satırda değiştirildi.", 5000)
-        self._win._recheck_board_later(rows)
 
     def write_row_changes(
         self, plan: list[tuple[int, str]], rows: list[TranslationRow], job_id: str
@@ -616,7 +632,7 @@ class ChecksController:
             page.show_fix_result("danger", exc.user_text())
             return
         self._win._mark_changed()
-        self._win.translate_page.model.update_rows(updated)
+        self._update_rows_handled(updated)
         self._win._set_last_job(job_id)
         self._win._refresh_marks()
         self._win._fix_report = (job_id, {i: ", ".join(KIND_LABELS[k] for k in ks) for i, ks in plan.applied.items()})

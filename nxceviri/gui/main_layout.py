@@ -170,6 +170,8 @@ def connect_pages(win: MainWindow) -> None:
     win.qa_page.export_findings_requested.connect(win.export_findings)
     win.qa_page.fix_planner = win._plan_fix_bar
     win.qa_page.translation_edited.connect(win._edit_from_issues)
+    # Çevir'de, Geri Al'da, makine işinde… değişen satırlar Kontrol Et listesinde de yeniden denetlenir.
+    win.translate_page.model.rows_updated.connect(win.checks.rows_updated)
     win.qa_page.report_requested.connect(win.show_job_changes)
     win.qa_page.fix_notice.connect(win._fix_notice)
     win.qa_page.fit_changed.connect(win._save_fit)
