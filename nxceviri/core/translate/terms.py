@@ -23,7 +23,7 @@ from nxceviri.core.progress import TaskContext
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.providers.base import GlossaryTerm, ProviderError
-from nxceviri.core.translate.providers.ollama import extract_translations, language_name
+from nxceviri.core.translate.providers.llm import extract_translations, language_name
 
 log = logging.getLogger(__name__)
 

@@ -18,6 +18,7 @@ from PySide6.QtWidgets import QMessageBox
 from nxceviri.core.errors import NxError
 from nxceviri.core.project import TranslationRow, row_group
 from nxceviri.core.translate.origin import MEMORY_ORIGIN, MachineOrigin
+from nxceviri.core.translate.providers.catalog import SPECS, spec
 from nxceviri.core.translate.providers.ollama import DEFAULT_URL
 from nxceviri.core.translate.report import mark_label
 from nxceviri.core.translate.runner import (
@@ -76,6 +77,7 @@ class MachineController:
             scope=scope,
             instruction=win.project.setting(REVISE_INSTRUCTION_KEY),
             translate_instruction=win.project.setting(TRANSLATE_INSTRUCTION_KEY),
+            remembered=self.remembered_providers(),
         )
         try:
             if dialog.exec() != MachineDialog.DialogCode.Accepted:
@@ -98,18 +100,34 @@ class MachineController:
             SCOPE_ALL: rows,
         }
 
+    def remembered_providers(self) -> dict[str, tuple[str, str]]:
+        """Hizmet başına son adres ve model (ayarlardan; anahtarlar burada değil, gizli depodadır)."""
+        settings = self._win.settings
+        out = {"ollama": (str(settings.value("ollama/url", DEFAULT_URL)), str(settings.value("ollama/model", "")))}
+        for item in SPECS:
+            if item.id != PROVIDER_OLLAMA:
+                out[item.id] = (
+                    str(settings.value(f"provider/{item.id}/url", "")),
+                    str(settings.value(f"provider/{item.id}/model", "")),
+                )
+        return out
+
     def remember_machine_settings(self, chosen: MachineSettings) -> bool:
         win = self._win
         win.settings.setValue("translate/provider", chosen.provider)
-        win.settings.setValue("ollama/url", chosen.base_url)
-        win.settings.setValue("ollama/model", chosen.model)
+        if chosen.provider == PROVIDER_OLLAMA:
+            win.settings.setValue("ollama/url", chosen.base_url)
+            win.settings.setValue("ollama/model", chosen.model)
+        else:
+            win.settings.setValue(f"provider/{chosen.provider}/url", chosen.base_url)
+            win.settings.setValue(f"provider/{chosen.provider}/model", chosen.model)
         win._refresh_status()
         try:
             win.project.set_setting("translation_notes", chosen.notes)
             if chosen.action == ACTION_REVISE:
                 if chosen.instruction:
                     win.project.set_setting(REVISE_INSTRUCTION_KEY, chosen.instruction)
-            elif chosen.provider == PROVIDER_OLLAMA:
+            elif not spec(chosen.provider).classic:
                 # Çeviri talimatı isteğe bağlıdır: kutu boşaltılınca saklanan talimat da silinir.
                 win.project.set_setting(TRANSLATE_INSTRUCTION_KEY, chosen.instruction)
         except NxError as exc:
@@ -185,8 +203,8 @@ class MachineController:
             return
         set_running(True)
         report("success", "")
-        # Satırın kaynağı olarak yalnızca sağlayıcı kimliği ve Ollama modeli yazılır (adres ya da anahtar asla).
-        origin = MachineOrigin(chosen.provider, chosen.model if chosen.provider == PROVIDER_OLLAMA else "")
+        # Satırın kaynağı olarak yalnızca sağlayıcı kimliği ve yapay zekâ modeli yazılır (adres ya da anahtar asla).
+        origin = MachineOrigin(chosen.provider, chosen.model if spec(chosen.provider).has_models else "")
         memory_ids = frozenset(memory_filled_ids(job))
 
         def finish(level: str, title: str, text: str, details: str = "") -> None:

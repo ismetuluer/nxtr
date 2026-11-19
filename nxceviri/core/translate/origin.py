@@ -1,4 +1,4 @@
-"""Satırın makine çevirisini kimin yaptığı: sağlayıcı kimliği ve (Ollama'da) model adı.
+"""Satırın makine çevirisini kimin yaptığı: sağlayıcı kimliği ve (yapay zekâ hizmetlerinde) model adı.
 
 Proje dosyasında satırla birlikte saklanır (`text_entries.mt_provider`, `mt_model`); karar ARCHITECTURE 222.
 Yalnızca kalıcı kimlik ve model adı yazılır: sunucu adresi, API anahtarı ya da kişisel veri yazılmaz.
@@ -8,12 +8,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from nxceviri.core.translate.providers.catalog import SPECS
+
 #: Sağlayıcı kimlikleri (ayarlardaki değerlerle aynı) ve çeviri belleği.
 PROVIDER_OLLAMA = "ollama"
 PROVIDER_DEEPL = "deepl"
 PROVIDER_MEMORY = "memory"
-#: Kimlik → arayüzde görünen ad (durum çubuğu ve satır ipucu aynı adı kullanır).
-PROVIDER_NAMES = {PROVIDER_OLLAMA: "Ollama", PROVIDER_DEEPL: "DeepL", PROVIDER_MEMORY: "Çeviri belleği"}
+#: Kimlik → arayüzde görünen ad (durum çubuğu ve satır ipucu aynı adı kullanır); hizmetler katalogdan gelir.
+PROVIDER_NAMES = {**{s.id: s.name for s in SPECS}, PROVIDER_MEMORY: "Çeviri belleği"}
 
 
 @dataclass(frozen=True)

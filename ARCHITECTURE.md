@@ -1384,20 +1384,6 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     düzenleme** (Dışa Aktar / İçe Al) bu türde kapalıdır: içe alınan TTF dışa aktarmada özgün başlık/anahtarla yeniden
     paketlenmeliydi ve arşiv içindeki fontlarda çalışmazdı; düğmeler seçili Switch fontunda devre dışı, ipucu nedenini
     söyler.
-235. **Kontrol Et bulguları, dış redaksiyon dosyasının `bulgu` sütunuyla dışa aktarılır (2026-11-18):** kullanıcı
-    bulguları (ve satırlarını) dışarıda bir modele ya da kendisi düzelttirip geri almak ister; yeni bir dosya biçimi
-    ve yeni bir içe aktarma yolu açmak yerine mevcut redaksiyon dosyası (`orijinal, çeviri, düzeltme, grup`) sonuna
-    salt okunur bir `bulgu` sütunu alır ve içe aktarma aynı kalır (Çeviri → Dış Redaksiyon → "İçe Aktar": önizleme,
-    kod denetimi, geri alma hazırdır). `bulgu` başlığı (`bulgular`, `finding`, `issue`, `sorun` da) `_txt_layout`
-    tarafından adıyla tanınır ve hücreler çözülürken çıkarılır; TXT'te fazla sekme düzeltmeye katılma kuralı ona
-    uygulanmaz, böylece model sütunu koruyunca bulgu metni düzeltmeye sızmaz. Başlıksız ya da 3/4 sütunlu eski
-    dosyaların davranışı değişmez. Bir satırın bütün bulguları tek hücrede "<Önem> <tür>: <ileti>" biçiminde `" | "`
-    ile birleşir (satır sonu ve sekme tek boşluğa iner); dosyada her satır bir kez, kartların tablodaki sırasıyla
-    yer alır. Kapsam tablodaki görünen bulgulardır (süzgeçler uygulanır, yok sayılanlar girmez); seçili bulgu varsa
-    "seçili bulguların satırları" varsayılandır. Dışa aktarma dış redaksiyonla aynı `CsvExportDialog`'u (`MODE_FINDINGS`)
-    kullanır: biçim, gruba bölme ve parçalama hazır gelir. Hazır istem `bulgu` sütununun yalnızca bilgi olduğunu
-    söyler.
-
 ### 4.56 Yayımlanmamış kararlar (Türkçe harf işaretlerinin kaynağı)
 
 234. **Türkçe harf işaretlerinin kaynağı üç yamacıda ortaktır; kaynak raporlanır, kerning devralınır (2026-11-18):**
@@ -1433,6 +1419,39 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     aktarılamadı"). **Üst sınır:** İ/Ğ'nin işareti `hhea.ascent`'i ya da (sıfır değilse) OS/2 `usWinAscent`'i
     aşarsa "işaret fontun üst sınırını aşıyor; oyunda kesilebilir" notu düşülür; metrikler sessizce değiştirilmez
     (satır aralığı oyunun düzenini kaydırabilir; karar kullanıcının cihaz denemesine kalır).
+235. **Kontrol Et bulguları, dış redaksiyon dosyasının `bulgu` sütunuyla dışa aktarılır (2026-11-18):** kullanıcı
+    bulguları (ve satırlarını) dışarıda bir modele ya da kendisi düzelttirip geri almak ister; yeni bir dosya biçimi
+    ve yeni bir içe aktarma yolu açmak yerine mevcut redaksiyon dosyası (`orijinal, çeviri, düzeltme, grup`) sonuna
+    salt okunur bir `bulgu` sütunu alır ve içe aktarma aynı kalır (Çeviri → Dış Redaksiyon → "İçe Aktar": önizleme,
+    kod denetimi, geri alma hazırdır). `bulgu` başlığı (`bulgular`, `finding`, `issue`, `sorun` da) `_txt_layout`
+    tarafından adıyla tanınır ve hücreler çözülürken çıkarılır; TXT'te fazla sekme düzeltmeye katılma kuralı ona
+    uygulanmaz, böylece model sütunu koruyunca bulgu metni düzeltmeye sızmaz. Başlıksız ya da 3/4 sütunlu eski
+    dosyaların davranışı değişmez. Bir satırın bütün bulguları tek hücrede "<Önem> <tür>: <ileti>" biçiminde `" | "`
+    ile birleşir (satır sonu ve sekme tek boşluğa iner); dosyada her satır bir kez, kartların tablodaki sırasıyla
+    yer alır. Kapsam tablodaki görünen bulgulardır (süzgeçler uygulanır, yok sayılanlar girmez); seçili bulgu varsa
+    "seçili bulguların satırları" varsayılandır. Dışa aktarma dış redaksiyonla aynı `CsvExportDialog`'u (`MODE_FINDINGS`)
+    kullanır: biçim, gruba bölme ve parçalama hazır gelir. Hazır istem `bulgu` sütununun yalnızca bilgi olduğunu
+    söyler.
+
+236. **Ollama ve DeepL dışında yapay zekâ / makine çevirisi hizmetleri (2026-11-19):** istem kurma, yanıt şeması,
+    yanıtın okunması ve hata eşlemesi `providers/llm.py`'deki `LLMProvider` taban sınıfına ayrıldı; her LLM sağlayıcısı
+    yalnızca taşımayı (`chat_json`), model listesini ve bağlantı testini yazar. Ollama'nın davranışı aynı kaldı (eski adlar
+    `ollama.py`'den `__all__` ile verilir). Yeni sağlayıcılar: **OpenAI uyumlu** (`openai_compat.py`: OpenAI, OpenRouter,
+    Groq, Mistral, DeepSeek, LM Studio, özel adres; tek kod, hazır adres listesi; `json_schema` → `json_object` → düz
+    metin sırasıyla düşen yanıt biçimi), **Claude** (`anthropic_claude.py`), **Gemini** (`gemini.py`, httpx) ve
+    **Google Translate** (`google_translate.py`, Cloud Translation Basic v2; klasik çeviri: talimat izlemez, redaksiyon
+    sunulmaz; yer tutucular DeepL'deki `<x id="n"/>` etiketleriyle korunur, kod `deepl.to_xml/from_xml`'den ortaktır).
+    Hata bayrakları tek yerde (`llm.status_error`, `truncated_error`, `refusal_error`): 401/403 yeniden denenmez; 429,
+    5xx, 529 ve zaman aşımı yeniden denenir ve `ProviderError.retry_after_s` ile çalıştırıcı hizmetin istediği kadar
+    (en çok 120 sn) bekler; kesilen yanıt partiyi böler, tek satırda o satır atlanır; içerik reddi yeniden denenmeden
+    satır atlanır. **Bağımlılık `anthropic`:** Claude için resmî kitaplık kullanıldı; API'nin beta başlıkları,
+    yapılandırılmış çıktı (`output_config.format`), sunucu tarafı yedek model (`fallbacks="default"`) ve tipli hata
+    sınıfları kitaplıkla birlikte bakılıyor, elle yazılmış HTTP istemcisi bunları her API değişikliğinde peşinden
+    güncellemeyi gerektirirdi. Apache-2.0 lisanslı; bağımlılıkları (httpx2, pydantic, jiter, opentelemetry-api…) MIT,
+    BSD veya Apache; GPL yok. Kitaplığın kendi yeniden denemesi kapalıdır (`max_retries=0`): çalıştırıcı zaten yeniden
+    deniyor. Diğer hizmetler kitaplıksız (httpx) yazıldı: istekleri basit ve kararlı. **Anahtarlar** her hizmet için
+    ayrı adla Windows Kimlik Bilgisi Yöneticisi'nde durur (`secrets.api_key_name`); bir hizmetin anahtarı başka adrese
+    gönderilmez. Fiyat gösterilmez (hizmete, modele ve zamana göre değişir); yalnızca kaba belirteç tahmini verilir.
 
 ## 5. Bilinen sınırlar
 

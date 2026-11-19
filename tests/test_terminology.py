@@ -48,7 +48,7 @@ def test_suggest_without_ollama_model_gives_short_notice_with_action(window: Mai
     window.settings.setValue("ollama/model", "")
     window.suggest_glossary_terms()
     notice = window.notifier.history[0]
-    assert notice.title == "Terim önerisi için Ollama gerekli"
+    assert notice.title == "Terim önerisi için yapay zekâ modeli gerekli"
     assert len(notice.text) < 90  # kısa; uzun açıklama paragrafı yok
     assert [a.label for a in notice.actions] == ["Otomatik Çeviri…"]
 

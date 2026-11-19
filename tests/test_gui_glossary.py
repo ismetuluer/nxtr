@@ -126,4 +126,4 @@ def test_suggest_terms_needs_ollama_model(window: MainWindow) -> None:
     window.settings.setValue("translate/provider", "deepl")
     window.suggest_glossary_terms()
     assert window.task is None
-    assert "Ollama gerekli" in window.notifier.history[0].title
+    assert "yapay zekâ modeli gerekli" in window.notifier.history[0].title

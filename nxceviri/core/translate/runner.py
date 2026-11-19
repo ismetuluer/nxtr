@@ -303,7 +303,8 @@ class _Runner:
                     self.stuck[items[0].id] = exc.message
                     log.warning("Satır atlandı (%s): %s", items[0].id, exc.message)
                     return [BatchResult(items[0].id, None, exc.message)]
-                delay = RETRY_DELAYS_S[attempt]
+                # Hizmet ne kadar beklenmesini istediyse (`retry-after`) en az o kadar beklenir.
+                delay = max(RETRY_DELAYS_S[attempt], exc.retry_after_s or 0.0)
                 attempt += 1
                 log.info("Parti yeniden denenecek (%d. deneme, %.0f sn sonra): %s", attempt, delay, exc.message)
                 if self.ctx.token.wait(delay):
@@ -412,7 +413,7 @@ def run_machine_translation(
     if job.action == ACTION_REVISE and not provider.supports_instructions:
         raise ProviderError(
             f"{provider.label} talimatla düzeltme (redaksiyon) yapamaz.",
-            "Redaksiyon için sağlayıcı olarak Ollama'yı seçin.",
+            "Redaksiyon için bir yapay zekâ hizmeti (Ollama, Claude, Gemini, OpenAI uyumlu) seçin.",
         )
     summary = RunSummary(rows=len(job.rows))
     if hasattr(provider, "cancel_token"):

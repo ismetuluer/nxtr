@@ -69,7 +69,7 @@ from nxceviri.core.translate.fitconfig import (
     FitConfig,
 )
 from nxceviri.core.translate.fitwidth import WidthMeasure
-from nxceviri.core.translate.origin import MachineOrigin
+from nxceviri.core.translate.origin import PROVIDER_MEMORY, PROVIDER_NAMES, MachineOrigin
 from nxceviri.core.translate.probe import deepl_summary, ollama_summary
 from nxceviri.core.translate.providers.base import ProviderError, TranslationProvider
 from nxceviri.core.translate.providers.deepl import DeepLProvider
@@ -753,14 +753,20 @@ class MainWindow(QMainWindow):
         )
 
     def _provider_kind(self) -> str:
-        """Son kullanılan çeviri sağlayıcısı ("ollama" ya da "deepl"); seçilmediyse boş."""
+        """Son kullanılan çeviri sağlayıcısının kimliği ("ollama", "deepl", "anthropic"…); seçilmediyse boş."""
         kind = str(self.settings.value("translate/provider", ""))
-        return kind if kind in (PROVIDER_OLLAMA, PROVIDER_DEEPL) else ""
+        return kind if kind in PROVIDER_NAMES and kind != PROVIDER_MEMORY else ""
 
     def _probe_provider(self) -> None:
         """Sağlayıcı bölmesinin ipucu açılırken durumu (kota / bellekteki model) arka planda yeniler."""
         kind = self._provider_kind()
         if not kind:
+            return
+        if kind not in (PROVIDER_OLLAMA, PROVIDER_DEEPL):
+            # Bulut hizmetlerinde her ipucunda ağa gidilmez (ücretli olabilir): yalnızca seçili model gösterilir.
+            self._provider_tip_title = PROVIDER_NAMES[kind]
+            model = self.machine.remembered_providers().get(kind, ("", ""))[1]
+            self._show_provider_tip([f"Model: {model}"] if model else [])
             return
         if kind == PROVIDER_OLLAMA:
             url = str(self.settings.value("ollama/url", DEFAULT_URL))

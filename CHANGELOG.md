@@ -14,6 +14,14 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
   bulgu metni düzeltmeye karışmaz. Bulgusu olmayan satırlar dosyaya girmez; hiç bulgu yoksa dosya yazılmaz, bunu
   söyleyen bir bildirim çıkar. Hazır model talimatı `bulgu` sütununun yalnızca bilgi olduğunu söyler.
 
+- **Yeni çeviri hizmetleri:** Otomatik Çeviri penceresinde Ollama ve DeepL'in yanında **Claude** (Anthropic),
+  **Gemini** (Google), **OpenAI uyumlu** hizmetler (OpenAI, OpenRouter, Groq, Mistral, DeepSeek, LM Studio ve özel
+  sunucu adresi) ve **Google Translate** seçilebilir. Anahtar pencerede kaydedilir, her hizmet için ayrı olarak Windows
+  Kimlik Bilgisi Yöneticisi'nde saklanır. **Modelleri Listele** hizmetin modellerini getirir; son adres ve model hizmet
+  başına hatırlanır. Redaksiyon ve iş talimatı yapay zekâ hizmetlerinin hepsinde çalışır; Google Translate (DeepL gibi)
+  talimat izleyemez. Terim önerisi de seçili yapay zekâ hizmetiyle yapılabilir.
+- Hizmet `retry-after` ile beklemek istediğini bildirirse yeniden denemeden önce o kadar beklenir.
+
 ### Değişti
 - **Font yaması: Türkçe harflerin işareti fontun kendisinden, her font türünde aynı sırayla alınır.** İ'nin noktası
   `i` → `ż ċ ė` → `ö` → nokta işaretinden; ş/Ş'nin çengeli `ç`/`Ç`'den (önceden TTF ve Switch fontlarında virgülden) →
@@ -25,6 +33,8 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
 - **TTF/OTF ve Switch sistem fontları:** eklenen harfler taban harfin harf aralığı (kerning) çiftlerini devralır
   (ş ← s, İ ← I, ğ ← g …); `kern` tablosu ve GPOS çift konumlandırması (glif ve sınıf çiftleri). İşaret fontun üst
   sınırını aşıyorsa bilgi dosyasında "oyunda kesilebilir" notu çıkar.
+- Bağımlılık: `anthropic` (Claude için resmî Python kitaplığı, Apache-2.0); yalnızca Claude seçilince yüklenir.
+- "Terim önerisi için Ollama gerekli" bildirimi "Terim önerisi için yapay zekâ modeli gerekli" oldu.
 
 ## [0.67.0] — 2026-11-18 — Fontla genişlik denetimi, Switch sistem fontları
 

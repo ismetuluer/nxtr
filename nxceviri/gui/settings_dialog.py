@@ -770,6 +770,18 @@ class SettingsDialog(QDialog):
         lay.addWidget(label("DeepL (bulut)", "cardTitle"))
         self.deepl_panel = DeepLKeyPanel(self._secrets)
         lay.addWidget(self.deepl_panel)
+
+        lay.addSpacing(8)
+        lay.addWidget(label("Diğer hizmetler", "cardTitle"))
+        lay.addWidget(
+            label(
+                "Claude, Gemini, OpenAI uyumlu hizmetler (OpenAI, OpenRouter, Groq, Mistral, DeepSeek, LM Studio) ve "
+                "Google Translate, Otomatik Çeviri penceresinde seçilir; anahtarları orada girilir.",
+                "muted",
+                wrap=True,
+                tip="Her hizmetin anahtarı ayrı olarak Windows Kimlik Bilgisi Yöneticisi'nde saklanır.",
+            )
+        )
         lay.addStretch(1)
         return page
 

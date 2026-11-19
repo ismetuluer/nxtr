@@ -28,7 +28,7 @@ Kod: `nxceviri/core/translate/` — `providers/base.py` (sözleşme), `providers
   - **Yeniden çevir:** seçili satırlar / seçili grubun tamamı / tabloda filtrelenen satırlar / tüm proje,
     çeviri silinmeden yeniden çevrilir. Bellek atlanır, her satır kendi sahnesinde ayrı çevrilir.
   - **Talimatla düzelt (redaksiyon):** mevcut çeviri, talimatla birlikte gönderilir ("zamirleri at, doğal
-    konuş"); model iyi olanı aynen bırakır. Yalnızca Ollama.
+    konuş"); model iyi olanı aynen bırakır. Yalnızca yapay zekâ hizmetleri (DeepL ve Google Translate değil).
   - Onaylı satırlar yalnızca “Onayladığım satırlara da uygula” işaretliyse yeniden çevrilir/düzeltilir.
 - **Bağlam:** her parti sahnedeki önceki 8 ve sonraki 3 satırla (varsa çevirileriyle) birlikte gider. Parti
   yalnızca aynı dosyada art arda gelen satırlardan kurulur.
@@ -352,6 +352,44 @@ kurulduktan sonra ve ilk istekten önce bir kez çağrılır.
   iletilir. Sözlük iş boyunca DeepL'de tutulur, iş bitince silinir.
 - Kota dolarsa (HTTP 456) iş durur; çevrilenler kaydedilmiştir, aynı projede Ollama ile devam
   edebilirsiniz. Geçici hatalar (429, 5xx) beklenip yeniden denenir.
+
+## Diğer hizmetler (Claude, Gemini, OpenAI uyumlu, Google Translate)
+
+Kod: `providers/llm.py` (bütün yapay zekâ hizmetlerinin ortak istemi, yanıt şeması, yanıt okuma ve hata eşlemesi),
+`providers/openai_compat.py`, `providers/anthropic_claude.py`, `providers/gemini.py`, `providers/google_translate.py`;
+seçim listesi ve özellikler `providers/catalog.py`. Karar: ARCHITECTURE 236.
+
+- **Seçim ve anahtar:** Otomatik Çeviri penceresinde sağlayıcıyı seçin. OpenAI uyumlu seçenekte hizmet ayrı listeden
+  seçilir (OpenAI, OpenRouter, Groq, Mistral, DeepSeek, LM Studio, Özel adres). Anahtar pencerede kaydedilir ve her
+  hizmet için ayrı adla Windows Kimlik Bilgisi Yöneticisi'nde durur (`<kimlik>_api_key`); ayar dosyasına yalnızca
+  hizmetin son adresi ve modeli yazılır (`provider/<kimlik>/url`, `provider/<kimlik>/model`). LM Studio ve özel adreste
+  anahtar isteğe bağlıdır; boşsa `Authorization` başlığı hiç gönderilmez.
+- **Model:** sabit model adı yoktur (Claude'da varsayılan `claude-opus-5-5`, alan düzenlenebilir). **Modelleri
+  Listele** hizmetin model listesini getirir (`GET /models`, Claude'da `client.models.list()`, Gemini'de
+  `GET /v1beta/models`, `generateContent` destekleyenler). Satırın kaynağı olarak hizmet kimliği ve model adı
+  saklanır ("Çeviren: OpenRouter (model)"). **Bağlantıyı Test Et** de listeyi doldurur; yazılan model listede yoksa
+  yalnızca not düşülür (takma adlar listelenmeyebilir), başlatma engellenmez.
+- **İstem ve yanıt:** Ollama ile aynı istem gider; yanıt `{"translations": [{"id", "text"}]}` şemasıyla istenir.
+  OpenAI uyumlu: `response_format` önce `json_schema` (katı şema), sunucu 400 ile reddederse `json_object`, o da
+  reddedilirse düz metin (istem zaten JSON istiyor); düşen kip sağlayıcı ömrü boyunca hatırlanır. Claude:
+  `client.beta.messages.create(..., output_config={"format": {"type": "json_schema", ...}}, betas=[
+  "server-side-fallback-2026-07-01"], fallbacks="default")`, `max_tokens=16000`; sıcaklık ve düşünme ayarı
+  gönderilmez. Gemini: `systemInstruction`, `contents`, `generationConfig.responseMimeType = application/json` ve
+  `responseSchema` (`additionalProperties` atılır; Google'ın yeni belgeleri `responseJsonSchema` ve `responseFormat`
+  alanlarını da anlatıyor, `responseSchema` belgedeki JSON örneğinde geçiyor; gerçek hizmette denenmedi). Partiler Ollama'dakinden büyüktür (en çok 25 satır / 4000 karakter).
+- **Google Translate:** Cloud Translation Basic v2 (`POST …/language/translate/v2`, `format: "html"`). Kontrol kodları
+  DeepL'deki `<x id="n"/>` etiketleriyle, satır sonları `<br/>` ile korunur. Talimat ve sözlük yoktur, oyun notları
+  gönderilmez; redaksiyon sunulmaz. Bağlantı testi dil listesini okur (kota harcamaz).
+- **Hatalar:** 401/403 (Gemini ve Google'da `API_KEY_INVALID` ile 400) → "API anahtarı geçersiz ya da yetkisiz", yeniden
+  denenmez. 429, 5xx, 529 ve zaman aşımı yeniden denenir; hizmet `retry-after` gönderirse en az o kadar (en çok 120
+  sn) beklenir. Yanıt uzunluk sınırında kesilirse (`finish_reason: length`, `stop_reason: max_tokens`, `MAX_TOKENS`)
+  parti ikiye bölünür; tek satırda da kesilirse o satır atlanır. Model içerik nedeniyle reddederse (`refusal`,
+  `content_filter`, `SAFETY`/`RECITATION`/`PROHIBITED_CONTENT`, engellenen istem) yeniden denenmeden satır atlanır:
+  "Model bu satırları çevirmeyi reddetti".
+- **Maliyet:** fiyat gösterilmez; yapay zekâ hizmetlerinde kaba belirteç sayısı, Google Translate'te karakter sayısı.
+- **Terim önerisi** seçili yapay zekâ hizmetiyle de çalışır (DeepL ve Google Translate ile çalışmaz).
+- **Doğrulama:** hizmetler gerçek uç noktalarla denenmedi; testler sahte yanıtlarla (`httpx.MockTransport`,
+  Claude için `httpx2.MockTransport`) istek biçimini, yanıt okumayı ve hata eşlemesini sınar.
 
 ## Testler
 

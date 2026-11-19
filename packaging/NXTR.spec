@@ -61,7 +61,7 @@ def _collect_licenses(name: str) -> None:
             _collect_licenses(requirement.name)
 
 
-for _name in ("PySide6-Essentials", "cryptography", "zstandard", "UnityPy", "httpx", "keyring", "fonttools", "lz4", "Pillow"):
+for _name in ("PySide6-Essentials", "cryptography", "zstandard", "UnityPy", "httpx", "keyring", "fonttools", "lz4", "Pillow", "anthropic"):
     _collect_licenses(_name)
 
 a = Analysis(

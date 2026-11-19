@@ -260,7 +260,7 @@ class DeepLProvider:
         if scene is not None and scene.revise:
             raise ProviderError(
                 "DeepL talimatla düzeltme (redaksiyon) yapamaz.",
-                "Redaksiyon için sağlayıcı olarak Ollama'yı seçin.",
+                "Redaksiyon için bir yapay zekâ hizmeti (Ollama, Claude, Gemini, OpenAI uyumlu) seçin.",
             )
         source = deepl_lang(source_lang, target=False)
         target = deepl_lang(target_lang, target=True)

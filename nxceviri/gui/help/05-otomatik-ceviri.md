@@ -8,6 +8,15 @@
   **Bağlantıyı Test Et** her şeyin hazır olduğunu söyler.
 - **DeepL** (internet, API anahtarı): anahtar Windows Kimlik Bilgisi Yöneticisi'nde saklanır, proje dosyasına yazılmaz.
   Kalan karakter kotası gösterilir.
+- **Claude**, **Gemini** ve **OpenAI uyumlu** hizmetler (OpenAI, OpenRouter, Groq, Mistral, DeepSeek; bilgisayarınızda
+  LM Studio ya da kendi sunucunuz için **Özel adres**): hizmetin sitesinden aldığınız API anahtarını pencerede
+  yapıştırıp **Anahtarı Kaydet**'e basın. Her hizmetin anahtarı ayrı saklanır. **Modelleri Listele** hizmetteki
+  modelleri getirir; listeden seçin ya da adını yazın. Metinler hizmete gönderilir; kullanım ücreti hizmetteki
+  hesabınızdan düşer (pencere fiyat göstermez).
+- **Google Translate** (internet, API anahtarı): DeepL gibi klasik çeviri yapar.
+
+**Redaksiyon** ve **Bu iş için talimat** yalnızca yapay zekâ modelleriyle (Ollama, Claude, Gemini, OpenAI uyumlu)
+çalışır; DeepL ve Google Translate talimat izleyemez.
 
 ## İş türü ve kapsam
 

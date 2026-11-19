@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from nxceviri.core.translate.origin import PROVIDER_NAMES
+from nxceviri.core.translate.providers.catalog import spec
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.widgets import format_int, repolish
 
@@ -33,8 +34,12 @@ KEYS_LABEL = "Anahtarlar"
 BAR_SLACK = 80
 #: Anahtar durumu → simge rengi (tema belirteci).
 _KEYS_TOKENS = {"success": "success", "danger": "danger", "neutral": "muted"}
+
+
 #: Sağlayıcı türü → simge (Lucide'de marka simgesi yok: bulut = DeepL, işlemci = yerel Ollama).
-_PROVIDER_ICONS = {"deepl": "cloud", "ollama": "cpu"}
+def _provider_icon(provider: str) -> str:
+    """Yerel hizmet (Ollama, LM Studio) işlemci, bulut hizmeti bulut simgesiyle gösterilir."""
+    return "cpu" if spec(provider).local else "cloud"
 
 
 class _Segment(QFrame):
@@ -208,7 +213,7 @@ class StatusSegments(QObject):
         provider: str,
         saved: bool,
     ) -> None:
-        """`shown` süzgeçten geçen satır sayısıdır; `provider` "deepl", "ollama" ya da boş."""
+        """`shown` süzgeçten geçen satır sayısıdır; `provider` sağlayıcı kimliği ("ollama", "deepl"…) ya da boş."""
         has_rows = rows > 0
         percent = round(100 * translated / rows) if has_rows else 0
         self._rows.setVisible(has_rows)
@@ -235,7 +240,7 @@ class StatusSegments(QObject):
         )
         self._provider.setVisible(bool(provider))
         if provider:
-            bind_icon(self.provider_icon, _PROVIDER_ICONS.get(provider, "cpu"), size=14, tone="muted")
+            bind_icon(self.provider_icon, _provider_icon(provider), size=14, tone="muted")
             self._set_text(self.provider_label, PROVIDER_NAMES.get(provider, provider))
         self.save_dot.setProperty("state", "success" if saved else "warning")
         state_text = "Kaydedildi" if saved else "Kaydedilmedi"
