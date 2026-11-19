@@ -559,3 +559,43 @@ def test_menu_command_opens_dialog(window: MainWindow, monkeypatch: pytest.Monke
     assert action.isEnabled()
     action.trigger()
     assert opened == [True]
+
+
+class UnchangedProvider(FakeProvider):
+    """Redaksiyonda metni değiştirmeden geri veren sağlayıcı (geçmişe redaksiyon yazılmaz)."""
+
+    def translate_batch(
+        self,
+        items: list[BatchItem],
+        source_lang: str,
+        target_lang: str,
+        context: str,
+        glossary: Any,
+        *,
+        scene: Scene | None = None,
+    ) -> list[BatchResult]:
+        return [BatchResult(i.id, i.current or i.text) for i in items]
+
+
+def test_revise_does_not_resend_rows_left_unchanged(qtbot: QtBot, window: MainWindow, tmp_path: Path) -> None:
+    _save(window, tmp_path)
+    rows = window.project.translation_rows()
+    window.project.set_translations([(r.id, "çeviri") for r in rows], machine=True, job="translate-1")
+    _set_schedule(window, action=ACTION_REVISE, instruction="Kısa yaz.")
+    calls = _use(window, UnchangedProvider())
+    clock = Clock(START)
+    window.scheduler.clock = clock
+    window.scheduler.tick()
+    _wait_idle(qtbot, window)
+    assert len(calls) == 1
+    # Ertesi haftanın aynı dilimi: model hiçbir şeyi değiştirmemişti, satırlar yeniden gönderilmez.
+    clock.now = START + timedelta(days=7)
+    window.scheduler.tick()
+    assert window.task is None
+    assert len(calls) == 1
+    # Metni sonradan değişen satır yeniden adaydır.
+    window.project.set_translations([(rows[0].id, "yeni çeviri")], machine=True, job="translate-2")
+    clock.now = START + timedelta(days=14)
+    window.scheduler.tick()
+    _wait_idle(qtbot, window)
+    assert len(calls) == 2

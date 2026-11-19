@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime
 
 from nxceviri.core.project import TranslationRow
@@ -11,8 +12,11 @@ from nxceviri.core.translate.schedule import (
     HOURS,
     WEEKDAYS,
     Schedule,
+    dump_checked,
     format_slot,
+    load_checked,
     scheduled_rows,
+    text_fingerprint,
 )
 from nxceviri.core.translate.status import Status
 
@@ -146,3 +150,22 @@ def test_job_kind() -> None:
     assert job_kind("revise-2026-10-25T09:30:12") == "revise"
     assert job_kind("manual") == "manual"
     assert job_kind("") == ""
+
+
+def test_revise_skips_rows_already_checked_with_same_text() -> None:
+    a = replace(_row(1, Status.MACHINE), translation="Merhaba")
+    b = replace(_row(2, Status.MACHINE), translation="Selam")
+    checked = {1: text_fingerprint("Merhaba"), 2: text_fingerprint("eski metin")}
+    # 1 aynı metinle zaten denetlendi; 2'nin metni o zamandan beri değişti, yeniden gönderilir.
+    assert [r.id for r in scheduled_rows([a, b], ACTION_REVISE, {}, checked)] == [2]
+    # çeviride denetim kaydı kullanılmaz
+    untranslated = _row(3, Status.UNTRANSLATED)
+    assert [r.id for r in scheduled_rows([untranslated], ACTION_TRANSLATE, {}, {3: text_fingerprint("")})] == [3]
+
+
+def test_checked_rows_json_round_trip_and_corrupt_value() -> None:
+    data = {1: text_fingerprint("a"), 7: text_fingerprint("b")}
+    assert load_checked(dump_checked(data)) == data
+    assert load_checked("") == {}
+    assert load_checked("{bozuk") == {}
+    assert load_checked('{"x": "y", "3": 5}') == {}

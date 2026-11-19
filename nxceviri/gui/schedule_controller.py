@@ -29,11 +29,21 @@ from nxceviri.core.project import Project
 from nxceviri.core.secrets import api_key_name
 from nxceviri.core.translate.providers.catalog import spec
 from nxceviri.core.translate.runner import ACTION_REVISE, RunSummary
-from nxceviri.core.translate.schedule import SCHEDULE_KEY, Schedule, format_slot, scheduled_rows
+from nxceviri.core.translate.schedule import (
+    CHECKED_KEY,
+    SCHEDULE_KEY,
+    Schedule,
+    dump_checked,
+    format_slot,
+    load_checked,
+    scheduled_rows,
+    text_fingerprint,
+)
 from nxceviri.gui.jobs import JOB_TITLES
 from nxceviri.gui.machine_controller import (
     OUTCOME_FAILED,
     OUTCOME_SETUP,
+    OUTCOME_SUCCESS,
     TRANSLATE_INSTRUCTION_KEY,
 )
 from nxceviri.gui.machine_dialogs import PROVIDER_OLLAMA, MachineSettings
@@ -63,6 +73,8 @@ class ScheduleController(QObject):
         self._project: Project | None = None
         self._slot: datetime | None = None
         self._done = False  # bu dilimde iş tamamlandı / durduruldu / yapılacak yok / vazgeçildi
+        #: Çalışan redaksiyonun satırları ve gönderildikleri andaki metin özetleri.
+        self._pending_checked: dict[int, str] = {}
         self._failures = 0
         self._retry_at: datetime | None = None
         self._task: object | None = None  # zamanlayıcının başlattığı iş (pencerenin `task`ı)
@@ -215,7 +227,10 @@ class ScheduleController(QObject):
                 )
                 return
         last = win.project.last_jobs() if revise else {}
-        target = scheduled_rows(win.project.translation_rows(), sched.action, last)
+        checked = load_checked(win.project.setting(CHECKED_KEY)) if revise else {}
+        target = scheduled_rows(win.project.translation_rows(), sched.action, last, checked)
+        # Redaksiyon tamamlanınca bu satırlar o metinle denetlenmiş sayılır (değiştirilmeyenler yeniden gitmesin).
+        self._pending_checked = {r.id: text_fingerprint(r.translation) for r in target} if revise else {}
         if not target:
             self._done = True
             win.statusBar().showMessage("Zamanlayıcı: bu iş için bekleyen satır yok.", 6000)
@@ -268,5 +283,11 @@ class ScheduleController(QObject):
             else:
                 self._retry_at = self.clock() + RETRY_DELAY
         else:
+            if kind == OUTCOME_SUCCESS and self._pending_checked and self._win.project is not None:
+                # Yalnızca tamamlanan iş: dilim sonunda yarıda kalan satırların hangisinin gönderildiği bilinmez.
+                stored = load_checked(self._win.project.setting(CHECKED_KEY))
+                stored.update(self._pending_checked)
+                self._win.project.set_setting(CHECKED_KEY, dump_checked(stored))
             self._done = True  # bitti ya da durduruldu: bu dilimde yeniden başlatılmaz
+        self._pending_checked = {}
         self.refresh_status()

@@ -13,6 +13,7 @@ Satır kapsamı (`scheduled_rows`) işin sonsuza dek aynı satırlarda dönmemes
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -25,6 +26,8 @@ from nxceviri.core.translate.status import Status
 
 #: Projede zamanlayıcı ayarının adı.
 SCHEDULE_KEY = "schedule"
+#: Zamanlayıcının redaksiyonda bitirdiği satırların metin özetleri (`dump_checked`).
+CHECKED_KEY = "schedule/checked"
 WEEKDAYS = 7
 HOURS = 24
 _WEEK = WEEKDAYS * HOURS
@@ -157,13 +160,48 @@ def format_slot(dt: datetime) -> str:
     return f"{DAY_NAMES[dt.weekday()]} {dt:%H:%M}"
 
 
-def scheduled_rows(rows: Sequence[TranslationRow], action: str, last_jobs: Mapping[int, str]) -> list[TranslationRow]:
+def text_fingerprint(text: str) -> str:
+    """Çeviri metninin kısa özeti: satır o metinle denetlendikten sonra değişti mi, bununla anlaşılır."""
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
+
+
+def dump_checked(checked: Mapping[int, str]) -> str:
+    """Zamanlayıcının redaksiyonda denetlediği satırlar (satır kimliği → metin özeti) proje ayarı olarak."""
+    return json.dumps({str(k): v for k, v in sorted(checked.items())}, separators=(",", ":"))
+
+
+def load_checked(text: str) -> dict[int, str]:
+    """`dump_checked` çıktısını okur; boş ya da bozuk değer boş kayıt sayılır (en kötü hâlde satırlar yeniden gider)."""
+    if not text.strip():
+        return {}
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    out: dict[int, str] = {}
+    for key, value in data.items():
+        if not (isinstance(key, str) and key.isdigit() and isinstance(value, str)):
+            return {}
+        out[int(key)] = value
+    return out
+
+
+def scheduled_rows(
+    rows: Sequence[TranslationRow],
+    action: str,
+    last_jobs: Mapping[int, str],
+    checked: Mapping[int, str] | None = None,
+) -> list[TranslationRow]:
     """Zamanlayıcının işleyeceği satırlar.
 
     Çeviri: yalnızca çevrilmemiş satırlar (hatalılar her dilimde yeniden denenmesin). Redaksiyon: son işi
-    redaksiyon olmayan makine çevirileri (redakte edilmiş, onaylı, çevrilmemiş satırlara dokunulmaz).
-    Boş kaynaklı satırlar hiçbir zaman.
+    redaksiyon olmayan makine çevirileri (redakte edilmiş, onaylı, çevrilmemiş satırlara dokunulmaz); `checked`
+    içinde aynı metin özetiyle duran satırlar da atlanır (model değiştirmeden bıraktığı için geçmişe redaksiyon
+    yazılmayan satırlar her dilimde yeniden gönderilmesin). Boş kaynaklı satırlar hiçbir zaman.
     """
+    seen = checked or {}
     out = []
     for r in rows:
         if not r.source.strip():
@@ -171,6 +209,10 @@ def scheduled_rows(rows: Sequence[TranslationRow], action: str, last_jobs: Mappi
         if action == ACTION_TRANSLATE:
             if r.status == Status.UNTRANSLATED:
                 out.append(r)
-        elif r.status == Status.MACHINE and job_kind(last_jobs.get(r.id, "")) != ACTION_REVISE:
+        elif (
+            r.status == Status.MACHINE
+            and job_kind(last_jobs.get(r.id, "")) != ACTION_REVISE
+            and seen.get(r.id) != text_fingerprint(r.translation)
+        ):
             out.append(r)
     return out

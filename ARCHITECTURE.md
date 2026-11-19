@@ -1473,8 +1473,10 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     dilim kapanır (atlanan/yanıtsız/aynı kalan satırlar dakikalık yeniden başlatma döngüsüne girmez). Hatalar düz metin
     geldiği için bağlantı hatası ayrılamaz: her hata `RETRY_DELAY` (15 dk) sonra yeniden denenir, dilim başına en çok
     `MAX_RETRIES` (3) kez; kayıtlı anahtar yoksa ya da sağlayıcı kurulamazsa yeniden denenmez. Proje değişince durum
-    sıfırlanır. Bilinen sonuç: redaksiyonda "aynı kaldı" sonucu geçmişe yazılmadığı için bu satırlar sonraki dilimde
-    yeniden gönderilir.
+    sıfırlanır. Redaksiyonda "aynı kaldı" sonucu geçmişe yazılmadığından, tamamlanan redaksiyonun satırları gönderildikleri
+    metnin özetiyle `schedule/checked` ayarına yazılır (`text_fingerprint`); metni değişmeyen satır sonraki dilimlerde
+    yeniden gönderilmez, metni sonradan değişen satır yeniden adaydır. Dilim sonunda yarıda kesilen iş kayıt yazmaz
+    (hangi satırların gönderildiği bilinmez; en kötü hâlde onlar bir kez daha gider).
 
 ## 5. Bilinen sınırlar
 
