@@ -5,6 +5,14 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
 ## [Yayımlanmadı]
 
 ### Eklendi
+- **Zamanlayıcı:** Çeviri → "Zamanlayıcı…" (kısayol atanmamıştır) haftalık takvimde (günler × saatler; tıkla ya da
+  sürükleyerek seç) belirlenen saatlerde **otomatik çeviri** ya da **redaksiyon** yaptırır. Yalnızca program ve proje
+  açıkken, proje bir dosyaya kaydedilmişse çalışır. Çeviri yalnızca çevrilmemiş satırlara, redaksiyon yalnızca henüz
+  redakte edilmemiş makine çevirilerine uygulanır. Zaman dilimi bitince iş güvenle durur (yapılanlar kaydedilir);
+  başka iş sürüyorsa bitince başlar; bağlantı sorununda 15 dakika arayla dilim başına en çok 3 kez yeniden dener;
+  anahtar yoksa bildirir. Hizmet, model ve adres zamanlayıcıda ayrı seçilir (varsayılan: Otomatik Çeviri'de son
+  kullanılan); ayar projede saklanır, anahtar saklanmaz. Durum çubuğunda sonraki çalışma ("Zamanlayıcı: sonraki Pzt
+  01:00") görünür; iş başlayınca ve bitince bildirim gelir.
 - **Kontrol Et bulgularını dışa aktarma:** Kontrol Et'te görünen (ya da seçili) bulgular satırlarıyla birlikte
   dış redaksiyon dosyası biçiminde (TXT ya da XLSX) dışa aktarılır; sütunlar `orijinal, çeviri, düzeltme, grup` ve en
   sonda salt okunur `bulgu` (satırın bütün bulguları tek hücrede). Bulgu listesinin sağ tık menüsünde

@@ -112,6 +112,7 @@ nxceviri/
       providers/deepl.py   # DeepL (Free/Pro, XML etiket, sözlük, kota)
     secrets.py             # API anahtarları: keyring (Windows Kimlik Bilgisi Yöneticisi)
       runner.py            # toplu çeviri: tekilleştirme, bellek, sözlük, yeniden deneme, devam
+      schedule.py          # zamanlayıcı: haftalık takvim, zaman dilimleri, satır kapsamı (karar 237)
       csvio.py             # TXT/XLSX/CSV dışa/içe aktarma (dış redaksiyon ve dış çeviri), hazır istem
     qa/fonts.py            # font glif denetimi (TMP, TTF/OTF) + yamayla eklenebilecek harfler
     fontpatch/             # M8: sdf.py (mesafe alanı), tmp.py (glif üretimi/atlas), unity.py (bundle)
@@ -125,6 +126,8 @@ nxceviri/
     export_controller.py   # Dışa Aktar iş akışı: özet, hedef klasör, mod oluşturma (karar 221)
     project_controller.py  # proje yaşam döngüsü: yeni, aç, kaydet, son projeler, kurtarma (karar 221)
     machine_controller.py  # makine işleri: çevir, yeniden çevir, talimatla düzelt penceresi ve iş (karar 221)
+    schedule_controller.py # zamanlayıcı: dakikalık denetim, dilim başı/sonu, yeniden deneme (karar 237)
+    schedule_dialog.py     # zamanlayıcı penceresi: 7 × 24 takvim, iş türü, hizmet (karar 237)
     update_controller.py   # güncelleme: denetim penceresi, paket kurulumu, açılıştaki sessiz denetim (karar 221)
     spell_controller.py    # yazım denetimi: pencere, sözcük değiştirme, kullanıcı sözlüğü (karar 221)
     terms_controller.py    # terimler: Terminoloji penceresi, satırlardan terim ekleme, Ollama ile terim önerisi (karar 221)
@@ -1452,6 +1455,26 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     deniyor. Diğer hizmetler kitaplıksız (httpx) yazıldı: istekleri basit ve kararlı. **Anahtarlar** her hizmet için
     ayrı adla Windows Kimlik Bilgisi Yöneticisi'nde durur (`secrets.api_key_name`); bir hizmetin anahtarı başka adrese
     gönderilmez. Fiyat gösterilmez (hizmete, modele ve zamana göre değişir); yalnızca kaba belirteç tahmini verilir.
+
+237. **Haftalık zamanlayıcı yalnızca açık projede, mevcut makine işi yolundan çalışır (ürün sahibi, 2026-11-19):**
+    takvim ve kurallar arayüzden bağımsızdır (`core/translate/schedule.py`: `Schedule` 7 × 24 hücre, art arda saatler
+    tek dilim, gece yarısı ve pazar → pazartesi sarar; `active_at`, `slot_start`, `slot_end`, `next_start` her taramada
+    168 adımla sınırlı; yerel saat her denetimde yeniden okunur). Ayar projede `schedule` adıyla JSON durur; bozuk ya da
+    beklenmeyen tipte JSON boş ayar sayılır. Anahtar ayarda tutulmaz, gizli depodan okunur. **Kapsam** sonsuz tekrarı
+    önlemek için dardır (`scheduled_rows`): çeviride yalnızca çevrilmemiş satırlar (hatalılar her dilimde yeniden
+    denenmesin), redaksiyonda son işi (`report.job_kind`) redaksiyon olmayan makine çevirileri. Denetleyici
+    (`gui/schedule_controller.py`, `win.scheduler`) dakikada bir `tick` eder (saat işlevi enjekte edilir): dilim etkin,
+    pencerede iş yok ve açık modal pencere yoksa (açık Otomatik Çeviri penceresi kabul edilince ikinci iş `win.task`'ı
+    ezmesin) işi `MachineController.build_job` + `_launch_machine` ile başlatır; `launch_machine` bunun için sonuç geri
+    çağrısı (`on_outcome`: bitti / hata / durduruldu / kurulamadı) ve bildirim başlığı öneki aldı. Kullanıcının
+    "Otomatik Çeviri" ayarları (`remember_machine_settings`) değiştirilmez. Dilim bitince, zamanlayıcı kapatılınca ya
+    da proje kaydı kalkınca **yalnızca zamanlayıcının başlattığı iş** (`win.task is self._task`) güvenli iptal yoluyla
+    durur. Bir dilimde iş bir kez tamamlanır: bitince, kullanıcı durdurunca, yapılacak satır yokken ya da vazgeçilince
+    dilim kapanır (atlanan/yanıtsız/aynı kalan satırlar dakikalık yeniden başlatma döngüsüne girmez). Hatalar düz metin
+    geldiği için bağlantı hatası ayrılamaz: her hata `RETRY_DELAY` (15 dk) sonra yeniden denenir, dilim başına en çok
+    `MAX_RETRIES` (3) kez; kayıtlı anahtar yoksa ya da sağlayıcı kurulamazsa yeniden denenmez. Proje değişince durum
+    sıfırlanır. Bilinen sonuç: redaksiyonda "aynı kaldı" sonucu geçmişe yazılmadığı için bu satırlar sonraki dilimde
+    yeniden gönderilir.
 
 ## 5. Bilinen sınırlar
 
