@@ -37,18 +37,19 @@ _MARK_LABELS = {
 }
 
 
-def _kind(job: str) -> str:
+def job_kind(job: str) -> str:
+    """İş kimliğinin türü: "revise-2026-10-25T09:30:12" → "revise"; önceden tanımlı adlar olduğu gibi."""
     return job if job in _JOB_LABELS else job.split("-", 1)[0]
 
 
 def job_label(job: str) -> str:
     """İş kimliğinin ("revise-2026-10-25T09:30:12") okunur adı."""
-    return _JOB_LABELS.get(_kind(job), job)
+    return _JOB_LABELS.get(job_kind(job), job)
 
 
 def mark_label(job: str) -> str:
     """Satırın son değişikliği bu işle yapıldıysa durum sütununda gösterilecek kısa ad; yoksa ""."""
-    return _MARK_LABELS.get(_kind(job), "")
+    return _MARK_LABELS.get(job_kind(job), "")
 
 
 class ReportError(NxError):
