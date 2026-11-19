@@ -267,6 +267,9 @@ class ScheduleDialog(QDialog):
         self.provider = QComboBox()
         for item in PROVIDER_ORDER:
             self.provider.addItem(OPENAI_GROUP_LABEL if item == OPENAI_GROUP else spec(item).label, item)
+        # Uzun hizmet adları pencereyi genişletmesin (küçük pencerede de sığsın; tam ad açılır listede görünür).
+        self.provider.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        self.provider.setMinimumContentsLength(18)
         self.test_button = button("Bağlantıyı Test Et", icon="activity")
         self.test_button.clicked.connect(self.test_connection)
         provider_row = QHBoxLayout()
