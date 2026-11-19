@@ -36,7 +36,7 @@ from PySide6.QtWidgets import (
 
 from nxceviri.core.errors import NxError
 from nxceviri.core.project import TranslationRow, row_group
-from nxceviri.core.secrets import DEEPL_API_KEY, SecretStore
+from nxceviri.core.secrets import SecretStore, api_key_name
 from nxceviri.core.translate.fitconfig import key_matches, key_names
 from nxceviri.core.translate.glossary_io import export_glossary_xlsx, merge_terms, read_glossary_xlsx
 from nxceviri.core.translate.instructions import (
@@ -49,7 +49,8 @@ from nxceviri.core.translate.instructions import (
     save_instruction,
 )
 from nxceviri.core.translate.providers.base import GlossaryTerm, ProviderError, TranslationProvider
-from nxceviri.core.translate.providers.deepl import DeepLProvider, plan_label
+from nxceviri.core.translate.providers.catalog import OPENAI_GROUP, SPECS, ProviderSpec, build_provider, spec
+from nxceviri.core.translate.providers.deepl import plan_label
 from nxceviri.core.translate.providers.ollama import (
     DEFAULT_URL,
     RECOMMENDED_MODELS,
@@ -71,6 +72,8 @@ SCOPE_ALL = "all"
 SCOPE_PATTERN = "pattern"
 PROVIDER_OLLAMA = "ollama"
 PROVIDER_DEEPL = "deepl"
+#: Seçim listesinin sırası; OpenAI uyumlu hizmetler tek seçenek altında ayrı listeden seçilir.
+_PROVIDER_ORDER = ("ollama", "anthropic", "gemini", OPENAI_GROUP, "deepl", "google_translate")
 
 _ACTIONS = (
     (
@@ -86,7 +89,7 @@ _ACTIONS = (
     (
         ACTION_REVISE,
         "Redaksiyon",
-        "Mevcut çeviriler yazdığınız talimata göre düzeltilir. Yalnızca Ollama ile yapılabilir.",
+        "Mevcut çeviriler yazdığınız talimata göre düzeltilir. DeepL ve Google Translate ile yapılamaz.",
     ),
 )
 
@@ -228,10 +231,12 @@ class MachineSettings:
 
 
 def make_provider(settings: MachineSettings, secrets: SecretStore) -> TranslationProvider:
-    """Seçilen ayarlara göre sağlayıcıyı kurar. DeepL anahtarı gizli depodan okunur."""
-    if settings.provider == PROVIDER_DEEPL:
-        return DeepLProvider(secrets.get(DEEPL_API_KEY) or "")
-    return OllamaProvider(settings.model, settings.base_url or DEFAULT_URL)
+    """Seçilen ayarlara göre sağlayıcıyı kurar. Anahtar, hizmetin kendi adıyla gizli depodan okunur."""
+    chosen = spec(settings.provider)
+    if chosen.id == PROVIDER_OLLAMA:
+        return OllamaProvider(settings.model, settings.base_url or DEFAULT_URL)
+    key = (secrets.get(api_key_name(chosen.id)) or "") if chosen.needs_key or chosen.key_optional else ""
+    return build_provider(chosen.id, model=settings.model, base_url=settings.base_url, api_key=key)
 
 
 def _recommendation_text() -> str:
@@ -342,8 +347,14 @@ class MachineDialog(QDialog):
         scope: str = SCOPE_ALL,
         instruction: str = "",
         translate_instruction: str = "",
+        remembered: Mapping[str, tuple[str, str]] | None = None,
     ) -> None:
         super().__init__(parent)
+        #: Hizmet başına son adres ve model (Ollama'nınki `base_url`/`model` ile gelir); hizmet değişince alanlar
+        #: bundan doldurulur, değişen alan buraya geri yazılır.
+        self._memory: dict[str, tuple[str, str]] = dict(remembered or {})
+        self._memory[PROVIDER_OLLAMA] = (base_url or DEFAULT_URL, model)
+        self._shown_provider = ""
         #: İş türüne göre talimat metni: redaksiyonun ve çevirinin (çevir + yeniden çevir) ayrı talimatı var.
         self._texts = {ACTION_REVISE: instruction, ACTION_TRANSLATE: translate_instruction}
         self._shown_kind: str | None = None
@@ -362,11 +373,22 @@ class MachineDialog(QDialog):
         )
         form = QFormLayout()
         self.provider = QComboBox()
-        self.provider.addItem("Ollama (yerel, ücretsiz)", PROVIDER_OLLAMA)
-        self.provider.addItem("DeepL (bulut, kota kullanır)", PROVIDER_DEEPL)
+        for item in _PROVIDER_ORDER:
+            if item == OPENAI_GROUP:
+                self.provider.addItem("OpenAI uyumlu (OpenAI, OpenRouter, Groq, Mistral, DeepSeek, LM Studio…)", item)
+            else:
+                self.provider.addItem(spec(item).label, item)
         self.provider.setToolTip(
-            tip_html("Ollama metinleri bilgisayarınızdan çıkarmaz. DeepL metinleri buluta gönderir ve kota kullanır.")
+            tip_html(
+                "Ollama metinleri bilgisayarınızdan çıkarmaz. Bulut hizmetleri metinleri hizmete gönderir; "
+                "anahtar ve kullanım ücreti hizmetin kendi hesabınızdadır."
+            )
         )
+        #: OpenAI uyumlu hizmetin hangisi olduğu (yalnızca o seçenek seçiliyken görünür).
+        self.preset = QComboBox()
+        for preset_spec in SPECS:
+            if preset_spec.openai_compat:
+                self.preset.addItem(preset_spec.label, preset_spec.id)
         provider_row = QHBoxLayout()
         provider_row.addWidget(self.provider, 1)
         # Bağlantı testi her zaman görünür (eskiden Gelişmiş altındaydı).
@@ -374,6 +396,8 @@ class MachineDialog(QDialog):
         self.test_button.clicked.connect(self.test_connection)
         provider_row.addWidget(self.test_button)
         form.addRow("Sağlayıcı:", provider_row)
+        self.preset_label = label("Hizmet:")
+        form.addRow(self.preset_label, self.preset)
 
         self.ollama_box = QWidget()
         of = QFormLayout(self.ollama_box)
@@ -388,6 +412,11 @@ class MachineDialog(QDialog):
         refresh.clicked.connect(self.refresh_models)
         model_row.addWidget(self.model, 1)
         model_row.addWidget(refresh)
+        self.api_url = QLineEdit()
+        self.api_url.setPlaceholderText("http://localhost:8000/v1")
+        self.api_url.setToolTip(tip_html("OpenAI uyumlu sunucunun adresi (…/v1 ile biter)."))
+        self.api_url_label = label("Sunucu adresi:")
+        of.addRow(self.api_url_label, self.api_url)
         of.addRow("Model:", model_row)
         #: Şablonu sistem talimatını yok sayan modeller (Modelleri Listele ile öğrenilir).
         self._template_ignores_system: set[str] = set()
@@ -406,13 +435,31 @@ class MachineDialog(QDialog):
         self.deepl_box = QWidget()
         df = QFormLayout(self.deepl_box)
         df.setContentsMargins(0, 0, 0, 0)
-        key = secrets.get(DEEPL_API_KEY)
+        key = secrets.get(api_key_name(PROVIDER_DEEPL))
         self.deepl_key_label = label(
             f"Kayıtlı ({plan_label(key)})" if key else "Anahtar yok — Dosya → Ayarlar → Çeviri sayfasından girin.",
             None if key else "muted",
         )
         df.addRow("DeepL API anahtarı:", self.deepl_key_label)
         form.addRow(self.deepl_box)
+
+        # Diğer hizmetlerin anahtarı: her hizmetin kendi adıyla Windows Kimlik Bilgisi Yöneticisi'nde durur.
+        self.key_box = QWidget()
+        kf = QFormLayout(self.key_box)
+        kf.setContentsMargins(0, 0, 0, 0)
+        key_row = QHBoxLayout()
+        self.key = QLineEdit()
+        self.key.setEchoMode(QLineEdit.EchoMode.Password)
+        self.key.setPlaceholderText("Anahtarı buraya yapıştırın")
+        self.key.textChanged.connect(self._update_count)
+        self.key_save = button("Anahtarı Kaydet")
+        self.key_save.clicked.connect(self.save_key)
+        key_row.addWidget(self.key, 1)
+        key_row.addWidget(self.key_save)
+        kf.addRow("API anahtarı:", key_row)
+        self.key_state = label("", "muted", wrap=True)
+        kf.addRow(self.key_state)
+        form.addRow(self.key_box)
         lay.addLayout(form)
 
         # --- iş türü ve kapsam ---
@@ -539,8 +586,12 @@ class MachineDialog(QDialog):
         buttons.accepted.connect(self._accept)
         buttons.rejected.connect(self.reject)
         lay.addWidget(buttons)
-        self.provider.setCurrentIndex(max(self.provider.findData(provider), 0))
+        first = spec(provider)
+        if first.openai_compat:
+            self.preset.setCurrentIndex(max(self.preset.findData(first.id), 0))
+        self.provider.setCurrentIndex(max(self.provider.findData(OPENAI_GROUP if first.openai_compat else first.id), 0))
         self.provider.currentIndexChanged.connect(self._update)
+        self.preset.currentIndexChanged.connect(self._update)
         self.action_group.buttonToggled.connect(self._update)
         self.include_approved.toggled.connect(self._update)
         self.notes.textChanged.connect(self._update_advanced_title)
@@ -559,7 +610,9 @@ class MachineDialog(QDialog):
 
     @property
     def provider_name(self) -> str:
-        return str(self.provider.currentData())
+        """Seçili hizmetin kimliği; OpenAI uyumlu seçenekte hazır listedeki hizmet (ör. "openrouter")."""
+        chosen = str(self.provider.currentData())
+        return str(self.preset.currentData()) if chosen == OPENAI_GROUP else chosen
 
     @property
     def action(self) -> str:
@@ -592,13 +645,64 @@ class MachineDialog(QDialog):
             text += f" ({shown})" if shown else ""
         return text
 
+    @property
+    def provider_spec(self) -> ProviderSpec:
+        return spec(self.provider_name)
+
+    def _stored_key(self) -> str:
+        try:
+            return self._secrets.get(api_key_name(self.provider_name)) or ""
+        except NxError as exc:
+            self.status.show_message("danger", exc.user_text())
+            return ""
+
+    def _switch_provider(self) -> None:
+        """Hizmet değişti: önceki hizmetin adres/modelini saklar, yenisininkini alanlara koyar."""
+        name = self.provider_name
+        if name == self._shown_provider:
+            return
+        if self._shown_provider:
+            previous = spec(self._shown_provider)
+            url = self.url.text().strip() if previous.id == PROVIDER_OLLAMA else self.api_url.text().strip()
+            self._memory[previous.id] = (url, self.model.currentText().strip())
+        self._shown_provider = name
+        current = self.provider_spec
+        url, model = self._memory.get(name, ("", ""))
+        self.model.blockSignals(True)
+        self.model.clear()
+        model = model or current.default_model
+        if model:
+            self.model.addItem(model)
+        self.model.setEditText(model)
+        self.model.blockSignals(False)
+        if current.id != PROVIDER_OLLAMA:
+            self.api_url.setText(url or current.default_url)
+        self.key.clear()
+
     def _update(self) -> None:
-        deepl = self.provider_name == PROVIDER_DEEPL
-        self.ollama_box.setVisible(not deepl)
-        self.deepl_box.setVisible(deepl)
-        self.url.setVisible(not deepl)
-        self.url_row.setVisible(not deepl)
-        self.test_button.setVisible(not deepl or bool(self._secrets.get(DEEPL_API_KEY)))
+        self.preset.setVisible(self.provider.currentData() == OPENAI_GROUP)
+        self.preset_label.setVisible(self.preset.isVisibleTo(self))
+        self._switch_provider()
+        chosen = self.provider_spec
+        ollama = chosen.id == PROVIDER_OLLAMA
+        self.ollama_box.setVisible(chosen.has_models)
+        self.api_url.setVisible(chosen.openai_compat and chosen.url_editable)
+        self.api_url_label.setVisible(self.api_url.isVisibleTo(self))
+        self.deepl_box.setVisible(chosen.id == PROVIDER_DEEPL)
+        self.url.setVisible(ollama)
+        self.url_row.setVisible(ollama)
+        separate_key = (chosen.needs_key or chosen.key_optional) and chosen.id != PROVIDER_DEEPL
+        self.key_box.setVisible(separate_key)
+        stored = self._stored_key() if separate_key or chosen.id == PROVIDER_DEEPL else ""
+        if separate_key:
+            where = f" Anahtar: {chosen.key_page}." if chosen.key_page else ""
+            if stored:
+                self.key_state.setText("Kayıtlı anahtar var. Değiştirmek için yenisini yapıştırıp kaydedin.")
+            elif chosen.key_optional:
+                self.key_state.setText("Kayıtlı anahtar yok (bu sunucu anahtar istemiyorsa boş bırakın).")
+            else:
+                self.key_state.setText(f"Kayıtlı anahtar yok.{where}")
+        self.test_button.setVisible(not chosen.needs_key or bool(stored))
         self.help.hide()
         self.status.show_message("success", "")
         action = self.action
@@ -649,9 +753,9 @@ class MachineDialog(QDialog):
     def _update_count(self) -> None:
         rows = self.target()
         chars = sum(len(r.source) for r in rows)
-        deepl = self.provider_name == PROVIDER_DEEPL
-        no_key = deepl and not self._secrets.get(DEEPL_API_KEY)
-        revise_on_deepl = deepl and self.action == ACTION_REVISE
+        current = self.provider_spec
+        no_key = current.needs_key and not self.key.text().strip() and not self._stored_key()
+        revise_on_classic = current.classic and self.action == ACTION_REVISE
         if rows:
             text = f"Bu iş {format_int(len(rows))} satıra uygulanacak (yaklaşık {format_int(chars)} karakter)."
         elif self._scope() == SCOPE_PATTERN and not self.pattern.text().strip():
@@ -659,15 +763,17 @@ class MachineDialog(QDialog):
         else:
             text = "Bu kapsamda bu işe uygun satır yok."
         self.count.setText(text)
-        if revise_on_deepl:
+        if revise_on_classic:
             self.status.show_message(
-                "warning", "DeepL talimat izleyemez; redaksiyon için sağlayıcı olarak Ollama'yı seçin."
+                "warning",
+                f"{current.name} talimat izleyemez; redaksiyon için bir yapay zekâ hizmeti (Ollama, Claude, Gemini, "
+                "OpenAI uyumlu) seçin.",
             )
-        self.start.setEnabled(bool(rows) and not no_key and not revise_on_deepl)
+        self.start.setEnabled(bool(rows) and not no_key and not revise_on_classic)
 
     def _instruction_enabled(self) -> bool:
-        """Talimat kutusu bu işte kullanılıyor mu? (Redaksiyonda her zaman; çeviride yalnızca Ollama ile.)"""
-        return self.action == ACTION_REVISE or self.provider_name == PROVIDER_OLLAMA
+        """Talimat kutusu bu işte kullanılıyor mu? (Redaksiyonda her zaman; çeviride yalnızca yapay zekâ hizmetinde.)"""
+        return self.action == ACTION_REVISE or not self.provider_spec.classic
 
     def _show_instruction_kind(self, kind: str) -> None:
         """Kutuyu iş türünün talimatı ve hazır listesiyle doldurur; önceki türün metni saklanır."""
@@ -714,7 +820,56 @@ class MachineDialog(QDialog):
             self.help.hide()
         return url
 
+    def save_key(self) -> bool:
+        """Alandaki anahtarı seçili hizmetin adıyla gizli depoya yazar; yazıldıysa (ya da alan boşsa) True."""
+        value = self.key.text().strip()
+        if not value:
+            return True
+        try:
+            self._secrets.set(api_key_name(self.provider_name), value)
+        except NxError as exc:
+            self.status.show_message("danger", exc.user_text())
+            return False
+        self.key.clear()
+        self._update()
+        self.status.show_message("success", f"{self.provider_spec.name} anahtarı kaydedildi.")
+        return True
+
+    def _refresh_cloud_models(self) -> None:
+        """Ollama dışındaki yapay zekâ hizmetinin model listesi (anahtar ve adres alanlardan)."""
+        if not self.save_key():
+            return
+        try:
+            provider = make_provider(self.settings(), self._secrets)
+        except NxError as exc:
+            self.status.show_message("danger", exc.user_text())
+            return
+        lister = getattr(provider, "list_models", None)
+        QGuiApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            names = [str(n) for n in lister()] if callable(lister) else []
+        except ProviderError as exc:
+            self.status.show_message("danger", exc.user_text())
+            return
+        finally:
+            QGuiApplication.restoreOverrideCursor()
+            provider.close()
+        current = self.model.currentText().strip()
+        self.model.clear()
+        self.model.addItems(names)
+        if current and self.model.findText(current) >= 0:
+            self.model.setCurrentIndex(self.model.findText(current))
+        elif current:
+            self.model.setEditText(current)
+        if names:
+            self.status.show_message("success", f"{len(names)} model bulundu. Listeden birini seçin.")
+        else:
+            self.status.show_message("warning", f"{self.provider_spec.name} model listesi boş döndü.")
+
     def refresh_models(self) -> None:
+        if self.provider_name != PROVIDER_OLLAMA:
+            self._refresh_cloud_models()
+            return
         url = self._ollama_url()
         if url is None:
             return
@@ -750,6 +905,8 @@ class MachineDialog(QDialog):
     def test_connection(self) -> bool:
         if self.provider_name == PROVIDER_OLLAMA and self._ollama_url() is None:
             return False
+        if not self.save_key():
+            return False
         try:
             provider = make_provider(self.settings(), self._secrets)
         except NxError as exc:
@@ -757,7 +914,7 @@ class MachineDialog(QDialog):
             return False
         status = check_with_wait_cursor(provider)
         message = status.message
-        if status.ok and self.provider_name == PROVIDER_DEEPL:
+        if status.ok and self.provider_spec.classic:
             chars = sum(len(r.source) for r in self.target())
             message += f" Bu iş yaklaşık {format_int(chars)} karakter kullanacak."
         self.status.show_message("success" if status.ok else "danger", message)
@@ -765,9 +922,9 @@ class MachineDialog(QDialog):
         return status.ok
 
     def _accept(self) -> None:
-        if self.provider_name == PROVIDER_OLLAMA and not self.model.currentText().strip():
+        if self.provider_spec.has_models and not self.model.currentText().strip():
             self.status.show_message("danger", "Bir model seçin veya adını yazın.")
-            self.help.show()
+            self.help.setVisible(self.provider_name == PROVIDER_OLLAMA)
             return
         if self.action == ACTION_REVISE and not self.instruction.toPlainText().strip():
             self.status.show_message("warning", "Modelin neyi düzeltmesini istediğinizi talimat kutusuna yazın.")
@@ -776,10 +933,18 @@ class MachineDialog(QDialog):
         if self.test_connection():
             self.accept()
 
+    def _base_url(self) -> str:
+        current = self.provider_spec
+        if current.id == PROVIDER_OLLAMA:
+            return self.url.text().strip() or DEFAULT_URL
+        if current.url_editable:
+            return self.api_url.text().strip()
+        return ""
+
     def settings(self) -> MachineSettings:
         return MachineSettings(
             provider=self.provider_name,
-            base_url=self.url.text().strip() or DEFAULT_URL,
+            base_url=self._base_url(),
             model=self.model.currentText().strip(),
             notes=self.notes.toPlainText().strip(),
             scope=self._scope(),

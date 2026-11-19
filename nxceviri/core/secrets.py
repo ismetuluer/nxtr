@@ -21,6 +21,12 @@ DEEPL_API_KEY = "deepl_api_key"
 GITHUB_UPDATE_KEY = "github_token"  # uygulama güncellemesi için, yalnızca depoyu okuyabilen anahtar
 
 
+def api_key_name(provider_id: str) -> str:
+    """Çeviri hizmetinin anahtarının gizli depodaki adı. Her hizmetin ayrı adı vardır: bir hizmetin anahtarı başka
+    bir adrese gönderilmez. DeepL'in adı eski sürümlerle aynı kalır."""
+    return DEEPL_API_KEY if provider_id == "deepl" else f"{provider_id}_api_key"
+
+
 class SecretError(NxError):
     """Gizli değer okunamadı veya kaydedilemedi."""
 

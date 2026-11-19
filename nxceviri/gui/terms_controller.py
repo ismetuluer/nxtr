@@ -1,4 +1,4 @@
-"""Terimler denetleyicisi: Terminoloji penceresi, satırlardan terim ekleme, Ollama ile terim önerisi.
+"""Terimler denetleyicisi: Terminoloji penceresi, satırlardan terim ekleme, yapay zekâ modeliyle terim önerisi.
 
 Ana pencereden ayrılmıştır (`ARCHITECTURE.md` karar 221). Denetleyici durum tutmaz; proje, ayarlar ve `busy` her
 çağrıda pencereden okunur. Pencerede yönlendirmesi olan her yöntem (`notify`, `_run`, `_sync_spell`,
@@ -15,7 +15,8 @@ from nxceviri.core.errors import NxError
 from nxceviri.core.progress import TaskContext
 from nxceviri.core.translate.glossary_io import merge_terms, plan_terms_from_rows
 from nxceviri.core.translate.providers.base import ProviderError
-from nxceviri.core.translate.providers.ollama import DEFAULT_URL, OllamaProvider
+from nxceviri.core.translate.providers.catalog import spec
+from nxceviri.core.translate.providers.llm import LLMProvider
 from nxceviri.core.translate.runner import ACTION_TRANSLATE
 from nxceviri.core.translate.terms import TermCandidate, TermSuggestion, find_candidates, suggest_glossary
 from nxceviri.gui.machine_dialogs import (
@@ -100,17 +101,20 @@ class TermsController:
         return find_candidates(win.project.translation_rows(), win.project.glossary())
 
     def suggest_glossary_terms(self) -> None:
-        """Metinlerde sık geçen adları bulur, Ollama'dan karşılık ister; onaylananlar terminolojiye katılır."""
+        """Metinlerde sık geçen adları bulur, seçili yapay zekâ modelinden (Ollama, Claude, Gemini, OpenAI uyumlu)
+        karşılık ister; onaylananlar terminolojiye katılır."""
         win = self._win
         if win.busy:
             return
         page = win.translate_page
-        model = str(win.settings.value("ollama/model", ""))
-        if str(win.settings.value("translate/provider", PROVIDER_OLLAMA)) != PROVIDER_OLLAMA or not model:
+        service = spec(str(win.settings.value("translate/provider", PROVIDER_OLLAMA)))
+        url, model = win.machine.remembered_providers().get(service.id, ("", ""))
+        model = model or service.default_model
+        if service.classic or not model:
             win.notify(
                 LEVEL_WARNING,
-                "Terim önerisi için Ollama gerekli",
-                "Otomatik Çeviri'de sağlayıcı olarak Ollama'yı ve bir model seçin.",
+                "Terim önerisi için yapay zekâ modeli gerekli",
+                "Otomatik Çeviri'de Ollama ya da bir yapay zekâ hizmeti ve model seçin.",
                 (NoticeAction("Otomatik Çeviri…", lambda: win.start_machine_translation(ACTION_TRANSLATE)),),
             )
             return
@@ -123,19 +127,21 @@ class TermsController:
             )
             return
         notes = win.project.setting("translation_notes")
-        chosen = MachineSettings(PROVIDER_OLLAMA, str(win.settings.value("ollama/url", DEFAULT_URL)), model, notes)
+        chosen = MachineSettings(service.id, url, model, notes)
         try:
             provider = win.provider_factory(chosen)
         except NxError as exc:
             page.show_notice("danger", exc.user_text())
             return
-        if not isinstance(provider, OllamaProvider):
-            page.show_notice("danger", "Terim önerisi yalnızca Ollama ile yapılabilir.")
+        if not isinstance(provider, LLMProvider):
+            provider.close()
+            page.show_notice("danger", "Terim önerisi yalnızca yapay zekâ modeliyle yapılabilir.")
             return
         source_lang = win.project.setting("source_language", "en")
 
         def work(ctx: TaskContext) -> list[TermSuggestion]:
-            provider.cancel_token = ctx.token
+            if hasattr(provider, "cancel_token"):  # Ollama: iptal süren isteği hemen keser
+                setattr(provider, "cancel_token", ctx.token)  # noqa: B010 - sözleşmede olmayan isteğe bağlı alan
             try:
                 status = provider.test_connection()
                 if not status.ok:
@@ -147,7 +153,7 @@ class TermsController:
         def failed(text: str) -> None:
             page.set_machine_running(False)
             title, rest = split_notice(text)
-            if "bağlanılamadı" in title:
+            if "bağlanılamadı" in title and service.id == PROVIDER_OLLAMA:
                 title = "Ollama'ya bağlanılamadı"
             win.notify(
                 LEVEL_ERROR,
