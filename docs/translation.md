@@ -367,14 +367,16 @@ seçim listesi ve özellikler `providers/catalog.py`. Karar: ARCHITECTURE 236.
 - **Model:** sabit model adı yoktur (Claude'da varsayılan `claude-opus-5-5`, alan düzenlenebilir). **Modelleri
   Listele** hizmetin model listesini getirir (`GET /models`, Claude'da `client.models.list()`, Gemini'de
   `GET /v1beta/models`, `generateContent` destekleyenler). Satırın kaynağı olarak hizmet kimliği ve model adı
-  saklanır ("Çeviren: OpenRouter (model)").
+  saklanır ("Çeviren: OpenRouter (model)"). **Bağlantıyı Test Et** de listeyi doldurur; yazılan model listede yoksa
+  yalnızca not düşülür (takma adlar listelenmeyebilir), başlatma engellenmez.
 - **İstem ve yanıt:** Ollama ile aynı istem gider; yanıt `{"translations": [{"id", "text"}]}` şemasıyla istenir.
   OpenAI uyumlu: `response_format` önce `json_schema` (katı şema), sunucu 400 ile reddederse `json_object`, o da
   reddedilirse düz metin (istem zaten JSON istiyor); düşen kip sağlayıcı ömrü boyunca hatırlanır. Claude:
   `client.beta.messages.create(..., output_config={"format": {"type": "json_schema", ...}}, betas=[
   "server-side-fallback-2026-07-01"], fallbacks="default")`, `max_tokens=16000`; sıcaklık ve düşünme ayarı
   gönderilmez. Gemini: `systemInstruction`, `contents`, `generationConfig.responseMimeType = application/json` ve
-  `responseSchema` (`additionalProperties` atılır). Partiler Ollama'dakinden büyüktür (en çok 25 satır / 4000 karakter).
+  `responseSchema` (`additionalProperties` atılır; Google'ın yeni belgeleri `responseJsonSchema` ve `responseFormat`
+  alanlarını da anlatıyor, `responseSchema` belgedeki JSON örneğinde geçiyor; gerçek hizmette denenmedi). Partiler Ollama'dakinden büyüktür (en çok 25 satır / 4000 karakter).
 - **Google Translate:** Cloud Translation Basic v2 (`POST …/language/translate/v2`, `format: "html"`). Kontrol kodları
   DeepL'deki `<x id="n"/>` etiketleriyle, satır sonları `<br/>` ile korunur. Talimat ve sözlük yoktur, oyun notları
   gönderilmez; redaksiyon sunulmaz. Bağlantı testi dil listesini okur (kota harcamaz).

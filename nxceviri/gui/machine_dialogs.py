@@ -839,13 +839,15 @@ class MachineDialog(QDialog):
         """Ollama dışındaki yapay zekâ hizmetinin model listesi (anahtar ve adres alanlardan)."""
         if not self.save_key():
             return
+        # Bekleme imleci sağlayıcı kurulurken de görünür: Claude kitaplığı ilk yüklemede saniyeler sürer.
+        QGuiApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             provider = make_provider(self.settings(), self._secrets)
         except NxError as exc:
+            QGuiApplication.restoreOverrideCursor()
             self.status.show_message("danger", exc.user_text())
             return
         lister = getattr(provider, "list_models", None)
-        QGuiApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             names = [str(n) for n in lister()] if callable(lister) else []
         except ProviderError as exc:
@@ -854,17 +856,21 @@ class MachineDialog(QDialog):
         finally:
             QGuiApplication.restoreOverrideCursor()
             provider.close()
-        current = self.model.currentText().strip()
-        self.model.clear()
-        self.model.addItems(names)
-        if current and self.model.findText(current) >= 0:
-            self.model.setCurrentIndex(self.model.findText(current))
-        elif current:
-            self.model.setEditText(current)
+        self._fill_models(names)
         if names:
             self.status.show_message("success", f"{len(names)} model bulundu. Listeden birini seçin.")
         else:
             self.status.show_message("warning", f"{self.provider_spec.name} model listesi boş döndü.")
+
+    def _fill_models(self, names: Sequence[str]) -> None:
+        """Model listesini doldurur; yazılı model listede yoksa da alanda kalır."""
+        current = self.model.currentText().strip()
+        self.model.clear()
+        self.model.addItems(list(names))
+        if current and self.model.findText(current) >= 0:
+            self.model.setCurrentIndex(self.model.findText(current))
+        elif current:
+            self.model.setEditText(current)
 
     def refresh_models(self) -> None:
         if self.provider_name != PROVIDER_OLLAMA:
@@ -907,12 +913,18 @@ class MachineDialog(QDialog):
             return False
         if not self.save_key():
             return False
+        QGuiApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)  # Claude kitaplığı ilk yüklemede yavaş
         try:
             provider = make_provider(self.settings(), self._secrets)
         except NxError as exc:
             self.status.show_message("danger", exc.user_text())
             return False
+        finally:
+            QGuiApplication.restoreOverrideCursor()
         status = check_with_wait_cursor(provider)
+        listed = getattr(provider, "last_models", None)
+        if status.ok and self.provider_name != PROVIDER_OLLAMA and isinstance(listed, list) and listed:
+            self._fill_models([str(n) for n in listed])
         message = status.message
         if status.ok and self.provider_spec.classic:
             chars = sum(len(r.source) for r in self.target())

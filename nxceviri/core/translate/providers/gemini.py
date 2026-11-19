@@ -31,6 +31,7 @@ from nxceviri.core.translate.providers.llm import (
     strip_schema_keys,
     timeout_error,
     truncated_error,
+    unlisted_model_note,
 )
 
 log = logging.getLogger(__name__)
@@ -67,6 +68,8 @@ class GeminiProvider(LLMProvider):
         self.model = model.strip().removeprefix("models/")
         self.base_url = base_url.rstrip("/")
         self._client = client or httpx.Client(timeout=httpx.Timeout(timeout_s, connect=10.0))
+        #: Son bağlantı testinde alınan model listesi.
+        self.last_models: list[str] = []
 
     def __repr__(self) -> str:
         return f"<GeminiProvider {self.model}>"
@@ -116,13 +119,13 @@ class GeminiProvider(LLMProvider):
             models = self.list_models()
         except ProviderError as exc:
             return ProviderStatus(False, exc.user_text())
+        self.last_models = models
         if not self.model:
             return ProviderStatus(False, "Gemini bağlantısı çalışıyor; listeden bir model seçin.")
+        message = f"Bağlantı başarılı: {SERVICE}, model {self.model}."
         if models and self.model not in models:
-            return ProviderStatus(
-                False, f"Gemini çalışıyor ama '{self.model}' modeli listede yok. Listeden bir model seçin."
-            )
-        return ProviderStatus(True, f"Bağlantı başarılı: {SERVICE}, model {self.model}.")
+            message += unlisted_model_note(self.model)
+        return ProviderStatus(True, message)
 
     def chat_json(self, messages: list[dict[str, str]], schema: dict[str, Any]) -> str:
         if not self.model:

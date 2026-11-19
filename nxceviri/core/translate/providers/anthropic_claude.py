@@ -32,6 +32,7 @@ from nxceviri.core.translate.providers.llm import (
     strict_schema,
     timeout_error,
     truncated_error,
+    unlisted_model_note,
 )
 
 log = logging.getLogger(__name__)
@@ -63,6 +64,8 @@ class ClaudeProvider(LLMProvider):
         self._client = anthropic.Anthropic(
             api_key=api_key.strip(), max_retries=0, timeout=timeout_s, http_client=http_client
         )
+        #: Son bağlantı testinde alınan model listesi.
+        self.last_models: list[str] = []
 
     def __repr__(self) -> str:
         return f"<ClaudeProvider {self.model}>"
@@ -81,11 +84,11 @@ class ClaudeProvider(LLMProvider):
             models = self.list_models()
         except ProviderError as exc:
             return ProviderStatus(False, exc.user_text())
+        self.last_models = models
+        message = f"Bağlantı başarılı: {SERVICE}, model {self.model}."
         if models and self.model not in models:
-            return ProviderStatus(
-                False, f"Claude çalışıyor ama '{self.model}' modeli listede yok. Listeden bir model seçin."
-            )
-        return ProviderStatus(True, f"Bağlantı başarılı: {SERVICE}, model {self.model}.")
+            message += unlisted_model_note(self.model)
+        return ProviderStatus(True, message)
 
     def chat_json(self, messages: list[dict[str, str]], schema: dict[str, Any]) -> str:
         system, rest = split_system(messages)

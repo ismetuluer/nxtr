@@ -437,6 +437,12 @@ def truncated_error(service: str) -> ProviderError:
     )
 
 
+def unlisted_model_note(model: str) -> str:
+    """Bağlantı testinde model listede yoksa eklenen not. Engel değildir: bazı hizmetler takma adları ya da her
+    modeli listelemez; model gerçekten yoksa çeviri isteği zaten açık bir hata verir."""
+    return f" '{model}' listede görünmüyor; adı doğruysa sorun değil, çeviride model hatası alırsanız listeden seçin."
+
+
 def refusal_error(detail: str = "") -> ProviderError:
     """Model içerik nedeniyle yanıt vermedi: yeniden denemek işe yaramaz, tek satıra inilip o satır atlanır."""
     return ProviderError(

@@ -31,6 +31,7 @@ from nxceviri.core.translate.providers.llm import (
     strict_schema,
     timeout_error,
     truncated_error,
+    unlisted_model_note,
 )
 
 log = logging.getLogger(__name__)
@@ -107,6 +108,8 @@ class OpenAICompatProvider(LLMProvider):
         self.base_url = url
         self._client = client or httpx.Client(timeout=httpx.Timeout(timeout_s, connect=10.0))
         self._mode = _MODES[0]
+        #: Son bağlantı testinde alınan model listesi (arayüz "Bağlantıyı Test Et" sonrası listeyi doldurur).
+        self.last_models: list[str] = []
 
     def __repr__(self) -> str:
         return f"<OpenAICompatProvider {self.label} {self.model}>"
@@ -160,13 +163,14 @@ class OpenAICompatProvider(LLMProvider):
             models = self.list_models()
         except ProviderError as exc:
             return ProviderStatus(False, exc.user_text())
+        self.last_models = models
         if not self.model:
             return ProviderStatus(False, f"{self.label} bağlantısı çalışıyor; listeden bir model seçin.")
+        message = f"Bağlantı başarılı: {self.label}, model {self.model} ({len(models)} model)."
         if models and self.model not in models:
-            return ProviderStatus(
-                False, f"{self.label} çalışıyor ama '{self.model}' modeli listede yok. Listeden bir model seçin."
-            )
-        return ProviderStatus(True, f"Bağlantı başarılı: {self.label}, model {self.model} ({len(models)} model).")
+            # Bazı sunucular takma adları ya da her modeli listelemez: başlatmayı engellemez, yalnızca uyarır.
+            message += unlisted_model_note(self.model)
+        return ProviderStatus(True, message)
 
     def chat_json(self, messages: list[dict[str, str]], schema: dict[str, Any]) -> str:
         if not self.model:

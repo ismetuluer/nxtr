@@ -144,6 +144,7 @@ class _FakeLister:
 
     def __init__(self) -> None:
         self.closed = False
+        self.last_models = ["gemini-t1", "gemini-t2"]
 
     def list_models(self) -> list[str]:
         return ["gemini-a", "gemini-b"]
@@ -172,7 +173,16 @@ def test_list_models_for_cloud_service(qtbot: QtBot, monkeypatch: pytest.MonkeyP
     assert built[0].provider == "gemini"
     assert fake.closed
     assert "2 model" in dialog.status.text.text()
+
+
+def test_connection_test_fills_the_model_list(qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(machine_dialogs, "make_provider", lambda _s, _k: _FakeLister())
+    secrets = MemoryStore()
+    secrets.set(api_key_name("gemini"), "k")
+    dialog = _dialog(qtbot, "gemini", secrets, remembered={"gemini": ("", "gemini-t2")})
     assert dialog.test_connection()
+    assert [dialog.model.itemText(i) for i in range(dialog.model.count())] == ["gemini-t1", "gemini-t2"]
+    assert dialog.model.currentText() == "gemini-t2"
 
 
 @pytest.fixture

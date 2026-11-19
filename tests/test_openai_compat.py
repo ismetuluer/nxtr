@@ -178,10 +178,11 @@ def test_model_list_and_connection_test() -> None:
     status = provider.test_connection()
     assert status.ok
     assert "3 model" in status.message
+    assert provider.last_models == ["a-model", "b-model", "gpt-test"]
     missing, _ = _provider(handler, model="yok")
     status = missing.test_connection()
-    assert not status.ok
-    assert "yok" in status.message
+    assert status.ok  # takma ad ya da listelenmeyen model olabilir: başlatmayı engellemez
+    assert "'yok' listede görünmüyor" in status.message
 
 
 def test_empty_model_asks_the_user_to_choose() -> None:

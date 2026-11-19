@@ -150,7 +150,10 @@ def test_model_list_follows_pages_and_keeps_generate_models() -> None:
     assert provider.list_models() == ["gemini-b", "gemini-test"]
     assert provider.test_connection().ok
     other, _ = _provider(handler, model="gemini-yok")
-    assert not other.test_connection().ok
+    status = other.test_connection()
+    assert status.ok
+    assert "listede görünmüyor" in status.message
+    assert other.last_models == ["gemini-b", "gemini-test"]
 
 
 def test_missing_key() -> None:

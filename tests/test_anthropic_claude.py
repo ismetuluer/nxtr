@@ -143,8 +143,9 @@ def test_model_list_and_connection() -> None:
     assert provider.test_connection().ok
     other, _ = _provider(lambda r: httpx2.Response(200, json=page), model="claude-yok")
     status = other.test_connection()
-    assert not status.ok
-    assert "claude-yok" in status.message
+    assert status.ok  # takma ad listede olmayabilir: başlatmayı engellemez
+    assert "'claude-yok' listede görünmüyor" in status.message
+    assert other.last_models == ["claude-a", "claude-opus-5-5"]
 
 
 def test_missing_key() -> None:
