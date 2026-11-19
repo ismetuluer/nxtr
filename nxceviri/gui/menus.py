@@ -19,6 +19,7 @@ from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import QMenu
 
 from nxceviri.core.qa.profanity import LEVEL_LABELS as PROFANITY_LEVELS
+from nxceviri.core.qa.profanity import LEVEL_OFF
 from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_REVISE, ACTION_TRANSLATE
 from nxceviri.gui.icons import bind_icon
 from nxceviri.gui.theme import DEFAULT_FONT_SIZE, FONT_SIZES, THEME_LABELS, ThemeMode
@@ -385,8 +386,7 @@ class Menus:
         """Küfür / Argo Denetimi: projeye özgü üç düzey (Kapalı, yalnızca ağır küfür, ağır küfür ve argo)."""
         w = self.window
         sub = self._submenu(menu, "Küfür / Argo Denetimi", "shield-check")
-        sub.setToolTipsVisible(True)
-        sub.setToolTip("Çocuklara yönelik oyunlarda çeviride Türkçe küfür ve argo bulunca Kontrol Et'te uyarır.")
+
         group = QActionGroup(sub)
         self.profanity_actions = {}
         for level, text in PROFANITY_LEVELS.items():
@@ -396,6 +396,14 @@ class Menus:
             sub.addAction(action)
             action.triggered.connect(lambda _checked=False, lv=level: w.set_profanity_level(lv))
             self.profanity_actions[level] = action
+        self.profanity_actions[LEVEL_OFF].setChecked(True)
+        sub.aboutToShow.connect(self.refresh_profanity)
+
+    def refresh_profanity(self) -> None:
+        """İşaretli düzeyi açık projenin ayarına getirir (yalnızca alt menü açılırken; proje kapanırken okunmaz)."""
+        current = self.window._profanity_config().level
+        for level, action in self.profanity_actions.items():
+            action.setChecked(level == current)
 
     def _help_menu(self) -> None:
         w = self.window
@@ -456,9 +464,6 @@ class Menus:
         self.diagnosis.setEnabled(ready)
 
         a["tools.spell_check"].setEnabled(w.spell is not None and has_rows)
-        current = w._profanity_config().level
-        for level, action in self.profanity_actions.items():
-            action.setChecked(level == current)
 
         for step, (command, _icon) in enumerate(_GO_COMMANDS):
             unlocked = bool(w.nav.item(step).flags() & Qt.ItemFlag.ItemIsEnabled)

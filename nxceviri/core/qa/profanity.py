@@ -148,6 +148,9 @@ def find_profanity(text: str, config: ProfanityConfig, source: str = "") -> list
     entries = load_entries()
     in_source = {turkish_lower(w) for w in _visible_words(source)} if source else set()
     found: dict[str, Match] = {}
+    # Büyük harfli kısaltma ayrımı yalnızca küçük harfli sözcük de varsa yapılır: bütün satırı bağıran metinde
+    # ("GEL LAN BURAYA") her sözcük büyüktür ve kısaltma sayılamaz.
+    mixed_case = any(c.islower() for c in text)
     for word in _visible_words(text):
         low = turkish_lower(word)
         if low in found or low in config.allowed or low in in_source or entries.exceptions.matches(low):
@@ -157,7 +160,7 @@ def find_profanity(text: str, config: ProfanityConfig, source: str = "") -> list
         elif (
             config.level == LEVEL_ALL
             and entries.slang.matches(low)
-            and not (word.isupper() and len(word) <= _ACRONYM_MAX)
+            and not (mixed_case and word.isupper() and len(word) <= _ACRONYM_MAX)
         ):
             found[low] = Match(word, low, KIND_SLANG)
     return list(found.values())

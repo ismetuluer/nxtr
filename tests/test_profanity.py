@@ -85,6 +85,17 @@ def test_kisa_buyuk_harfli_kisaltma_argoda_atlanir_ama_agirda_atlanmaz() -> None
     assert _words("AMK", HEAVY)
 
 
+def test_tamamen_buyuk_harfli_satirda_kisaltma_sayilmaz() -> None:
+    assert _words("GEL LAN BURAYA", ALL)  # bağıran satırda "LAN" kısaltma değil
+    assert _words("BOK!", ALL)
+    assert _words("LAN bağlantısı kuruldu", ALL) == []
+
+
+@pytest.mark.parametrize("text", ["Bokböceği yürüyor", "Bir sika geyiği gördüm"])
+def test_masum_sozcukler_bokbocegi_ve_sika(text: str) -> None:
+    assert _words(text, ALL) == []
+
+
 def test_yer_tutucu_ve_etiketler_gorunen_metne_katilmaz() -> None:
     assert _words("⟦1⟧Merhaba⟦2⟧", ALL) == []
     # Yer tutucu sözcüğü bölmez: "si⟦1⟧ktir" iki parça olarak görünür, küfür değildir.

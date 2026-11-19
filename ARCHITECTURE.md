@@ -1453,6 +1453,20 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     ayrı adla Windows Kimlik Bilgisi Yöneticisi'nde durur (`secrets.api_key_name`); bir hizmetin anahtarı başka adrese
     gönderilmez. Fiyat gösterilmez (hizmete, modele ve zamana göre değişir); yalnızca kaba belirteç tahmini verilir.
 
+238. **Küfür / argo denetimi, elle yazılmış sözlükle ve projeye özgü ayarla (2026-11-19):** ürün sahibi çocuklara yönelik
+    oyunda çeviride küfür ve argo çıkmasını istemiyor. `core/qa/profanity.py` (Qt'siz) Türkçe küçük harfe çevrilmiş
+    (İ→i, I→ı) görünen metni sözcük sözcük tarar; sözlük (`core/qa/data/kufur.txt`, elle yazıldı, dış liste kopyalanmadı)
+    `agir`/`argo`/`haric` seviyeleriyle tam sözcük (`=lan`) ve kök (`sik*`) girişlerinden oluşur. Masum sözcükler
+    (`sikke`, `götür…`, `boks`) `haric` ile elenir; orijinalde aynen geçen sözcük (özel ad) ve üç harfe kadar büyük
+    harfli kısaltma (LAN) argo düzeyinde atlanır; belirsiz sözcükler (hıyar, kodumun, koyayım, lanet, salak, aptal)
+    bilerek sözlükte yoktur. Bulgu türü `profanity` uyarıdır (dışa aktarmayı engellemez), satır başına tek bulgu,
+    iletide ağır küfür ve argo sözcükleri ayrı sayılır; orijinalde de kaba İngilizce ifade varsa not düşülür. Ayar
+    projenin ayar tablosundadır (`profanity_level`: kapalı/ağır/ağır+argo, `profanity_allowed`: "argo değil" sözcükleri,
+    "Terim değil" ile aynı JSON listesi örüntüsü); varsayılan kapalıdır ve menüdeki seçim Araçlar → Küfür / Argo
+    Denetimi'ndedir (yeni kalıcı düğme yok). Anlık denetim türü `profanity` `LIVE_KINDS`'tadır; "Bulguyu yok say"
+    genel mekanizmayla çalışır. Sözlük pakete veri dosyası olarak girer (`package-data`; PyInstaller
+    `collect_data_files("nxceviri")` ile alır).
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.

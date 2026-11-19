@@ -118,3 +118,5 @@ haric bokeh*
 haric bokal*
 haric bokas*
 haric bokh*
+haric bokböc*
+haric sika*

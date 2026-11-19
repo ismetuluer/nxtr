@@ -78,7 +78,7 @@ def test_menuden_duzey_secimi_kaydedilir_ve_denetimi_yeniler(qtbot: QtBot, windo
 
 def test_secim_menude_gosterilir(window: MainWindow) -> None:
     window.project.set_setting("profanity_level", LEVEL_ALL)
-    window.menus.refresh()
+    window.menus.refresh_profanity()
     assert window.menus.profanity_actions[LEVEL_ALL].isChecked()
     assert not window.menus.profanity_actions[LEVEL_OFF].isChecked()
 
