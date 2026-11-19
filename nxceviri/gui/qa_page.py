@@ -345,6 +345,7 @@ class QaPage(QWidget):
     learn_rules_requested = Signal(str)  # kapsam: "" proje, dosya yolu, GROUP_PREFIX+grup ya da EACH_GROUP
     add_spelling_requested = Signal(list)  # seçili yazım bulgularındaki sözcükler
     not_term_requested = Signal(list)  # seçili terim bulgularındaki ifadeler: "terim değil"
+    not_profanity_requested = Signal(list)  # seçili küfür / argo bulgularındaki sözcükler: "argo değil"
     user_dictionary_requested = Signal()
     #: Belirsiz bir sözcük için seçilen yazım: (sözcük anahtarı, seçilen aday); projedeki bütün satırlara uygulanır.
     ascii_choice_requested = Signal(str, str)
@@ -1678,6 +1679,13 @@ class QaPage(QWidget):
             not_term = menu.addAction(icon("x"), "Terim değil")
             not_term.setToolTip("Seçili ifadeler bu projede terim sayılmaz; tutarsızlık aranmaz.")
             not_term.triggered.connect(lambda: self.not_term_requested.emit(phrases))
+        rude = self._selected_profanity_words()
+        if rude:
+            not_rude = menu.addAction(icon("x"), "Bu kelime argo değil")
+            not_rude.setToolTip(
+                tip_html("Seçili sözcükler bu projede küfür ya da argo sayılmaz; bir daha işaretlenmez.")
+            )
+            not_rude.triggered.connect(lambda: self.not_profanity_requested.emit(rude))
         menu.addAction(self.user_dict_button)
         menu.addSeparator()
         sort_menu = menu.addMenu("Sırala")
@@ -1768,6 +1776,14 @@ class QaPage(QWidget):
             if issue.kind == "term":
                 phrases.update(dict.fromkeys(issue.words))
         return list(phrases)
+
+    def _selected_profanity_words(self) -> list[str]:
+        """Seçili küfür / argo bulgularındaki sözcükler (tekrarsız)."""
+        words: dict[str, None] = {}
+        for issue in self._selected_issues():
+            if issue.kind == "profanity":
+                words.update(dict.fromkeys(issue.words))
+        return list(words)
 
     def _add_spelling(self) -> None:
         words = self._selected_spelling_words()

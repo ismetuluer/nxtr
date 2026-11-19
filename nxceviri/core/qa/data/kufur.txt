@@ -1,0 +1,120 @@
+# Küfür ve argo sözlüğü (Kontrol Et → "Küfür / argo" denetimi).
+#
+# Her satır: <seviye> <giriş>
+#   seviye: agir  = ağır küfür, cinsel ve onur kırıcı sövgü
+#           argo  = çocuklara uygun olmayan kaba argo
+#           haric = hiçbir zaman bulgu sayılmayacak masum sözcük (eşleşen bulguyu iptal eder)
+#   giriş : küçük harfli, Türkçe harfli yazılır.
+#           "=sözcük" tam sözcük demektir ("=lan": yalnızca "lan"; "lanet" eşleşmez).
+#           "kök*"    sözcüğün başı demektir ("sik*": sikmek, siktir, sikerim...); ekleri de kapsar.
+#           "haric" girişleri de aynı iki biçimdedir.
+# Boş satırlar ve "#" ile başlayan satırlar yok sayılır.
+# Büyük/küçük harf Türkçe kuralına göre eşlenir (İ → i, I → ı).
+
+# --- ağır küfür -------------------------------------------------------------------------
+agir sik*
+agir =amk
+agir =aq
+agir =amq
+agir =amg
+agir =amına
+agir =amina
+agir amın*
+agir amcık*
+agir amcığ*
+agir amcuk*
+agir orospu*
+agir oruspu*
+agir orospi*
+agir orosbu*
+agir orospı*
+agir pezevenk*
+agir puşt*
+agir yavşak*
+agir yavsak*
+agir ibne*
+agir kahpe*
+agir gavat*
+agir kavat*
+agir fahişe*
+agir sürtük*
+agir şıllık*
+agir şırfıntı*
+agir kaltak*
+agir kevaşe*
+agir kevase*
+agir kodoş*
+agir piç*
+agir yarrak*
+agir yarak*
+agir yaraq*
+agir dalyarak*
+agir dalyarrak*
+agir dalyaraq*
+agir taşak*
+agir taşşak*
+agir göt*
+agir =oç
+agir =koyim
+agir =koyiym
+agir =çük
+agir =çükü
+agir =çüküm
+agir =çükünü
+agir =çükler
+
+# --- argo ------------------------------------------------------------------------------
+argo =lan
+argo =ulan
+argo =hassiktir
+argo =hasiktir
+argo =hassictir
+argo =hassıktır
+argo bok*
+argo zıkkım*
+argo dangalak*
+argo gerizekalı*
+argo gerizekâlı*
+argo gerzek*
+argo hödük*
+argo embesil*
+argo ahlaksız*
+argo şerefsiz*
+argo namussuz*
+argo haysiyetsiz*
+argo kancık*
+argo itoğlu*
+argo köpoğlu*
+argo köpekoğlu*
+argo =defol
+argo =defolun
+argo =defolup
+argo =defolsana
+argo geber*
+argo osur*
+argo sapık*
+argo lavuk*
+argo dürzü*
+argo =sıç
+argo sıçm*
+argo sıçt*
+argo sıçar*
+argo sıçay*
+argo sıçıl*
+argo sıçıp*
+argo sıçac*
+
+# --- istisnalar: yukarıdaki köklerle başlayan masum sözcükler ----------------------------
+haric sikke*
+haric sikk*
+haric sikl*
+haric sikh*
+haric sikors*
+haric götür*
+haric göteborg*
+haric götz*
+haric boks*
+haric bokeh*
+haric bokal*
+haric bokas*
+haric bokh*

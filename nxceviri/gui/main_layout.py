@@ -141,6 +141,7 @@ def connect_pages(win: MainWindow) -> None:
     win.translate_page.pane.spell_word_requested.connect(lambda w: win.add_spell_words([w]))
     win.qa_page.add_spelling_requested.connect(win.add_spelling_from_qa)
     win.qa_page.not_term_requested.connect(win.ignore_terms)
+    win.qa_page.not_profanity_requested.connect(win.allow_profanity_words)
     win.qa_page.ascii_choice_requested.connect(win.apply_ascii_choice)
     win.qa_page.ignore_requested.connect(win.ignore_issues)
     win.qa_page.unignore_requested.connect(win.unignore_issues)

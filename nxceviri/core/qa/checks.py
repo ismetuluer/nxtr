@@ -20,6 +20,7 @@ Denetimler satır başınadır ve yalnızca bulguları döndürür; satırları 
 | suspicious | uyarı | Uydurma belirtisi: İngilizce kalmış, yabancı alfabe, tekrar döngüsü, orijinalden çok uzun/kısa |
 | end_punctuation | uyarı | Çevirinin sonuna orijinalde olmayan noktalama eklenmiş (otomatik düzeltmede atılır) |
 | ascii_turkish | uyarı | ASCII'ye çevrilmiş Türkçe harf (tesekkur → teşekkür); sözlükle onarılır |
+| profanity | uyarı | Çeviride Türkçe küfür ya da argo var (proje ayarıyla açılır; çocuk oyunları için) |
 | spelling | bilgi | Çeviride Türkçe yazım sözlüğünde olmayan sözcük var (süzgeçle görülür; sözlüğe eklenebilir) |
 | missing_markup | uyarı | Orijinaldeki ham etiket (`<i>`, `[color=..]`, `{ad}`) çeviride eksik |
 | protected | uyarı | Orijinal cümlenin içindeki kod adı (`Fire_Cannon`) çeviride aynen yok |
@@ -44,6 +45,7 @@ from nxceviri.core.progress import ProgressCallback
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa import codefix
 from nxceviri.core.qa.asciitr import AsciiRepair, repair_ascii_turkish
+from nxceviri.core.qa.profanity import ProfanityConfig, describe, english_rude, find_profanity
 from nxceviri.core.spell.checker import SpellChecker, turkish_lower, words_of
 from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.cleanup import (
@@ -102,6 +104,7 @@ KIND_LABELS = {
     "extra_dots": "Tekrarlı noktalama",
     "space_before_punct": "Noktalama öncesi boşluk",
     "term": "Terim tutarsızlığı",
+    "profanity": "Küfür / argo",
 }
 
 #: Çeviri orijinalin bu katından uzunsa (ve yeterince uzunsa) taşma uyarısı verilir.
@@ -172,8 +175,11 @@ def check_row(
     spell: SpellChecker | None = None,
     spell_extra: frozenset[str] = frozenset(),
     widths: WidthMeasure | None = None,
+    profanity: ProfanityConfig | None = None,
 ) -> list[QaIssue]:
     """Tek bir satırı denetler. `transliterated`: dışa aktarırken dönüştürülecek harfler.
+
+    `profanity`: küfür / argo denetiminin ayarı; verilmezse ya da kapalıysa denetlenmez.
 
     `widths`: fontla genişlik ölçümü (kutular tüm projeden bir kez hesaplanır, `fitwidth.build_measure`); verilmezse
     genişlik denetlenmez.
@@ -304,6 +310,15 @@ def check_row(
         doubts = translation_problems(row.source, row.translation, "tr", breaks=False)
         if doubts:
             add("suspicious", SEVERITY_WARNING, " ".join(doubts))
+    if profanity is not None and profanity.enabled:
+        rude = find_profanity(row.translation, profanity, row.source)
+        if rude:
+            add(
+                "profanity",
+                SEVERITY_WARNING,
+                describe(rude, english_rude(row.source)),
+                tuple(m.key for m in rude),
+            )
     if (row.source[:1].isspace(), row.source[-1:].isspace()) != (
         row.translation[:1].isspace(),
         row.translation[-1:].isspace(),
@@ -361,6 +376,7 @@ def run_checks(
     terms: Mapping[str, str] | None = None,
     progress: ProgressCallback | None = None,
     widths: WidthMeasure | None = None,
+    profanity: ProfanityConfig | None = None,
 ) -> list[QaIssue]:
     """Satırları denetler. `terms`: terim sözlüğü (`project_terms`); verilmezse `rows`tan çıkarılır.
 
@@ -382,7 +398,15 @@ def run_checks(
     for done, row in enumerate(rows, 1):
         out.extend(
             check_row(
-                row, missing_letters, transliterated, patterns, fit, spell=spell, spell_extra=extra, widths=widths
+                row,
+                missing_letters,
+                transliterated,
+                patterns,
+                fit,
+                spell=spell,
+                spell_extra=extra,
+                widths=widths,
+                profanity=profanity,
             )
         )
         if progress is not None:
