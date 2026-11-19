@@ -1384,6 +1384,25 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     düzenleme** (Dışa Aktar / İçe Al) bu türde kapalıdır: içe alınan TTF dışa aktarmada özgün başlık/anahtarla yeniden
     paketlenmeliydi ve arşiv içindeki fontlarda çalışmazdı; düğmeler seçili Switch fontunda devre dışı, ipucu nedenini
     söyler.
+236. **Ollama ve DeepL dışında yapay zekâ / makine çevirisi hizmetleri (2026-11-19):** istem kurma, yanıt şeması,
+    yanıtın okunması ve hata eşlemesi `providers/llm.py`'deki `LLMProvider` taban sınıfına ayrıldı; her LLM sağlayıcısı
+    yalnızca taşımayı (`chat_json`), model listesini ve bağlantı testini yazar. Ollama'nın davranışı aynı kaldı (eski adlar
+    `ollama.py`'den `__all__` ile verilir). Yeni sağlayıcılar: **OpenAI uyumlu** (`openai_compat.py`: OpenAI, OpenRouter,
+    Groq, Mistral, DeepSeek, LM Studio, özel adres; tek kod, hazır adres listesi; `json_schema` → `json_object` → düz
+    metin sırasıyla düşen yanıt biçimi), **Claude** (`anthropic_claude.py`), **Gemini** (`gemini.py`, httpx) ve
+    **Google Translate** (`google_translate.py`, Cloud Translation Basic v2; klasik çeviri: talimat izlemez, redaksiyon
+    sunulmaz; yer tutucular DeepL'deki `<x id="n"/>` etiketleriyle korunur, kod `deepl.to_xml/from_xml`'den ortaktır).
+    Hata bayrakları tek yerde (`llm.status_error`, `truncated_error`, `refusal_error`): 401/403 yeniden denenmez; 429,
+    5xx, 529 ve zaman aşımı yeniden denenir ve `ProviderError.retry_after_s` ile çalıştırıcı hizmetin istediği kadar
+    (en çok 120 sn) bekler; kesilen yanıt partiyi böler, tek satırda o satır atlanır; içerik reddi yeniden denenmeden
+    satır atlanır. **Bağımlılık `anthropic`:** Claude için resmî kitaplık kullanıldı; API'nin beta başlıkları,
+    yapılandırılmış çıktı (`output_config.format`), sunucu tarafı yedek model (`fallbacks="default"`) ve tipli hata
+    sınıfları kitaplıkla birlikte bakılıyor, elle yazılmış HTTP istemcisi bunları her API değişikliğinde peşinden
+    güncellemeyi gerektirirdi. Apache-2.0 lisanslı; bağımlılıkları (httpx2, pydantic, jiter, opentelemetry-api…) MIT,
+    BSD veya Apache; GPL yok. Kitaplığın kendi yeniden denemesi kapalıdır (`max_retries=0`): çalıştırıcı zaten yeniden
+    deniyor. Diğer hizmetler kitaplıksız (httpx) yazıldı: istekleri basit ve kararlı. **Anahtarlar** her hizmet için
+    ayrı adla Windows Kimlik Bilgisi Yöneticisi'nde durur (`secrets.api_key_name`); bir hizmetin anahtarı başka adrese
+    gönderilmez. Fiyat gösterilmez (hizmete, modele ve zamana göre değişir); yalnızca kaba belirteç tahmini verilir.
 
 ## 5. Bilinen sınırlar
 

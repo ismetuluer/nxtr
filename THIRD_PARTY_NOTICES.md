@@ -20,6 +20,7 @@ Lisans bilgileri, geliştirme ortamında kurulu paketlerin üst verisinden (`imp
 | fonttools | 4.67.0 | MIT |
 | lz4 | 4.4.5 | BSD |
 | Pillow | 13.0.0 | MIT-CMU |
+| anthropic (Claude için resmî Python kitaplığı) | 2.10.0 | Apache-2.0 |
 
 ## Dolaylı çalışma zamanı bağımlılıkları
 
@@ -27,6 +28,7 @@ Doğrudan bağımlılıkların gerektirdiği paketler (üst verideki lisans alan
 
 | Paket | Sürüm | Lisans |
 |---|---|---|
+| annotated-types | 0.8.0 | MIT |
 | anyio | 4.15.1 | MIT |
 | archspec | 0.2.6 | Apache-2.0 veya MIT |
 | astc-encoder-py | 0.1.12 | MIT |
@@ -34,22 +36,32 @@ Doğrudan bağımlılıkların gerektirdiği paketler (üst verideki lisans alan
 | brotli | 1.2.0 | MIT |
 | certifi | 2026.10.19 | MPL-2.0 |
 | cffi | 2.1.1 | MIT-0 |
+| docstring-parser | 0.18.0 | MIT |
 | etcpak | 0.9.15 | MIT |
 | fmod-toolkit | 0.1.3 | MIT |
 | fsspec | 2026.9.0 | BSD-3-Clause |
 | h11 | 0.16.0 | MIT |
 | httpcore | 1.0.9 | BSD-3-Clause |
+| httpcore2 | 2.16.2 | BSD-3-Clause |
+| httpx2 | 2.16.2 | BSD-3-Clause |
 | idna | 3.20 | BSD-3-Clause |
 | jaraco.classes | 3.4.0 | MIT |
 | jaraco.context | 6.1.2 | MIT |
 | jaraco.functools | 4.6.0 | MIT |
+| jiter | 0.19.0 | MIT |
 | more-itertools | 11.2.1 | MIT |
+| opentelemetry-api | 1.45.2 | Apache-2.0 |
 | pycparser | 3.11 | BSD-3-Clause |
+| pydantic | 2.14.3 | MIT |
+| pydantic-core | 2.50.4 | MIT |
 | pyfmodex | 0.7.2 | MIT |
 | pywin32-ctypes | 0.2.3 | BSD-3-Clause |
+| sniffio | 1.3.1 | MIT veya Apache-2.0 |
 | texture2ddecoder | 1.0.6 | MIT |
 | tpk-ar | 0.2.4 | MIT |
+| truststore | 0.10.5 | MIT |
 | typing-extensions | 4.16.0 | PSF-2.0 |
+| typing-inspection | 0.4.5 | MIT |
 
 Bu paketlerin tam lisans metinleri paketlerin kendi dağıtımlarında (pakette `lisanslar/<paket>/`) yer alır.
 
