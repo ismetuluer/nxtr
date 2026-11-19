@@ -156,8 +156,8 @@ INSTRUCTION_PRESETS: tuple[tuple[str, str], ...] = (
     ),
 )
 
-#: Hazır çeviri talimatları (çevir ve yeniden çevir; yalnızca Ollama): (menüdeki ad, talimat metni). Kapsam olarak
-#: "Seçili satırların grubu" seçilerek bir dosya/grup (ör. menüler) kendi talimatıyla çevrilebilir.
+#: Hazır çeviri talimatları (çevir ve yeniden çevir; yapay zekâ hizmetleri): (menüdeki ad, talimat metni).
+#: Kapsam olarak "Seçili satırların grubu" seçilerek bir dosya/grup (ör. menüler) kendi talimatıyla çevrilebilir.
 TRANSLATE_PRESETS: tuple[tuple[str, str], ...] = (
     (
         "Arayüz ve menü metinleri",

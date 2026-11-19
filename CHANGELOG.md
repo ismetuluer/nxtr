@@ -2,6 +2,21 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [Yayımlanmadı]
+
+### Eklendi
+- **Yeni çeviri hizmetleri:** Otomatik Çeviri penceresinde Ollama ve DeepL'in yanında **Claude** (Anthropic),
+  **Gemini** (Google), **OpenAI uyumlu** hizmetler (OpenAI, OpenRouter, Groq, Mistral, DeepSeek, LM Studio ve özel
+  sunucu adresi) ve **Google Translate** seçilebilir. Anahtar pencerede kaydedilir, her hizmet için ayrı olarak Windows
+  Kimlik Bilgisi Yöneticisi'nde saklanır. **Modelleri Listele** hizmetin modellerini getirir; son adres ve model hizmet
+  başına hatırlanır. Redaksiyon ve iş talimatı yapay zekâ hizmetlerinin hepsinde çalışır; Google Translate (DeepL gibi)
+  talimat izleyemez. Terim önerisi de seçili yapay zekâ hizmetiyle yapılabilir.
+- Hizmet `retry-after` ile beklemek istediğini bildirirse yeniden denemeden önce o kadar beklenir.
+
+### Değişti
+- Bağımlılık: `anthropic` (Claude için resmî Python kitaplığı, Apache-2.0); yalnızca Claude seçilince yüklenir.
+- "Terim önerisi için Ollama gerekli" bildirimi "Terim önerisi için yapay zekâ modeli gerekli" oldu.
+
 ## [0.67.0] — 2026-11-18 — Fontla genişlik denetimi, Switch sistem fontları
 
 ### Eklendi

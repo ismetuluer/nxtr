@@ -413,7 +413,7 @@ def run_machine_translation(
     if job.action == ACTION_REVISE and not provider.supports_instructions:
         raise ProviderError(
             f"{provider.label} talimatla düzeltme (redaksiyon) yapamaz.",
-            "Redaksiyon için sağlayıcı olarak Ollama'yı seçin.",
+            "Redaksiyon için bir yapay zekâ hizmeti (Ollama, Claude, Gemini, OpenAI uyumlu) seçin.",
         )
     summary = RunSummary(rows=len(job.rows))
     if hasattr(provider, "cancel_token"):
