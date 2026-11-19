@@ -4,6 +4,16 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
 
 ## [Yayımlanmadı]
 
+### Eklendi
+- **Kontrol Et bulgularını dışa aktarma:** Kontrol Et'te görünen (ya da seçili) bulgular satırlarıyla birlikte
+  dış redaksiyon dosyası biçiminde (TXT ya da XLSX) dışa aktarılır; sütunlar `orijinal, çeviri, düzeltme, grup` ve en
+  sonda salt okunur `bulgu` (satırın bütün bulguları tek hücrede). Bulgu listesinin sağ tık menüsünde
+  "Bulguları dışa aktar…" ve Çeviri → Dış Redaksiyon altında "Kontrol Bulgularını Dosyaya Yaz…" (kısayol atanmamıştır).
+  Düzeltilen dosya Çeviri → Dış Redaksiyon → "İçe Aktar" ile geri yüklenir;
+  içe aktarma `bulgu` (ya da `bulgular`, `finding`, `issue`, `sorun`) sütununu okumaz, model sütunu korusa da
+  bulgu metni düzeltmeye karışmaz. Bulgusu olmayan satırlar dosyaya girmez; hiç bulgu yoksa dosya yazılmaz, bunu
+  söyleyen bir bildirim çıkar. Hazır model talimatı `bulgu` sütununun yalnızca bilgi olduğunu söyler.
+
 ### Değişti
 - **Font yaması: Türkçe harflerin işareti fontun kendisinden, her font türünde aynı sırayla alınır.** İ'nin noktası
   `i` → `ż ċ ė` → `ö` → nokta işaretinden; ş/Ş'nin çengeli `ç`/`Ç`'den (önceden TTF ve Switch fontlarında virgülden) →

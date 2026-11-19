@@ -328,6 +328,9 @@ class QaPage(QWidget):
     font_patch_changed = Signal(bool)
     open_row = Signal(int)  # satır kimliği → çeviri tablosunda o satırı aç
     fix_requested = Signal(list, list)  # düzeltilecek türler, satır kimlikleri (boş: tüm bulgular)
+    export_findings_requested = (
+        Signal()
+    )  # "Bulguları dışa aktar…": görünen/seçili bulguları dış redaksiyon dosyasına yaz
     #: Düzelt bildiriminin planı: (satırlar, o satırların bulguları, türler) → plan; verilmezse bulgu sayısı yazılır.
     fix_planner: Callable[[list[TranslationRow], list[QaIssue], list[str]], FixPlan] | None = None
     _plan_cache: tuple[tuple[tuple[str, ...], tuple[int, ...]], FixPlan] | None = None
@@ -1501,6 +1504,14 @@ class QaPage(QWidget):
         issues = self.model.issues
         return [issues[self.proxy.mapToSource(self.proxy.index(r, 0)).row()] for r in range(self.proxy.rowCount())]
 
+    def visible_findings(self) -> list[QaIssue]:
+        """Tabloda şu an görünen bulgular (süzgeçlere uyanlar, tablodaki sırayla); yok sayılanlar girmez."""
+        return [] if self._ignored_view else self._visible_issues()
+
+    def selected_findings(self) -> list[QaIssue]:
+        """Tabloda seçili bulgular; yok sayılanlar girmez."""
+        return [] if self._ignored_view else self._selected_issues()
+
     def _compute_scope(self) -> tuple[list[QaIssue], bool]:
         """Düzeltmenin kapsamı ve seçili satırlardan gelip gelmediği.
 
@@ -1651,6 +1662,15 @@ class QaPage(QWidget):
                 )
                 ignore.triggered.connect(lambda: self.ignore_requested.emit(ignorable))
             menu.addSeparator()
+        if issues and not self._ignored_view:
+            export = menu.addAction(icon("file-up"), "Bulguları dışa aktar…")
+            export.setToolTip(
+                tip_html(
+                    "Görünen ya da seçili bulguları satırlarıyla bir TXT/XLSX dosyasına yazar; "
+                    "dış redaksiyon gibi geri yüklenir."
+                )
+            )
+            export.triggered.connect(self.export_findings_requested)
         if self.spell_add_button.isEnabled():
             menu.addAction(self.spell_add_button)
         phrases = self._selected_term_phrases()

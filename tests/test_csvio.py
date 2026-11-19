@@ -18,16 +18,23 @@ from nxceviri.core.project import (
     row_group,
 )
 from nxceviri.core.project.store import UNDO_LIMIT
+from nxceviri.core.qa.checks import KIND_LABELS, QaIssue
 from nxceviri.core.translate.csvio import (
+    FINDING_COLUMNS,
     TRANSLATION_COLUMNS,
     TXT_COLUMNS,
     CsvError,
     CsvRow,
     export_csv,
+    export_findings_txt,
+    export_findings_xlsx,
     export_translation_txt,
     export_translation_xlsx,
     export_txt,
     export_xlsx,
+    finding_notes,
+    findings_prompt_txt,
+    findings_prompt_xlsx,
     parse_csv,
     parse_txt,
     parse_xlsx,
@@ -39,6 +46,8 @@ from nxceviri.core.translate.csvio import (
     revision_prompt_txt,
     revision_prompt_xlsx,
     rows_csv,
+    rows_findings_txt,
+    rows_findings_xlsx,
     rows_translation_txt,
     rows_translation_xlsx,
     rows_txt,
@@ -46,6 +55,7 @@ from nxceviri.core.translate.csvio import (
     table_xlsx,
     translation_prompt_txt,
     translation_prompt_xlsx,
+    xlsx_table,
 )
 from nxceviri.core.translate.status import Status
 
@@ -652,3 +662,128 @@ def test_undo_stack_is_bounded_and_cleared_by_rescan() -> None:
     p.set_translations([(a, "Son")])
     p.import_texts([ImportedFile("Dialogue.tsv", "0100", "unity", "base", (TextEntry("a", 0, "Hi", ()),))])
     assert p.undo() is None
+
+
+# --- Kontrol Et bulgularını dışa aktarma (bulgu sütunu) -------------------------------------
+
+
+def _issue(row: TranslationRow, kind: str, message: str, severity: str = "warning") -> QaIssue:
+    return QaIssue(row.id, row.key, kind, severity, message)
+
+
+def test_finding_notes_join_per_row_in_board_order_and_sanitize() -> None:
+    rows = _rows(_project())
+    issues = [
+        _issue(rows["b"], "placeholder", "Kod eksik\n(⟦1⟧)", "error"),
+        _issue(rows["a"], "spaces", "Boşluk\tfazla"),
+        _issue(rows["b"], "double_space", "Çift boşluk"),
+    ]
+    notes = finding_notes(issues)
+    assert list(notes) == [rows["b"].id, rows["a"].id]  # tablodaki ilk görünme sırası
+    expected = f"Hata {KIND_LABELS['placeholder']}: Kod eksik (⟦1⟧) | Uyarı {KIND_LABELS['double_space']}: Çift boşluk"
+    assert notes[rows["b"].id] == expected
+    assert "\t" not in notes[rows["a"].id]
+    assert "\n" not in "".join(notes.values())
+
+
+def test_findings_txt_header_and_rows() -> None:
+    rows = _rows(_project())
+    notes = {rows["a"].id: "Uyarı Boşluk: x", rows["c"].id: "Hata Y: z"}
+    text = rows_findings_txt([rows["a"], rows["c"]], notes)
+    lines = text.splitlines()
+    assert lines[0].split("\t") == ["orijinal", "çeviri", "düzeltme", "grup", "bulgu"]
+    cells = lines[1].split("\t")
+    assert len(cells) == 5
+    assert cells[2] == ""
+    assert cells[4] == "Uyarı Boşluk: x"
+    assert len(lines) == 3
+
+
+def test_findings_xlsx_header_and_rows() -> None:
+    rows = _rows(_project())
+    table = xlsx_table(rows_findings_xlsx([rows["a"]], {rows["a"].id: "Uyarı Boşluk: x"}))
+    assert table[0] == ["orijinal", "çeviri", "düzeltme", "grup", "bulgu"]
+    assert table[1][4] == "Uyarı Boşluk: x"
+    assert table[1][0] == rows["a"].source
+
+
+def test_findings_export_writes_parts(tmp_path: Path) -> None:
+    rows = _rows(_project())
+    notes = {r.id: "n" for r in rows.values()}
+    paths = export_findings_txt(list(rows.values()), notes, tmp_path / "b.txt", part_rows=2)
+    assert [p.name for p in paths] == ["b_001.txt", "b_002.txt"]
+    x = export_findings_xlsx(list(rows.values()), notes, tmp_path / "b.xlsx")
+    assert x[0].exists()
+
+
+def test_findings_file_round_trips_into_import_plan(tmp_path: Path) -> None:
+    p = _project()
+    rows = _rows(p)
+    notes = {rows["a"].id: "Uyarı Boşluk: x", rows["b"].id: "Hata Kod: y"}
+    path = export_findings_txt([rows["a"], rows["b"]], notes, tmp_path / "b.txt")[0]
+    text = path.read_text(encoding="utf-8-sig").replace(
+        'Merhaba, "dostum"!\t\t', 'Merhaba, "dostum"!\tSelam, "dostum"!\t'
+    )
+    path.write_text(text, encoding="utf-8")
+    parsed = read_revision_file(path)
+    assert [r.correction for r in parsed] == ['Selam, "dostum"!', ""]
+    plan = plan_import(p.translation_rows(), parsed)
+    assert plan.changes == [(rows["a"].id, 'Selam, "dostum"!')]
+
+
+def test_findings_xlsx_round_trips_and_ignores_bulgu() -> None:
+    rows = _rows(_project())
+    data = table_xlsx(
+        FINDING_COLUMNS, [(rows["a"].source, rows["a"].translation, 'Selam, "dostum"!', "Dialogue", "Hata: x")]
+    )
+    parsed = parse_xlsx(data)
+    assert parsed[0].correction == 'Selam, "dostum"!'
+    assert parsed[0].group == "Dialogue"
+
+
+@pytest.mark.parametrize("name", ["bulgu", "Bulgular", "finding", "issue", "sorun"])
+def test_txt_bulgu_column_does_not_leak_into_correction(name: str) -> None:
+    text = f"orijinal\tçeviri\tdüzeltme\tgrup\t{name}\nHi\tMerhaba\tSelam\tUI\tUyarı Boşluk: x\n"
+    row = parse_txt(text)[0]
+    assert (row.source, row.text, row.correction, row.group) == ("Hi", "Merhaba", "Selam", "UI")
+    empty = parse_txt(f"orijinal\tçeviri\tdüzeltme\tgrup\t{name}\nHi\tMerhaba\t\tUI\tUyarı: x\n")[0]
+    assert empty.correction == ""
+
+
+def test_txt_bulgu_before_group_and_dropped_bulgu() -> None:
+    row = parse_txt("orijinal\tçeviri\tdüzeltme\tbulgu\tgrup\nHi\tMerhaba\tSelam\tUyarı: x\tUI\n")[0]
+    assert (row.correction, row.group) == ("Selam", "UI")
+    dropped = parse_txt("orijinal\tçeviri\tdüzeltme\tgrup\tbulgu\nHi\tMerhaba\tSelam\tUI\n")[0]
+    assert (dropped.correction, dropped.group) == ("Selam", "UI")
+
+
+def test_findings_prompts_say_five_columns() -> None:
+    for prompt in (
+        findings_prompt_txt(),
+        findings_prompt_xlsx(),
+        findings_prompt_txt("ek"),
+        findings_prompt_xlsx("ek"),
+    ):
+        assert "beş sütun" in prompt
+        assert "dört sütun" not in prompt
+
+
+def test_untranslated_row_correction_imports(tmp_path: Path) -> None:
+    p = _project()
+    rows = _rows(p)
+    p.set_translations([(rows["a"].id, "")])
+    row = _rows(p)["a"]
+    path = export_findings_txt([row], {row.id: "Uyarı Çevrilmedi: boş"}, tmp_path / "b.txt")[0]
+    lines = path.read_text(encoding="utf-8-sig").splitlines()
+    cells = lines[1].split("\t")
+    cells[2] = "Merhaba dostum"
+    path.write_text("\n".join([lines[0], "\t".join(cells)]), encoding="utf-8")
+    plan = plan_import(p.translation_rows(), read_revision_file(path))
+    assert plan.changes == [(row.id, "Merhaba dostum")]
+
+
+def test_findings_prompts_mention_bulgu_column() -> None:
+    for prompt in (findings_prompt_txt(), findings_prompt_xlsx()):
+        assert "bulgu" in prompt
+        assert "yalnızca bilgi" in prompt
+        assert "düzeltme" in prompt
