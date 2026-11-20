@@ -2,7 +2,8 @@
 
 Yanlış alarmı azaltmak için sayılmayan sözcükler: kontrol kodları, sayı içerenler, kesme işaretli olanlar
 (özel ad + ek: Eddie'ye), tamamı büyük harf olanlar (kısaltma), cümle ortasında büyük harfle başlayanlar (özel ad),
-orijinal metinde de geçenler (korunan adlar), ses efektleri (hihihi, ahhh), kullanıcı sözlüğündekiler ve çağıranın
+orijinal metinde de geçenler (korunan adlar), İngilizce işlev sözcükleri ve kısaltmalar (you, the, vs.),
+ses efektleri (hihihi, ahhh), kullanıcı sözlüğündekiler ve çağıranın
 verdiği ek sözcükler (ör. oyun sözlüğündeki terimler).
 
 `flag_copied` açıksa orijinalden aynen kopyalanan sözcükler (büyük harfli olsalar da) atlanmaz; yalnızca bilinen
@@ -15,6 +16,7 @@ import re
 from collections.abc import Collection, Iterable, Iterator
 
 from nxceviri.core.spell.bloom import BloomFilter
+from nxceviri.core.spell.stopwords import is_function_word
 from nxceviri.core.translate import placeholders
 
 _WORD = re.compile(r"(?<!\w)[^\W\d_]+(?:['’][^\W\d_]+)*(?:-[^\W\d_]+)*(?!\w)")
@@ -78,7 +80,12 @@ class SpellChecker:
         for word, start in words_of(text):
             low = turkish_lower(word)
             copied = low in from_source
-            if (copied and not self.flag_copied) or (len(word) > 1 and word.isupper()) or is_sound_effect(low):
+            if (
+                (copied and not self.flag_copied)
+                or (len(word) > 1 and word.isupper())
+                or is_sound_effect(low)
+                or is_function_word(low)
+            ):
                 continue
             if word[0].isupper() and not copied and not is_sentence_start(text, start):
                 continue  # cümle ortasında büyük harf: özel ad (orijinalden kopya işaretlenecekse bu kural uygulanmaz)

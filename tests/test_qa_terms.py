@@ -222,3 +222,52 @@ def test_o4_nk_ng_yumusamasi() -> None:
 def test_o4_yumusama_ek_yoksa_gecerli_degildir() -> None:
     canon = {"Spear": "Mızrak"}
     assert [i.row_id for i in term_issues([_row(1, "Take the Spear.", "Mızrağ al.")], canon)] == [1]
+
+
+# --- Büyük/küçük harf ve İngilizce işlev sözcükleri ---
+
+
+def _glossary_kinds(rows: list[TranslationRow], glossary: list[GlossaryTerm]) -> list[tuple[int, str]]:
+    return [(i.row_id, i.kind) for i in run_checks(rows, "", "", glossary) if i.kind == "glossary"]
+
+
+def test_glossary_translation_case_is_ignored() -> None:
+    glossary = [GlossaryTerm("sword", "kılıç", "")]
+    rows = [
+        _row(1, "A sword.", "Kılıç burada."),
+        _row(2, "A SWORD.", "KILIÇ BURADA."),
+        _row(3, "A sword.", "Bir silah."),
+    ]
+    assert _glossary_kinds(rows, glossary) == [(3, "glossary")]
+
+
+def test_glossary_turkish_dotted_dotless_case_pairs() -> None:
+    glossary = [GlossaryTerm("ışık", "Işık", ""), GlossaryTerm("İzmir", "izmir", "")]
+    rows = [
+        _row(1, "IŞIK is here", "ışık burada"),
+        _row(2, "İZMİR is far", "İZMİR uzak"),
+        _row(3, "izmir is far", "İzmir uzak"),
+        _row(4, "IŞIK is here", "karanlık burada"),
+    ]
+    assert _glossary_kinds(rows, glossary) == [(4, "glossary")]
+
+
+def test_function_words_are_not_project_terms() -> None:
+    rows = [_row(i, w, t) for i, (w, t) in enumerate([("You", "Sen"), ("You", "Sen"), ("The", "Bu"), ("The", "Bu")])]
+    rows += [_row(10, "Thank you very much", "Çok teşekkürler"), _row(11, "Is the door open", "Kapı açık mı")]
+    assert canonical_terms(rows, []) == {}
+    assert [i for i in run_checks(rows, "", "") if i.kind == "term"] == []
+
+
+def test_manual_glossary_entry_with_function_word_is_kept() -> None:
+    canon = canonical_terms([], [GlossaryTerm("You", "Sen", "")])
+    assert canon == {"You": "Sen"}
+
+
+def test_real_term_still_flagged() -> None:
+    rows = [
+        _row(1, "Silver Grove", "Gümüş Çamlar"),
+        _row(2, "Silver Grove", "Gümüş Çamlar"),
+        _row(3, "Go to the Silver Grove now", "Şimdi Gümüş Koru'ya git"),
+    ]
+    assert [(i.row_id, i.kind) for i in run_checks(rows, "", "") if i.kind == "term"] == [(3, "term")]
