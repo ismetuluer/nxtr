@@ -59,14 +59,41 @@ def test_set_badge_and_state(qtbot: QtBot) -> None:
     assert nav.item(2).data(STATE_ROLE) == "neutral"
 
 
-def test_set_done_swaps_icon(qtbot: QtBot) -> None:
+def test_set_done_keeps_own_icon_tinted_success(qtbot: QtBot) -> None:
     nav = StepNav()
     qtbot.addWidget(nav)
-    nav.set_done(0, True)
-    assert nav.item(0).data(ICON_ROLE) == "circle-check"
-    assert nav.item(0).data(DONE_ROLE) is True
+    for step, (name, icon) in enumerate(STEPS):
+        nav.set_done(step, True)
+        assert nav.item(step).data(ICON_ROLE) == icon  # onay işareti değil, adımın kendi simgesi
+        assert nav.item(step).data(DONE_ROLE) is True
+        assert nav.item(step).data(Qt.ItemDataRole.AccessibleTextRole) == f"{name} — tamamlandı"
+    assert len({nav.item(i).data(ICON_ROLE) for i in range(5)}) == 5
+    nav.set_collapsed(True)
+    assert nav.item(0).toolTip() == "Oyunu Ekle — tamamlandı"
     nav.set_done(0, False)
     assert nav.item(0).data(ICON_ROLE) == STEPS[0][1]
+    assert nav.item(0).toolTip() == "Oyunu Ekle"
+
+
+def test_done_icon_drawn_with_success_token(qtbot: QtBot, monkeypatch: pytest.MonkeyPatch) -> None:
+    from nxceviri.gui import icons
+    from nxceviri.gui.theme import current_tokens
+
+    calls: list[tuple[str, str]] = []
+    real = icons.icon
+
+    def spy(name: str, color: str, size: int = 16) -> object:
+        calls.append((name, color))
+        return real(name, color, size)
+
+    monkeypatch.setattr(icons, "icon", spy)
+    nav = StepNav()
+    qtbot.addWidget(nav)
+    nav.resize(260, 300)
+    nav.show()
+    nav.set_done(1, True)
+    nav.grab()
+    assert (STEPS[1][1], current_tokens()["success"]) in calls
 
 
 def test_disabled_item_not_selectable_by_click(qtbot: QtBot) -> None:

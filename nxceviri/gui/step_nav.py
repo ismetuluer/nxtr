@@ -48,7 +48,8 @@ STEPS: tuple[tuple[str, str], ...] = (
     ("Kontrol Et", "shield-check"),
     ("Dışa Aktar", "package"),
 )
-DONE_ICON = "circle-check"
+#: Tamamlanan adım kendi simgesini korur (yeşil çizilir); ipucuna ve erişilebilir ada bu ek yazılır.
+DONE_SUFFIX = "tamamlandı"
 
 ICON_ROLE = Qt.ItemDataRole.UserRole + 1
 BADGE_ROLE = Qt.ItemDataRole.UserRole + 2
@@ -225,7 +226,11 @@ class StepNav(QListWidget):
     def _refresh_tip(self, step: int) -> None:
         item = self.item(step)
         badge = str(item.data(BADGE_ROLE) or "")
-        item.setToolTip((f"{item.text()} · {badge}" if badge else item.text()) if self._collapsed else "")
+        label = f"{item.text()} · {badge}" if badge else item.text()
+        if item.data(DONE_ROLE):
+            label = f"{label} — {DONE_SUFFIX}"
+        item.setToolTip(label if self._collapsed else "")
+        item.setData(Qt.ItemDataRole.AccessibleTextRole, label)
 
     def set_badge(self, step: int, text: str = "", state: str = "neutral") -> None:
         item = self.item(step)
@@ -237,7 +242,7 @@ class StepNav(QListWidget):
     def set_done(self, step: int, done: bool) -> None:
         item = self.item(step)
         item.setData(DONE_ROLE, done)
-        item.setData(ICON_ROLE, DONE_ICON if done else STEPS[step][1])
+        self._refresh_tip(step)
         self.viewport().update()
 
     def preferred_width(self) -> int:
