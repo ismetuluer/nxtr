@@ -16,6 +16,7 @@ from nxceviri.gui.main_window import STEP_QA, MainWindow
 from nxceviri.gui.marked_delegate import MarkedDelegate
 from nxceviri.gui.translate_page import COL_SOURCE
 from nxceviri.gui.view_actions import ALIGN_CENTER
+from tests.kindtable import choose_kind
 from tests.test_gui_fit import CODE, _enable, _page
 from tests.test_gui_fit import _project as fit_project
 from tests.test_statusbar import _make_window, _project
@@ -116,10 +117,8 @@ def test_code_kinds_feed_chips(qtbot: QtBot, tmp_path: Path) -> None:
     try:
         page = _page(w)
         _enable(page, 40, 3)
-        combo = page.fit_kinds.cellWidget(0, 1)
-        assert combo is not None
         assert page.fit_kinds.item(0, 0).text() == CODE  # type: ignore[union-attr]
-        combo.setCurrentIndex(combo.findData(KIND_PAGE_BREAK))  # type: ignore[attr-defined]
+        choose_kind(page, 0, KIND_PAGE_BREAK)
         delegate = w.translate_page.table.itemDelegateForColumn(COL_SOURCE)
         assert isinstance(delegate, MarkedDelegate)
         row_index = next(i for i, r in enumerate(w.translate_page.model.rows) if r.key == "d02")

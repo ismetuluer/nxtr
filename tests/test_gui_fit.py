@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import re
+import time
 from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QSettings
-from PySide6.QtWidgets import QComboBox
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.formats.base import ControlCode, TextEntry
@@ -23,6 +23,7 @@ from nxceviri.core.translate.fitconfig import FitConfig, learn_rules, load_confi
 from nxceviri.gui.main_window import STEP_QA, MainWindow
 from nxceviri.gui.qa_page import QaPage
 from nxceviri.gui.tasks import Task
+from tests.kindtable import choose_kind, kind_of, kind_text
 from tests.task_wait import finish_task
 
 pytestmark = pytest.mark.gui
@@ -188,11 +189,9 @@ def test_code_kind_table_edit_persists(window: MainWindow) -> None:
     item = page.fit_kinds.item(0, 0)
     assert item is not None
     assert item.text() == CODE
-    combo = page.fit_kinds.cellWidget(0, 1)
-    assert isinstance(combo, QComboBox)
-    assert combo.currentText() == "Diğer"  # tahmin
-    combo.setCurrentIndex(combo.findData(KIND_PAGE_BREAK))
-    assert combo.currentText() == "Sayfa sonu"
+    assert kind_text(page, 0) == "Diğer"  # tahmin
+    choose_kind(page, 0, KIND_PAGE_BREAK)
+    assert kind_text(page, 0) == "Sayfa sonu"
     assert load_config(window.project).kinds.mapping == {CODE: KIND_PAGE_BREAK}
 
 
@@ -203,9 +202,7 @@ def test_set_fit_does_not_emit(qtbot: QtBot, window: MainWindow) -> None:
         page.set_fit(config, ["Dialogue.tsv", "Menu.tsv"], [CODE])
     assert page.fit_enabled.isChecked()
     assert (page.fit_width.value(), page.fit_lines.value()) == (30, 2)
-    combo = page.fit_kinds.cellWidget(0, 1)
-    assert isinstance(combo, QComboBox)
-    assert combo.currentData() == KIND_VARIABLE
+    assert kind_of(page, 0) == KIND_VARIABLE
     assert page.fit_config() == config
     page.fit_scope.setCurrentIndex(page.fit_scope.findData("Menu.tsv"))
     assert not page.fit_inherit.isChecked()
@@ -424,3 +421,55 @@ def test_project_change_drops_pending_auto_recheck(
     assert window.task is None
     assert page.fit_result.text().startswith("Henüz denetlenmedi")
     assert not page.fit_result_show.isVisibleTo(page)
+
+
+def _count_builds(page: QaPage, monkeypatch: pytest.MonkeyPatch) -> list[int]:
+    builds: list[int] = []
+    original = page._fill_kinds
+
+    def counting(labels: list[str]) -> None:
+        builds.append(len(labels))
+        original(labels)
+
+    monkeypatch.setattr(page, "_fill_kinds", counting)
+    return builds
+
+
+def test_code_kinds_not_rebuilt_when_inputs_unchanged(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    page = _page(window)
+    builds = _count_builds(page, monkeypatch)
+    config = FitConfig(FitRules(30, 2, 4), {}, CodeKinds({CODE: KIND_VARIABLE}))
+    page.set_fit(config, ["Dialogue.tsv"], [CODE])
+    page.set_fit(config, ["Dialogue.tsv"], [CODE])
+    assert builds == [1]
+    page.set_fit(config, ["Dialogue.tsv"], [CODE, "Kod 2"])  # kod listesi değişti
+    assert builds == [1, 2]
+    page.set_fit(replace(config, kinds=CodeKinds({CODE: KIND_PAGE_BREAK})), ["Dialogue.tsv"], [CODE, "Kod 2"])
+    assert builds == [1, 2, 2]  # tür ayarı değişti
+
+
+def test_code_kinds_not_built_while_fit_tab_hidden(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    page = _page(window)
+    page.tabs.setCurrentIndex(0)
+    builds = _count_builds(page, monkeypatch)
+    page.set_fit(FitConfig(None, {}, CodeKinds({})), ["Dialogue.tsv"], [CODE, "Kod 2"])
+    assert builds == []
+    page.tabs.setCurrentIndex(page.fit_tab_index())
+    assert builds == [2]
+    assert page.fit_kinds.rowCount() == 2
+    page.tabs.setCurrentIndex(0)
+    page.tabs.setCurrentIndex(page.fit_tab_index())
+    assert builds == [2]  # aynı girdiyle yeniden kurulmaz
+
+
+def test_code_kinds_table_with_many_rows_is_cheap(window: MainWindow) -> None:
+    page = _page(window)
+    labels = [f"Kod 0x{i:04x}" for i in range(1500)]
+    config = FitConfig(None, {}, CodeKinds({labels[3]: KIND_VARIABLE}))
+    start = time.perf_counter()
+    page.set_fit(config, ["Dialogue.tsv"], labels)
+    elapsed = time.perf_counter() - start
+    assert page.fit_kinds.rowCount() == 1500
+    assert page.fit_kinds.cellWidget(0, 1) is None  # satır başına düzenleyici bileşeni yok
+    assert kind_of(page, 3) == KIND_VARIABLE
+    assert elapsed < 0.5, elapsed

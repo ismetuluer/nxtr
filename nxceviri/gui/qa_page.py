@@ -59,7 +59,7 @@ from nxceviri.core.qa.checks import (
     QaIssue,
 )
 from nxceviri.core.qa.fonts import FontReport, font_advice, is_editable_font
-from nxceviri.core.translate.codekinds import KIND_NAMES, CodeKinds
+from nxceviri.core.translate.codekinds import CodeKinds
 from nxceviri.core.translate.fit import DEFAULT_VARIABLE_WIDTH, PROBLEM_LINE, PROBLEM_PAGE, FitRules
 from nxceviri.core.translate.fitconfig import BOX_GROUP, BOX_ROW, EACH_GROUP, GROUP_PREFIX, FitConfig, WidthRules
 from nxceviri.core.translate.fitwidth import KIND_TOO_WIDE
@@ -70,6 +70,7 @@ from nxceviri.gui.icons import bind_icon, icon
 from nxceviri.gui.issue_chips import Disclosure
 from nxceviri.gui.issue_kinds import IGNORED_KIND, KIND_GROUPS, KindList
 from nxceviri.gui.issue_rows import ROLE_NUMBER, ROLE_SEVERITY, ROLE_SOURCE, ROLE_TRANSLATION, IssueRowView
+from nxceviri.gui.kind_delegate import KIND_ROLE, KindDelegate, kind_name
 from nxceviri.gui.limits_table import LimitsTable
 from nxceviri.gui.marked_delegate import ROW_ROLE
 from nxceviri.gui.theme import current_tokens
@@ -546,6 +547,7 @@ class QaPage(QWidget):
         self.table.selectionModel().selectionChanged.connect(lambda *_a: self._selection_changed())
         check_lay.addWidget(self.check_bar)
         check_lay.addWidget(self.check_card, 1)
+        self._fit_tab = -1  # Sığdırma sekmesi eklenene dek hiçbir sekme o değildir
         self.tabs.addTab(check_tab, "Sorunlar")
         self._fit_tab = self.tabs.addTab(self._build_fit_tab(), "Sığdırma")
         self.tabs.addTab(scroll, "Font ve harfler")
@@ -564,6 +566,7 @@ class QaPage(QWidget):
 
     def _tab_changed(self, index: int) -> None:
         if index == self._fit_tab:
+            self._sync_kind_table()
             self.fit_tab_shown.emit()
         elif index == self._graphics_tab:
             self.graphics_tab_shown.emit()
@@ -585,6 +588,8 @@ class QaPage(QWidget):
         self._width_groups: dict[str, WidthRules] = {}
         self._width_keys: dict[str, WidthRules] = {}
         self._kinds: dict[str, str] = {}
+        self._kind_labels: list[str] = []  # Kod türleri tablosunun gösterilecek etiketleri (sekme görününce kurulur)
+        self._kinds_built: tuple[tuple[str, ...], tuple[tuple[str, str], ...]] | None = None
         self._enabled = True
         self._pending = False  # "Orijinalden öğren" önerisi kutularda, henüz kaydedilmedi
         scroll = QScrollArea()
@@ -735,8 +740,11 @@ class QaPage(QWidget):
         self.fit_kinds = QTableWidget(0, 2)
         self.fit_kinds.setHorizontalHeaderLabels(["Kod", "Tür"])
         self.fit_kinds.verticalHeader().hide()
-        self.fit_kinds.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.fit_kinds.setEditTriggers(QAbstractItemView.EditTrigger.AllEditTriggers)
         self.fit_kinds.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        kind_delegate = KindDelegate(self.fit_kinds)  # açılır liste yalnızca düzenlenen hücrede oluşur
+        kind_delegate.kind_chosen.connect(self._kind_changed)
+        self.fit_kinds.setItemDelegateForColumn(1, kind_delegate)
         kh = self.fit_kinds.horizontalHeader()
         kh.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         kh.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -989,21 +997,8 @@ class QaPage(QWidget):
             if files:
                 self.fit_scope.addItem("Her grup ayrı", EACH_GROUP)
             self.fit_scope.setCurrentIndex(max(self.fit_scope.findData(scope), 0))
-        kinds = CodeKinds(self._kinds)
-        self.fit_kinds.setRowCount(len(labels))
-        for r, code in enumerate(labels):
-            item = QTableWidgetItem(code)
-            item.setToolTip(code)
-            self.fit_kinds.setItem(r, 0, item)
-            combo = QComboBox()
-            for kind, name in KIND_NAMES.items():
-                combo.addItem(name, kind)
-            current = kinds.kind_of(code)
-            if combo.findData(current) < 0:  # kullanıcının kendi adlandırdığı tür
-                combo.addItem(current, current)
-            combo.setCurrentIndex(combo.findData(current))
-            combo.currentIndexChanged.connect(lambda _i, c=code, box=combo: self._kind_changed(c, box))
-            self.fit_kinds.setCellWidget(r, 1, combo)
+        self._kind_labels = list(labels)
+        self._sync_kind_table()
         # Tablo satırları kadar uzar (en çok ~6 satır), kalanı kaydırılır; kart gereksiz uzamasın.
         shown = min(len(labels), 6)
         frame = 2 * self.fit_kinds.frameWidth()
@@ -1012,6 +1007,35 @@ class QaPage(QWidget):
         self.fit_kinds.setVisible(bool(labels))
         self.fit_kinds_empty.setVisible(not labels)
         self._show_scope()
+
+    def _kinds_key(self) -> tuple[tuple[str, ...], tuple[tuple[str, str], ...]]:
+        return tuple(self._kind_labels), tuple(sorted(self._kinds.items()))
+
+    def _sync_kind_table(self) -> None:
+        """Kod türleri tablosunu kurar; yalnızca Sığdırma sekmesi görünürken ve girdi (etiketler, türler) değiştiyse."""
+        if not self.fit_tab_visible() or self._kinds_built == self._kinds_key():
+            return
+        self._fill_kinds(self._kind_labels)
+        self._kinds_built = self._kinds_key()
+
+    def _fill_kinds(self, labels: list[str]) -> None:
+        kinds = CodeKinds(self._kinds)
+        flags = Qt.ItemFlag.ItemIsEnabled
+        table = self.fit_kinds
+        table.setUpdatesEnabled(False)
+        table.setRowCount(len(labels))
+        for r, code in enumerate(labels):
+            name = QTableWidgetItem(code)
+            name.setToolTip(code)
+            name.setFlags(flags)
+            table.setItem(r, 0, name)
+            current = kinds.kind_of(code)
+            kind = QTableWidgetItem(kind_name(current))
+            kind.setData(KIND_ROLE, current)
+            kind.setToolTip("Türü değiştirmek için tıklayın.")
+            kind.setFlags(flags | Qt.ItemFlag.ItemIsEditable)
+            table.setItem(r, 1, kind)
+        table.setUpdatesEnabled(True)
 
     def _show_scope(self) -> None:
         """Seçili kapsamın sınırını kutulara yazar; kayıt yapılmaz, bekleyen öneri bırakılır."""
@@ -1145,8 +1169,9 @@ class QaPage(QWidget):
             self._update_fit_enabled()
             self._fit_changed()
 
-    def _kind_changed(self, code: str, combo: QComboBox) -> None:
-        self._kinds[code] = str(combo.currentData())
+    def _kind_changed(self, code: str, kind: str) -> None:
+        self._kinds[code] = kind
+        self._kinds_built = self._kinds_key()  # tablo zaten güncel; sonraki set_fit gereksiz yere yeniden kurmasın
         self.fit_changed.emit()
 
     # --- fontlar ------------------------------------------------------------------------
