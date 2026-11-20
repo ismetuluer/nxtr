@@ -1441,7 +1441,8 @@ class QaPage(QWidget):
     def _refilter(self) -> None:
         kinds = self.kind_list.selected_kinds()
         self._set_ignored_view(IGNORED_KIND in kinds)
-        self.proxy.update(frozenset() if self._ignored_view else kinds, show_info=False)
+        # Yok sayılanlar görünümünde bilgi düzeyindekiler (yazım, çevrilmedi) de listelenir: sayaç hepsini sayar.
+        self.proxy.update(frozenset() if self._ignored_view else kinds, show_info=self._ignored_view)
         if not self._checked:
             self.table.empty_text = _EMPTY_UNCHECKED
         else:
