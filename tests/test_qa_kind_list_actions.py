@@ -71,6 +71,7 @@ def test_summary_is_not_checking_text_while_checking(window: MainWindow) -> None
 def test_kind_menu_exports_that_kinds_findings(window: MainWindow) -> None:
     page = window.qa_page
     asked: list[tuple[frozenset[str], int]] = []
+    page.export_findings_requested.disconnect(window.export_findings)  # gerçek iletişim kutusu açılmasın
     page.export_findings_requested.connect(
         lambda: asked.append((page.kind_list.selected_kinds(), len(page.visible_findings())))
     )
