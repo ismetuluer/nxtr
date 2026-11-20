@@ -197,3 +197,16 @@ def test_ascii_mistakes_respect_source_extra_and_real_words() -> None:
     assert repair_ascii_turkish("Now", "simdi gel", spell, extra={"simdi"}).text == "simdi gel"
     # Listede olmayan gerçek Türkçe sözcük (sürat/surat gibi) olduğu gibi kalır.
     assert repair_ascii_turkish("Hi", "surat", spell).text == "surat"
+
+
+def test_english_function_words_are_never_unknown() -> None:
+    checker = SpellChecker(BloomFilter.build(["burada", "merhaba"], error_rate=0.00001))
+    checker.flag_copied = True
+    text = "You the vs. of OK to and or is it a an burada"
+    assert checker.unknown_words(text, text) == []
+
+
+def test_real_untranslated_word_still_flagged_with_flag_copied() -> None:
+    checker = SpellChecker(BloomFilter.build(["burada", "merhaba"], error_rate=0.00001))
+    checker.flag_copied = True
+    assert checker.unknown_words("you merhaba sword", "you hello sword") == ["sword"]

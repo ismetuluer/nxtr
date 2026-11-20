@@ -17,6 +17,7 @@ from collections.abc import Collection, Mapping, Sequence
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa.checks import SEVERITY_WARNING, QaIssue
 from nxceviri.core.spell.checker import turkish_lower
+from nxceviri.core.spell.stopwords import is_function_word
 from nxceviri.core.translate import placeholders
 from nxceviri.core.translate.providers.base import GlossaryTerm
 from nxceviri.core.translate.status import Status
@@ -90,6 +91,8 @@ def _candidate_source(source: str) -> str | None:
         return None
     if not all(_CANDIDATE_WORD.fullmatch(w) for w in words) or not words[0][0].isupper():
         return None
+    if all(is_function_word(w) for w in words):
+        return None  # "You", "The", "Of The": işlev sözcükleri terim değildir (sözlükteki elle girilenler etkilenmez)
     return " ".join(words)
 
 
