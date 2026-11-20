@@ -210,6 +210,15 @@ class KindList(QListWidget):
     def selected_kinds(self) -> frozenset[str]:
         return self._last
 
+    def kinds_of(self, item: QListWidgetItem) -> frozenset[str]:
+        """Girişin kapsadığı türler: tür girişi kendisini, grup başlığı grubun türlerini, "Tüm bulgular" hiçbirini."""
+        kind_type = item.data(_ROLE_TYPE)
+        if kind_type == _TYPE_GROUP:
+            return frozenset(self._group_kinds[item.text()])
+        if kind_type == _TYPE_KIND:
+            return frozenset({str(item.data(_ROLE_KIND))})
+        return frozenset()
+
     # --- seçim --------------------------------------------------------------------------
 
     def select_kinds(self, kinds: Collection[str]) -> None:
