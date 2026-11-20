@@ -2,6 +2,33 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [Yayımlanmadı]
+
+### Eklendi
+- **Renk paletleri:** Görünüm → Renk paleti ve Ayarlar'dan “Varsayılan” ya da “Neon Gün Batımı” (kobalt-pembe-turuncu
+  gün batımı esintili) seçilir; açık ve koyu temada çalışır, her palet okunabilirlik (WCAG AA) testinden geçer. Yeni
+  palet tek tablo satırıyla eklenir.
+- **Kontrol Et'te gruptan dışa aktarma:** sol listede bir gruba sağ tıklayıp “Bu gruptaki bulguları dışa aktar…”,
+  “Tüm bulgular”da “Tüm bulguları dışa aktar…”.
+
+### Değişti
+- **Kontrol Et sekmeleri araç çubuğu oldu:** her sekme simge üstte, ad altta bir karodur; köşedeki rozet durumu söyler
+  (Sorunlar: hata + uyarı sayısı, Sığdırma: taşan satır, Font: yeşil onay ya da kırmızı “!”, Grafik: yeşil ya da
+  kırmızı fırça). Denetim sürerken “Denetleniyor…” yalnızca maskotta görünür.
+- **Sol panel:** tamamlanan aşama genel onay işareti yerine kendi simgesini yeşil gösterir; daraltılmış panelde
+  aşamalar ayırt edilir.
+- **Çevir'de durum rozetleri:** seçili rozete yeniden basmak süzgeci kaldırır (arama metni korunur).
+- **Dışa aktarma penceresi:** varsayılan Excel (XLSX) ve tüm satırlar; gruplama ve bölme isteğe bağlı ve kapalı.
+  Bölme satır sayısıyla değil parça sayısıyla seçilir; kaç dosya çıkacağı anında yazılır (ör. “3 dosya, her biri en
+  çok 661 satır”), parçalar dengeli bölünür, boş dosya çıkmaz.
+
+### Düzeltildi
+- **Çevir'den Kontrol Et'e geçişte donma:** Sığdırma'daki kod türü tablosu her geçişte (görünmese de) satır başına
+  açılır listeyle baştan kuruluyordu; 57 bin satırlı projede geçiş 2,3 sn'den 0,3 sn'ye (sonrakiler 0,01 sn) indi.
+- **“Yok sayılanlar”a basınca liste boş kalıyordu:** bilgi düzeyindeki yok sayılan bulgular gizleniyordu.
+- **İngilizce işlev sözcükleri bulgu üretmiyor:** “you, the, vs.” gibi sözcükler artık “çevrilmemiş sözcük” ya da
+  otomatik terim sayılmaz (sözlüğe elle girilen terimler etkilenmez); örnek projede terim bulguları %15 azaldı.
+
 ## [0.70.0] — 2026-11-20 — Eklentinin font bildirimi
 
 ### Değişti

@@ -1532,3 +1532,15 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     Okunabilen font yokken cümle varsa Font sekmesi bilgi bandı gösterir, `font_verdict` harf dönüştürme önermez;
     yoksa eski uyarı korunur. Komut satırı `font` aracı oyunun biçimini bilmediğinden yüklü tüm eklentilerin
     bildirimini "olabilir" diliyle listeler. Font bulunduysa davranış değişmedi.
+243. **Renk paleti tema belirteçlerinin üstüne katmandır (ürün sahibi, 2026-11-21):** `theme.PALETTES` ad → (açık, koyu)
+    belirteç katmanı; `palette_tokens` birleştirir, `hex_contrast` her palet için AA çiftlerini test eder. Ayar
+    `ui/palette`. Sistem modunda Windows vurgu rengi yalnızca Varsayılan palette izlenir. Gelecekteki tema işi (biçim
+    belirteçleri, arka plan resmi, resimden palet) bu katman üstüne kurulur.
+244. **Kontrol Et sekmeleri rozetli karo çubuğu; Sığdırma tablosu tembel kurulur (ürün sahibi, 2026-11-21):** sekme
+    şeridi gizli `QTabWidget` + `qa_tabbar.TabTile` karoları; rozet kuralları Qt'siz `tab_badges.py`. Kod türü
+    tablosu satır başına `QComboBox` yerine `KindDelegate` kullanır, yalnızca Sığdırma görünürken ve girdi
+    anahtarı değiştiyse kurulur (57 bin satırda geçiş 2,3 sn → 0,3 sn).
+245. **İngilizce işlev sözcükleri tek listede (2026-11-21):** `core/spell/stopwords.py`; yazım denetiminin
+    “kopyalanan sözcük” işaretlemesi ve otomatik terim adayları bu listeyi atlar. `yes`/`no` menü terimi olabildiği
+    için listede değildir. Dışa aktarmada bölme parça sayısıyla yapılır (`csvio.rows_per_part`, `file_plan`; önizleme
+    ve yazıcı aynı hesabı kullanır).
