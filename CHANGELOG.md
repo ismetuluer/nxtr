@@ -2,7 +2,7 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
-## [Yayımlanmadı]
+## [0.70.0] — 2026-11-20 — Eklentinin font bildirimi
 
 ### Değişti
 - **Fontları eklenti yöneten oyunlarda Font sekmesi yanıltmaz:** oyunun fontları eklentinin açtığı arşivdeyse
