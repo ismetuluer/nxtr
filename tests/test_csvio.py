@@ -32,6 +32,7 @@ from nxceviri.core.translate.csvio import (
     export_translation_xlsx,
     export_txt,
     export_xlsx,
+    file_plan,
     finding_notes,
     findings_prompt_txt,
     findings_prompt_xlsx,
@@ -48,6 +49,7 @@ from nxceviri.core.translate.csvio import (
     rows_csv,
     rows_findings_txt,
     rows_findings_xlsx,
+    rows_per_part,
     rows_translation_txt,
     rows_translation_xlsx,
     rows_txt,
@@ -864,3 +866,39 @@ def test_txt_broadcast_respects_group() -> None:
     parsed = parse_txt("orijinal\tçeviri\tdüzeltme\tgrup\nYes\tEvet\tTamam\ta.tsv\n")
     plan = plan_import(rows, parsed)
     assert dict(plan.changes) == {1: "Tamam"}
+
+
+def test_rows_per_part_balances_with_ceiling() -> None:
+    assert rows_per_part(1983, 3) == 661
+    assert rows_per_part(10, 3) == 4
+    assert rows_per_part(5, 10) == 1  # parçadan az satır: her satır tek parça
+    assert rows_per_part(7, 1) == 0
+    assert rows_per_part(7, 0) == 0
+    assert rows_per_part(0, 3) == 0
+
+
+def test_file_plan_counts_exactly_what_the_writer_makes() -> None:
+    assert file_plan([1983], 3).files == 3
+    assert file_plan([1983], 3).max_rows == 661
+    assert file_plan([10], 4).files == 4  # 3 satır/parça: 3+3+3+1
+    assert file_plan([10], 6).files == 5  # 2 satır/parça: 6 parça istense de 5 dolu dosya, boş parça yok
+    assert file_plan([5, 3, 2], 2).files == 3 + 2 + 1
+    assert file_plan([5, 3, 2], 0).files == 3  # bölme yok, grup başına tek dosya
+    assert file_plan([5, 3, 2], 2, by_group=False).files == 2  # gruplama kapalı: tüm satırlar bir küme
+    assert file_plan([], 3).files == 1
+
+
+def test_export_by_parts_is_balanced_and_never_empty(tmp_path: Path) -> None:
+    def row(i: int, file: str) -> TranslationRow:
+        return TranslationRow(i, file, f"k{i}", "Hi", "Selam", "machine", "", (), None)
+
+    rows = [row(i, "a.assets>Dialogue") for i in range(10)]
+    paths = export_xlsx(rows, tmp_path / "oyun.xlsx", parts=4)
+    assert [len(parse_xlsx(x.read_bytes())) for x in paths] == [3, 3, 3, 1]
+    assert len(paths) == file_plan([10], 4).files
+    many = export_xlsx(rows[:3], tmp_path / "az.xlsx", parts=8)
+    assert [len(parse_xlsx(x.read_bytes())) for x in many] == [1, 1, 1]
+    mixed = [*rows[:4], row(20, "a.assets>UI"), row(21, "a.assets>UI")]
+    grouped = export_xlsx(mixed, tmp_path / "g.xlsx", parts=2, by_group=True)
+    assert len(grouped) == file_plan([4, 2], 2).files == 4
+    assert all(x.exists() for x in grouped)
