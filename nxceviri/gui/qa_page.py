@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QListWidgetItem,
     QMenu,
     QMessageBox,
     QRadioButton,
@@ -540,6 +541,8 @@ class QaPage(QWidget):
         split.addWidget(self.kind_list)
         split.addWidget(self.stack, 1)
         self.check_card.body.addLayout(split, 1)
+        self.kind_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.kind_list.customContextMenuRequested.connect(self._show_kind_menu)
         self.table.selectionModel().selectionChanged.connect(lambda *_a: self._selection_changed())
         check_lay.addWidget(self.check_bar)
         check_lay.addWidget(self.check_card, 1)
@@ -775,7 +778,7 @@ class QaPage(QWidget):
         """Denetim arka planda sürüyor (Denetle ya da düzeltme sonrası tam denetim): bulgu listesinin yerini bekleme
         alır, sayılar "—" olur, düzeltme çubuğu gizlenir, "Denetle" düğmesi "Durdur" olur."""
         self._plan_cache = None
-        self.summary.setText(_CHECKING_TITLE)
+        self.summary.setText("")  # "Denetleniyor…" yazısını bekleme katmanı taşır; satır tekrar etmez
         self.summary_icon.hide()
         self.fix_bar.hide()
         self._show_fit_result(_FIT_RESULT_CHECKING)
@@ -1441,7 +1444,8 @@ class QaPage(QWidget):
     def _refilter(self) -> None:
         kinds = self.kind_list.selected_kinds()
         self._set_ignored_view(IGNORED_KIND in kinds)
-        self.proxy.update(frozenset() if self._ignored_view else kinds, show_info=False)
+        # Yok sayılanlar görünümünde bilgi düzeyindekiler (yazım, çevrilmedi) de listelenir: sayaç hepsini sayar.
+        self.proxy.update(frozenset() if self._ignored_view else kinds, show_info=self._ignored_view)
         if not self._checked:
             self.table.empty_text = _EMPTY_UNCHECKED
         else:
@@ -1643,6 +1647,32 @@ class QaPage(QWidget):
         self.model.set_sort(mode)
         if self._settings is not None:
             self._settings.setValue(_SORT_SETTING, self.model.sort_mode)
+
+    def kind_context_menu(self, item: QListWidgetItem) -> QMenu | None:
+        """Tür listesindeki girişin sağ tık menüsü: o türün/grubun (ya da tümünün) bulgularını dışa aktarır.
+
+        Yok sayılanlar girişinde menü yoktur (yok sayılanlar dışa aktarılmaz).
+        """
+        kinds = self.kind_list.kinds_of(item)
+        if IGNORED_KIND in kinds:
+            return None
+        menu = QMenu(self)
+        text = "Bu gruptaki bulguları dışa aktar…" if kinds else "Tüm bulguları dışa aktar…"
+        action = menu.addAction(icon("file-up"), text)
+        action.triggered.connect(lambda: self._export_kinds(kinds))
+        return menu
+
+    def _export_kinds(self, kinds: frozenset[str]) -> None:
+        """Süzgeci verilen türlere ayarlar, tablo seçimini kaldırır (iletişim kutusu görünen bulguları alsın)."""
+        self.kind_list.select_kinds(kinds)
+        self.table.clearSelection()
+        self.export_findings_requested.emit()
+
+    def _show_kind_menu(self, pos: QPoint) -> None:
+        item = self.kind_list.itemAt(pos)
+        menu = self.kind_context_menu(item) if item is not None else None
+        if menu is not None:
+            menu.exec(self.kind_list.viewport().mapToGlobal(pos))
 
     def context_menu(self) -> QMenu:
         """Seçili bulguya göre bağlam menüsü; her öğe kullanılabilir olduğunda görünür."""
