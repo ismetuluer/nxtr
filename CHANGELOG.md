@@ -2,7 +2,7 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
-## [Yayımlanmadı]
+## [0.68.1] — 2026-11-20 — Kontrol Et bulgu listesi düzeltmelerle güncellenir
 
 ### Düzeltildi
 - **Kontrol Et bulgu listesi düzeltmelerle azalmıyordu:** liste yalnızca Kontrol Et'te yerinde düzenleme ya da
