@@ -53,7 +53,7 @@ from nxceviri.gui.shortcuts import (
     display_text,
     reserved_reason,
 )
-from nxceviri.gui.theme import FONT_SIZES, THEME_LABELS, ThemeMode, clamp_font_size
+from nxceviri.gui.theme import DEFAULT_PALETTE, FONT_SIZES, PALETTES, THEME_LABELS, ThemeMode, clamp_font_size
 from nxceviri.gui.update_dialog import AUTO_CHECK_KEY, auto_check_enabled
 from nxceviri.gui.view_actions import ALIGN_CENTER, ALIGN_LEFT, ALIGN_RIGHT, PANE_BOTTOM, PANE_RIGHT, ViewActions
 from nxceviri.gui.widgets import Banner, button, label
@@ -288,6 +288,7 @@ def _page_layout() -> tuple[QWidget, QVBoxLayout]:
 
 class SettingsDialog(QDialog):
     theme_changed = Signal(object)  # ThemeMode
+    palette_changed = Signal(str)
     font_size_changed = Signal(int)
     check_updates_requested = Signal()
     #: Bildirim kanalı açıldı/kapandı (ayar anahtarı, açık mı); yazmak pencereyi açanın işidir.
@@ -311,6 +312,7 @@ class SettingsDialog(QDialog):
         issue_colors: QAction,
         error_rows: QAction,
         updates_available: bool,
+        palette: str = DEFAULT_PALETTE,
         live_kinds: Collection[str] = DEFAULT_LIVE_KINDS,
         page: str = PAGE_VIEW,
     ) -> None:
@@ -322,6 +324,7 @@ class SettingsDialog(QDialog):
         self._registry = registry
         self._view = view
         self._secrets = secrets
+        self._palette = palette
 
         outer = QVBoxLayout(self)
         body = QHBoxLayout()
@@ -399,6 +402,13 @@ class SettingsDialog(QDialog):
         self.theme_combo.currentIndexChanged.connect(self._on_theme)
         form.addRow("Tema:", self.theme_combo)
 
+        self.palette_combo = QComboBox()
+        for name in PALETTES:
+            self.palette_combo.addItem(name, name)
+        self.palette_combo.setCurrentIndex(max(self.palette_combo.findData(self._palette), 0))
+        self.palette_combo.currentIndexChanged.connect(self._on_palette)
+        form.addRow("Renk paleti:", self.palette_combo)
+
         self.font_combo = QComboBox()
         for size in FONT_SIZES:
             self.font_combo.addItem(f"{size} pt", size)
@@ -446,6 +456,9 @@ class SettingsDialog(QDialog):
 
     def _on_theme(self) -> None:
         self.theme_changed.emit(ThemeMode(str(self.theme_combo.currentData())))
+
+    def _on_palette(self) -> None:
+        self.palette_changed.emit(str(self.palette_combo.currentData()))
 
     def _on_font_size(self) -> None:
         self.font_size_changed.emit(int(self.font_combo.currentData()))

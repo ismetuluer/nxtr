@@ -20,7 +20,7 @@ from nxceviri.core.selfupdate import take_install_failure
 from nxceviri.core.update import UpdateError, app_root, apply_staged, relaunch
 from nxceviri.gui.gcguard import GarbageCollector
 from nxceviri.gui.main_window import APP_TITLE, MainWindow, log_dir
-from nxceviri.gui.theme import DEFAULT_FONT_SIZE, ThemeMode, apply_theme
+from nxceviri.gui.theme import DEFAULT_FONT_SIZE, DEFAULT_PALETTE, PALETTES, ThemeMode, apply_theme
 
 #: Uygulama simgesi (kaynak: `nxtr.svg`; .ico/.png `packaging/make_icon.py` ile üretilir).
 APP_ICON_DIR = Path(__file__).parent / "appicon"
@@ -152,7 +152,8 @@ def main(argv: list[str] | None = None) -> int:
         font_size = int(str(settings.value("ui/font_size", DEFAULT_FONT_SIZE)))
     except ValueError:
         font_size = DEFAULT_FONT_SIZE
-    apply_theme(app, mode, font_size)
+    palette = str(settings.value("ui/palette", DEFAULT_PALETTE))
+    apply_theme(app, mode, font_size, palette if palette in PALETTES else DEFAULT_PALETTE)
     window = MainWindow(settings)
     project_args = [Path(a) for a in args[1:] if a.lower().endswith(".nxproj")]
     window.show()

@@ -36,6 +36,7 @@ TOKENS: dict[str, dict[str, str]] = {
         "accent": "#2568EA",
         "accent_hover": "#2459C2",
         "accent_text": "#FFFFFF",
+        "accent2": "#2568EA",
         "selection": "#D6E4FD",
         "success": "#1A7D36",
         "success_bg": "#E4F3E8",
@@ -60,6 +61,7 @@ TOKENS: dict[str, dict[str, str]] = {
         "accent": "#5B8DEF",
         "accent_hover": "#77A1F2",
         "accent_text": "#0E1116",
+        "accent2": "#5B8DEF",
         "selection": "#24395F",
         "success": "#4AC26B",
         "success_bg": "#13301C",
@@ -74,6 +76,68 @@ TOKENS: dict[str, dict[str, str]] = {
         "issue_lines": "#22D3EE",
     },
 }
+
+
+#: Varsayılan palet adı (katman yok: `TOKENS` olduğu gibi kullanılır).
+DEFAULT_PALETTE = "Varsayılan"
+
+#: Renk paletleri: ad → (açık tema katmanı, koyu tema katmanı). Katman yalnızca değişen belirteçleri taşır.
+#: Yeni palet eklemek: bu tabloya tek satır ekle (ad → (açık, koyu)); anahtarlar `TOKENS` anahtarlarıdır.
+#: Menü, ayarlar penceresi ve kalıcı ayar tablodan kurulur. Eklemeden önce `tests/test_palette.py`
+#: bütün paletlerde WCAG AA (4,5:1) kontrastını denetler; geçmiyorsa renkleri ayarla.
+#: `accent2`: ilerleme çubuğu gibi ikincil vurgu (varsayılanda `accent` ile aynı).
+PALETTES: dict[str, tuple[dict[str, str], dict[str, str]]] = {
+    DEFAULT_PALETTE: ({}, {}),
+    "Neon Gün Batımı": (
+        {
+            "bg": "#FFF8F4",
+            "surface2": "#FBEEE8",
+            "row_alt": "#FBEEE8",
+            "border": "#E8CFC6",
+            "drop_bg": "#FFF3EE",
+            "accent": "#C2185B",
+            "accent_hover": "#A3154D",
+            "accent_text": "#FFFFFF",
+            "accent2": "#E8590C",
+            "selection": "#FDE2EC",
+        },
+        {
+            "bg": "#15122B",
+            "surface": "#1F1A3A",
+            "surface2": "#2A2350",
+            "row_alt": "#302859",
+            "border": "#3F3670",
+            "muted": "#A9A3C9",
+            "drop_bg": "#1A1632",
+            "accent": "#FF5FA2",
+            "accent_hover": "#FF85B8",
+            "accent_text": "#1A1026",
+            "accent2": "#FF8A3D",
+            "selection": "#3A2350",
+        },
+    ),
+}
+
+
+def palette_tokens(scheme: str, palette: str = DEFAULT_PALETTE) -> dict[str, str]:
+    """`scheme` ("light"/"dark") belirteçlerinin üstüne palet katmanını bindirir; bilinmeyen palet varsayılandır."""
+    light, dark = PALETTES.get(palette, PALETTES[DEFAULT_PALETTE])
+    return {**TOKENS[scheme], **(dark if scheme == "dark" else light)}
+
+
+def hex_contrast(a: str, b: str) -> float:
+    """İki `#RRGGBB` rengi arasındaki WCAG kontrast oranı (1–21); Qt gerektirmez."""
+
+    def luminance(color: str) -> float:
+        def channel(value: int) -> float:
+            v = value / 255
+            return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+
+        r, g, b = (int(color[i : i + 2], 16) for i in (1, 3, 5))
+        return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+    la, lb = luminance(a), luminance(b)
+    return (max(la, lb) + 0.05) / (min(la, lb) + 0.05)
 
 
 def resolve(mode: ThemeMode) -> str:
@@ -288,7 +352,7 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
         background: {t["surface2"]}; border: none; border-radius: {R6}px; height: 12px; text-align: center;
         color: {t["text"]};
     }}
-    QProgressBar::chunk {{ background: {t["accent"]}; border-radius: {R6}px; }}
+    QProgressBar::chunk {{ background: {t["accent2"]}; border-radius: {R6}px; }}
     QStatusBar {{ background: {t["surface"]}; color: {t["muted"]}; border-top: 1px solid {t["border"]}; }}
     QStatusBar::item {{ border: none; }}
     QStatusBar QFrame[segment="true"] {{ border: none; border-left: 1px solid {t["border"]}; background: transparent; }}
@@ -298,7 +362,7 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     }}
     QStatusBar QToolButton[role="keys"] {{ border: 1px solid transparent; padding: 0 1px; margin: -1px 0; }}
     QStatusBar QProgressBar {{ background: {t["surface2"]}; border: none; border-radius: {R4}px; }}
-    QStatusBar QProgressBar::chunk {{ background: {t["accent"]}; border-radius: {R4}px; }}
+    QStatusBar QProgressBar::chunk {{ background: {t["accent2"]}; border-radius: {R4}px; }}
     QLabel#saveDot {{ border-radius: {R4}px; background: {t["muted"]}; }}
     QLabel#saveDot[state="success"] {{ background: {t["success"]}; }}
     QLabel#saveDot[state="warning"] {{ background: {t["warning"]}; }}
@@ -396,6 +460,7 @@ def derive_accent(tokens: dict[str, str], accent: QColor, dark: bool) -> dict[st
         return result
     text = max(_ACCENT_TEXT_CANDIDATES, key=lambda c: contrast_ratio(QColor(c), accent))
     result["accent"] = accent.name()
+    result["accent2"] = accent.name()
     result["accent_hover"] = (accent.lighter(115) if dark else accent.darker(115)).name()
     result["selection"] = _mix(accent, surface, 0.30 if dark else 0.20).name()
     result["accent_text"] = text
@@ -410,16 +475,19 @@ def current_tokens() -> dict[str, str]:
     return TOKENS["dark" if palette_bg.lightness() < 128 else "light"]
 
 
-def apply_theme(app: QApplication, mode: ThemeMode, font_size: int = DEFAULT_FONT_SIZE) -> str:
-    """Temayı ve yazı boyutunu uygular; kullanılan şemayı ("light"/"dark") döndürür."""
+def apply_theme(
+    app: QApplication, mode: ThemeMode, font_size: int = DEFAULT_FONT_SIZE, palette: str = DEFAULT_PALETTE
+) -> str:
+    """Temayı, renk paletini ve yazı boyutunu uygular; kullanılan şemayı ("light"/"dark") döndürür."""
     scheme = resolve(mode)
     font_size = clamp_font_size(font_size)
     font = app.font()
     font.setPointSizeF(float(font_size))
     app.setFont(font)
     system_accent = _system_accent()  # kendi paletimiz kurulmadan önce okunmalı
-    t = TOKENS[scheme]
-    if mode == ThemeMode.SYSTEM:
+    t = palette_tokens(scheme, palette)
+    # Sistem modunda yalnızca varsayılan palet Windows vurgu rengini izler; seçilen palet kendi rengini korur.
+    if mode == ThemeMode.SYSTEM and palette == DEFAULT_PALETTE:
         t = derive_accent(t, system_accent, scheme == "dark")
     _active[:] = [t]
     pal = QPalette()

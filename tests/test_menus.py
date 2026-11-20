@@ -191,6 +191,46 @@ def test_settings_entry_opens_settings_dialog(window: MainWindow, monkeypatch: p
     assert window.menu_actions["app.settings"].shortcut().toString() == "Ctrl+,"
 
 
+def test_palette_menu_switches_palette_and_stylesheet(window: MainWindow) -> None:
+    from nxceviri.gui.theme import DEFAULT_PALETTE, PALETTES, ThemeMode, palette_tokens
+
+    names = [a.data() for a in window.palette_group.actions()]
+    assert names == list(PALETTES)
+    assert [a.data() for a in window.palette_group.actions() if a.isChecked()] == [DEFAULT_PALETTE]
+    mode = window._theme_mode()
+    window._set_theme(ThemeMode.LIGHT)
+    try:
+        neon = next(a for a in window.palette_group.actions() if a.data() != DEFAULT_PALETTE)
+        neon.trigger()
+        assert window.settings.value("ui/palette") == neon.data()
+        app = QApplication.instance()
+        assert isinstance(app, QApplication)
+        assert palette_tokens("light", str(neon.data()))["accent"] in app.styleSheet()
+        assert [a.data() for a in window.palette_group.actions() if a.isChecked()] == [neon.data()]
+    finally:
+        window._set_palette(DEFAULT_PALETTE)
+        window._set_theme(mode)
+
+
+def test_invalid_palette_setting_falls_back(window: MainWindow) -> None:
+    window.settings.setValue("ui/palette", "silinmiş")
+    assert window._palette_name() == "Varsayılan"
+    window.settings.remove("ui/palette")
+
+
+def test_settings_palette_signal_reaches_menu(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    from nxceviri.gui.settings_dialog import SettingsDialog
+    from nxceviri.gui.theme import DEFAULT_PALETTE, PALETTES
+
+    other = next(n for n in PALETTES if n != DEFAULT_PALETTE)
+    monkeypatch.setattr(SettingsDialog, "exec", lambda dialog: dialog.palette_changed.emit(other) or 0)
+    _by_text(_menu(window, "Dosya"), "Ayarlar…").trigger()
+    try:
+        assert [a.data() for a in window.palette_group.actions() if a.isChecked()] == [other]
+    finally:
+        window._set_palette(DEFAULT_PALETTE)
+
+
 def test_every_command_is_bound_somewhere(window: MainWindow) -> None:
     unbound = [c.id for c in COMMANDS if not window.shortcuts._bound.get(c.id)]
     assert unbound == []

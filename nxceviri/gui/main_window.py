@@ -167,7 +167,9 @@ from nxceviri.gui.tasks import Task, release_thread
 from nxceviri.gui.terms_controller import TermsController
 from nxceviri.gui.theme import (
     DEFAULT_FONT_SIZE,
+    DEFAULT_PALETTE,
     FONT_SIZES,
+    PALETTES,
     ThemeMode,
     apply_theme,
     clamp_font_size,
@@ -322,6 +324,7 @@ class MainWindow(QMainWindow):
     nav_action: QAction
     size_group: QActionGroup
     theme_group: QActionGroup
+    palette_group: QActionGroup
     undo_action: QAction
     redo_action: QAction
     update_action: QAction
@@ -588,6 +591,10 @@ class MainWindow(QMainWindow):
         except ValueError:
             return ThemeMode.SYSTEM
 
+    def _palette_name(self) -> str:
+        name = str(self.settings.value("ui/palette", DEFAULT_PALETTE))
+        return name if name in PALETTES else DEFAULT_PALETTE
+
     def _font_size(self) -> int:
         try:
             return clamp_font_size(float(str(self.settings.value("ui/font_size", DEFAULT_FONT_SIZE))))
@@ -598,16 +605,25 @@ class MainWindow(QMainWindow):
         self.settings.setValue("ui/theme", mode.value)
         app = QApplication.instance()
         if isinstance(app, QApplication):
-            apply_theme(app, mode, self._font_size())
+            apply_theme(app, mode, self._font_size(), self._palette_name())
         for act in self.theme_group.actions():
             act.setChecked(act.data() == mode.value)
+
+    def _set_palette(self, name: str) -> None:
+        name = name if name in PALETTES else DEFAULT_PALETTE
+        self.settings.setValue("ui/palette", name)
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            apply_theme(app, self._theme_mode(), self._font_size(), name)
+        for act in self.palette_group.actions():
+            act.setChecked(act.data() == name)
 
     def _set_font_size(self, size: int) -> None:
         size = clamp_font_size(size)
         self.settings.setValue("ui/font_size", size)
         app = QApplication.instance()
         if isinstance(app, QApplication):
-            apply_theme(app, self._theme_mode(), size)
+            apply_theme(app, self._theme_mode(), size, self._palette_name())
         for act in self.size_group.actions():
             act.setChecked(act.text().startswith(f"{size} punto"))
         self.statusBar().showMessage(f"Yazı boyutu: {size} punto", 3000)
@@ -1533,6 +1549,7 @@ class MainWindow(QMainWindow):
             self.translate_page.view_actions,
             self.secrets,
             theme=self._theme_mode(),
+            palette=self._palette_name(),
             font_size=self._font_size(),
             wrap=self.translate_page.wrap_box,
             issue_colors=self.translate_page.colors_box,
@@ -1547,6 +1564,7 @@ class MainWindow(QMainWindow):
         dialog.notify_card_seconds_changed.connect(lambda sec: self.settings.setValue(KEY_CARD_SECONDS, sec))
         dialog.test_notification_requested.connect(self._test_notification)
         dialog.theme_changed.connect(self._set_theme)
+        dialog.palette_changed.connect(self._set_palette)
         dialog.font_size_changed.connect(self._set_font_size)
         dialog.check_updates_requested.connect(self.open_updates)
         dialog.exec()
