@@ -775,7 +775,7 @@ class QaPage(QWidget):
         """Denetim arka planda sürüyor (Denetle ya da düzeltme sonrası tam denetim): bulgu listesinin yerini bekleme
         alır, sayılar "—" olur, düzeltme çubuğu gizlenir, "Denetle" düğmesi "Durdur" olur."""
         self._plan_cache = None
-        self.summary.setText(_CHECKING_TITLE)
+        self.summary.setText("")  # "Denetleniyor…" yazısını bekleme katmanı taşır; satır tekrar etmez
         self.summary_icon.hide()
         self.fix_bar.hide()
         self._show_fit_result(_FIT_RESULT_CHECKING)
