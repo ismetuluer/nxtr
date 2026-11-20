@@ -42,8 +42,6 @@ TXT_COLUMNS = ("orijinal", "çeviri", "düzeltme", "grup")
 TRANSLATION_COLUMNS = ("orijinal", "çeviri", "yeni çeviri", "grup")
 #: Kontrol Et bulgularının dosyası: redaksiyon sütunları + salt okunur `bulgu` (en sonda).
 FINDING_COLUMNS = (*TXT_COLUMNS, "bulgu")
-#: Bölerek dışa aktarmada varsayılan parça boyu (ücretsiz sohbet modellerinin bir yanıtta rahat işlediği kadar).
-DEFAULT_PART_ROWS = 150
 
 _ID_NAMES = {"id", "kimlik", "no", "satir", "satır"}
 _SOURCE_NAMES = {"orijinal", "özgün", "ozgun", "kaynak", "source", "original", "ingilizce", "english"}
@@ -301,12 +299,50 @@ def group_rows(rows: Sequence[TranslationRow]) -> dict[str, list[TranslationRow]
     return groups
 
 
+def rows_per_part(total: int, parts: int) -> int:
+    """`total` satırı `parts` dengeli parçaya bölmek için parça başına satır (yukarı yuvarlanır); bölünmüyorsa 0.
+
+    Satır sayısı parça sayısından azsa sonuç 1'dir; yazıcı boş parça dosyası üretmez.
+    """
+    if parts < 2 or total <= 0:
+        return 0
+    return -(-total // parts)
+
+
+@dataclass(frozen=True)
+class FilePlan:
+    """Dışa aktarmanın üreteceği dosyaların önizlemesi."""
+
+    files: int  # toplam dosya sayısı
+    groups: int  # kaç grup (gruplama kapalıysa 1)
+    max_rows: int  # bir dosyadaki en çok satır
+    per_group: tuple[int, ...]  # her grubun dosya sayısı
+
+
+def file_plan(sizes: Sequence[int], parts: int = 0, *, by_group: bool = True) -> FilePlan:
+    """`sizes` (grup başına satır sayısı) için yazıcının tam olarak kaç dosya üreteceğini hesaplar.
+
+    `by_group` kapalıysa tüm satırlar tek küme sayılır; `parts` < 2 ise bölünmez.
+    """
+    sets = list(sizes) if by_group else [sum(sizes)]
+    if not sets:
+        sets = [0]
+    per_group: list[int] = []
+    biggest = 0
+    for total in sets:
+        size = rows_per_part(total, parts) or max(total, 1)
+        per_group.append(max(-(-total // size), 1))
+        biggest = max(biggest, min(size, total))
+    return FilePlan(sum(per_group), len(sets), biggest, tuple(per_group))
+
+
 def _write_parts(
     rows: Sequence[TranslationRow],
     path: Path,
     part_rows: int,
     by_group: bool,
     *,
+    parts: int = 0,
     kind: str,
     render: Callable[[Sequence[TranslationRow]], bytes],
 ) -> list[Path]:
@@ -316,7 +352,8 @@ def _write_parts(
         sets = [(path, list(rows))]
     jobs: list[tuple[Path, Sequence[TranslationRow]]] = []
     for base, items in sets:
-        size = part_rows if part_rows > 0 else max(len(items), 1)
+        size = rows_per_part(len(items), parts) if parts > 1 else part_rows
+        size = size if size > 0 else max(len(items), 1)
         chunks = [items[i : i + size] for i in range(0, len(items), size)] or [items]
         jobs += zip(part_paths(base, len(chunks)), chunks, strict=True)
     try:
@@ -377,6 +414,7 @@ def export_findings_txt(
     part_rows: int = 0,
     *,
     by_group: bool = False,
+    parts: int = 0,
 ) -> list[Path]:
     """Bulgulu satırları TXT olarak yazar; dosya adlandırma ve parçalama `export_txt` ile aynıdır."""
     return _write_parts(
@@ -384,6 +422,7 @@ def export_findings_txt(
         path,
         part_rows,
         by_group,
+        parts=parts,
         kind="TXT",
         render=lambda items: rows_findings_txt(items, notes).encode("utf-8-sig"),
     )
@@ -396,46 +435,63 @@ def export_findings_xlsx(
     part_rows: int = 0,
     *,
     by_group: bool = False,
+    parts: int = 0,
 ) -> list[Path]:
     """Bulgulu satırları XLSX olarak yazar; dosya adlandırma ve parçalama `export_xlsx` ile aynıdır."""
     return _write_parts(
-        rows, path, part_rows, by_group, kind="XLSX", render=lambda items: rows_findings_xlsx(items, notes)
+        rows, path, part_rows, by_group, parts=parts, kind="XLSX", render=lambda items: rows_findings_xlsx(items, notes)
     )
 
 
-def export_csv(rows: Sequence[TranslationRow], path: Path, part_rows: int = 0, *, by_group: bool = False) -> list[Path]:
+def export_csv(
+    rows: Sequence[TranslationRow], path: Path, part_rows: int = 0, *, by_group: bool = False, parts: int = 0
+) -> list[Path]:
     """Satırları CSV olarak yazar (eski biçim; yalnızca geriye uyum için).
 
     `by_group` ise her grup ayrı dosyaya (`ad_Dialogue.csv`) yazılır; `part_rows` > 0 ise her dosya en çok o kadar
     satırlık parçalara bölünür (`ad_001.csv`, gruplu `ad_Dialogue_001.csv`).
     """
     return _write_parts(
-        rows, path, part_rows, by_group, kind="CSV", render=lambda items: rows_csv(items).encode("utf-8-sig")
+        rows,
+        path,
+        part_rows,
+        by_group,
+        parts=parts,
+        kind="CSV",
+        render=lambda items: rows_csv(items).encode("utf-8-sig"),
     )
 
 
-def export_txt(rows: Sequence[TranslationRow], path: Path, part_rows: int = 0, *, by_group: bool = False) -> list[Path]:
+def export_txt(
+    rows: Sequence[TranslationRow], path: Path, part_rows: int = 0, *, by_group: bool = False, parts: int = 0
+) -> list[Path]:
     """Satırları dört sütunlu TXT tablosu olarak yazar (bkz. `rows_txt`).
 
     Dosya adlandırma ve parçalama `export_csv` ile aynıdır (`ad_001.txt`, gruplu `ad_Dialogue_001.txt`).
     """
     return _write_parts(
-        rows, path, part_rows, by_group, kind="TXT", render=lambda items: rows_txt(items).encode("utf-8-sig")
+        rows,
+        path,
+        part_rows,
+        by_group,
+        parts=parts,
+        kind="TXT",
+        render=lambda items: rows_txt(items).encode("utf-8-sig"),
     )
 
 
 def export_xlsx(
-    rows: Sequence[TranslationRow], path: Path, part_rows: int = 0, *, by_group: bool = False
+    rows: Sequence[TranslationRow], path: Path, part_rows: int = 0, *, by_group: bool = False, parts: int = 0
 ) -> list[Path]:
     """Satırları Excel'de açılan dört sütunlu XLSX tablosu olarak yazar (bkz. `rows_xlsx`).
 
     Dosya adlandırma ve parçalama `export_txt` ile aynıdır (`ad_001.xlsx`, gruplu `ad_Dialogue_001.xlsx`).
     """
-    return _write_parts(rows, path, part_rows, by_group, kind="XLSX", render=rows_xlsx)
+    return _write_parts(rows, path, part_rows, by_group, parts=parts, kind="XLSX", render=rows_xlsx)
 
 
 def export_translation_txt(
-    rows: Sequence[TranslationRow], path: Path, part_rows: int = 0, *, by_group: bool = False
+    rows: Sequence[TranslationRow], path: Path, part_rows: int = 0, *, by_group: bool = False, parts: int = 0
 ) -> list[Path]:
     """Satırları dış çeviri TXT tablosu olarak yazar (bkz. `rows_translation_txt`).
 
@@ -446,19 +502,20 @@ def export_translation_txt(
         path,
         part_rows,
         by_group,
+        parts=parts,
         kind="TXT",
         render=lambda items: rows_translation_txt(items).encode("utf-8-sig"),
     )
 
 
 def export_translation_xlsx(
-    rows: Sequence[TranslationRow], path: Path, part_rows: int = 0, *, by_group: bool = False
+    rows: Sequence[TranslationRow], path: Path, part_rows: int = 0, *, by_group: bool = False, parts: int = 0
 ) -> list[Path]:
     """Satırları dış çeviri XLSX tablosu olarak yazar (bkz. `rows_translation_xlsx`).
 
     Dosya adlandırma ve parçalama `export_txt` ile aynıdır (`ad_001.xlsx`, gruplu `ad_Dialogue_001.xlsx`).
     """
-    return _write_parts(rows, path, part_rows, by_group, kind="XLSX", render=rows_translation_xlsx)
+    return _write_parts(rows, path, part_rows, by_group, parts=parts, kind="XLSX", render=rows_translation_xlsx)
 
 
 def revision_prompt(instruction: str = "") -> str:

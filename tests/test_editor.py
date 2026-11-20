@@ -375,13 +375,16 @@ def test_revision_export_and_import(
 
     class Accepting(CsvExportDialog):
         def exec(self) -> int:
-            assert self.scope_group.checkedId() == 0  # birden çok satır seçiliyken "Seçili satırlar"
+            assert self.scope_group.checkedId() == 2  # varsayılan kapsam: tüm satırlar
+            self.scope_group.button(0).setChecked(True)  # bu test seçili satırları dışa aktarır
             assert not self.group_box.isEnabled()  # tek grup (Dialogue.tsv)
+            assert self.xlsx_radio.isChecked()  # varsayılan XLSX
+            assert not self.split_box.isChecked()
+            assert not self.group_box.isChecked()
             if fmt == "xlsx":
-                self.xlsx_radio.setChecked(True)
                 assert "XLSX (Excel)" in self.prompt.toPlainText()
             else:
-                assert self.txt_radio.isChecked()  # varsayılan TXT
+                self.txt_radio.setChecked(True)
                 assert "düzeltme" in self.prompt.toPlainText()
             self.split_box.setChecked(False)
             return CsvExportDialog.DialogCode.Accepted
@@ -474,8 +477,9 @@ def test_translation_export_and_import_uses_translation_columns(
     class Accepting(CsvExportDialog):
         def exec(self) -> int:
             assert self._translation
-            assert self.scope_group.checkedId() == 0
-            assert self.txt_radio.isChecked()
+            assert self.scope_group.checkedId() == 2
+            self.scope_group.button(0).setChecked(True)
+            self.txt_radio.setChecked(True)
             assert "yeni çeviri" in self.prompt.toPlainText()
             assert "düzeltme" not in self.prompt.toPlainText()
             self.split_box.setChecked(False)

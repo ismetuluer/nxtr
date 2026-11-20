@@ -71,8 +71,7 @@ def notices(window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> list[tuple[s
 
 def _accept(monkeypatch: pytest.MonkeyPatch, target: Path, *, xlsx: bool = False, scope: int | None = None) -> None:
     def exec_(self: CsvExportDialog) -> int:
-        if xlsx:
-            self.xlsx_radio.setChecked(True)
+        (self.xlsx_radio if xlsx else self.txt_radio).setChecked(True)
         if scope is not None:
             button = self.scope_group.button(scope)
             assert button is not None

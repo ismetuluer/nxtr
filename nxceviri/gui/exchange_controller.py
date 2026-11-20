@@ -173,7 +173,7 @@ class ExchangeController:
                 export = export_translation_txt if txt else export_translation_xlsx
             else:
                 export = export_txt if txt else export_xlsx
-            paths = export(dialog.rows(), path, dialog.part_rows(), by_group=dialog.by_group())
+            paths = export(dialog.rows(), path, by_group=dialog.by_group(), parts=dialog.parts())
         except CsvError as exc:
             page.show_notice("danger", exc.user_text())
             return
@@ -249,7 +249,7 @@ class ExchangeController:
         win.settings.setValue("csv/dir", str(path.parent))
         try:
             export = export_findings_txt if txt else export_findings_xlsx
-            paths = export(rows, finding_notes(visible), path, dialog.part_rows(), by_group=dialog.by_group())
+            paths = export(rows, finding_notes(visible), path, by_group=dialog.by_group(), parts=dialog.parts())
         except CsvError as exc:
             win.notify(LEVEL_ERROR, title, exc.user_text())
             return
