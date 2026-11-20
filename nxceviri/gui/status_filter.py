@@ -1,5 +1,6 @@
 """Durum süzgeci şeridi: tek seçimli simge düğmeleri (Tümü, durumlar, sorunlu satırlar, son işte değişenler).
 
+Seçili düğmeye yeniden basmak seçimi kaldırır ("Tümü"ne döner).
 Şerit iş mantığı içermez: seçenekleri çağıran verir, seçilen değeri `changed` ile bildirir. Düğmeler
 Sorunlar panosundaki çiplerle aynı biçemi (`role="chip"`) kullanır; seçili olan vurgulanır. Simgeler
 `bind_icon` ile bağlanır, tema değişince yenilenir.
@@ -147,6 +148,14 @@ class StatusFilterBar(QWidget):
     def _clicked(self, button: object) -> None:
         assert isinstance(button, QToolButton)
         value = button.property(_VALUE)
+        if value != "" and value == self._current:
+            # Seçili düğmeye yeniden basmak süzgeci iptal eder: "Tümü"ne dönülür (öteki süzgeçlere dokunulmaz).
+            self._current = ""
+            all_button = self._buttons.get("")
+            if all_button is not None:
+                all_button.setChecked(True)
+            self.changed.emit("")
+            return
         if value != self._current:
             self._current = value
             self.changed.emit(value)

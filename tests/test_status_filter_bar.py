@@ -53,9 +53,25 @@ def test_bar_click_selects_exclusively_and_emits(qtbot: QtBot) -> None:
     QTest.mouseClick(machine, Qt.MouseButton.LeftButton)
     assert bar.current() == "machine"
     assert [b.isChecked() for b in _buttons(bar)] == [False, True, False]
-    QTest.mouseClick(machine, Qt.MouseButton.LeftButton)  # seçili düğmeye yeniden basmak seçimi kaldırmaz
-    assert bar.current() == "machine"
-    assert seen == ["machine"]
+    QTest.mouseClick(machine, Qt.MouseButton.LeftButton)  # seçili düğmeye yeniden basmak seçimi kaldırır
+    assert bar.current() == ""
+    assert [b.isChecked() for b in _buttons(bar)] == [True, False, False]
+    assert seen == ["machine", ""]
+
+
+def test_bar_second_click_cancels_for_every_option(qtbot: QtBot) -> None:
+    bar = _bar(qtbot)
+    clicks: list[bool] = []
+    bar.all_clicked.connect(lambda: clicks.append(True))
+    for button in _buttons(bar)[1:]:
+        QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+        assert button.isChecked()
+        assert bar.current() == button.property("deger")
+        QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+        assert not button.isChecked()
+        assert bar.current() == ""
+        assert _buttons(bar)[0].isChecked()
+    assert clicks == []  # iptal, öteki süzgeçleri (arama vb.) temizlemez
 
 
 def test_bar_keyboard_space_and_enter_select(qtbot: QtBot) -> None:
@@ -204,3 +220,35 @@ def test_page_selected_status_stays_after_last_row_changes(qtbot: QtBot) -> None
     assert p.proxy.rowCount() == 1
     p.set_rows([_row(1, Status.UNTRANSLATED), _row(2, Status.REDACTED, "m")])  # yeniden yükleme de aynı kural
     assert p.status_filter.current() == "machine"
+
+
+def test_page_second_click_cancels_each_badge_filter(qtbot: QtBot) -> None:
+    rows = [
+        _row(1, Status.UNTRANSLATED),
+        _row(2, Status.MACHINE, "m"),
+        _row(3, Status.REDACTED, "r"),
+        _row(4, Status.ERROR, "e"),
+        _row(5, Status.APPROVED, "a"),
+    ]
+    p = _page(qtbot, rows)
+    p.set_last_changes({2: "eski"})
+    buttons = p.status_filter.findChildren(QToolButton)
+    assert len(buttons) > 5
+    for button in buttons[1:]:
+        QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+        assert button.isChecked()
+        assert p.proxy.rowCount() < 5
+        QTest.mouseClick(button, Qt.MouseButton.LeftButton)
+        assert not button.isChecked()
+        assert p.status_filter.current() == ""
+        assert p.proxy.rowCount() == 5
+
+
+def test_page_cancel_badge_keeps_search_text(qtbot: QtBot) -> None:
+    p = _page(qtbot, [_row(1, Status.MACHINE, "m"), _row(2, Status.UNTRANSLATED), _row(3, Status.MACHINE, "n")])
+    p.search.setText("Orijinal 1")
+    machine = p.status_filter.findChildren(QToolButton)[p.status_filter.values().index("machine")]
+    QTest.mouseClick(machine, Qt.MouseButton.LeftButton)
+    QTest.mouseClick(machine, Qt.MouseButton.LeftButton)
+    assert p.search.text() == "Orijinal 1"
+    assert p.proxy.rowCount() == 1
