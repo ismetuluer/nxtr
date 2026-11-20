@@ -2,7 +2,7 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
-## [Yayımlanmadı]
+## [0.71.0] — 2026-11-21 — Renk paletleri, Kontrol Et karo sekmeleri, donma düzeltmesi
 
 ### Eklendi
 - **Renk paletleri:** Görünüm → Renk paleti ve Ayarlar'dan “Varsayılan” ya da “Neon Gün Batımı” (kobalt-pembe-turuncu

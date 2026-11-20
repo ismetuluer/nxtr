@@ -1,3 +1,3 @@
 """NXTR (eski adıyla NX Çeviri Stüdyosu)."""
 
-__version__ = "0.70.0"
+__version__ = "0.71.0"
