@@ -2,7 +2,7 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
-## [Yayımlanmadı]
+## [0.69.0] — 2026-11-20 — Taşınan oyun dosyaları, tek geçişte içe aktarma
 
 ### Eklendi
 - **Taşınan oyun dosyaları kendiliğinden bulunur:** oyun klasörünü taşıyınca proje artık "dosya bulunamadı" deyip
