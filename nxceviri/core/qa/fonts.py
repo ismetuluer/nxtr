@@ -22,6 +22,7 @@ import io
 import logging
 import re
 import struct
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -521,9 +522,22 @@ class FontVerdict:
     oneri: str
 
 
-def font_verdict(report: FontReport) -> FontVerdict:
-    """Raporun özeti: ek iş gerekmez / font yaması yeter / harf dönüştürme gerekir."""
+def font_verdict(report: FontReport, plugin_notes: Sequence[tuple[str, str]] = ()) -> FontVerdict:
+    """Raporun özeti: ek iş gerekmez / font yaması yeter / harf dönüştürme gerekir.
+
+    `plugin_notes`: etkin eklentilerin `font_support` bildirimleri (`registry.font_support_notes`). Okunabilen font
+    yokken eklenti fontları kendisi yamalıyorsa harf dönüştürme önerilmez."""
     usable = [f for f in report.fonts if f.chars is not None and not f.language_specific]
+    if not usable and plugin_notes:
+        ad = ", ".join(f"“{a}”" for a, _ in plugin_notes)
+        cumle = " ".join(c for _, c in plugin_notes)
+        return FontVerdict(
+            DURUM_TAMAM,
+            "",
+            "",
+            "",
+            f"Fontları {ad} eklentisi yönetiyor: {cumle} Eklenen harfler dışa aktarmada bilgi dosyasında listelenir.",
+        )
     if not usable:
         return FontVerdict(
             DURUM_DONUSTURME,

@@ -1177,7 +1177,9 @@ class QaPage(QWidget):
             self.patch_note.setText(f"Eklenebilecek harfler: {' '.join(patchable)}")
             self.patch_note.setToolTip("")
 
-    def show_font_report(self, report: FontReport | None, missing: str) -> None:
+    def show_font_report(
+        self, report: FontReport | None, missing: str, plugin_notes: Sequence[tuple[str, str]] = ()
+    ) -> None:
         if report is None:
             if missing:
                 self.letters.setText(f"Son taramada eksik bulunan harfler: <b>{' '.join(missing)}</b>")
@@ -1198,7 +1200,14 @@ class QaPage(QWidget):
             self.letters.setText("Latin font bulunamadı.")
         missing_now = report.missing_letters()
         dynamic = report.dynamic_fallback_letters()
-        if not report.fonts:
+        if not report.fonts and plugin_notes:
+            ad, cumle = plugin_notes[0]
+            self.font_banner.show_message(
+                "success",
+                f"Bu oyunun fontları “{ad}” eklentisinde: {cumle} Eklenen harfler dışa aktarmada bilgi dosyasında "
+                "listelenir.",
+            )
+        elif not report.fonts:
             self.font_banner.show_message(
                 "warning", "Oyunda okunabilen font bulunamadı; harflerin görünüp görünmeyeceği bilinmiyor."
             )

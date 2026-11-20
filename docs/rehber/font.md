@@ -21,6 +21,8 @@ oyunda görünmez. Üç çözüm vardır; bu sırayla düşün:
 2. **Font yaması:** uygulama eksik harfleri **fontun kendi glifleriyle** türetip fonta ekler (ı = i'nin noktasız
    gövdesi, İ = I + nokta, ş = s + ç'nin çengeli, ğ = g + üstte yay). Yazı tipi değişmez, dış çizgi ve gölge korunur.
    Uygulamanın yerleşik yaması fontu tanımıyorsa yama oyunun eklentisinde yazılır ("Yeni font biçimi").
+   Eklenti fontları kendisi yamalıyorsa `font_support` cümlesini yazın; Font sekmesi o zaman "font bulunamadı" uyarısı
+   yerine bu cümleyi bilgi olarak gösterir.
 3. **Harf dönüştürme:** eksik harf yakın karşılığa çevrilir (ğ→g, ş→s, ı→i, İ→I). Yalnızca üretilen moda uygulanır,
    projedeki çeviriler değişmez. Font yamasının kanıtla imkânsız olduğu durumda son çare.
 

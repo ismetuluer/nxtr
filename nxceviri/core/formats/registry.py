@@ -6,7 +6,7 @@ eklentiyi onaylayınca yeniden yüklenir) ve yerleşiklerden ÖNCE denenir."""
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
 from nxceviri.core.archives.access import MemberReader
@@ -235,6 +235,38 @@ def forbids_newline(kind: str, key: str, title_id: str | None = None) -> bool:
     except Exception as exc:  # kullanıcı eklentisinin hatası projenin açılmasını engellememeli; kural yok sayılır
         log.warning("Eklentinin satır sonu bildirimi hata verdi (%s, %s): %s", kind, key, exc)
         return False
+
+
+def font_support_notes(files: Iterable[tuple[str, str]]) -> list[tuple[str, str]]:
+    """Projede etkin eklentilerin font bildirimleri: (eklenti adı, cümle).
+
+    `files`: projenin metin dosyalarının (TitleID, biçim) çiftleri (`ProjectStore.text_files`). Her eklenti bir kez
+    sayılır; `font_support` bildirmeyen ya da boş bırakan eklenti listede yoktur."""
+    notes: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for title_id, kind in files:
+        plugin = plugin_for_kind(kind, title_id)
+        if plugin is None or plugin.name in seen:
+            continue
+        seen.add(plugin.name)
+        note = _font_note(plugin)
+        if note is not None:
+            notes.append(note)
+    return notes
+
+
+def declared_font_support() -> list[tuple[str, str]]:
+    """Yüklü tüm eklentilerin font bildirimleri (oyun bilinmediğinde: komut satırı `font` aracı)."""
+    notes = (_font_note(p) for p in all_plugins())
+    return [n for n in notes if n is not None]
+
+
+def _font_note(plugin: FormatPlugin) -> tuple[str, str] | None:
+    claim = getattr(plugin, "font_support", "")
+    if not isinstance(claim, str) or not claim.strip():
+        return None
+    info = next((i for i in _user_report.infos if i.plugin is plugin), None)
+    return (info.ad if info is not None else plugin.name, claim.strip())
 
 
 def _ask_movable(kind: str, title_id: str | None, code: ControlCode) -> bool:

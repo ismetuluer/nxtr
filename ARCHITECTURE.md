@@ -1525,3 +1525,10 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     satırları çelişirse yayın yoktur. Yayın normal satırlarla aynı denetimlerden geçer (kaynak uyuşmazlığı, boş, aynı,
     kontrol kodu, onaylı sayacı); sayısı `CsvPlan.same_content` olarak önizlemede gösterilir. CSV (kimlikli) yol
     değişmedi. Aynı dosyayı ikinci kez içe aktarmak değişiklik üretmez (bayat/döngüsel çeviri zincirleri hariç).
+242. **Eklenti `font_support` ile font yönetimini bildirir (ürün sahibi, 2026-11-20):** oyunun fontları eklentinin
+    arşivindeyse genel tarama font görmez ve Font sekmesi "okunabilen font bulunamadı" uyarısı verirdi; oysa eklenti
+    fontları dışa aktarmada kendisi yamalıyor. İsteğe bağlı `font_support` (kısa Türkçe cümle) eklenir;
+    `registry.font_support_notes` projenin metin dosyalarının biçimlerinden etkin eklentilerin cümlelerini toplar.
+    Okunabilen font yokken cümle varsa Font sekmesi bilgi bandı gösterir, `font_verdict` harf dönüştürme önermez;
+    yoksa eski uyarı korunur. Komut satırı `font` aracı oyunun biçimini bilmediğinden yüklü tüm eklentilerin
+    bildirimini "olabilir" diliyle listeler. Font bulunduysa davranış değişmedi.

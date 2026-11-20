@@ -11,6 +11,7 @@ from pathlib import Path
 
 from nxceviri.arac.ortak import IlerlemeYazici, anahtarlari_yukle
 from nxceviri.core.errors import ContainerError
+from nxceviri.core.formats import registry
 from nxceviri.core.pipeline import Inputs, default_cache_dir
 from nxceviri.core.progress import TaskContext
 from nxceviri.core.qa.fonts import FontInfo, FontVerdict, font_advice, font_verdict, scan_game_fonts
@@ -44,7 +45,11 @@ def calistir(args: argparse.Namespace) -> int:
     anahtarlar = anahtarlari_yukle(args.anahtar)
     girdi = Inputs(tuple(yollar), anahtarlar.keys, anahtarlar.title_keys, default_cache_dir())
     rapor = scan_game_fonts(girdi, TaskContext(IlerlemeYazici()))
-    sonuc: FontVerdict = font_verdict(rapor)
+    notlar: list[tuple[str, str]] = []
+    if not rapor.fonts:
+        registry.load_user_plugins()
+        notlar = registry.declared_font_support()
+    sonuc: FontVerdict = font_verdict(rapor, notlar)
     fontlar = sorted(rapor.fonts, key=lambda x: (x.language_specific, x.name))
     if args.json:
         print(
@@ -63,7 +68,12 @@ def calistir(args: argparse.Namespace) -> int:
             )
         )
         return 0
-    if not fontlar:
+    if not fontlar and notlar:
+        print("Oyunda genel taramayla okunabilen font yok; fontları eklentiler yönetiyor olabilir (oyunun biçimini")
+        print("kullanan eklenti geçerlidir):")
+        for ad, cumle in notlar:
+            print(f"  {ad}: {cumle}")
+    elif not fontlar:
         print("Oyunda okunabilen font bulunamadı (font bulunamadı).")
     for f in fontlar:
         dile = " — dile özgü" if f.language_specific else ""

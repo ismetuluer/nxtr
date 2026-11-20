@@ -33,6 +33,11 @@ Her metin formatı `FormatPlugin`'i uygular:
   taşıyamıyorsa (ör. tırnaksız TSV hücresi: satır sonu satırı böler) True. Bildiren eklentide çeviride satır sonu
   olan satır Kontrol Et'te hatadır ve dışa aktarılmaz (orijinal kalır, bildirilir); satır sonu kodu (`⟦n⟧`) sayılmaz.
   Bildirmeyen eklentide davranış değişmez. Yalnızca yazıcının satır sonunu kesinlikle taşıyamadığı biçimde bildirin.
+- `font_support: str`: eklentinin oyunun fontlarıyla ne yaptığını anlatan kısa Türkçe cümle (ör. "Arşivdeki Latin
+  fontlara eksik Türkçe harfleri dışa aktarmada ekler."). Oyunun fontları genel taramada görünmüyor ama eklenti
+  kendisi yamalıyorsa (`derived_files`) doldurun: Kontrol Et'in Font sekmesi "okunabilen font bulunamadı" uyarısı
+  yerine bu cümleyi bilgi olarak gösterir ve harf dönüştürme önermez. Boş ya da bildirmeyen eklentide davranış
+  değişmez.
 - `path_language(path) -> str | None`: dosyanın dili oyuna özgü bir adlandırmadan (ör. `…_text_de.cfg.bin`)
   anlaşılıyorsa dil kodu. Genel yol kurallarından (`pipeline.path_language`) önce sorulur; kaynak dil listesi
   ve aktarmada başka dildeki dosyanın atlanması buna göre yapılır. None ya da bildirmeyen eklentide davranış

@@ -2,6 +2,14 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [Yayımlanmadı]
+
+### Değişti
+- **Fontları eklenti yöneten oyunlarda Font sekmesi yanıltmaz:** oyunun fontları eklentinin açtığı arşivdeyse
+  “Oyunda okunabilen font bulunamadı” uyarısı yerine “Bu oyunun fontları “…” eklentisinde: …” bilgisi görünür ve harf
+  dönüştürme önerilmez. Eklentiler için yeni isteğe bağlı `font_support` cümlesi (`docs/rehber/eklenti-yazma.md`).
+  Komut satırı `arac font` aynı bilgiyi yazar.
+
 ## [0.69.0] — 2026-11-20 — Taşınan oyun dosyaları, tek geçişte içe aktarma
 
 ### Eklendi

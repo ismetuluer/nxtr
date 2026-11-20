@@ -20,6 +20,7 @@ from functools import partial
 from typing import TYPE_CHECKING
 
 from nxceviri.core.errors import NxError, ProjectError
+from nxceviri.core.formats import registry
 from nxceviri.core.progress import ProgressCallback, TaskContext
 from nxceviri.core.project import Project, TranslationRow, row_group
 from nxceviri.core.qa import ignored, transliterate
@@ -650,7 +651,8 @@ class ChecksController:
 
     def _refresh_qa(self) -> None:
         win = self._win
-        win.qa_page.show_font_report(win.font_report, win.project.setting("font_missing"))
+        notes = registry.font_support_notes((title_id, kind) for _path, title_id, kind in win.project.text_files())
+        win.qa_page.show_font_report(win.font_report, win.project.setting("font_missing"), notes)
         win.qa_page.set_font_overrides(win._stored_font_overrides())
         win.qa_page.set_font_patch(win.project.setting("font_patch") == "1", win._patchable_letters())
         mode = win.project.setting("transliterate_mode", transliterate.MODE_NONE)
