@@ -253,8 +253,10 @@ class GraphicsController:
         elif self.items is not None:
             self._render()
 
-    def _set_count(self, count: int) -> None:
+    def _set_count(self, count: int, missing: int | None = None) -> None:
+        """Sekme başlığındaki sorun sayısı ve karo rozeti; `missing` yoksa resimler denetlenmemiştir (rozet yok)."""
         self._win.qa_page.set_graphics_count(count)
+        self._win.qa_page.set_graphics_status(None if missing is None else (count, missing))
 
     def _approved(self) -> dict[str, str]:
         try:
@@ -286,7 +288,7 @@ class GraphicsController:
         if approved:
             parts.append(f"{format_int(approved)} onaylı")
         self._win.qa_page.graphics.set_results(rows, " · ".join(parts))
-        self._set_count(problems)
+        self._set_count(problems, totals.missing)
 
     # --- denetim ------------------------------------------------------------------------
 

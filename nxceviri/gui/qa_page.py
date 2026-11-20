@@ -73,6 +73,8 @@ from nxceviri.gui.issue_rows import ROLE_NUMBER, ROLE_SEVERITY, ROLE_SOURCE, ROL
 from nxceviri.gui.kind_delegate import KIND_ROLE, KindDelegate, kind_name
 from nxceviri.gui.limits_table import LimitsTable
 from nxceviri.gui.marked_delegate import ROW_ROLE
+from nxceviri.gui.qa_tabbar import QaTabBar
+from nxceviri.gui.tab_badges import fit_badge, font_badge, graphics_badge, issues_badge
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.widgets import ActionBar, Banner, BusyState, Card, PageHeader, button, format_int, label, tip_html
 
@@ -370,9 +372,16 @@ class QaPage(QWidget):
                 "olası sorunları denetleyin. Hatalı satırlar dışa aktarılmaz; uyarılar yalnızca bilgi içindir.",
             )
         )
+        # Sekmeleri karolu çubuk gösterir; QTabWidget yalnızca sayfaları tutar (kendi sekme şeridi gizli).
+        self.tab_bar = QaTabBar()
+        outer.addWidget(self.tab_bar)
         self.tabs = QTabWidget()
         self.tabs.setDocumentMode(True)
+        self.tabs.tabBar().hide()
         outer.addWidget(self.tabs, 1)
+        self._issue_counts = (0, 0)  # (hata, uyarı): Sorunlar rozeti
+        self._font_badge_state: tuple[bool, str, bool] = (False, "", False)  # (tarandı, eksik harfler, eklenti)
+        self._graphics_status: tuple[int, int] | None = None  # (sorunlu, eksik) resim; denetlenmediyse None
         check_tab = QWidget()
         check_lay = QVBoxLayout(check_tab)
         check_lay.setContentsMargins(0, 12, 0, 0)
@@ -554,6 +563,16 @@ class QaPage(QWidget):
         #: Özgün ve Türkçe resimlerin karşılaştırılması (iş akışı `GraphicsController`'da).
         self.graphics = GraphicsCheckTab()
         self._graphics_tab = self.tabs.addTab(self.graphics, GRAPHICS_TAB_TITLE)
+        for title, icon_name in (
+            ("Sorunlar", "triangle-alert"),
+            ("Sığdırma", "arrow-left-right"),
+            ("Font ve harfler", "case-sensitive"),
+            (GRAPHICS_TAB_TITLE, "image"),
+        ):
+            self.tab_bar.add_tile(title, icon_name)
+        self.tab_bar.set_current(self.tabs.currentIndex())
+        self.tab_bar.index_selected.connect(self.tabs.setCurrentIndex)
+        self.tabs.currentChanged.connect(self.tab_bar.set_current)
         self.tabs.currentChanged.connect(self._tab_changed)
         self._refilter()
         self._update_check_button()
@@ -570,6 +589,25 @@ class QaPage(QWidget):
             self.fit_tab_shown.emit()
         elif index == self._graphics_tab:
             self.graphics_tab_shown.emit()
+
+    def set_graphics_status(self, status: tuple[int, int] | None) -> None:
+        """Grafik karosunun rozeti: (sorunlu, eksik) resim sayısı; resimler denetlenmediyse None (rozet yok)."""
+        self._graphics_status = status
+        self._update_tab_badges()
+
+    def _update_tab_badges(self) -> None:
+        """Karoların rozetlerini güncel durumdan yeniden kurar (kurallar `tab_badges.py` içindedir)."""
+        errors, warnings = self._issue_counts
+        graphics = self._graphics_status
+        scanned, missing, covered = self._font_badge_state
+        badges = (
+            issues_badge(self._checked, errors, warnings),
+            fit_badge(self._overflow_rows),
+            font_badge(scanned, missing, covered),
+            graphics_badge(graphics is not None, *(graphics or (0, 0))),
+        )
+        for tile, badge in zip(self.tab_bar.tiles(), badges, strict=True):
+            tile.set_badge(badge)
 
     def set_graphics_count(self, count: int) -> None:
         """Grafik sekmesinin başlığı sorunlu resim sayısını gösterir: "Grafik (3)"; sorun yoksa yalnızca "Grafik"."""
@@ -856,8 +894,10 @@ class QaPage(QWidget):
         if not self.fit_enabled.isChecked():
             self._overflow_rows = 0
             self._show_fit_result("Sığdırma kapalı; taşma denetlenmiyor.")
+            self._update_tab_badges()
             return
         self._overflow_rows = len({i.row_id for i in issues if i.kind in _OVERFLOW_KINDS})
+        self._update_tab_badges()
         if self._overflow_rows:
             self._show_fit_result(f"Bu ayarla {format_int(self._overflow_rows)} satır taşıyor.", True)
         else:
@@ -1208,7 +1248,10 @@ class QaPage(QWidget):
     def show_font_report(
         self, report: FontReport | None, missing: str, plugin_notes: Sequence[tuple[str, str]] = ()
     ) -> None:
+        covered = bool(plugin_notes)
         if report is None:
+            self._font_badge_state = (False, missing, covered)
+            self._update_tab_badges()
             if missing:
                 self.letters.setText(f"Son taramada eksik bulunan harfler: <b>{' '.join(missing)}</b>")
             else:
@@ -1216,6 +1259,8 @@ class QaPage(QWidget):
             self.font_table.hide()
             self.font_banner.show_message("warning", "")
             return
+        self._font_badge_state = (bool(report.fonts), report.missing_letters(), covered)
+        self._update_tab_badges()
         t = current_tokens()
         chips = []
         for c, (have, total) in report.coverage().items():
@@ -1376,6 +1421,9 @@ class QaPage(QWidget):
         self.last_fix_text = ""
         self._update_check_button()
         self._show_fit_result(_FIT_RESULT_EMPTY)
+        self._issue_counts = (0, 0)
+        self._overflow_rows = 0
+        self._update_tab_badges()
 
     def replace_row_issues(self, row_id: int, issues: list[QaIssue], row: TranslationRow) -> None:
         """Tek satırın bulgularını yenisiyle değiştirir (yerinde düzenleme sonrası); bulgu kalmadıysa satır düşer.
@@ -1450,7 +1498,8 @@ class QaPage(QWidget):
             bind_icon(self.summary_icon, "circle-check", size=16, tone="success")
         self.summary_icon.show()
         self.summary.setProperty("role", None)
-        self._update_fit_result(issues)
+        self._issue_counts = (errors, warnings)
+        self._update_fit_result(issues)  # sekme rozetlerini de yeniler
         counts: dict[str, int] = {}
         severities: dict[str, str] = {}
         for i in issues:

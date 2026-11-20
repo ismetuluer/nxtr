@@ -19,3 +19,4 @@ Bu klasördeki `*.svg` dosyaları [Lucide](https://lucide.dev) simge setindendir
 - Zamanlayıcı (menü ve durum çubuğu): `clock` (Lucide 1.66.0 adı; çevrimdışı yazıldı, yayınlanan dosyayla bayt bayt
   karşılaştırılmadı).
 - Düzen menüsü Yinele: `redo-2` (Lucide 1.66.0 adı; çevrimdışı, `undo-2`nin yansıması olarak yazıldı, yayınlanan dosyayla bayt bayt karşılaştırılmadı).
+- Kontrol Et sekme karoları: `brush`, `check` (Lucide 1.66.0 adları; çevrimdışı yazıldı, yayınlanan dosyayla bayt bayt karşılaştırılmadı; `check` kalın çizgi için `stroke-width` 3). Karoların simgeleri mevcut `triangle-alert`, `arrow-left-right`, `case-sensitive`, `image`.
