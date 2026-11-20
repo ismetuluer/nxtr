@@ -35,6 +35,8 @@ from nxceviri.core.pipeline import (
 from nxceviri.core.plugins.record import record_extraction
 from nxceviri.core.progress import TaskContext
 from nxceviri.core.project import SourceRecord
+from nxceviri.core.project.relink import apply_moved, find_moved
+from nxceviri.gui.add_game_page import RELINK_ACTION
 from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_INFO
 from nxceviri.gui.step_nav import STEP_SCAN, STEP_TRANSLATE
 from nxceviri.gui.widgets import format_int
@@ -219,6 +221,61 @@ class ScanController:
             return
         del win.sources[row]
         win._sources_changed()
+
+    def relink_sources(self, folders: list[Path]) -> int:
+        """Taşınan oyun dosyalarının yeni yolunu bu klasörlerde bulup kaydeder; bağlanan dosya sayısını döndürür.
+
+        Yalnızca yollar değişir: tarama raporu, metinler ve çeviriler olduğu gibi kalır (`_sources_changed` gibi
+        taramayı silmez)."""
+        win = self._win
+        moved = find_moved(win.sources, folders)
+        if not moved:
+            return 0
+        updated = apply_moved(win.sources, moved)
+        try:
+            win.project.set_sources(updated)
+        except NxError as exc:
+            win.notify(LEVEL_ERROR, "Proje", exc.user_text())
+            return 0
+        win.sources = updated
+        win._mark_changed()
+        return len(moved)
+
+    def ask_relink_folder(self, start: Path) -> Path | None:
+        """Oyun dosyalarının yeni klasörünü sordurur (testlerde değiştirilir)."""
+        folder = QFileDialog.getExistingDirectory(self._win, "Oyun dosyalarının yeni klasörünü seçin", str(start))
+        return Path(folder) if folder else None
+
+    def relink_sources_dialog(self) -> None:
+        """“Oyun Dosyalarının Yeni Yerini Göster”: seçilen klasörde bulunamayan dosyaların hepsi bir adımda bağlanır."""
+        win = self._win
+        if win.busy:
+            return
+        missing = [s.path for s in win.sources if not s.path.is_file()]
+        if not missing:
+            win.statusBar().showMessage("Bulunamayan oyun dosyası yok; hepsi yerinde.", 5000)
+            return
+        start = missing[0].parent
+        while not start.is_dir() and start != start.parent:
+            start = start.parent  # eski klasör yoksa en yakın var olan üst klasörden başlanır
+        folder = win.ask_relink_folder(start)
+        if folder is None:
+            return
+        linked = win.relink_sources([folder])
+        left = [s.path.name for s in win.sources if not s.path.is_file()]
+        parts = [
+            f"{linked} oyun dosyasının yeni yeri bulundu ve bağlandı."
+            if linked
+            else "Seçilen klasörde eşleşen dosya bulunamadı."
+        ]
+        if left:
+            parts.append(
+                "Hâlâ bulunamayanlar: "
+                + ", ".join(left)
+                + ". Ad ve boyutu aynı olan dosya aranır; başka klasörü deneyin."
+            )
+        win.add_page.set_files_message("warning" if left else "success", " ".join(parts), RELINK_ACTION if left else "")
+        win.statusBar().showMessage(parts[0], 5000)
 
     def _sources_changed(self) -> None:
         win = self._win

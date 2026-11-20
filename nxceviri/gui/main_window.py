@@ -91,7 +91,7 @@ from nxceviri.core.update import (
     relaunch,
 )
 from nxceviri.gui import motion
-from nxceviri.gui.add_game_page import AddGamePage
+from nxceviri.gui.add_game_page import RELINK_ACTION, AddGamePage
 from nxceviri.gui.changes_dialog import ChangesDialog
 from nxceviri.gui.checks_controller import MANUAL_LIMIT_KEY, ChecksController
 from nxceviri.gui.csv_dialog import CsvExportDialog
@@ -703,7 +703,10 @@ class MainWindow(QMainWindow):
         can_scan = self.keys is not None and bool(self.sources) and not problems
         if not self.busy:
             self.add_page.set_can_continue(can_scan, reason)
-        self.add_page.set_files_message("warning", " ".join(problems) if self.sources else "")
+        missing = any(not s.path.is_file() for s in self.sources)
+        self.add_page.set_files_message(
+            "warning", " ".join(problems) if self.sources else "", RELINK_ACTION if missing else ""
+        )
         scan_item = self.nav.item(STEP_SCAN)
         flags = scan_item.flags()
         if can_scan or self.report is not None:
@@ -1056,6 +1059,15 @@ class MainWindow(QMainWindow):
 
     def _sources_changed(self) -> None:
         return self.scanning._sources_changed()
+
+    def relink_sources(self, folders: list[Path]) -> int:
+        return self.scanning.relink_sources(folders)
+
+    def relink_sources_dialog(self) -> None:
+        return self.scanning.relink_sources_dialog()
+
+    def ask_relink_folder(self, start: Path) -> Path | None:
+        return self.scanning.ask_relink_folder(start)
 
     # --- tarama ----------------------------------------------------------------------------
 

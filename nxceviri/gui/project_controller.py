@@ -17,6 +17,7 @@ from PySide6.QtWidgets import QFileDialog, QMessageBox
 from nxceviri.core.errors import NxError
 from nxceviri.core.plugins.record import plugin_warnings
 from nxceviri.core.project import PROJECT_SUFFIX, Project
+from nxceviri.gui.add_game_page import RELINK_ACTION
 from nxceviri.gui.notify import LEVEL_ERROR
 from nxceviri.gui.recovery import RecoveryFile, discard, leftover_files
 from nxceviri.gui.step_nav import STEP_ADD
@@ -111,17 +112,23 @@ class ProjectController:
             return False
         win.settings.setValue("ui/project_dir", str(path.parent))
         win.recent.remember(path)
-        missing = [s.path.name for s in win.sources if not s.path.is_file()]
         notes = []
+        if any(not s.path.is_file() for s in win.sources):
+            # Taşınmış olabilir: proje klasöründe ve hâlâ duran dosyaların klasörlerinde (bir alt düzey dahil) aranır.
+            folders = [path.parent, *(s.path.parent for s in win.sources if s.path.is_file())]
+            linked = win.relink_sources(list(dict.fromkeys(folders)))
+            if linked:
+                notes.append(f"{linked} oyun dosyasının yeni yeri bulundu ve bağlandı.")
+        missing = [s.path.name for s in win.sources if not s.path.is_file()]
         if missing:
             notes.append(
-                "Projedeki bazı oyun dosyaları bulunamadı: "
+                "Şu oyun dosyaları bulunamadı: "
                 + ", ".join(missing)
-                + ". Dosyaları taşıdıysanız listeden kaldırıp yeniden ekleyin."
+                + ". Taşıdıysanız yeni klasörünü gösterin (Dosya menüsünden de yapılır); çevirileriniz silinmez."
             )
         notes += plugin_warnings(win.project)
         if notes:
-            win.add_page.set_files_message("warning", " ".join(notes))
+            win.add_page.set_files_message("warning", " ".join(notes), RELINK_ACTION if missing else "")
         win.statusBar().showMessage(f"Proje açıldı: {path.name}", 5000)
         return True
 

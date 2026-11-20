@@ -4,6 +4,14 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
 
 ## [Yayımlanmadı]
 
+### Eklendi
+- **Taşınan oyun dosyaları kendiliğinden bulunur:** oyun klasörünü taşıyınca proje artık "dosya bulunamadı" deyip
+  tek tek kaldırıp eklemenizi istemez. Proje açılırken proje klasöründe ve hâlâ duran dosyaların klasörlerinde (bir alt
+  düzey dahil) adı ve boyutu aynı olan dosyalar aranır, bulunanlar sessizce bağlanır ve eklenen sayfada bildirilir.
+  Bulunamayanlar için bandda ve **Dosya → Oyun Dosyalarının Yeni Yerini Göster…** menüsünde yeni klasörü bir adımda
+  gösterebilirsiniz; o klasörde bulunan tüm dosyalar birden bağlanır. Yalnızca yollar değişir: çeviriler, metinler ve
+  tarama raporu korunur.
+
 ### Düzeltildi
 - **Redaksiyon/çeviri dosyası içe aktarılırken aynı içerikli satırlar tek geçişte düzeliyor:** dosyada tek satırı olan
   ama projede aynı orijinal ve çeviriyle birkaç kez geçen satırlar (ör. kardeş dil paketlerindeki aynı metin) artık
