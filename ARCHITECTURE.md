@@ -1505,3 +1505,14 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
 > **Not (0.31.15):** GitHub'daki 0.31.7 CSV'yi iki sütuna (orijinal | çeviri) indirmişti; aynı amaç (kimlik/anahtar sütunlarını
 > modele göstermemek) kopyadaki TXT/XLSX tasarımıyla karşılandığı için CSV akışı kopyanınkine birleştirildi. Karar ve
 > gerekçe CHANGELOG 0.31.15'te.
+
+240. **Redaksiyon/çeviri dosyasında dosyanın ayıramadığı satırlar aynı işlemi görür (ürün sahibi, 2026-11-20):** TXT/XLSX
+    satırında kimlik yoktur; aynı (orijinal, çeviri) çiftine sahip kardeş satırlar (ör. dil varyantı paketleri) dosyada
+    tek satırla temsil edilince yalnızca ilki düzeliyor, dosyayı yeniden içe aktarmak gerekiyordu; çevirisi boş birden
+    çok satırın orijinali aynıysa benzersiz-orijinal yedeği reddediyordu. `csvio._TxtMatcher` artık orijinal yedeğinde
+    adayların mevcut çevirisi aynıysa (hepsi boş dahil) proje sırasıyla tüketir; farklıysa tahmin etmez, bulanık
+    eşleştirme yok. `plan_import`, eşleşen dosya satırları aynı adayı taşıyorsa aynı (orijinal, çeviri, grup verildiyse
+    grup) anahtarlı ve hiçbir dosya satırının almadığı satırlara da aynı adayı verir (yayın); aynı anahtar için dosya
+    satırları çelişirse yayın yoktur. Yayın normal satırlarla aynı denetimlerden geçer (kaynak uyuşmazlığı, boş, aynı,
+    kontrol kodu, onaylı sayacı); sayısı `CsvPlan.same_content` olarak önizlemede gösterilir. CSV (kimlikli) yol
+    değişmedi. Aynı dosyayı ikinci kez içe aktarmak değişiklik üretmez (bayat/döngüsel çeviri zincirleri hariç).

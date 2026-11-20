@@ -787,3 +787,80 @@ def test_findings_prompts_mention_bulgu_column() -> None:
         assert "bulgu" in prompt
         assert "yalnızca bilgi" in prompt
         assert "düzeltme" in prompt
+
+
+# --- Aynı içerikli satırlar: tek geçişte aynı işlem (yayın) ---
+
+
+def _dup(i: int, source: str, translation: str, status: str = "machine", file: str = "f") -> TranslationRow:
+    return TranslationRow(i, file, f"k{i}", source, translation, status, "", (), None)
+
+
+def _apply(rows: list[TranslationRow], changes: list[tuple[int, str]]) -> list[TranslationRow]:
+    new = dict(changes)
+    return [_dup(r.id, r.source, new.get(r.id, r.translation), str(r.status), r.file) for r in rows]
+
+
+def test_txt_single_line_corrects_all_identical_rows_and_is_idempotent() -> None:
+    rows = [_dup(1, "Yes", "Evet"), _dup(2, "Yes", "Evet"), _dup(3, "Yes", "Evet")]
+    parsed = parse_txt("orijinal\tçeviri\tdüzeltme\tgrup\nYes\tEvet\tEvet, lütfen.\tf\n")
+    plan = plan_import(rows, parsed)
+    assert dict(plan.changes) == {1: "Evet, lütfen.", 2: "Evet, lütfen.", 3: "Evet, lütfen."}
+    assert plan.same_content == 2
+    assert plan_import(_apply(rows, plan.changes), parsed).changes == []
+
+
+def test_txt_empty_translations_take_file_lines_in_order() -> None:
+    rows = [_dup(1, "Yes", ""), _dup(2, "Yes", ""), _dup(3, "Yes", "")]
+    parsed = parse_txt("orijinal\tçeviri\tdüzeltme\nYes\tBir\tBir\nYes\tİki\tİki\nYes\tÜç\tÜç\n")
+    plan = plan_import(rows, parsed)
+    assert dict(plan.changes) == {1: "Bir", 2: "İki", 3: "Üç"}
+    assert plan.unmatched == 0
+    assert plan.same_content == 0
+    assert plan_import(_apply(rows, plan.changes), parsed).changes == []
+
+
+def test_txt_empty_translations_single_line_fills_all() -> None:
+    rows = [_dup(1, "Yes", ""), _dup(2, "Yes", ""), _dup(3, "Yes", "")]
+    parsed = parse_txt("orijinal\tçeviri\tdüzeltme\nYes\tEvet\tEvet\n")
+    plan = plan_import(rows, parsed)
+    assert dict(plan.changes) == {1: "Evet", 2: "Evet", 3: "Evet"}
+    assert plan.same_content == 2
+    assert plan_import(_apply(rows, plan.changes), parsed).changes == []
+
+
+def test_txt_conflicting_lines_for_same_key_do_not_broadcast() -> None:
+    rows = [_dup(1, "Yes", "Evet"), _dup(2, "Yes", "Evet"), _dup(3, "Yes", "Evet")]
+    parsed = parse_txt("orijinal\tçeviri\tdüzeltme\nYes\tEvet\tBir\nYes\tEvet\tİki\n")
+    plan = plan_import(rows, parsed)
+    assert dict(plan.changes) == {1: "Bir", 2: "İki"}
+    assert plan.same_content == 0
+
+
+def test_txt_different_candidate_translations_stay_unmatched() -> None:
+    rows = [_dup(1, "Open", "Aç"), _dup(2, "Open", "Açık")]
+    plan = plan_import(rows, parse_txt("Open\tDeğişmiş\tAç\n"))
+    assert plan.changes == []
+    assert plan.unmatched == 1
+
+
+def test_txt_broadcast_counts_approved_rows() -> None:
+    rows = [_dup(1, "Yes", "Evet"), _dup(2, "Yes", "Evet", "approved")]
+    plan = plan_import(rows, parse_txt("orijinal\tçeviri\tdüzeltme\nYes\tEvet\tTamam\n"))
+    assert dict(plan.changes) == {1: "Tamam", 2: "Tamam"}
+    assert plan.approved == 1
+
+
+def test_txt_broadcast_never_touches_rows_matched_by_other_lines() -> None:
+    rows = [_dup(1, "Yes", "Evet"), _dup(2, "Yes", "Evet"), _dup(3, "Yes", "Evet")]
+    parsed = parse_txt("orijinal\tçeviri\tdüzeltme\nYes\tEvet\tTamam\nYes\tEvet\tTamam\nYes\tEvet\tFarklı\n")
+    plan = plan_import(rows, parsed)
+    assert dict(plan.changes) == {1: "Tamam", 2: "Tamam", 3: "Farklı"}
+    assert plan.same_content == 0
+
+
+def test_txt_broadcast_respects_group() -> None:
+    rows = [_dup(1, "Yes", "Evet", file="a.tsv"), _dup(2, "Yes", "Evet", file="b.tsv")]
+    parsed = parse_txt("orijinal\tçeviri\tdüzeltme\tgrup\nYes\tEvet\tTamam\ta.tsv\n")
+    plan = plan_import(rows, parsed)
+    assert dict(plan.changes) == {1: "Tamam"}

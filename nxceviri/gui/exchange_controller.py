@@ -316,6 +316,11 @@ class ExchangeController:
         lines.append(
             f"Değişecek: {format_int(len(plan.changes))} satır (zaten aynı olan {format_int(plan.unchanged)})."
         )
+        if plan.same_content:
+            lines.append(
+                f"{format_int(plan.same_content)} satır, dosyadaki bir satırla aynı orijinal ve çeviriye sahip "
+                "olduğu için aynı düzeltmeyi aldı."
+            )
         if plan.approved:
             lines.append(f"Değişenlerin {format_int(plan.approved)} tanesi onaylıydı; durumları “{status_name}” olur.")
         if plan.cleaned:

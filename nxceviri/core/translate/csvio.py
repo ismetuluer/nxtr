@@ -989,6 +989,7 @@ class CsvPlan:
     unknown: int = 0  # kimliği projede yok (CSV)
     no_correction: int = 0  # TXT/XLSX'te “düzeltme” hücresi boş: çeviri olduğu gibi kalır
     unmatched: int = 0  # TXT/XLSX satırı projedeki bir satırla eşleşmedi (birden çok aday dahil)
+    same_content: int = 0  # dosyada tek satırı olan, aynı içerikli kardeş satırlara yayılarak değişenler
     source_mismatch: list[int] = field(default_factory=list)
     code_problems: list[tuple[int, str]] = field(default_factory=list)  # (satır kimliği, sorun)
 
@@ -1006,8 +1007,13 @@ class _TxtMatcher:
 
     Aynı metin bir oyunda çok kez geçebilir (ör. “Yes” → “Evet”); çifti aynı olan satırlar dosyadaki sırayla
     eşleşir. Çift aynıysa `grup` sütunu hangi satırın kastedildiğini ayırır (ör. aynı “Yes” hem UI hem
-    Dialogue'da). Çift tutmazsa benzersiz orijinal, o da belirsizse benzersiz çeviri metni denenir; `grup`
-    yalnızca ipucudur, hiçbir zaman zorunlu değildir.
+    Dialogue'da). Çift tutmazsa orijinale bakılır: serbest adaylar (grup daraltıyorsa grupla daraltılmış)
+    tek ise ya da hepsinin mevcut çevirisi aynı ise (ör. hepsi boş) dosya birini diğerinden ayıramaz; çiftteki
+    gibi proje sırasıyla tüketilir. Adayların çevirileri farklıysa tahmin edilmez; son olarak benzersiz çeviri
+    metni denenir. `grup` yalnızca ipucudur, hiçbir zaman zorunlu değildir.
+
+    `siblings` dosyanın ayıramadığı kardeşleri verir: aynı normalleştirilmiş (orijinal, çeviri) çiftine sahip,
+    henüz eşleşmemiş satırlar (`plan_import` yayını için).
     """
 
     def __init__(self, rows: Sequence[TranslationRow]) -> None:
@@ -1037,9 +1043,20 @@ class _TxtMatcher:
             same = [r for r in free if _group_key(row_group(r)) == group]
             if same:
                 free = same
-        if len(free) == 1:  # birden çok aday varsa yanlış satıra yazmamak için eşleştirme yapılmaz
+        if free and len({" ".join(r.translation.split()) for r in free}) == 1:
+            # tek aday ya da hepsi aynı çeviriye sahip (dosya ayıramaz): proje sırasıyla; farklıysa tahmin yok
             return self._take(free[0])
         return None
+
+    def siblings(self, row: TranslationRow, by_group: bool) -> list[TranslationRow]:
+        """`row` ile aynı (orijinal, çeviri) çiftine (ve istenirse grubuna) sahip, henüz tüketilmemiş satırlar."""
+        key = (" ".join(row.source.split()), " ".join(row.translation.split()))
+        group = _group_key(row_group(row))
+        free = self._free(self._by_pair.get(key, []))
+        return [r for r in free if not by_group or _group_key(row_group(r)) == group]
+
+    def take(self, row: TranslationRow) -> None:
+        self._used.add(row.id)
 
     def match(self, source: str, text: str, group: str = "") -> TranslationRow | None:
         src = " ".join(source.split())
@@ -1075,6 +1092,13 @@ def plan_import(rows: Sequence[TranslationRow], csv_rows: Sequence[CsvRow]) -> C
     CSV satırları kimlikle, TXT/XLSX satırları içerikle eşleşir; aynı çift birden çok kez geçiyorsa `grup`
     sütunu hangi satırın kastedildiğini ayırır. TXT/XLSX'te dolu `düzeltme` mevcut çevirinin yerine geçer;
     boş `düzeltme` satırı atlanır (mevcut çeviri korunur). `grup` hiçbir zaman yazılmaz, yalnızca bağlamdır.
+
+    Kural: dosyanın ayıramadığı satırlara aynı işlem yapılır ve tek geçişte biter. Bunun için iki şey var:
+    dosya orijinali ayıramıyorsa (adayların çevirisi aynı, ör. hepsi boş) satırlar proje sırasıyla tüketilir
+    (`_TxtMatcher`); eşleşen satırların hepsi aynı adayı taşıyorsa, aynı (orijinal, çeviri) çiftine (ve
+    grup verilmişse gruba) sahip, hiçbir dosya satırının almadığı kardeş satırlar da aynı adayı alır
+    (`CsvPlan.same_content`). Aynı çift için dosya satırları birbirinden farklı aday taşıyorsa yayın yapılmaz.
+    Böylece aynı dosyayı ikinci kez içe aktarmak değişiklik üretmez. CSV (kimlikli) yolu değişmez.
     """
     by_id = {r.id: r for r in rows}
     matcher = _TxtMatcher(rows)
@@ -1088,6 +1112,41 @@ def plan_import(rows: Sequence[TranslationRow], csv_rows: Sequence[CsvRow]) -> C
             entries.append((by_id.get(c.entry_id), c))
     live = [(row, c) for i, (row, c) in enumerate(entries) if c.entry_id is None or last_id[c.entry_id] == i]
     plan = CsvPlan(found=len(live))
+
+    def candidate_of(c: CsvRow) -> str | None:
+        if c.correction is not None:
+            return c.correction if c.correction.strip() else None
+        return c.text
+
+    def apply(row: TranslationRow, c: CsvRow, candidate: str | None) -> bool:
+        if candidate is None:
+            plan.no_correction += 1
+            return False
+        if c.source is not None and not _same_text(placeholders.repair(row.source, c.source), row.source):
+            plan.source_mismatch.append(row.id)
+            return False
+        if not candidate.strip():
+            plan.empty += 1
+            return False
+        if candidate == row.translation:
+            plan.unchanged += 1  # model dokunmamış; temizlik katmanı da dokunmaz
+            return False
+        text, issues = prepare_correction(row, candidate)
+        if issues:
+            plan.code_problems.append((row.id, " ".join(issues)))
+            return False
+        if text == row.translation:
+            plan.unchanged += 1
+            return False
+        if text != candidate and not _same_text(text, candidate):
+            plan.cleaned += 1
+        if row.status == Status.APPROVED:
+            plan.approved += 1
+        plan.changes.append((row.id, text))
+        return True
+
+    # Yayın anahtarı: eşleşen satırın (orijinal, mevcut çeviri, grup verildiyse grup); değer: dosya satırları
+    spread: dict[tuple[str, str, str], list[tuple[TranslationRow, CsvRow, str | None]]] = {}
     for row, c in live:
         if row is None:
             if c.entry_id is None:
@@ -1095,32 +1154,18 @@ def plan_import(rows: Sequence[TranslationRow], csv_rows: Sequence[CsvRow]) -> C
             else:
                 plan.unknown += 1
             continue
-        if c.correction is not None:
-            if not c.correction.strip():
-                plan.no_correction += 1
-                continue
-            candidate = c.correction
-        else:
-            candidate = c.text
-        if c.source is not None and not _same_text(placeholders.repair(row.source, c.source), row.source):
-            plan.source_mismatch.append(row.id)
-            continue
-        if not candidate.strip():
-            plan.empty += 1
-            continue
-        if candidate == row.translation:
-            plan.unchanged += 1  # model dokunmamış; temizlik katmanı da dokunmaz
-            continue
-        text, issues = prepare_correction(row, candidate)
-        if issues:
-            plan.code_problems.append((row.id, " ".join(issues)))
-            continue
-        if text == row.translation:
-            plan.unchanged += 1
-            continue
-        if text != candidate and not _same_text(text, candidate):
-            plan.cleaned += 1
-        if row.status == Status.APPROVED:
-            plan.approved += 1
-        plan.changes.append((row.id, text))
+        candidate = candidate_of(c)
+        apply(row, c, candidate)
+        if c.entry_id is None:
+            group = _group_key(row_group(row)) if _group_key(c.group) else ""
+            key = (" ".join(row.source.split()), " ".join(row.translation.split()), group)
+            spread.setdefault(key, []).append((row, c, candidate))
+    for (_, _, group), lines in spread.items():
+        first_row, first_line, candidate = lines[0]
+        if candidate is None or any(other != candidate for _, _, other in lines):
+            continue  # dosya satırları aynı fikirde değil: kardeşlere dokunulmaz
+        for sibling in matcher.siblings(first_row, bool(group)):
+            matcher.take(sibling)
+            if apply(sibling, first_line, candidate):
+                plan.same_content += 1
     return plan

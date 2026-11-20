@@ -2,6 +2,15 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [Yayımlanmadı]
+
+### Düzeltildi
+- **Redaksiyon/çeviri dosyası içe aktarılırken aynı içerikli satırlar tek geçişte düzeliyor:** dosyada tek satırı olan
+  ama projede aynı orijinal ve çeviriyle birkaç kez geçen satırlar (ör. kardeş dil paketlerindeki aynı metin) artık
+  hepsi aynı düzeltmeyi alır; dosyayı ikinci kez içe aktarmak gerekmez. Çevirisi boş olan ve orijinali aynı olan satırlar
+  artık "eşleşmedi" sayılmaz, proje sırasıyla doldurulur. Adayların çevirileri farklıysa hâlâ tahmin edilmez. Önizlemede
+  bu yoldan değişen satır sayısı gösterilir.
+
 ## [0.68.1] — 2026-11-20 — Kontrol Et bulgu listesi düzeltmelerle güncellenir
 
 ### Düzeltildi
