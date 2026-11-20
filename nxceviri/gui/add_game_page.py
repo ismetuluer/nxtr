@@ -26,6 +26,7 @@ KEYS_HELP = (
     "anahtar içermez veya indirmez; yalnızca dosyanın yolunu hatırlar."
 )
 DROP_READY_TEXT = "NSP / NSZ dosyalarını bırakın"
+RELINK_ACTION = "Yeni Yerini Göster…"
 DROP_LOCKED_TEXT = "Önce anahtar dosyası seçin"
 #: Bundan uzun neden çipte "Devam edilemiyor" olarak, tam metni ayrıntıda gösterilir.
 CHIP_TEXT_LIMIT = 40
@@ -48,6 +49,7 @@ class AddGamePage(QWidget):
     add_files = Signal(list)
     browse_files = Signal()
     remove_source = Signal(int)
+    relink_requested = Signal()
     next_step = Signal()
     open_recent = Signal(Path)
 
@@ -100,6 +102,7 @@ class AddGamePage(QWidget):
         self.drop.button.clicked.connect(self.browse_files)
         self.files_card.body.addWidget(self.drop)
         self.files_banner = Banner()
+        self.files_banner.action_clicked.connect(self.relink_requested)
         self.files_card.body.addWidget(self.files_banner)
 
         self.table = QTableWidget(0, 6)
@@ -213,8 +216,8 @@ class AddGamePage(QWidget):
         height = self.table.horizontalHeader().height() + sum(self.table.rowHeight(r) for r in range(len(sources)))
         self.table.setFixedHeight(height + 4)
 
-    def set_files_message(self, state: str, text: str) -> None:
-        self.files_banner.show_message(state, text)
+    def set_files_message(self, state: str, text: str, action: str = "") -> None:
+        self.files_banner.show_message(state, text, action)
 
     def set_busy(self, busy: bool, text: str = "") -> None:
         for w in (self.keys_button, self.drop.button):

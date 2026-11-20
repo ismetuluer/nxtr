@@ -134,6 +134,7 @@ class Menus:
         self._add(keys_menu, "title.keys Seç…", w._choose_title_keys, icon="key-round")
         w.title_keys_clear_action = self._add(keys_menu, "title.keys Dosyasını Kaldır", w._clear_title_keys, icon="x")
         w.title_keys_clear_action.setEnabled(False)
+        self._add(menu, "Oyun Dosyalarının Yeni Yerini Göster…", w.relink_sources_dialog, icon="folder-open")
         menu.addSeparator()
         w.cache_action = self._add(menu, "Geçici Dosyaları Temizle…", w._clear_cache, icon="trash-2")
         menu.addSeparator()

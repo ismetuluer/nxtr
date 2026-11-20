@@ -127,6 +127,7 @@ def connect_pages(win: MainWindow) -> None:
     win.add_page.browse_files.connect(win._browse_files)
     win.add_page.add_files.connect(win.add_files)
     win.add_page.remove_source.connect(win._remove_source)
+    win.add_page.relink_requested.connect(win.relink_sources_dialog)
     win.add_page.next_step.connect(win._go_scan)
     win.add_page.open_recent.connect(win.open_recent)
     win.scan_page.start_scan.connect(win.start_scan)

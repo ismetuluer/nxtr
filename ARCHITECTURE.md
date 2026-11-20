@@ -1498,6 +1498,15 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     ister. Dosya `loader.plugin_fingerprint`'e girmez (`FINGERPRINT_EXCLUDED`, yalnızca kökteki bu ad): her adımda
     güncellenen bir not eklentiyi yeniden onaylatmamalı; içe aktarılan kod değildir, onayın koruduğu şeyi değiştirmez.
 
+240. **Taşınan oyun dosyaları ad + boyutla yeniden bağlanır, çeviriye dokunulmaz (2026-11-20):** kaynaklar projede
+    mutlak yolla durur; klasör taşınınca eskiden dosyaları silip yeniden eklemek gerekiyordu (eski sürümde tarama ve
+    çeviriler de gidiyordu). `core/project/relink.py` (Qt'siz) bulunamayan her kaynak için verilen klasörlerde ve bir alt
+    düzeyinde aynı adlı dosya arar; kayıtlı boyutla eşleşmeyen dosya asla seçilmez, boyut bilinmiyorsa (0) yalnızca tek aday
+    kabul edilir. Açılışta klasörler proje klasörü ve hâlâ duran kaynakların klasörleridir; kalanlar için bandda ve
+    Dosya menüsünde klasör gösterilir (`ScanController.relink_sources_dialog`, klasör sorusu `ask_relink_folder`).
+    `relink_sources` yalnızca `sources` tablosunu yazar; `_sources_changed`'ten farklı olarak taramayı silmez, çünkü metinler
+    ve çeviriler oyun içi yola bağlıdır, dosya yoluna değil.
+
 ## 5. Bilinen sınırlar
 
 `TECH_DEBT.md` dosyasına bakın.
