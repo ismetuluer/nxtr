@@ -22,7 +22,7 @@ from nxceviri.core.qa.profanity import LEVEL_LABELS as PROFANITY_LEVELS
 from nxceviri.core.qa.profanity import LEVEL_OFF
 from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_REVISE, ACTION_TRANSLATE
 from nxceviri.gui.icons import bind_icon
-from nxceviri.gui.theme import DEFAULT_FONT_SIZE, FONT_SIZES, THEME_LABELS, ThemeMode
+from nxceviri.gui.theme import DEFAULT_FONT_SIZE, FONT_SIZES, PALETTES, THEME_LABELS, ThemeMode
 from nxceviri.gui.view_actions import PANE_BOTTOM, PANE_RIGHT
 
 if TYPE_CHECKING:
@@ -250,6 +250,16 @@ class Menus:
             act.triggered.connect(lambda _=False, m=mode: w._set_theme(m))
             w.theme_group.addAction(act)
             theme_menu.addAction(act)
+        palette_menu = self._submenu(menu, "Renk paleti", "palette")
+        w.palette_group = QActionGroup(w)
+        current_palette = w._palette_name()
+        for name in PALETTES:
+            act = QAction(name, w, checkable=True)
+            act.setData(name)
+            act.setChecked(name == current_palette)
+            act.triggered.connect(lambda _=False, n=name: w._set_palette(n))
+            w.palette_group.addAction(act)
+            palette_menu.addAction(act)
         size_menu = self._submenu(menu, "Yazı Boyutu", "case-sensitive")
         w.size_group = QActionGroup(w)
         current_size = w._font_size()

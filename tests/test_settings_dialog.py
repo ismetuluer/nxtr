@@ -136,6 +136,19 @@ def test_unknown_page_is_ignored(qtbot: QtBot, env: Env) -> None:
 # --- görünüm -----------------------------------------------------------------------------------
 
 
+def test_palette_combo_emits_signal(qtbot: QtBot, env: Env) -> None:
+    from nxceviri.gui.theme import DEFAULT_PALETTE, PALETTES
+
+    dialog = env.dialog(theme=ThemeMode.LIGHT, font_size=10, palette=DEFAULT_PALETTE)
+    combo = dialog.palette_combo
+    assert [combo.itemData(i) for i in range(combo.count())] == list(PALETTES)
+    assert combo.currentData() == DEFAULT_PALETTE
+    other = next(n for n in PALETTES if n != DEFAULT_PALETTE)
+    with qtbot.waitSignal(dialog.palette_changed) as sig:
+        combo.setCurrentIndex(combo.findData(other))
+    assert sig.args == [other]
+
+
 def test_theme_and_font_signals_and_persistence(qtbot: QtBot, env: Env) -> None:
     dialog = env.dialog(theme=ThemeMode.LIGHT, font_size=12)
     qtbot.addWidget(dialog)
