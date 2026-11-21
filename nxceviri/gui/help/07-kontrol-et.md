@@ -16,7 +16,8 @@ Kontrol Bulgularını Dosyaya Yaz…) görünen bulguları, seçili bulgu varsa 
 redaksiyon dosyasıyla aynıdır (`orijinal`, `çeviri`, `düzeltme`, `grup`) ve en sonda `bulgu` sütunu bulunur: satırın
 bütün bulguları tek hücrede, `|` ile ayrılmış. `bulgu` yalnızca bilgi içindir; düzeltmeyi **düzeltme** sütununa
 yazın (bulgusu olmayan satırlar dosyaya girmez; hazır model talimatı panoya kopyalanır). Düzeltilen dosyayı
-**Çeviri → Dış Redaksiyon → İçe Aktar** ile geri yükleyin; önizlemede değişiklikleri görür, geri alabilirsiniz.
+**Çeviri → Dış Redaksiyon → İçe Aktar** ile geri yükleyin; açılan pencerede değişiklikleri satır satır görür,
+beğenmediğinizi işaretten çıkarır, yazdıktan sonra geri alabilirsiniz.
 
 Denetimler: kontrol kodu (sayı, tür, sıra), boş çeviri, taşma, terim tutarsızlığı, aynı metnin farklı çevirisi,
 noktalama, çift boşluk, yazım ve uydurma şüphesi. Satırlar düzenlenirken de anlık denetlenir.

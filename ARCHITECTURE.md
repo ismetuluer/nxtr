@@ -1544,3 +1544,16 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     “kopyalanan sözcük” işaretlemesi ve otomatik terim adayları bu listeyi atlar. `yes`/`no` menü terimi olabildiği
     için listede değildir. Dışa aktarmada bölme parça sayısıyla yapılır (`csvio.rows_per_part`, `file_plan`; önizleme
     ve yazıcı aynı hesabı kullanır).
+246. **Dış alışveriş pencereleri tek pencere + canlı önizleme (ürün sahibi, 2026-11-21):** İçe aktarma artık bilgi
+    metni ile `ChangesDialog` önizlemesi yerine tek `ImportDialog` (`gui/import_dialog.py`): sanal `ImportModel`
+    (QAbstractTableModel; fark HTML'i yalnızca görünen satırlar için üretilir, satır yüksekliği `changes_dialog.
+    fit_visible_rows` ile görünenler için ölçülür), kodu uymayan satırlar listelenir ama işaretlenemez/düzenlenemez.
+    Dosya ekleme/kaldırma planı yeniden hesaplar; plan aynıysa kullanıcının işaretleri ve düzenlemeleri korunur.
+    Çekirdek: `csvio.plan_import_files` (dosya başına satır/düzeltme/eşleşme), `CsvPlan.rejected/matched_lines/
+    skipped`, `describe_import` (nedenler metni). Yazma mantığı denetleyicide aynen kaldı. `ChangesDialog`'un
+    yalnızca bu akışa hizmet eden `preview` kipi kaldırıldı (geçmiş ve son iş değişiklikleri etkilenmedi). Dışa
+    aktarma penceresi: çıkacak dosyalar `csvio.plan_files` ile hesaplanır (yazıcı `_write_parts` aynı işlevi kullanır,
+    ad şablonu ile gerçek dosya adı ayrışamaz), önizleme `csvio.preview_table`; kart sayısı 12 ile sınırlı, gruplar
+    kapsam başına önbelleklenir. Dosya boyutu tahmini bilinçle yazılmadı (gerçekçi tahmin için sıkıştırılmış XLSX'i
+    yazmak gerekir). Ortak parçalar `gui/dialog_parts.py`, stiller `theme._qss` (belirteç eklenmedi).
+

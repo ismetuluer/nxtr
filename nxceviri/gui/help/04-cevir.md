@@ -38,3 +38,20 @@ Sütun başlığına sağ tıklayarak sütun gizleyebilir, sembolleri (`Ctrl+Shi
 **Gruplu görünüm** (süzgeç şeridinin sağındaki düğme ya da Görünüm menüsü) satırları dosyaya ya da gruba göre
 öbekler; başlığa tıklayınca grup katlanır ya da açılır, başlıkta sağ tıkla hepsini birden katlayıp açabilirsiniz.
 Katlamak süzmek değildir: sayılar, Otomatik Çeviri ve Bul/Değiştir'in "Görünenler" kapsamı katlı satırları da sayar.
+
+## Dış redaksiyon ve dış çeviri
+
+**Çeviri → Dış Redaksiyon** ve **Çeviri → Dış Çeviri** menüleri çeviriyi başka bir yerde (sohbet modeli, çevirmen)
+yaptırıp geri almanızı sağlar.
+
+- **Dışa aktarırken** sol tarafta biçimi (Excel ya da TXT), hangi satırların yazılacağını ve dosyaların nasıl
+  bölüneceğini seçersiniz; sağda çıkacak dosyalar kartlar olarak, altında seçili dosyanın ilk satırları görünür.
+  Bir karta basınca o dosyanın satırlarını görürsünüz. **Model için hazır talimat** bölümünü açıp okuyabilir,
+  **Talimatı Kopyala** ile panoya alabilirsiniz.
+- **İçe aktarırken** dosyaları seçince tek pencere açılır: solda dosyalar (projeyle hiç eşleşmeyen dosya sarı
+  uyarıyla işaretlenir) ve sonuç sayıları, sağda yazılacak satırlar. Üstteki **Değişecek**, **Onaylıydı** ve
+  **Kod uymuyor** düğmeleriyle listeyi süzersiniz. Kontrol kodu uymayan satırlar listelenir ama yazılamaz;
+  mevcut çevirileri korunur. Beğenmediğiniz satırın işaretini kaldırın ya da metni çift tıklayıp düzeltin;
+  **Dosya ekle** ile (ör. parçalara bölünmüş) başka dosyalar da ekleyebilirsiniz. **Nedenleri göster** yazılmayan
+  satırların nedenlerini açar. Yazılanlar Geri Al ile geri alınır.
+

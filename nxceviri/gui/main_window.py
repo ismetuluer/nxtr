@@ -183,8 +183,8 @@ from nxceviri.gui.widgets import format_int, format_size
 #: `MANUAL_LIMIT_KEY` `checks_controller`'da tanımlıdır, buradan da alınabilsinler diye yeniden verilir.
 #: `implicit_terms`'i makine denetleyicisi bu modülden okur (testler onu burada değiştirir); `UpdateDialog`'u
 #: güncelleme, `replace_unknown`'u yazım denetimi denetleyicisi okur; `opened_view`, `check_sources` ve
-#: `member_reader`'ı font ve görseller denetleyicisi, `CsvExportDialog` ile `ChangesDialog`'u dış redaksiyon
-#: denetleyicisi, `check_sources` ile `extract_texts`'i tarama denetleyicisi okur.
+#: `member_reader`'ı font ve görseller denetleyicisi, `CsvExportDialog`'u dış redaksiyon denetleyicisi,
+#: `ChangesDialog`'u geçmiş denetleyicisi, `check_sources` ile `extract_texts`'i tarama denetleyicisi okur.
 __all__ = [
     "MANUAL_LIMIT_KEY",
     "MASCOT_SLEEP_S",
