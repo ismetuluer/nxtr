@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from nxceviri.core.container.display_name import readable_name
 from nxceviri.core.container.package import KIND_BASE, KIND_DLC, KIND_LABELS, KIND_UPDATE
 from nxceviri.core.project import SourceRecord
 from nxceviri.gui.icons import bind_icon
@@ -363,7 +364,7 @@ class GameCard(Card):
 
 
 class _Tile(QFrame):
-    def __init__(self, source: SourceRecord) -> None:
+    def __init__(self, source: SourceRecord, base_name: str = "") -> None:
         super().__init__()
         self.setObjectName("dlcTile")
         exists = source.path.is_file()
@@ -376,8 +377,9 @@ class _Tile(QFrame):
         self.dot.setProperty("state", "success" if exists else "danger")
         self.dot.setFixedSize(8, 8)
         row.addWidget(self.dot, alignment=Qt.AlignmentFlag.AlignVCenter)
-        self.name = ElidedLabel(source.name)
-        self.name.setToolTip(tip_html(f"{source.name}\n{source_tip(source)}"))
+        # DLC'de NACP yoktur: ad dosya adından türetilir; tam dosya adı ipucunda kalır.
+        self.name = ElidedLabel(readable_name(source.path.stem, base_name))
+        self.name.setToolTip(tip_html(source_tip(source)))
         row.addWidget(self.name, 1)
         self.link: QToolButton | None = None
         if exists:
@@ -459,8 +461,9 @@ class DlcCard(Card):
     def set_sources(self, sources: Sequence[SourceRecord]) -> None:
         dlcs = [(i, s) for i, s in enumerate(sources) if s.kind == KIND_DLC]
         tiles: list[_Tile] = []
+        base_name = next((s.name for s in sources if s.kind == KIND_BASE), "")
         for index, source in dlcs:
-            tile = _Tile(source)
+            tile = _Tile(source, base_name)
             tile.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
             tile.customContextMenuRequested.connect(lambda pos, t=tile, e=(index, source): self._popup(t, pos, e))
             if tile.link is not None:

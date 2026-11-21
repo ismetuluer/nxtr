@@ -280,3 +280,27 @@ def test_old_project_gets_icon_in_background_without_dirty_or_busy(
     reopened = Project.open(target)
     assert reopened.sources()[0].icon == icon
     reopened.close()
+
+
+def test_dlc_tile_shows_readable_name_with_full_file_name_in_tooltip(qtbot: QtBot, tmp_path: Path) -> None:
+    page = _page(qtbot)
+    long_name = "Deneme Oyunu - Standard Edition [Tehlike Destesi][0100ABCD00005004][USA][v0]"
+    page.set_sources([_source(tmp_path, "base", "Deneme Oyunu"), _source(tmp_path, "dlc", long_name)])
+    (tile,) = page.dlc_card.tiles
+    assert tile.name.full_text() == "Tehlike Destesi"
+    assert long_name in tile.name.toolTip()
+
+
+def test_header_title_never_clipped_in_narrow_page(qtbot: QtBot) -> None:
+    """Dar pencerede başlık kesilmez: yer yetmeyen durum çipi gizlenir (neden düğme ipucunda kalır)."""
+    page = AddGamePage()
+    qtbot.addWidget(page)
+    page.resize(500, 600)
+    page.show()
+    page.set_can_continue(False, "Anahtar dosyası seçin")
+    qtbot.waitUntil(lambda: page.header.title.width() >= page.header.title.sizeHint().width())
+    assert page.header.chip.isHidden()
+    assert "Anahtar dosyası seçin" in page.next_button.toolTip()
+    page.resize(1300, 600)
+    qtbot.waitUntil(lambda: not page.header.chip.isHidden())
+    assert page.header.title.width() >= page.header.title.sizeHint().width()

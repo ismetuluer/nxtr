@@ -5,7 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QHBoxLayout, QScrollArea, QToolButton, QVBoxLayout, QWidget
+from PySide6.QtGui import QResizeEvent
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QScrollArea, QToolButton, QVBoxLayout, QWidget
 
 from nxceviri.core.pipeline import SUPPORTED_SUFFIXES
 from nxceviri.core.project import SourceRecord
@@ -112,6 +113,7 @@ class AddGamePage(QWidget):
         lay.addWidget(self.drop)
         self._keys_ready = True
         self._busy = False
+        self._chip: tuple[str, str, list[str]] = ("", "", [])
 
         # --- son projeler (yalnızca ekran boşken) ---
         self.recent_card = Card("Son projeler")
@@ -218,17 +220,51 @@ class AddGamePage(QWidget):
         self.keys_button.setEnabled(not busy)
         self.drop.setAcceptDrops(not busy)
         self._sync_drop()
-        self.header.chip.show_status("neutral", text)
+        self._show_chip("neutral", text)
 
     def set_can_continue(self, ok: bool, reason: str) -> None:
         """Devam düğmesi; devam edilemiyorsa neden başlıktaki çipte (uzunsa ayrıntısında) ve düğme ipucunda."""
         self.next_button.setEnabled(ok)
         if ok:
-            self.header.chip.show_status("", "")
+            self._show_chip("", "")
             self.next_button.setToolTip("Metinleri taramaya geç")
             return
         self.next_button.setToolTip(tip_html(reason))
         if len(reason) <= CHIP_TEXT_LIMIT:
-            self.header.chip.show_status("neutral", reason)
+            self._show_chip("neutral", reason)
         else:
-            self.header.chip.show_status("neutral", "Devam edilemiyor", [reason])
+            self._show_chip("neutral", "Devam edilemiyor", [reason])
+
+    def _show_chip(self, state: str, text: str, details: list[str] | None = None) -> None:
+        self._chip = (state, text, details or [])
+        self.header.chip.show_status(state, text, self._chip[2])
+        self._fit_header()
+
+    def _fit_header(self) -> None:
+        """Başlık asla kesilmez: durum çipi ve düğmelerle birlikte sığmıyorsa çip gizlenir (neden düğme ipucunda ve
+        durum çubuğundaki anahtar bölmesinde zaten durur)."""
+        header = self.header
+        header.title.setMinimumWidth(header.title.sizeHint().width())
+        chip = header.chip
+        if not self.isVisible() or (chip.isHidden() and not self._chip[1]):
+            return
+        mark = header.findChild(QLabel, "titleIcon")
+        spacing = 10
+        needed = (
+            (mark.sizeHint().width() if mark else 0)
+            + header.title.sizeHint().width()
+            + chip.sizeHint().width()
+            + self.add_button.sizeHint().width()
+            + self.next_button.sizeHint().width()
+            + 8
+            + 4 * spacing
+        )
+        state, text, details = self._chip
+        if header.width() < needed:
+            chip.hide()
+        elif state and text and chip.isHidden():
+            chip.show_status(state, text, details)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._fit_header()
