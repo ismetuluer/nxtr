@@ -1,6 +1,7 @@
-# HANDOFF — oturum devri (2026-11-21, 0.71.0)
+# HANDOFF — oturum devri (2026-11-21, 0.72.0)
 
 ## Durum
+- **Sürüm 0.72.0** (2026-11-21; CHANGELOG 0.72.0): Oyunu Ekle oyun kartı (gui/game_card.py, simge/yayıncı şema 8, core/container/display_name.py; ARCHITECTURE 246), tek pencerede içe aktarma (gui/import_dialog.py) ve önizlemeli dışa aktarma (csv_dialog.py, csvio.plan_files/preview_table, boş kaynaklı satırlar atlanır; 247). Gerçek pencerede elle denenmedi.
 - **Sürüm 0.71.0** (2026-11-21; CHANGELOG 0.71.0): renk paletleri (theme.PALETTES; ARCHITECTURE 243), Kontrol Et karo sekmeleri ve rozetler (qa_tabbar.py, tab_badges.py; 244), Sığdırma tablosu tembel kurulum (kind_delegate.py; 244), işlev sözcükleri (core/spell/stopwords.py; 245), parça sayısıyla dışa aktarma (csvio.rows_per_part). Gerçek pencerede elle denenmedi.
 - **Sürüm 0.70.0** (2026-11-20; CHANGELOG 0.70.0): biçim eklentisi `font_support` ile fontlarla ne yaptığını bildirir; Font sekmesi, `font_verdict` ve `arac font` okunabilen font yokken bu bildirimi gösterir (registry `font_support_notes`; ARCHITECTURE 242).
 - **Sürüm 0.69.0** (2026-11-20; CHANGELOG 0.69.0): taşınan oyun dosyaları ad + boyutla yeniden bağlanır (core/project/relink.py; Dosya → Oyun Dosyalarının Yeni Yerini Göster…; ARCHITECTURE 240); TXT/XLSX içe aktarmada dosyanın ayıramadığı aynı içerikli satırlar tek geçişte aynı düzeltmeyi alır (csvio `_TxtMatcher`, `CsvPlan.same_content`; ARCHITECTURE 241). Bilinen sınır: dosyadaki çeviri sütunu eskimişse aynı dosyayı ikinci kez içe aktarmak bazı satırları yeniden değiştirir.

@@ -2,7 +2,7 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
-## [Yayımlanmadı]
+## [0.72.0] — 2026-11-21 — Oyun kartı, tek pencerede içe aktarma, önizlemeli dışa aktarma
 
 ### Değişti
 - **Oyunu Ekle yeni "oyun kartı" düzeninde:** kaynak dosya tablosu yerine oyunun simgesi, adı, yayıncısı, sürüm ve
@@ -18,6 +18,7 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
 - **Dışa aktarma penceresi önizlemeli:** sol panelde biçim, satırlar ve dosya ayarları; sağda çıkacak dosyalar kart
   olarak (kaydedilecek ad şablonuyla) ve seçili dosyanın gerçek sütunlarıyla ilk 20 satırı; ayar değiştikçe anında
   güncellenir. Model talimatı açılır bölümdedir. Çeviri, redaksiyon ve bulgu kipleri aynı düzeni kullanır.
+  Orijinali boş satırlar dış dosyaya yazılmaz (çevrilecek bir şey yok); kaç satırın atlandığı pencerede yazar.
 
 ## [0.71.0] — 2026-11-21 — Renk paletleri, Kontrol Et karo sekmeleri, donma düzeltmesi
 
