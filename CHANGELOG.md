@@ -2,6 +2,24 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.74.0] — 2026-11-22 — İçe aktarmada orijinal ve semboller, Çevir'de sağ tıkla düzeltme
+
+### Eklendi
+- **Çevir → sağ tık → Düzelt:** Kontrol Et'in önerdiği düzeltme (çift boşluk, kod sırası, terim…) çeviri
+  tablosundan da uygulanır; belirsiz sözcükler için “Şununla düzelt” seçenekleri de buradadır. Biçimi değiştiren
+  düzeltmeler tek satır seçiliyken sunulur. Sonuç Çevir sayfasında bildirilir.
+- **İçe aktarma penceresi** (dış çeviri / dış redaksiyon): ORİJİNAL sütunu geri geldi. Kodlar çeviri tablosundaki
+  gibi renkli çip (↵ satır sonu, § sayfa sonu, ◆ değişken…) ve yeni satır ¶ olarak görünür; başlıkta tek satırlık
+  açıklama var.
+
+### Değişti
+- Arayüz metinleri kısaldı: Metinleri Tara'daki düğme “Aktar”; diyalog başlıkları, ayar açıklamaları, bildirimler
+  ve uyarılar tek kısa cümle.
+
+### Düzeltildi
+- Dışa Aktar: fontları eklenti yamalıyorsa “Fontlar taranmadı” uyarısı çıkmaz.
+- Metinleri Tara: projedeki metin dosyalarını içermeyen eski rapor “Desteklenmeyen biçim” yerine “Tarama eski” der.
+
 ## [0.73.1] — 2026-11-21 — Grafik denetiminde alt klasörler
 
 ### Düzeltildi

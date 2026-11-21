@@ -1,6 +1,7 @@
-# HANDOFF — oturum devri (2026-11-21, 0.73.1)
+# HANDOFF — oturum devri (2026-11-22, 0.74.0)
 
 ## Durum
+- **Sürüm 0.74.0** (2026-11-22; CHANGELOG 0.74.0): Çevir sağ tık Düzelt (translate_page._add_fix_actions, checks.apply_fixes on_translate); içe aktarmada ORİJİNAL sütunu ve kod çipleri (textmarks.inline_marks_html); kısa arayüz metinleri.
 - **Sürüm 0.73.1** (2026-11-21; CHANGELOG 0.73.1): Kontrol Et → Grafik alt klasörleri okur (core/qa/graphics._images göreli yol adı; denetleyici alt klasörleri izler).
 - **Sürüm 0.73.0** (2026-11-21; CHANGELOG 0.73.0): konsol temaları — şekil/yazı tipi katmanı ThemeStyle (gui/theme_style.py), beş tema gui/console_themes.py, adım işaretleri gui/step_markers.py, Gece Mavisi üst gezinme main_layout.apply_nav_position, OFL yazı tipleri gui/fonts/ (ARCHITECTURE 248). Gerçek pencerede elle denenmedi.
 - **Sürüm 0.72.0** (2026-11-21; CHANGELOG 0.72.0): Oyunu Ekle oyun kartı (gui/game_card.py, simge/yayıncı şema 8, core/container/display_name.py; ARCHITECTURE 246), tek pencerede içe aktarma (gui/import_dialog.py) ve önizlemeli dışa aktarma (csv_dialog.py, csvio.plan_files/preview_table, boş kaynaklı satırlar atlanır; 247). Gerçek pencerede elle denenmedi.
