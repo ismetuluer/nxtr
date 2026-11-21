@@ -2,6 +2,13 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.73.1] — 2026-11-21 — Grafik denetiminde alt klasörler
+
+### Düzeltildi
+- **Kontrol Et → Grafik** alt klasörleri de okur. Oyunun klasör düzenini koruyan grafik klasöründe (`orijinal/images/…`)
+  sekme “Orijinal resim yok” diyordu. Türkçe resim, özgünüyle aynı alt klasörde ve aynı adla eşlenir; listede adı bu
+  göreli yoldur. Alt klasöre kaydedilen resim de izlenir. Düz klasörlerde davranış ve önceki onaylar değişmedi.
+
 ## [0.73.0] — 2026-11-21 — Konsol temaları
 
 ### Eklendi
