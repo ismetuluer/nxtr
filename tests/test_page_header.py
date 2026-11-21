@@ -314,6 +314,35 @@ def test_scan_unsupported_chip_is_warning(qtbot: QtBot) -> None:
     assert page.report.import_button.isHidden()
 
 
+def test_scan_stale_report_asks_rescan_instead_of_unsupported(qtbot: QtBot) -> None:
+    """Kayıtlı rapor projedeki metin dosyalarını içermiyorsa (eklentiden önce taranmış) eski sayılır."""
+    page = _scan_page(qtbot)
+    page.show_report(_report([_entry("romfs/x.bin", _unsupported_kind())]), ["romfs/a.sdftoc>loc/en.locpackbin"])
+    chip = page.header.chip
+    assert chip.property("state") == "warning"
+    assert chip.text() == "Tarama eski"
+    assert any("Yeniden Tara" in line for line in chip.details())
+    assert not any("desteklenen bir metin biçimi bulunamadı" in line for line in chip.details())
+
+
+def test_scan_stale_report_with_supported_files_warns(qtbot: QtBot) -> None:
+    page = _scan_page(qtbot)
+    page.show_report(
+        _report([_entry("romfs/Message/USen/a.msbt", FileKind.MSBT.value)]),
+        ["romfs/Message/USen/a.msbt", "romfs/a.sdftoc>loc/en.locpackbin"],
+    )
+    chip = page.header.chip
+    assert chip.property("state") == "warning"
+    assert any("Yeniden Tara" in line for line in chip.details())
+
+
+def test_scan_current_report_with_imported_files_is_not_stale(qtbot: QtBot) -> None:
+    page = _scan_page(qtbot)
+    page.show_report(_report([_entry("romfs/Message/USen/a.msbt", FileKind.MSBT.value)]), ["romfs/Message/USen/a.msbt"])
+    assert page.header.chip.property("state") == "success"
+    assert not any("Yeniden Tara" in line for line in page.header.chip.details())
+
+
 def test_scan_chip_hidden_outside_report(qtbot: QtBot) -> None:
     page = _scan_page(qtbot)
     page.show_report(_report([_entry("romfs/Message/USen/a.msbt", FileKind.MSBT.value)], ["uyarı"]))

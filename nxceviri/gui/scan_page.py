@@ -653,14 +653,27 @@ class ReportView(QWidget):
         self.language.blockSignals(False)
         has_choice = bool(supported) and len(languages) > 1
         self.has_language_choice = has_choice
-        if supported:
+        # Projede aktarılmış ama raporda olmayan metin dosyası varsa rapor eskidir (ör. eklentiden önce taranmış).
+        listed = {e.path for e in supported}
+        missing = sum(1 for path in imported_paths if path not in listed)
+        stale = (
+            f"Bu tarama raporu güncel değil: projedeki {format_int(missing)} metin dosyası raporda yok (tarama, "
+            "eklenti kurulmadan ya da güncellenmeden önce yapılmış olabilir). Güncel sonuç için Yeniden Tara'ya basın."
+            if missing
+            else ""
+        )
+        if stale and not supported:
+            self._status = None
+            self.status_changed.emit("warning", "Tarama eski", [stale, *report.warnings])
+        elif supported:
             formats = sorted({kind_label(e.kind) for e in supported})
             note = f"{format_int(len(supported))} dosyadan metin aktarılabilir ({', '.join(formats)})."
             if has_choice:
                 note += f" {len(languages)} dil var; başka dildeki dosyalar işaretlenmez."
             if others:
                 note += f" Henüz desteklenmeyen metin türleri de var: {', '.join(others)}."
-            self._status = ("warning" if report.warnings else "success", note, list(report.warnings))
+            warnings = [stale, *report.warnings] if stale else list(report.warnings)
+            self._status = ("warning" if warnings else "success", note, warnings)
         else:
             note = (
                 "Bu oyunda henüz desteklenen bir metin biçimi bulunamadı"
