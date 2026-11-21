@@ -184,14 +184,12 @@ class ExchangeController:
             shown = "TXT" if txt else "XLSX"
             page.show_notice(
                 "success",
-                f"{format_int(len(dialog.rows()))} satır {shown} çeviri dosyasına yazıldı: {files}. Çeviri talimatı "
-                "panoya kopyalandı. Çevrilen dosyaları Çeviri → Dış Çeviri → “İçe Aktar” ile geri yükleyin.",
+                f"{format_int(len(dialog.rows()))} satır yazıldı ({shown}): {files}. Talimat panoya kopyalandı.",
             )
         else:
             page.show_notice(
                 "success",
-                f"{format_int(len(dialog.rows()))} satır yazıldı: {files}. Model için hazır talimat panoya kopyalandı. "
-                "Redakte edilen dosyaları Çeviri → Dış Redaksiyon → “İçe Aktar” ile geri yükleyin.",
+                f"{format_int(len(dialog.rows()))} satır yazıldı: {files}. Talimat panoya kopyalandı.",
             )
 
     def export_findings(self) -> None:
@@ -261,8 +259,7 @@ class ExchangeController:
         win.notify(
             LEVEL_SUCCESS,
             title,
-            f"{format_int(len(rows))} satır bulgularıyla yazıldı: {files}. Model için hazır talimat panoya "
-            "kopyalandı. Düzeltilen dosyaları Çeviri → Dış Redaksiyon → “İçe Aktar” ile geri yükleyin.",
+            f"{format_int(len(rows))} satır bulgularıyla yazıldı: {files}. Talimat panoya kopyalandı.",
         )
 
     def import_csv(self) -> None:

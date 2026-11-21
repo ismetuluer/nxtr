@@ -103,28 +103,18 @@ class CsvExportDialog(QDialog):
         self._findings = mode == MODE_FINDINGS
         if self._translation:
             self.setWindowTitle("Dış çeviri dosyası oluştur")
-            heading = "Çevirileri dış çeviri için dışa aktar"
-            description = (
-                "Dosyayı bir çevirmene veya sohbet modeline aşağıdaki talimatla verip çevirtebilir, sonucu "
-                "Çeviri → Dış Çeviri → “İçe Aktar” ile geri yükleyebilirsiniz."
-            )
+            heading = "Dış çeviri"
+            description = "Sonucu Dış Çeviri → İçe Aktar ile yükleyin."
             column_word = "yeni çeviri"
         elif self._findings:
             self.setWindowTitle("Kontrol bulgularını dışa aktar")
-            heading = "Kontrol Et bulgularını satırlarıyla dışa aktar"
-            description = (
-                "Her satırın bulguları “bulgu” sütununa yazılır (yalnızca bilgi içindir). Dosyayı bir sohbet "
-                "modeline aşağıdaki talimatla verip düzelttirebilir, sonucu Çeviri → Dış Redaksiyon → "
-                "“İçe Aktar” ile geri yükleyebilirsiniz."
-            )
+            heading = "Bulguları dışa aktar"
+            description = "Sonucu Dış Redaksiyon → İçe Aktar ile yükleyin."
             column_word = "düzeltme"
         else:
             self.setWindowTitle("Dış redaksiyon dosyası oluştur")
-            heading = "Çevirileri dış redaksiyon için dışa aktar"
-            description = (
-                "Dosyayı bir sohbet modeline (ör. ücretsiz bir web modeli) aşağıdaki talimatla verip redakte "
-                "ettirebilir, sonucu Çeviri → Dış Redaksiyon → “İçe Aktar” ile geri yükleyebilirsiniz."
-            )
+            heading = "Dış redaksiyon"
+            description = "Sonucu Dış Redaksiyon → İçe Aktar ile yükleyin."
             column_word = "düzeltme"
         self.resize(1100, 720)
         self.setMinimumSize(720, 520)

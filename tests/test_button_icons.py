@@ -22,7 +22,7 @@ BUTTON_ICONS = [
     ("add_game_page.py", "prod.keys Seç…", "key-round"),
     ("add_game_page.py", "Metinleri Tara  →", "scan-search"),
     ("scan_page.py", "Yeniden Tara", "refresh-cw"),
-    ("scan_page.py", "Metinleri Çeviri Tablosuna Aktar  →", "languages"),
+    ("scan_page.py", "Aktar  →", "languages"),
     ("scan_page.py", "Taramayı Başlat", "scan-search"),
     ("scan_page.py", "Tekrar Dene", "refresh-cw"),
     ("qa_page.py", "Fontları Tara", "scan-search"),

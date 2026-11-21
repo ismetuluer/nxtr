@@ -507,7 +507,7 @@ class GraphicsCheckTab(QWidget):
         self.stack.addWidget(self.no_originals)
 
         # Denetleniyor.
-        self.loading = BusyState("Resimler denetleniyor", "Özgün ve Türkçe resimler karşılaştırılıyor.")
+        self.loading = BusyState("Resimler denetleniyor")
         self.stack.addWidget(self.loading)
 
         # Hata.

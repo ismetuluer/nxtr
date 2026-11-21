@@ -424,7 +424,8 @@ class ReportView(QWidget):
         )
         self.summary.header_right.addWidget(self.language_label)
         self.summary.header_right.addWidget(self.language)
-        self.import_button = button("Metinleri Çeviri Tablosuna Aktar  →", "primary", icon="languages")
+        self.import_button = button("Aktar  →", "primary", icon="languages")
+        self.import_button.setToolTip("Seçili dosyaların metinlerini çeviri tablosuna aktar")
         self.import_button.clicked.connect(self.import_requested)
         self.can_import = False
         self.has_language_choice = False
@@ -656,12 +657,7 @@ class ReportView(QWidget):
         # Projede aktarılmış ama raporda olmayan metin dosyası varsa rapor eskidir (ör. eklentiden önce taranmış).
         listed = {e.path for e in supported}
         missing = sum(1 for path in imported_paths if path not in listed)
-        stale = (
-            f"Bu tarama raporu güncel değil: projedeki {format_int(missing)} metin dosyası raporda yok (tarama, "
-            "eklenti kurulmadan ya da güncellenmeden önce yapılmış olabilir). Güncel sonuç için Yeniden Tara'ya basın."
-            if missing
-            else ""
-        )
+        stale = f"{format_int(missing)} metin dosyası raporda yok. Yeniden Tara'ya basın." if missing else ""
         if stale and not supported:
             self._status = None
             self.status_changed.emit("warning", "Tarama eski", [stale, *report.warnings])

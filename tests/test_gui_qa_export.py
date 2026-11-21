@@ -98,7 +98,7 @@ def test_exports_visible_findings_once_per_row(
     sources = [line.split("\t")[0] for line in lines[1:]]
     assert sorted(sources) == ["Go on and on", "Hello ", "Start Game"]  # temiz satır yok, her satır bir kez
     assert all(line.split("\t")[4] for line in lines[1:])
-    assert "Dış Redaksiyon → “İçe Aktar”" in notices[-1][1]
+    assert "Talimat panoya kopyalandı" in notices[-1][1]
     assert "3 satır" in notices[-1][1]
     assert "bulgu" in QGuiApplication.clipboard().text()
 

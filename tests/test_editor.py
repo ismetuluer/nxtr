@@ -488,7 +488,7 @@ def test_translation_export_and_import_uses_translation_columns(
     assert seen["title"] == "Dış çeviri dosyasını kaydet"
     assert seen["start"].endswith("_ceviri.txt")
     assert target.exists()
-    assert "çeviri dosyasına yazıldı" in page.notice_text
+    assert "satır yazıldı (TXT)" in page.notice_text
     assert "yeni çeviri" in target.read_text(encoding="utf-8-sig").splitlines()[0]
 
     text = target.read_text(encoding="utf-8-sig")

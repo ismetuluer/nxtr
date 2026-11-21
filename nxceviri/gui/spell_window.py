@@ -33,7 +33,7 @@ from nxceviri.gui.widgets import BusyState, button, format_int, label, title_row
 
 _EMPTY_TEXT = "Bilinmeyen sözcük yok"
 _SCANNING_TEXT = "Sözcükler taranıyor"
-_SCANNING_HINT = "Büyük projede birkaç saniye sürebilir; pencere hazır olunca liste dolar."
+_SCANNING_HINT = ""
 _WORD_COLUMN = 0
 _COUNT_COLUMN = 1
 _SUGGEST_COLUMN = 2

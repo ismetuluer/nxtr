@@ -83,7 +83,7 @@ class ExportController:
         # Fontları eklenti kendisi yamalıyorsa (Kontrol Et → Font da bunu söyler) tarama istenmez.
         plugin_fonts = registry.font_support_notes((t, kind) for _p, t, kind in project.text_files())
         if not project.setting("font_missing") and self._win.font_report is None and not plugin_fonts:
-            notes.append("Fontlar henüz taranmadı; “Kontrol Et” adımında Türkçe harfleri denetlemeniz önerilir.")
+            notes.append("Fontlar taranmadı (Kontrol Et → Font).")
         page.set_notes(problems, notes[len(problems) :])
         page.set_summary(
             written=written,

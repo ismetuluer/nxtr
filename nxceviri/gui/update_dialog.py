@@ -125,7 +125,7 @@ class UpdateDialog(QDialog):
         if git_mode:
             lay.addWidget(
                 label(
-                    "Bu klasör bir git deposu: yeni sürüm denetlenir, güncellemek için “git pull” çalıştırılır.",
+                    "Git deposu: güncellemek için “git pull”.",
                     "muted",
                     wrap=True,
                 )

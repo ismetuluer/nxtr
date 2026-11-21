@@ -58,7 +58,7 @@ WATCH_DEBOUNCE_MS = 300
 #: İzleyicinin tetiklediği denetimde dosya okunamazsa (yarım yazılmış) en çok bu kadar kez yeniden denenir.
 WATCH_RETRIES = 3
 
-INFO_NO_SUPPORT = "Bu oyunda resimler moda kendiliğinden yerleşmez; burada yalnızca karşılaştırılır."
+INFO_NO_SUPPORT = "Bu oyunda resimler moda eklenmez; yalnızca karşılaştırılır."
 ORIGINAL_DIR = "orijinal"
 
 

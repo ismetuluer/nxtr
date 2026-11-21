@@ -664,8 +664,7 @@ class SettingsDialog(QDialog):
         page, lay = _page_layout()
         lay.addWidget(
             label(
-                "Çeviri tablosunda satırlar yazılırken hangi sorunların hemen gösterileceği. "
-                "Kapalı türler yine de Kontrol Et'te bulunur.",
+                "Yazarken gösterilecek sorunlar. Kapalılar Kontrol Et'te yine bulunur.",
                 "muted",
                 wrap=True,
             )
@@ -696,9 +695,7 @@ class SettingsDialog(QDialog):
         lay.addWidget(self.spell_copied_box)
         lay.addWidget(
             label(
-                "Yazım denetimi varsayılan olarak orijinalde de geçen sözcükleri (korunan özel adlar) işaretlemez. "
-                "Açarsanız çeviride İngilizce kalmış terimlerin de altı çizilir; "
-                "gerçek adlar için yazım sözlüğüne ekleyin.",
+                "İngilizce kalmış terimleri yakalar; özel adları sözlüğe ekleyin.",
                 "muted",
                 wrap=True,
             )

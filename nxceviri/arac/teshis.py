@@ -220,7 +220,7 @@ def sonraki_adim(veri: TeshisVerisi) -> list[str]:
     if veri.taninanlar:
         adimlar.append(
             "Uygulama bu oyundaki bazı dosyaları zaten tanıyor: uygulamada Metinleri Tara adımından devam edin, "
-            "ardından Metinleri Çeviri Tablosuna Aktar'ı deneyin."
+            "ardından Metinleri Tara → Aktar'ı deneyin."
         )
     if veri.adaylar:
         adimlar.append(

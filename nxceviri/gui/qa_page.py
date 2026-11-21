@@ -1277,8 +1277,7 @@ class QaPage(QWidget):
             ad, cumle = plugin_notes[0]
             self.font_banner.show_message(
                 "success",
-                f"Bu oyunun fontları “{ad}” eklentisinde: {cumle} Eklenen harfler dışa aktarmada bilgi dosyasında "
-                "listelenir.",
+                f"Fontlar “{ad}” eklentisinde: {cumle}",
             )
         elif not report.fonts:
             self.font_banner.show_message(

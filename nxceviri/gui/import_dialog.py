@@ -337,7 +337,7 @@ class ImportDialog(QDialog):
         root.setSpacing(0)
         header, header_row = header_bar(
             title,
-            f"Dosyadaki “{self._column_word}” sütunu okunur; yalnızca değişen satırlar yazılır.",
+            "Yalnızca değişen satırlar yazılır.",
         )
         self.add_button = button("Dosya ekle", icon="file-plus")
         self.add_button.setToolTip("Aynı projeye ait başka dosyaları da ekleyin (ör. parçalara bölünmüş dosyalar).")

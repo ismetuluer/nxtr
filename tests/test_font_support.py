@@ -66,7 +66,7 @@ def test_font_tab_shows_plugin_info_banner(qtbot: QtBot) -> None:
     text = page.font_banner.text.text()
     assert "Demo Eklenti" in text
     assert CUMLE in text
-    assert "bilgi dosyasında" in text
+    assert "bilgi dosyasında" not in text  # kısa tutulur: tek cümle
     assert "bulunamadı" not in text
     assert page.font_banner.property("state") == "success"
 
@@ -95,14 +95,14 @@ def test_export_does_not_ask_font_scan_when_plugin_handles_fonts(
     qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _kaydet(monkeypatch, CUMLE)
-    assert not any("Fontlar henüz taranmadı" in n for n in _export_notes(qtbot, tmp_path))
+    assert not any("Fontlar taranmadı" in n for n in _export_notes(qtbot, tmp_path))
 
 
 def test_export_asks_font_scan_without_plugin_claim(
     qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _kaydet(monkeypatch, None)
-    assert any("Fontlar henüz taranmadı" in n for n in _export_notes(qtbot, tmp_path))
+    assert any("Fontlar taranmadı" in n for n in _export_notes(qtbot, tmp_path))
 
 
 def test_font_tab_keeps_warning_without_plugin_claim(qtbot: QtBot) -> None:
