@@ -567,8 +567,13 @@ def current_tokens() -> dict[str, str]:
 
 
 def current_style() -> ThemeStyle:
-    """Şu an uygulanmış temanın şekli ve yazı tipleri (boyanan öğeler köşe/çizgi için bunu okur)."""
-    return _active_style[0] if _active_style else DEFAULT_STYLE
+    """Şu an uygulanmış temanın şekli ve yazı tipleri (boyanan öğeler köşe/çizgi için bunu okur).
+
+    `current_tokens` gibi: uygulama paleti tema dışında değiştirildiyse etkin tema geçersizdir, varsayılan şekil döner.
+    """
+    if _active_style and _active and QColor(_active[0]["bg"]) == QApplication.palette().window().color():
+        return _active_style[0]
+    return DEFAULT_STYLE
 
 
 def _theme_families() -> set[str]:

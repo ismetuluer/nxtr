@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from fontTools.ttLib import TTFont
 from PySide6.QtGui import QFont, QFontDatabase, QFontInfo, QFontMetrics
+from PySide6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
 from nxceviri.gui.theme import palette_style
@@ -87,3 +88,25 @@ def test_bold_weight_resolves_to_a_wider_face(qtbot: QtBot, folder: str, family:
     bold.setWeight(QFont.Weight.Bold)
     assert QFontInfo(bold).family() == family
     assert QFontMetrics(bold).horizontalAdvance(text) != QFontMetrics(regular).horizontalAdvance(text)
+
+
+def test_style_follows_tokens_when_palette_is_replaced(qtbot: QtBot) -> None:
+    """Uygulama paleti tema dışında değiştirilince (ör. test temizliği) şekil de renklerle birlikte varsayılana düşer;
+    aksi hâlde sonraki çizimler eski temanın işaretleriyle yapılırdı."""
+    from PySide6.QtGui import QPalette
+
+    from nxceviri.gui.theme import ThemeMode, apply_theme, current_style
+
+    app = QApplication.instance()
+    assert isinstance(app, QApplication)
+    palette, style_sheet, font = app.palette(), app.styleSheet(), app.font()
+    try:
+        apply_theme(app, ThemeMode.LIGHT, palette="Piksel Gri")
+        assert current_style().step_marker == "cursor"
+        app.setPalette(QPalette())
+        assert current_style() is DEFAULT_STYLE
+    finally:
+        apply_theme(app, ThemeMode.LIGHT)
+        app.setPalette(palette)
+        app.setStyleSheet(style_sheet)
+        app.setFont(font)
