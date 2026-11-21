@@ -141,7 +141,8 @@ def test_palette_combo_emits_signal(qtbot: QtBot, env: Env) -> None:
 
     dialog = env.dialog(theme=ThemeMode.LIGHT, font_size=10, palette=DEFAULT_PALETTE)
     combo = dialog.palette_combo
-    assert [combo.itemData(i) for i in range(combo.count())] == list(PALETTES)
+    # Renk paletleriyle konsol temaları arasında ayırıcı vardır (verisi yok).
+    assert [combo.itemData(i) for i in range(combo.count()) if combo.itemData(i) is not None] == list(PALETTES)
     assert combo.currentData() == DEFAULT_PALETTE
     other = next(n for n in PALETTES if n != DEFAULT_PALETTE)
     with qtbot.waitSignal(dialog.palette_changed) as sig:

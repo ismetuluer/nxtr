@@ -14,5 +14,11 @@ SPACE_STEPS = (S4, S8, S12, S16, S24)
 R4, R6, R8, R12 = 4, 6, 8, 12
 RADIUS_STEPS = (R4, R6, R8, R12)
 
+#: Konsol temalarının ek köşe basamakları: R0 keskin köşe (Piksel Gri, Yeşil Işık), R2 hafif yuvarlak, R16/R20/R24 çok
+#: yuvarlak kart, hap düğme ve gezinme sütunu köşesi. Yalnızca `theme_style.ThemeStyle` değerleri bunları kullanır;
+#: varsayılan tema yukarıdaki dört basamakta kalır.
+R0, R2, R16, R20, R24 = 0, 2, 16, 20, 24
+EXTRA_RADIUS_STEPS = (R0, R2, R16, R20, R24)
+
 #: Onay kutusu ve radyo göstergesinin kenarı (px); radyonun yarıçapı bunun yarısıdır.
 INDICATOR = 14

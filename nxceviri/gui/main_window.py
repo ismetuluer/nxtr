@@ -169,10 +169,12 @@ from nxceviri.gui.theme import (
     DEFAULT_FONT_SIZE,
     DEFAULT_PALETTE,
     FONT_SIZES,
+    MODE_LOCK_TIP,
     PALETTES,
     ThemeMode,
     apply_theme,
     clamp_font_size,
+    palette_style,
 )
 from nxceviri.gui.translate_page import TranslatePage
 from nxceviri.gui.update_controller import UpdateController
@@ -617,6 +619,14 @@ class MainWindow(QMainWindow):
             apply_theme(app, self._theme_mode(), self._font_size(), name)
         for act in self.palette_group.actions():
             act.setChecked(act.data() == name)
+        self._refresh_mode_lock()
+
+    def _refresh_mode_lock(self) -> None:
+        """Sabit şemalı tema (konsol teması) etkinken Açık / Koyu seçenekleri kapatılır; kayıtlı seçim değişmez."""
+        locked = palette_style(self._palette_name()).scheme is not None
+        for act in self.theme_group.actions():
+            act.setEnabled(not locked)
+            act.setToolTip(MODE_LOCK_TIP if locked else "")
 
     def _set_font_size(self, size: int) -> None:
         size = clamp_font_size(size)

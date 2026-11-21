@@ -19,9 +19,9 @@ from pathlib import Path
 from PySide6.QtCore import QByteArray, QRectF, Qt
 from PySide6.QtGui import QAction, QGuiApplication, QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
-from PySide6.QtWidgets import QAbstractButton, QLabel
+from PySide6.QtWidgets import QAbstractButton, QLabel, QPushButton
 
-from nxceviri.gui.theme import current_tokens
+from nxceviri.gui.theme import current_style, current_tokens
 
 log = logging.getLogger(__name__)
 
@@ -87,7 +87,18 @@ def icon(name: str, color: str | None = None, size: int = DEFAULT_SIZE) -> QIcon
 
 
 def _apply(target: _Target, name: str, size: int, tone: str | None) -> None:
-    result = icon(name, current_tokens()[tone] if tone else None, size)
+    tokens = current_tokens()
+    color = tokens[tone] if tone else None
+    # Konsol temalarında birincil düğmenin zemini vurgu rengidir; simge de üstündeki yazı rengini alır
+    # (varsayılan temada metin rengi kalır: görünüm değişmez).
+    if (
+        color is None
+        and current_style().key
+        and isinstance(target, QPushButton)
+        and target.property("kind") == "primary"
+    ):
+        color = tokens["accent_text"]
+    result = icon(name, color, size)
     if isinstance(target, QLabel):
         target.setPixmap(result.pixmap(size, size))
     else:

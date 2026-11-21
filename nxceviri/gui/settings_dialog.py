@@ -53,7 +53,17 @@ from nxceviri.gui.shortcuts import (
     display_text,
     reserved_reason,
 )
-from nxceviri.gui.theme import DEFAULT_PALETTE, FONT_SIZES, PALETTES, THEME_LABELS, ThemeMode, clamp_font_size
+from nxceviri.gui.theme import (
+    DEFAULT_PALETTE,
+    FONT_SIZES,
+    MODE_LOCK_TIP,
+    PALETTES,
+    THEME_LABELS,
+    ThemeMode,
+    clamp_font_size,
+    first_console_theme,
+    palette_style,
+)
 from nxceviri.gui.update_dialog import AUTO_CHECK_KEY, auto_check_enabled
 from nxceviri.gui.view_actions import ALIGN_CENTER, ALIGN_LEFT, ALIGN_RIGHT, PANE_BOTTOM, PANE_RIGHT, ViewActions
 from nxceviri.gui.widgets import Banner, button, label
@@ -400,14 +410,17 @@ class SettingsDialog(QDialog):
             self.theme_combo.addItem(text, mode)
         self.theme_combo.setCurrentIndex(max(self.theme_combo.findData(theme), 0))
         self.theme_combo.currentIndexChanged.connect(self._on_theme)
-        form.addRow("Tema:", self.theme_combo)
+        form.addRow("Açık / Koyu:", self.theme_combo)
 
         self.palette_combo = QComboBox()
         for name in PALETTES:
+            if name == first_console_theme():
+                self.palette_combo.insertSeparator(self.palette_combo.count())
             self.palette_combo.addItem(name, name)
         self.palette_combo.setCurrentIndex(max(self.palette_combo.findData(self._palette), 0))
         self.palette_combo.currentIndexChanged.connect(self._on_palette)
-        form.addRow("Renk paleti:", self.palette_combo)
+        form.addRow("Tema:", self.palette_combo)
+        self._show_mode_lock(self._palette)
 
         self.font_combo = QComboBox()
         for size in FONT_SIZES:
@@ -458,7 +471,15 @@ class SettingsDialog(QDialog):
         self.theme_changed.emit(ThemeMode(str(self.theme_combo.currentData())))
 
     def _on_palette(self) -> None:
-        self.palette_changed.emit(str(self.palette_combo.currentData()))
+        name = str(self.palette_combo.currentData())
+        self._show_mode_lock(name)
+        self.palette_changed.emit(name)
+
+    def _show_mode_lock(self, palette: str) -> None:
+        """Sabit şemalı temada Açık / Koyu seçimi etkisizdir: açılır liste kapatılır, nedeni ipucunda yazar."""
+        locked = palette_style(palette).scheme is not None
+        self.theme_combo.setEnabled(not locked)
+        self.theme_combo.setToolTip(MODE_LOCK_TIP if locked else "")
 
     def _on_font_size(self) -> None:
         self.font_size_changed.emit(int(self.font_combo.currentData()))

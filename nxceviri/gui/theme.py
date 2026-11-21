@@ -11,7 +11,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QGuiApplication, QPalette
 from PySide6.QtWidgets import QApplication
 
-from nxceviri.gui.scale import INDICATOR, R4, R6, R8, R12, S4, S8, S12, S16, S24
+from nxceviri.gui.console_themes import CONSOLE_THEMES, extra_qss
+from nxceviri.gui.scale import INDICATOR, S4, S8, S12, S16, S24
+from nxceviri.gui.theme_style import DEFAULT_STYLE, ThemeStyle, nav_color, register_fonts
 
 log = logging.getLogger(__name__)
 
@@ -118,11 +120,42 @@ PALETTES: dict[str, tuple[dict[str, str], dict[str, str]]] = {
     ),
 }
 
+#: Konsol temaları (renk + şekil + yazı tipi): menüde "Tema" listesinde renk paletlerinin ardından gelir.
+#: Katman, temanın sabit şemasının `TOKENS` tablosuna bindirilir (iki yuvaya da aynı katman konur).
+for _name, (_style, _layer) in CONSOLE_THEMES.items():
+    PALETTES[_name] = (_layer, _layer)
+
+#: Palet adı → şekil/yazı tipi; konsol dışındaki paletler `DEFAULT_STYLE` kullanır.
+STYLES: dict[str, ThemeStyle] = {name: style for name, (style, _) in CONSOLE_THEMES.items()}
+
+
+def palette_style(palette: str) -> ThemeStyle:
+    """Paletin şekil/yazı tipi stili; bilinmeyen palet ve renk paletleri varsayılan stildir."""
+    return STYLES.get(palette, DEFAULT_STYLE)
+
 
 def palette_tokens(scheme: str, palette: str = DEFAULT_PALETTE) -> dict[str, str]:
-    """`scheme` ("light"/"dark") belirteçlerinin üstüne palet katmanını bindirir; bilinmeyen palet varsayılandır."""
+    """`scheme` ("light"/"dark") belirteçlerinin üstüne palet katmanını bindirir; bilinmeyen palet varsayılandır.
+
+    Sabit şemalı temalar (konsol temaları) istenen şemayı yok sayar ve kendi şemasını kullanır.
+    """
+    scheme = palette_style(palette).scheme or scheme
     light, dark = PALETTES.get(palette, PALETTES[DEFAULT_PALETTE])
     return {**TOKENS[scheme], **(dark if scheme == "dark" else light)}
+
+
+#: Sabit şemalı tema etkinken Açık / Koyu denetimlerinin ipucu.
+MODE_LOCK_TIP = "Bu tema kendi renklerini kullanır."
+
+
+def first_console_theme() -> str:
+    """Menüde ve listede renk paletlerinden sonra gelen ilk konsol temasının adı (ayırıcı yeri); yoksa boş."""
+    return next(iter(CONSOLE_THEMES), "")
+
+
+def effective_scheme(mode: ThemeMode, palette: str = DEFAULT_PALETTE) -> str:
+    """Gerçekten kullanılacak şema: tema sabit şemalıysa o, değilse Sistem/Açık/Koyu seçimi."""
+    return palette_style(palette).scheme or resolve(mode)
 
 
 def hex_contrast(a: str, b: str) -> float:
@@ -205,9 +238,22 @@ def _radio_dot(color: str) -> str:
     return _color_svg("nokta", _DOT_SVG, color)
 
 
-def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
+def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE, st: ThemeStyle = DEFAULT_STYLE) -> str:
     def size(factor: float) -> str:
         return f"{round(pt * factor, 1)}pt"
+
+    bw = st.border  # çerçeve kalınlığı
+    line = f"{bw}px solid {t['border']}"
+    # Köşe yarıçapları: küçük, giriş/sekme, düğme, panel/satır, kart, çip/hap.
+    rs, rc, rb, rp, rk, rl = (
+        st.radius_small,
+        st.radius_control,
+        st.radius_button,
+        st.radius_panel,
+        st.radius_card,
+        st.radius_pill,
+    )
+    nav_bg = nav_color(t, "nav_bg")
 
     check = _check_mark(t["accent_text"])
     dot = _radio_dot(t["accent_text"])
@@ -215,7 +261,7 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     up_off, down_off = _chevron("yukari", t["border"]), _chevron("asagi", t["border"])
     return f"""
     QCheckBox::indicator, QAbstractItemView::indicator {{
-        width: {INDICATOR}px; height: {INDICATOR}px; border: 1px solid {t["muted"]}; border-radius: {R4}px;
+        width: {INDICATOR}px; height: {INDICATOR}px; border: {bw}px solid {t["muted"]}; border-radius: {rs}px;
         background: {t["surface"]};
     }}
     QCheckBox::indicator:checked, QAbstractItemView::indicator:checked {{
@@ -223,7 +269,7 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     }}
     QCheckBox::indicator:disabled, QAbstractItemView::indicator:disabled {{ border-color: {t["border"]}; }}
     QRadioButton::indicator {{
-        width: {INDICATOR}px; height: {INDICATOR}px; border: 1px solid {t["muted"]};
+        width: {INDICATOR}px; height: {INDICATOR}px; border: {bw}px solid {t["muted"]};
         border-radius: {INDICATOR // 2}px; background: {t["surface"]};
     }}
     QRadioButton::indicator:checked {{ background: {t["accent"]}; border-color: {t["accent"]}; image: url({dot}); }}
@@ -231,21 +277,21 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QRadioButton:disabled {{ color: {t["muted"]}; }}
     QWidget {{ color: {t["text"]}; font-size: {pt}pt; }}
     QMainWindow, QWidget#page, QScrollArea, QScrollArea > QWidget > QWidget {{ background: {t["bg"]}; }}
-    QFrame#card {{ background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: {R12}px; }}
-    QFrame#noticeCard {{ background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: {R12}px; }}
+    QFrame#card {{ background: {t["surface"]}; border: {bw}px solid {t["border"]}; border-radius: {rk}px; }}
+    QFrame#noticeCard {{ background: {t["surface"]}; border: {bw}px solid {t["border"]}; border-radius: {rk}px; }}
     QFrame#noticeCard[level="success"] {{ border-left: 4px solid {t["success"]}; }}
     QFrame#noticeCard[level="warning"] {{ border-left: 4px solid {t["warning"]}; }}
     QFrame#noticeCard[level="error"] {{ border-left: 4px solid {t["danger"]}; }}
     QFrame#noticeCard[level="info"] {{ border-left: 4px solid {t["accent"]}; }}
     QLabel[role="noticeTitle"] {{ font-weight: 600; }}
-    QFrame#statCard {{ background: {t["surface2"]}; border-radius: {R8}px; }}
+    QFrame#statCard {{ background: {t["surface2"]}; border-radius: {rp}px; }}
     QLabel[role="pageTitle"] {{ font-size: {size(1.7)}; font-weight: 600; }}
     QLabel[role="cardTitle"] {{ font-size: {size(1.2)}; font-weight: 600; }}
     QLabel[role="muted"] {{ color: {t["muted"]}; }}
     QLabel[role="statValue"] {{ font-size: {size(1.8)}; font-weight: 600; }}
     QLabel[role="stepName"] {{ font-weight: 600; }}
     QLabel[role="emptyTitle"] {{ font-size: {size(1.3)}; font-weight: 600; }}
-    QLabel[role="badge"] {{ border-radius: {R8}px; padding: {S4}px {S8}px; font-weight: 600; }}
+    QLabel[role="badge"] {{ border-radius: {rb}px; padding: {S4}px {S8}px; font-weight: 600; }}
     QLabel[state="neutral"] {{ background: {t["surface2"]}; color: {t["muted"]}; }}
     QLabel[state="success"] {{ background: {t["success_bg"]}; color: {t["success"]}; }}
     QLabel[state="warning"] {{ background: {t["warning_bg"]}; color: {t["warning"]}; }}
@@ -253,23 +299,23 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QLabel[state="info"] {{ background: {t["selection"]}; color: {t["text"]}; }}
     /* Yuvarlak köşe için saydam çerçeve gerekir: çerçevesiz QLabel/QFrame arka planı köşeleri yuvarlamaz. */
     QLabel[role="pill"] {{
-        border: 1px solid transparent; border-radius: {R12}px; padding: {S4}px {S12}px; font-weight: 600;
+        border: 1px solid transparent; border-radius: {rl}px; padding: {S4}px {S12}px; font-weight: 600;
     }}
     QLabel[role="gameName"] {{ font-size: {size(1.5)}; font-weight: 600; }}
     QLabel[role="cover"] {{
-        background: {t["text"]}; color: {t["surface"]}; border: 1px solid transparent; border-radius: {R12}px;
+        background: {t["text"]}; color: {t["surface"]}; border: 1px solid transparent; border-radius: {rk}px;
         font-size: {size(3.0)}; font-weight: 700;
     }}
     QLabel[role="coverImage"] {{ background: transparent; }}
-    QLabel[role="dot"] {{ border: 1px solid transparent; border-radius: {R4}px; }}
-    QFrame#dlcTile {{ background: {t["surface2"]}; border: 1px solid transparent; border-radius: {R8}px; }}
+    QLabel[role="dot"] {{ border: 1px solid transparent; border-radius: {rs}px; }}
+    QFrame#dlcTile {{ background: {t["surface2"]}; border: 1px solid transparent; border-radius: {rp}px; }}
     QFrame#dlcTile[state="danger"] {{ background: {t["danger_bg"]}; }}
     QFrame#dlcTile QLabel {{ background: transparent; }}
     QFrame#dlcTile QLabel[role="dot"][state="success"] {{ background: {t["success"]}; }}
     QFrame#dlcTile QLabel[role="dot"][state="danger"] {{ background: {t["danger"]}; }}
     QLabel[state="info"] {{ background: {t["selection"]}; color: {t["text"]}; }}
     QToolButton[role="statusChip"] {{
-        border: 1px solid transparent; border-radius: {R8}px; padding: 2px {S8}px; font-weight: 600;
+        border: 1px solid transparent; border-radius: {rb}px; padding: 2px {S8}px; font-weight: 600;
     }}
     QToolButton[role="statusChip"][state="success"] {{ background: {t["success_bg"]}; color: {t["success"]}; }}
     QToolButton[role="statusChip"][state="warning"] {{ background: {t["warning_bg"]}; color: {t["warning"]}; }}
@@ -277,35 +323,35 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QToolButton[role="statusChip"][state="neutral"] {{ background: {t["surface2"]}; color: {t["muted"]}; }}
     QToolButton[role="statusChip"][state="info"] {{ background: {t["selection"]}; color: {t["text"]}; }}
     QToolButton[role="chip"] {{
-        background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: {R12}px; padding: {S4}px {S8}px;
+        background: {t["surface"]}; border: {bw}px solid {t["border"]}; border-radius: {rl}px; padding: {S4}px {S8}px;
     }}
     QToolButton[role="chip"]:hover {{ background: {t["surface2"]}; }}
     QToolButton[role="chip"]:checked {{
         background: {t["selection"]}; border-color: {t["accent"]}; color: {t["accent"]};
     }}
     QToolButton[role="chip"][marked="true"] {{ border: 1px dashed {t["accent"]}; color: {t["accent"]}; }}
-    QFrame#chipPopup {{ background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: {R8}px; }}
+    QFrame#chipPopup {{ background: {t["surface"]}; border: {bw}px solid {t["border"]}; border-radius: {rp}px; }}
     QLabel[role="danger"] {{ color: {t["danger"]}; }}
     QLabel[role="warning"] {{ color: {t["warning"]}; }}
     QLabel[role="fieldLabel"] {{ color: {t["muted"]}; font-weight: 600; }}
-    QFrame#banner {{ border-radius: {R8}px; }}
+    QFrame#banner {{ border-radius: {rp}px; }}
     QFrame#banner[state="warning"] {{ background: {t["warning_bg"]}; }}
     QFrame#banner[state="danger"] {{ background: {t["danger_bg"]}; }}
     QFrame#banner[state="success"] {{ background: {t["success_bg"]}; }}
     QFrame#banner[state="warning"] QLabel {{ color: {t["warning"]}; }}
     QFrame#banner[state="danger"] QLabel {{ color: {t["danger"]}; }}
     QFrame#banner[state="success"] QLabel {{ color: {t["success"]}; }}
-    QFrame#dropZone {{ background: {t["drop_bg"]}; border: 2px dashed {t["border"]}; border-radius: {R12}px; }}
+    QFrame#dropZone {{ background: {t["drop_bg"]}; border: 2px dashed {t["border"]}; border-radius: {rk}px; }}
     QFrame#dropZone[active="true"] {{ border-color: {t["accent"]}; background: {t["selection"]}; }}
     QFrame#dropZone:disabled {{ border-style: dotted; }}
     QPushButton {{
-        background: {t["surface2"]}; border: 1px solid {t["border"]}; border-radius: {R8}px;
+        background: {t["surface2"]}; border: {bw}px solid {t["border"]}; border-radius: {rb}px;
         padding: {S8}px {S16}px; min-height: 16px;
     }}
     QPushButton:hover {{ border-color: {t["accent"]}; }}
     QPushButton:disabled {{ color: {t["muted"]}; border-color: {t["surface2"]}; }}
     QPushButton[kind="primary"] {{
-        background: {t["accent"]}; color: {t["accent_text"]}; border: 1px solid {t["accent"]}; font-weight: 600;
+        background: {t["accent"]}; color: {t["accent_text"]}; border: {bw}px solid {t["accent"]}; font-weight: 600;
     }}
     QPushButton[kind="primary"]:hover {{ background: {t["accent_hover"]}; }}
     QPushButton[kind="primary"]:disabled {{ background: {t["surface2"]}; color: {t["muted"]}; }}
@@ -313,53 +359,53 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
         background: transparent; border: 1px solid transparent; color: {t["accent"]}; padding: {S4}px {S4}px;
     }}
     QFrame#dialogHeader, QFrame#dialogFooter, QFrame#mainPanel {{ background: {t["surface"]}; border: none; }}
-    QFrame#dialogHeader {{ border-bottom: 1px solid {t["border"]}; }}
-    QFrame#dialogFooter {{ border-top: 1px solid {t["border"]}; }}
-    QFrame#sidePanel {{ background: {t["bg"]}; border: none; border-right: 1px solid {t["border"]}; }}
+    QFrame#dialogHeader {{ border-bottom: {bw}px solid {t["border"]}; }}
+    QFrame#dialogFooter {{ border-top: {bw}px solid {t["border"]}; }}
+    QFrame#sidePanel {{ background: {t["bg"]}; border: none; border-right: {bw}px solid {t["border"]}; }}
     QLabel[role="sectionLabel"] {{ color: {t["muted"]}; font-weight: 700; }}
-    QFrame#fileRow {{ background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: {R8}px; }}
+    QFrame#fileRow {{ background: {t["surface"]}; border: {bw}px solid {t["border"]}; border-radius: {rp}px; }}
     QFrame#fileRow[state="warning"] {{ background: {t["warning_bg"]}; border-color: {t["warning"]}; }}
     QFrame#fileRow[state="warning"] QLabel[role="muted"] {{ color: {t["warning"]}; }}
-    QFrame#resultRow {{ background: transparent; border-radius: {R8}px; }}
+    QFrame#resultRow {{ background: transparent; border-radius: {rp}px; }}
     QFrame#resultRow[tone="info"] {{ background: {t["selection"]}; }}
     QFrame#resultRow[tone="danger"] {{ background: {t["danger_bg"]}; }}
     QFrame#resultRow[tone="danger"] QLabel {{ color: {t["danger"]}; }}
-    QFrame#summaryBox {{ background: {t["selection"]}; border-radius: {R12}px; }}
+    QFrame#summaryBox {{ background: {t["selection"]}; border-radius: {rk}px; }}
     QRadioButton[role="tile"] {{
-        background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: {R8}px; padding: {S8}px {S12}px;
+        background: {t["surface"]}; border: {bw}px solid {t["border"]}; border-radius: {rp}px; padding: {S8}px {S12}px;
     }}
     QRadioButton[role="tile"]:checked {{ background: {t["selection"]}; border-color: {t["accent"]}; }}
     QScrollArea#cardStrip, QScrollArea#cardStrip > QWidget > QWidget {{ background: transparent; border: none; }}
     QToolButton[role="fileCard"] {{
-        background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: {R8}px; padding: {S8}px {S12}px;
+        background: {t["surface"]}; border: {bw}px solid {t["border"]}; border-radius: {rp}px; padding: {S8}px {S12}px;
     }}
     QToolButton[role="fileCard"]:hover {{ border-color: {t["accent"]}; }}
     QToolButton[role="fileCard"]:checked {{ background: {t["selection"]}; border-color: {t["accent"]}; }}
-    QWidget#stepNavColumn {{ background: {t["surface"]}; border-right: 1px solid {t["border"]}; }}
+    QWidget#stepNavColumn {{ background: {nav_bg}; border-right: {bw}px solid {t["border"]}; }}
     QListWidget#stepNav {{
         background: transparent; border: none; outline: none; padding: {S4}px {S8}px {S12}px {S8}px;
     }}
     QListWidget#kindList {{ outline: none; padding: {S4}px 2px; }}
-    QTableView#issueTable {{ border-radius: {R8}px; }}
+    QTableView#issueTable {{ border-radius: {rp}px; }}
     QTabWidget::pane {{ border: none; }}
     QTabBar {{ qproperty-drawBase: 0; }}
     QTabBar::tab {{
-        background: transparent; color: {t["muted"]}; border: none; border-radius: {R6}px;
+        background: transparent; color: {t["muted"]}; border: none; border-radius: {rc}px;
         padding: {S8}px {S16}px; margin: 0 {S4}px {S4}px 0;
     }}
     QTabBar::tab:hover {{ background: {t["surface2"]}; color: {t["text"]}; }}
     QTabBar::tab:selected {{ background: {t["selection"]}; color: {t["text"]}; font-weight: 600; }}
-    QFrame#fixBar {{ background: {t["selection"]}; border-radius: {R8}px; }}
+    QFrame#fixBar {{ background: {t["selection"]}; border-radius: {rp}px; }}
     QFrame#fixBar QLabel {{ color: {t["text"]}; }}
     QFrame#fixBar QLabel[role="muted"] {{ color: {t["muted"]}; }}
     QFrame#fixBar QToolButton {{
-        color: {t["text"]}; border: 1px solid transparent; border-radius: {R6}px; padding: {S4}px {S8}px;
+        color: {t["text"]}; border: 1px solid transparent; border-radius: {rc}px; padding: {S4}px {S8}px;
     }}
     QFrame#fixBar QToolButton:hover {{ background: {t["surface"]}; }}
     QFrame#fixBar QToolButton::menu-indicator {{ image: none; }}
     QLabel[role="navTitle"] {{ font-weight: 600; font-size: {size(1.1)}; }}
     QTableView, QTableWidget, QTreeWidget, QListWidget, QLineEdit, QComboBox, QSpinBox, QPlainTextEdit {{
-        background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: {R6}px;
+        background: {t["surface"]}; border: {bw}px solid {t["border"]}; border-radius: {rc}px;
         selection-background-color: {t["selection"]}; selection-color: {t["text"]};
         alternate-background-color: {t["row_alt"]};
     }}
@@ -370,8 +416,8 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QSpinBox::up-button, QSpinBox::down-button {{
         subcontrol-origin: border; width: 20px; border: none; background: transparent;
     }}
-    QSpinBox::up-button {{ subcontrol-position: top right; border-top-right-radius: {R6}px; }}
-    QSpinBox::down-button {{ subcontrol-position: bottom right; border-bottom-right-radius: {R6}px; }}
+    QSpinBox::up-button {{ subcontrol-position: top right; border-top-right-radius: {rc}px; }}
+    QSpinBox::down-button {{ subcontrol-position: bottom right; border-bottom-right-radius: {rc}px; }}
     QSpinBox::up-button:hover, QSpinBox::down-button:hover {{ background: {t["surface2"]}; }}
     QSpinBox::up-arrow {{ image: url({up}); width: 10px; height: 10px; }}
     QSpinBox::down-arrow {{ image: url({down}); width: 10px; height: 10px; }}
@@ -379,45 +425,45 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QSpinBox::down-arrow:disabled, QSpinBox::down-arrow:off {{ image: url({down_off}); }}
     QComboBox::drop-down {{
         subcontrol-origin: border; subcontrol-position: center right; width: 22px; border: none;
-        border-top-right-radius: {R6}px; border-bottom-right-radius: {R6}px; background: transparent;
+        border-top-right-radius: {rc}px; border-bottom-right-radius: {rc}px; background: transparent;
     }}
     QComboBox::drop-down:hover {{ background: {t["surface2"]}; }}
     QComboBox::down-arrow {{ image: url({down}); width: 10px; height: 10px; }}
     QComboBox::down-arrow:disabled {{ image: url({down_off}); }}
     QHeaderView::section {{
-        background: {t["surface2"]}; color: {t["muted"]}; border: none; border-bottom: 1px solid {t["border"]};
+        background: {t["surface2"]}; color: {t["muted"]}; border: none; border-bottom: {bw}px solid {t["border"]};
         padding: {S4}px {S8}px; font-weight: 600;
     }}
     QProgressBar {{
-        background: {t["surface2"]}; border: none; border-radius: {R6}px; height: 12px; text-align: center;
+        background: {t["surface2"]}; border: none; border-radius: {rc}px; height: 12px; text-align: center;
         color: {t["text"]};
     }}
-    QProgressBar::chunk {{ background: {t["accent2"]}; border-radius: {R6}px; }}
-    QStatusBar {{ background: {t["surface"]}; color: {t["muted"]}; border-top: 1px solid {t["border"]}; }}
+    QProgressBar::chunk {{ background: {t["accent2"]}; border-radius: {rc}px; }}
+    QStatusBar {{ background: {t["surface"]}; color: {t["muted"]}; border-top: {bw}px solid {t["border"]}; }}
     QStatusBar::item {{ border: none; }}
-    QStatusBar QFrame[segment="true"] {{ border: none; border-left: 1px solid {t["border"]}; background: transparent; }}
+    QStatusBar QFrame[segment="true"] {{ border: none; border-left: {line}; background: transparent; }}
     QStatusBar QLabel {{ color: {t["muted"]}; }}
     QStatusBar QToolButton[role="problems"] {{
         color: {t["danger"]}; border: 1px solid transparent; padding: 0 1px; margin: -1px 0;
     }}
     QStatusBar QToolButton[role="keys"] {{ border: 1px solid transparent; padding: 0 1px; margin: -1px 0; }}
-    QStatusBar QProgressBar {{ background: {t["surface2"]}; border: none; border-radius: {R4}px; }}
-    QStatusBar QProgressBar::chunk {{ background: {t["accent2"]}; border-radius: {R4}px; }}
-    QLabel#saveDot {{ border-radius: {R4}px; background: {t["muted"]}; }}
+    QStatusBar QProgressBar {{ background: {t["surface2"]}; border: none; border-radius: {rs}px; }}
+    QStatusBar QProgressBar::chunk {{ background: {t["accent2"]}; border-radius: {rs}px; }}
+    QLabel#saveDot {{ border-radius: {rs}px; background: {t["muted"]}; }}
     QLabel#saveDot[state="success"] {{ background: {t["success"]}; }}
     QLabel#saveDot[state="warning"] {{ background: {t["warning"]}; }}
     QMenuBar {{ background: {t["surface"]}; }}
     QMenuBar::item:selected, QMenu::item:selected {{ background: {t["selection"]}; color: {t["text"]}; }}
-    QMenu {{ background: {t["surface"]}; border: 1px solid {t["border"]}; }}
+    QMenu {{ background: {t["surface"]}; border: {bw}px solid {t["border"]}; }}
     QScrollBar:vertical {{ background: transparent; width: 12px; margin: 2px; }}
     QScrollBar:horizontal {{ background: transparent; height: 12px; margin: 2px; }}
-    QScrollBar::handle {{ background: {t["border"]}; border-radius: {R4}px; min-height: 28px; min-width: 28px; }}
+    QScrollBar::handle {{ background: {t["border"]}; border-radius: {rs}px; min-height: 28px; min-width: 28px; }}
     QScrollBar::handle:hover {{ background: {t["muted"]}; }}
     QScrollBar::add-line, QScrollBar::sub-line {{ width: 0; height: 0; }}
     QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
-    QToolTip {{ background: {t["surface"]}; color: {t["text"]}; border: 1px solid {t["border"]}; padding: {S4}px; }}
+    QToolTip {{ background: {t["surface"]}; color: {t["text"]}; border: {bw}px solid {t["border"]}; padding: {S4}px; }}
     QToolButton#viewButton {{ padding: {S4}px {S24}px {S4}px {S8}px; }}
-    QToolButton[role="viewTool"] {{ border: 1px solid transparent; border-radius: {R6}px; padding: {S4}px; }}
+    QToolButton[role="viewTool"] {{ border: 1px solid transparent; border-radius: {rc}px; padding: {S4}px; }}
     QToolButton[role="viewTool"]:hover {{ background: {t["surface2"]}; }}
     QToolButton[role="viewTool"]:checked {{ background: {t["selection"]}; }}
     QCheckBox:disabled {{ color: {t["muted"]}; }}
@@ -440,11 +486,15 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QCheckBox::indicator:checked:focus {{ border-color: {t["text"]}; }}
     QRadioButton::indicator:focus {{ border-color: {t["accent"]}; }}
     QRadioButton::indicator:checked:focus {{ border-color: {t["text"]}; }}
-    """
+    """ + extra_qss(t, st, pt)
 
 
 #: `apply_theme`nin kurduğu etkin belirteçler (sistem modunda Windows vurgu rengiyle türetilmiş olabilir).
 _active: list[dict[str, str]] = []
+#: Etkin temanın şekli/yazı tipi (`current_style`); boşsa varsayılan stil.
+_active_style: list[ThemeStyle] = []
+#: Tema yazı tipi uygulanmadan önceki uygulama yazı ailesi (Varsayılan'a dönünce geri konur).
+_base_family: list[str] = []
 
 _ACCENT_TEXT_CANDIDATES = ("#FFFFFF", "#0E1116")
 #: Vurgu rengi zemine (`surface`) bundan az kontrastlıysa kullanılmaz; sabit renge dönülür.
@@ -516,21 +566,47 @@ def current_tokens() -> dict[str, str]:
     return TOKENS["dark" if palette_bg.lightness() < 128 else "light"]
 
 
+def current_style() -> ThemeStyle:
+    """Şu an uygulanmış temanın şekli ve yazı tipleri (boyanan öğeler köşe/çizgi için bunu okur)."""
+    return _active_style[0] if _active_style else DEFAULT_STYLE
+
+
+def _theme_families() -> set[str]:
+    return {f for style in STYLES.values() for f in (style.body_font, style.heading_font, style.mono_font) if f}
+
+
+def _apply_body_font(app: QApplication, style: ThemeStyle, font_size: int) -> None:
+    """Uygulama yazı tipini ayarlar: temanın gövde yazısı varsa o, yoksa tema öncesi aile geri konur."""
+    font = app.font()
+    if font.family() not in _theme_families():
+        _base_family[:] = [font.family()]
+    register_fonts(style.fonts)
+    if style.body_font:
+        font.setFamily(style.body_font)
+    elif _base_family:
+        font.setFamily(_base_family[0])
+    font.setPointSizeF(float(font_size))
+    app.setFont(font)
+
+
 def apply_theme(
     app: QApplication, mode: ThemeMode, font_size: int = DEFAULT_FONT_SIZE, palette: str = DEFAULT_PALETTE
 ) -> str:
-    """Temayı, renk paletini ve yazı boyutunu uygular; kullanılan şemayı ("light"/"dark") döndürür."""
-    scheme = resolve(mode)
+    """Temayı, renk paletini ve yazı boyutunu uygular; kullanılan şemayı ("light"/"dark") döndürür.
+
+    Sabit şemalı bir tema (konsol teması) kendi şemasını kullanır; Sistem/Açık/Koyu seçimi bunu değiştirmez.
+    """
+    style = palette_style(palette)
+    scheme = effective_scheme(mode, palette)
     font_size = clamp_font_size(font_size)
-    font = app.font()
-    font.setPointSizeF(float(font_size))
-    app.setFont(font)
+    _apply_body_font(app, style, font_size)
     system_accent = _system_accent()  # kendi paletimiz kurulmadan önce okunmalı
     t = palette_tokens(scheme, palette)
     # Sistem modunda yalnızca varsayılan palet Windows vurgu rengini izler; seçilen palet kendi rengini korur.
     if mode == ThemeMode.SYSTEM and palette == DEFAULT_PALETTE:
         t = derive_accent(t, system_accent, scheme == "dark")
     _active[:] = [t]
+    _active_style[:] = [style]
     pal = QPalette()
     roles = {
         QPalette.ColorRole.Window: t["bg"],
@@ -552,7 +628,7 @@ def apply_theme(
     pal.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, QColor(t["muted"]))
     pal.setColor(QPalette.ColorGroup.Disabled, QPalette.ColorRole.WindowText, QColor(t["muted"]))
     app.setPalette(pal)
-    app.setStyleSheet(_qss(t, font_size))
+    app.setStyleSheet(_qss(t, font_size, style))
     # `icons` temayı içe aktardığı için burada, işlev içinde alınır (döngüsel içe aktarma olmasın).
     from nxceviri.gui import icons  # noqa: PLC0415 - döngüsel içe aktarma
 

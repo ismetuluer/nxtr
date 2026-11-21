@@ -31,7 +31,8 @@ from PySide6.QtWidgets import (
 )
 
 from nxceviri.gui import icons
-from nxceviri.gui.theme import current_tokens
+from nxceviri.gui.theme import current_style, current_tokens
+from nxceviri.gui.theme_style import nav_color
 
 #: Adımların sırası (gezgindeki satır numarası); `STEPS` bu sırayla tanımlıdır.
 STEP_ADD = 0
@@ -94,6 +95,7 @@ class _StepDelegate(QStyledItemDelegate):
 
     def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: _Index) -> None:
         tokens = current_tokens()
+        style = current_style()
         enabled = bool(option.state & QStyle.StateFlag.State_Enabled)
         selected = bool(option.state & QStyle.StateFlag.State_Selected)
         hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
@@ -104,8 +106,9 @@ class _StepDelegate(QStyledItemDelegate):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         if selected or (hovered and enabled):
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QColor(tokens["selection" if selected else "surface2"]))
-            painter.drawRoundedRect(rect, 8, 8)
+            painter.setBrush(QColor(nav_color(tokens, "nav_sel_bg" if selected else "nav_hover_bg")))
+            radius = min(style.radius_button, rect.height() // 2)
+            painter.drawRoundedRect(rect, radius, radius)
         if (
             option.state & QStyle.StateFlag.State_HasFocus
             and isinstance(option.widget, StepNav)
@@ -115,8 +118,16 @@ class _StepDelegate(QStyledItemDelegate):
             painter.setPen(QPen(QColor(tokens["accent"]), 2))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRoundedRect(rect.adjusted(1, 1, -1, -1), 7, 7)
-        text_color = QColor(tokens["text" if enabled else "muted"])
-        icon_color = tokens["success"] if (done and enabled) else tokens["accent" if enabled else "muted"]
+        ink = nav_color(tokens, "nav_sel_text" if selected else "nav_text")
+        text_color = QColor(ink if enabled else nav_color(tokens, "nav_muted"))
+        # Temanın kendi seçili zemini varsa (siyah dolgu gibi) seçili adımın simge ve rozeti yazı rengini alır.
+        own_selection = selected and "nav_sel_bg" in tokens
+        if not enabled:
+            icon_color = nav_color(tokens, "nav_muted")
+        elif style.nav_mono or own_selection:
+            icon_color = ink
+        else:
+            icon_color = tokens["success"] if done else nav_color(tokens, "nav_icon")
         mark = icons.icon(str(index.data(ICON_ROLE)), icon_color, ICON_SIZE).pixmap(ICON_SIZE, ICON_SIZE)
         icon_x = rect.center().x() - ICON_SIZE // 2 + 1 if collapsed else rect.left() + _PAD
         painter.drawPixmap(QPoint(icon_x, rect.center().y() - ICON_SIZE // 2 + 1), mark)
@@ -139,7 +150,10 @@ class _StepDelegate(QStyledItemDelegate):
         badge = str(index.data(BADGE_ROLE) or "")
         if badge:
             state = str(index.data(STATE_ROLE) or "neutral")
-            badge_color = QColor(tokens[_BADGE_TOKENS.get(state, "muted")] if enabled else tokens["muted"])
+            if not enabled or style.nav_mono or own_selection:
+                badge_color = text_color
+            else:
+                badge_color = QColor(tokens[_BADGE_TOKENS.get(state, "muted")])
             painter.setPen(badge_color)
             width = metrics.horizontalAdvance(badge)
             painter.drawText(

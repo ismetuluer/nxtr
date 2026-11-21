@@ -19,6 +19,7 @@ from nxceviri.gui.theme import (
     hex_contrast,
     palette_tokens,
 )
+from nxceviri.gui.theme_style import OPTIONAL_TOKENS
 
 _AA = 4.5
 NEON = "Neon Gün Batımı"
@@ -74,9 +75,11 @@ def test_unknown_palette_falls_back_to_default() -> None:
 
 
 def test_palette_overrides_use_known_keys() -> None:
+    # Konsol temaları ek olarak isteğe bağlı belirteçler (gezinme sütunu, kenar, başlık) taşıyabilir.
+    known = set(TOKENS["light"]) | set(OPTIONAL_TOKENS)
     for name, (light, dark) in PALETTES.items():
-        assert set(light) <= set(TOKENS["light"]), name
-        assert set(dark) <= set(TOKENS["dark"]), name
+        assert set(light) <= known, name
+        assert set(dark) <= known, name
 
 
 @pytest.mark.parametrize("name", list(PALETTES))

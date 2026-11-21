@@ -1569,3 +1569,24 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     kapsam başına önbelleklenir. Dosya boyutu tahmini bilinçle yazılmadı (gerçekçi tahmin için sıkıştırılmış XLSX'i
     yazmak gerekir). Ortak parçalar `gui/dialog_parts.py`, stiller `theme._qss` (belirteç eklenmedi).
 
+248. **Konsol temaları: renkle birlikte şekil ve yazı tipi (ürün sahibi, 2026-11-21):** Beş yeni tema ("Çift Kumanda",
+    "Mor Küp", "Yeşil Işık", "Gece Mavisi", "Piksel Gri") yalnızca renk değil köşe yarıçapı, çizgi kalınlığı, düğme
+    stili (`flat`/`outline`/`bevel`/`hard`) ve yazı tipi bakımından da ayrışır. Şekil katmanı `gui/theme_style.py`
+    `ThemeStyle` (donmuş veri sınıfı; varsayılanları bugünkü değerlerdir), temalar ve tema başına ek QSS
+    `gui/console_themes.py`. `theme._qss` köşe/çizgi değerlerini stilden okur; `extra_qss` varsayılan stilde boş
+    döner, böylece Varsayılan ve Neon Gün Batımı QSS'i bayt bayt aynıdır (`tests/test_theme_golden.py` dondurulmuş
+    çıktıyla karşılaştırır). `scale.py`'ye belgelenmiş ek köşe basamakları geldi (R0, R2, R16, R20, R24; "ara değer
+    yok" kuralı sürer, yalnızca konsol temaları bunları kullanır). Ayar anahtarı `ui/palette` aynı kaldı; konsol
+    temaları `PALETTES`e girer (menü/ayar/uygulama açılışı değişmedi), `STYLES` adı stile bağlar.
+    **Sabit şema:** konsol teması kendi şemasını zorlar (`ThemeStyle.scheme`; `effective_scheme`, `palette_tokens`
+    istenen şemayı yok sayar). Etkinken Açık / Koyu menü öğeleri ve ayar listesi devre dışıdır ("Bu tema kendi
+    renklerini kullanır."), kayıtlı `ui/theme` ezilmez; Varsayılan'a dönünce geri gelir. Windows vurgu türetimi yalnızca
+    Varsayılan'da kalır. Menü: "Tema" (mod) → "Açık / Koyu", "Renk paleti" → "Tema" (renk paletleri, ayırıcı, konsol
+    temaları). **İsteğe bağlı belirteçler** (`OPTIONAL_TOKENS`: gezinme sütunu `nav_*`, `edge`, `header_*`, `title`)
+    yalnızca konsol katmanlarında bulunur; `nav_color` yoksa bugünkü belirtece düşer, böylece adım listesi
+    (`step_nav.py`) Varsayılan'da aynı boyar. Boyanan öğeler şekli `current_style()` ile okur. **Yazı tipleri:** dokuz
+    OFL-1.1 ailesi `gui/fonts/<aile>/` altında değiştirilmeden paketlenir (`pyproject` package-data; PyInstaller
+    `collect_data_files` ile gelir), `register_fonts` ile tema ilk uygulandığında bir kez kaydedilir; gövde yazısı
+    uygulama yazı ailesidir (Varsayılan'a dönünce eski aile geri konur), başlık/sayı yazıları QSS `font-family` ile
+    verilir. Kaynak Fredoka'da ğ/İ/ş/Ğ/Ş glifi olmadığı için "Mor Küp" başlıkları Baloo 2 kullanır (yazı tipi testi
+    paketlenen her dosyada Türkçe glifleri denetler). Birincil düğmelerde simge rengi konsol temalarında `accent_text`tir.

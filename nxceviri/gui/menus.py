@@ -22,7 +22,14 @@ from nxceviri.core.qa.profanity import LEVEL_LABELS as PROFANITY_LEVELS
 from nxceviri.core.qa.profanity import LEVEL_OFF
 from nxceviri.core.translate.runner import ACTION_RETRANSLATE, ACTION_REVISE, ACTION_TRANSLATE
 from nxceviri.gui.icons import bind_icon
-from nxceviri.gui.theme import DEFAULT_FONT_SIZE, FONT_SIZES, PALETTES, THEME_LABELS, ThemeMode
+from nxceviri.gui.theme import (
+    DEFAULT_FONT_SIZE,
+    FONT_SIZES,
+    PALETTES,
+    THEME_LABELS,
+    ThemeMode,
+    first_console_theme,
+)
 from nxceviri.gui.view_actions import PANE_BOTTOM, PANE_RIGHT
 
 if TYPE_CHECKING:
@@ -240,7 +247,8 @@ class Menus:
         self._share(menu, page.previous_box, "view.previous", "git-compare")
         self._share(menu, page.group_action, "view.grouped")
         menu.addSeparator()
-        theme_menu = self._submenu(menu, "Tema", "monitor")
+        theme_menu = self._submenu(menu, "Açık / Koyu", "monitor")
+        theme_menu.setToolTipsVisible(True)
         w.theme_group = QActionGroup(w)
         current = w._theme_mode()
         for mode in ThemeMode:
@@ -250,10 +258,13 @@ class Menus:
             act.triggered.connect(lambda _=False, m=mode: w._set_theme(m))
             w.theme_group.addAction(act)
             theme_menu.addAction(act)
-        palette_menu = self._submenu(menu, "Renk paleti", "palette")
+        w._refresh_mode_lock()
+        palette_menu = self._submenu(menu, "Tema", "palette")
         w.palette_group = QActionGroup(w)
         current_palette = w._palette_name()
         for name in PALETTES:
+            if name == first_console_theme():
+                palette_menu.addSeparator()
             act = QAction(name, w, checkable=True)
             act.setData(name)
             act.setChecked(name == current_palette)

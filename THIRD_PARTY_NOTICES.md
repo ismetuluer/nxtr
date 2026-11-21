@@ -102,3 +102,22 @@ Lisans metinleri yazı tiplerinin yanındadır.
 |---|---|---|
 | Kaushan Script | Pablo Impallari, Igino Marini | `KaushanScript-OFL.txt` |
 | Pirata One | Rodrigo Fuenzalida, Nicolas Massi | `PirataOne-OFL.txt` |
+
+### Konsol temalarının yazı tipleri
+
+`nxceviri/gui/fonts/<yazı tipi>/`: değiştirilmemiş (alt kümeye indirgenmemiş, örnekleme yapılmamış), SIL Open Font
+License 1.1 (OFL-1.1) altında dokuz aile. Her klasörde kendi `OFL.txt` dosyası vardır. Kaynak: Google Fonts deposu
+(`ofl/<klasör>/`). Yalnızca "Çift Kumanda", "Mor Küp", "Yeşil Işık", "Gece Mavisi" ve "Piksel Gri" temaları
+seçildiğinde yüklenir.
+
+| Yazı tipi | Telif | Dosyalar |
+|---|---|---|
+| Rubik | The Rubik Project Authors | `rubik/` (değişken, 1 dosya) |
+| Baloo 2 | The Baloo 2 Project Authors | `baloo2/` (değişken, 1 dosya) |
+| Nunito | The Nunito Project Authors | `nunito/` (değişken, 1 dosya) |
+| Chakra Petch | The Chakra Petch Project Authors | `chakrapetch/` (Regular, Medium, SemiBold, Bold) |
+| JetBrains Mono | The JetBrains Mono Project Authors | `jetbrainsmono/` (değişken, 1 dosya) |
+| Fraunces | The Fraunces Project Authors | `fraunces/` (değişken, dik ve italik) |
+| Manrope | The Manrope Project Authors | `manrope/` (değişken, 1 dosya) |
+| Pixelify Sans | The Pixelify Sans Project Authors | `pixelifysans/` (değişken, 1 dosya) |
+| IBM Plex Mono | IBM Corp. (ayrılmış ad "Plex") | `ibmplexmono/` (Regular, Medium, SemiBold, Bold) |
