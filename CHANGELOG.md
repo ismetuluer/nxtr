@@ -2,6 +2,23 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.73.0] — 2026-11-21 — Konsol temaları
+
+### Eklendi
+- **Beş konsol teması:** Görünüm → Tema (ve Ayarlar) listesinde Varsayılan ve Neon Gün Batımı'nın ardından
+  “Çift Kumanda”, “Mor Küp”, “Yeşil Işık”, “Gece Mavisi” ve “Piksel Gri”. Her tema yalnızca renkleri değil köşe
+  yuvarlaklığını, çizgi kalınlığını, düğme biçimini (kabarık, hap, sert gölgeli…) ve yazı tiplerini de değiştirir;
+  hepsi okunabilirlik (WCAG AA) testinden geçer.
+- Aşama çubuğu temaya göre çizilir: yuvarlak numaralar, küpler, birbirine bağlı devre düğümleri ya da ▶/✓ imleci.
+  “Gece Mavisi”nde aşamalar sol çubuk yerine üstte ortada hap biçimli bir şeritte durur (sol/sağ ok tuşlarıyla geçilir).
+- Dokuz açık lisanslı (SIL OFL 1.1) yazı tipi uygulamayla gelir (Rubik, Baloo 2, Nunito, Chakra Petch, JetBrains
+  Mono, Fraunces, Manrope, Pixelify Sans, IBM Plex Mono; toplam ~3 MB); hepsinde Türkçe harfler testle denetlenir.
+
+### Değişti
+- Görünüm menüsünde “Tema” (Sistem/Açık/Koyu) adı “Açık / Koyu”, “Renk paleti” adı “Tema” oldu.
+- Konsol teması kendi açık ya da koyu renklerini kullanır; seçiliyken Açık / Koyu seçenekleri soluk ve kilitlidir,
+  Varsayılan'a dönünce önceki ayar geri gelir. Varsayılan görünüm değişmedi.
+
 ## [0.72.0] — 2026-11-21 — Oyun kartı, tek pencerede içe aktarma, önizlemeli dışa aktarma
 
 ### Değişti
