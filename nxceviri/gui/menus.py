@@ -227,6 +227,7 @@ class Menus:
         menu.aboutToShow.connect(self.refresh)
         w.nav_action = QAction("Kenar Çubuğu", w, checkable=True)
         w.nav_action.setChecked(not w._nav_collapsed)
+        w.nav_action.setEnabled(not w.nav_is_top)  # üst gezinmeli temada daraltılacak sütun yok
         w.nav_action.triggered.connect(lambda checked: w.set_nav_collapsed(not checked))
         self._finish(menu, w.nav_action, "view.nav", "panel-left", "Soldaki adım listesini daralt ya da aç.")
         self._share(menu, view.pane_toggle, "view.pane")

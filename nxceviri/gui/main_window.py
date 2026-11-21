@@ -111,7 +111,7 @@ from nxceviri.gui.machine_dialogs import (
     MachineSettings,
     make_provider,
 )
-from nxceviri.gui.main_layout import MASCOT_POLL_MS, build_layout, connect_pages
+from nxceviri.gui.main_layout import MASCOT_POLL_MS, apply_nav_position, build_layout, connect_pages
 from nxceviri.gui.mascot import (
     MOOD_DONE,
     MOOD_ERROR,
@@ -162,6 +162,7 @@ from nxceviri.gui.step_nav import (
     STEP_TRANSLATE,
     ProjectHeader,
     StepNav,
+    TopNavBar,
 )
 from nxceviri.gui.tasks import Task, release_thread
 from nxceviri.gui.terms_controller import TermsController
@@ -333,6 +334,9 @@ class MainWindow(QMainWindow):
 
     # `main_layout.build_layout`'un kurduğu parçalar (mypy için burada bildirilir).
     nav_column: QWidget
+    content_area: QWidget
+    nav_top: TopNavBar
+    nav_is_top: bool
     nav_header: ProjectHeader
     nav: StepNav
     nav_toggle: QToolButton
@@ -531,6 +535,8 @@ class MainWindow(QMainWindow):
             self._nav_anim = None
         self._nav_collapsed = collapsed
         self._refresh_nav_toggle()
+        if self.nav_is_top:  # tercih saklanır; kenar çubuğuna dönünce uygulanır
+            return
         target = self._nav_width()
         start = self.nav_column.width()
         if not (animate and self.isVisible() and animations_enabled()) or start == target:
@@ -617,6 +623,8 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if isinstance(app, QApplication):
             apply_theme(app, self._theme_mode(), self._font_size(), name)
+        apply_nav_position(self)
+        self._update_nav_width()
         for act in self.palette_group.actions():
             act.setChecked(act.data() == name)
         self._refresh_mode_lock()

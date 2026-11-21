@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from PySide6.QtGui import QColor
+
 from nxceviri.gui.scale import R0, R2, R4, R8, R12, R16, R20, R24
 from nxceviri.gui.theme_style import DEFAULT_STYLE, ThemeStyle
 
@@ -35,6 +37,7 @@ CONSOLE_THEMES: dict[str, tuple[ThemeStyle, dict[str, str]]] = {
             scheme="dark",
             fonts=("rubik",),
             nav_mono=True,
+            step_marker="knob",
         ),
         {
             "bg": "#16171B",
@@ -72,6 +75,7 @@ CONSOLE_THEMES: dict[str, tuple[ThemeStyle, dict[str, str]]] = {
             heading_font="Baloo 2",
             scheme="dark",
             fonts=("nunito", "baloo2"),
+            step_marker="cube",
         ),
         {
             "bg": "#221A45",
@@ -115,6 +119,7 @@ CONSOLE_THEMES: dict[str, tuple[ThemeStyle, dict[str, str]]] = {
             mono_font="JetBrains Mono",
             scheme="dark",
             fonts=("chakrapetch", "jetbrainsmono"),
+            step_marker="node",
         ),
         {
             "bg": "#090B09",
@@ -147,6 +152,7 @@ CONSOLE_THEMES: dict[str, tuple[ThemeStyle, dict[str, str]]] = {
             title_italic=True,
             scheme="dark",
             fonts=("manrope", "fraunces"),
+            nav_position="top",
         ),
         {
             "bg": "#0B1230",
@@ -179,6 +185,7 @@ CONSOLE_THEMES: dict[str, tuple[ThemeStyle, dict[str, str]]] = {
             heading_font="Pixelify Sans",
             scheme="light",
             fonts=("ibmplexmono", "pixelifysans"),
+            step_marker="cursor",
         ),
         {
             "bg": "#CFCABE",
@@ -214,6 +221,18 @@ CONSOLE_THEMES: dict[str, tuple[ThemeStyle, dict[str, str]]] = {
 
 def _q(family: str) -> str:
     return f'"{family}"'
+
+
+def _menus(t: dict[str, str]) -> str:
+    """Devre dışı menü öğeleri açıkça soluk görünür (QSS'li menü sistem paletinin devre dışı rengini kullanmaz)."""
+    dim = QColor(t["muted"])
+    ground = QColor(t["surface"])
+    mixed = QColor(
+        round(dim.red() * 0.45 + ground.red() * 0.55),
+        round(dim.green() * 0.45 + ground.green() * 0.55),
+        round(dim.blue() * 0.45 + ground.blue() * 0.55),
+    )
+    return f"QMenu::item:disabled {{ color: {mixed.name()}; }}"
 
 
 def _fonts(t: dict[str, str], st: ThemeStyle) -> str:
@@ -300,9 +319,8 @@ def _mor(t: dict[str, str], st: ThemeStyle, pt: int) -> str:
 
 def _yesil(t: dict[str, str], st: ThemeStyle, pt: int) -> str:
     return f"""
-    QTableView::item:selected, QTreeWidget::item:selected, QListWidget::item:selected {{
-        border-left: 2px solid {t["accent"]}; color: {t["accent"]};
-    }}
+    QTableView::item:selected, QTreeWidget::item:selected, QListWidget::item:selected {{ color: {t["accent"]}; }}
+    QTreeWidget::item:selected, QListWidget::item:selected {{ border-left: 2px solid {t["accent"]}; }}
     QHeaderView::section {{ color: {t["accent"]}; background: {t["surface"]}; letter-spacing: 1px; }}
     QTabBar::tab:selected {{ background: transparent; color: {t["accent"]}; border-bottom: 2px solid {t["accent"]}; }}
     QProgressBar {{ border: 1px solid {t["border"]}; }}"""
@@ -313,7 +331,7 @@ def _gece(t: dict[str, str], st: ThemeStyle, pt: int) -> str:
     return f"""
     QMainWindow, QWidget#page {{ background: {gradient}; }}
     QScrollArea, QScrollArea > QWidget > QWidget {{ background: transparent; }}
-    QWidget#stepNavColumn {{ background: rgba(17, 26, 58, 140); border-right: {st.border}px solid {t["border"]}; }}
+    QWidget#stepNavTop {{ background: rgba(17, 26, 58, 140); border-bottom: {st.border}px solid {t["border"]}; }}
     QTabBar::tab {{
         border-radius: 0; padding: {R8}px {R16}px; margin: 0 {R4}px 0 0; border-bottom: 2px solid transparent;
     }}
@@ -348,7 +366,7 @@ def extra_qss(t: dict[str, str], st: ThemeStyle, pt: int) -> str:
     """Temanın temel QSS'in üstüne eklenen kuralları; varsayılan stil için boş metin döner."""
     if st == DEFAULT_STYLE:
         return ""
-    parts = [_fonts(t, st), _buttons(t, st)]
+    parts = [_fonts(t, st), _buttons(t, st), _menus(t)]
     builder = _BUILDERS.get(st.key)
     if builder is not None:
         parts.append(builder(t, st, pt))

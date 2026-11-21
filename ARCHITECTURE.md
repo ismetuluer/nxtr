@@ -1590,3 +1590,14 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     uygulama yazı ailesidir (Varsayılan'a dönünce eski aile geri konur), başlık/sayı yazıları QSS `font-family` ile
     verilir. Kaynak Fredoka'da ğ/İ/ş/Ğ/Ş glifi olmadığı için "Mor Küp" başlıkları Baloo 2 kullanır (yazı tipi testi
     paketlenen her dosyada Türkçe glifleri denetler). Birincil düğmelerde simge rengi konsol temalarında `accent_text`tir.
+    **Adım işaretleri ve üst gezinme (Faz C):** `ThemeStyle.step_marker` adım listesinin simge yerine boyadığı işareti
+    seçer (`icon` bugünkü simge; `knob` daire içinde numara/onay; `cube` eşkenar küp; `node` kare düğüm, düşey tel ve
+    "01" numarası; `cursor` ▶ ✓ · metin imleci). Çizim `gui/step_markers.py`, yerleşim payı `marker_slot`; `StepNav`
+    temayı boyama anında okur, daraltılmış çubuk her türde yalnızca işareti ortalar. Seçili adım her türde seçili
+    zeminle ayrışır (tamamlanmış ve seçili adımda daire onay işareti taşır). `nav_position="top"` (Gece Mavisi):
+    aynı `StepNav` ve `ProjectHeader` nesneleri `main_layout.apply_nav_position` ile sol sütundan içerik alanındaki
+    `TopNavBar`a taşınır (çoğaltma yok; sinyal, rozet ve etkinlik durumu korunur), liste yatay hap dizisine döner,
+    sol sütun ve "Kenar Çubuğu" menü öğesi devre dışı kalır; daralt/genişlet tercihi saklanır, kenar çubuğuna dönünce
+    uygulanır. Çubuk dar kalırsa başlık gizlenir. Konsol temalarında devre dışı menü öğeleri soluk renkle çizilir
+    (Varsayılan'ın QSS'i değişmedi). "Yeşil Işık" seçili satır çubuğu hücre başına tekrarlandığı için yalnızca ağaç ve
+    liste öğelerinde kaldı; tabloda seçili metin vurgu rengindedir.

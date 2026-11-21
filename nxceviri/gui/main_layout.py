@@ -23,7 +23,8 @@ from nxceviri.gui.notify import HistoryButton, NotificationCenter
 from nxceviri.gui.qa_page import QaPage
 from nxceviri.gui.scan_page import ScanPage
 from nxceviri.gui.statusbar import StatusSegments
-from nxceviri.gui.step_nav import STEP_ADD, STEP_SCAN, ProjectHeader, StepNav
+from nxceviri.gui.step_nav import STEP_ADD, STEP_SCAN, ProjectHeader, StepNav, TopNavBar
+from nxceviri.gui.theme import current_style
 from nxceviri.gui.translate_page import TranslatePage
 from nxceviri.gui.widgets import button, tip_html
 
@@ -40,6 +41,7 @@ MASCOT_POLL_MS = 5000
 def build_layout(win: MainWindow) -> None:
     """Pencerenin parçalarını kurar ve öznitelik olarak atar (`MainWindow`'daki sınıf düzeyi bildirimler)."""
     win.setMinimumSize(820, 560)
+    win.nav_is_top = False
     win.resize(1180, 780)
 
     central = QWidget()
@@ -75,6 +77,14 @@ def build_layout(win: MainWindow) -> None:
     win._refresh_nav_toggle()
     root.addWidget(win.nav_column)
     win._update_nav_width()
+    # İçerik alanı: üstte (yalnızca üst gezinmeli temalarda görünen) adım çubuğu, altında sayfa yığını.
+    win.content_area = QWidget()
+    content = QVBoxLayout(win.content_area)
+    content.setContentsMargins(0, 0, 0, 0)
+    content.setSpacing(0)
+    win.nav_top = TopNavBar()
+    win.nav_top.hide()
+    content.addWidget(win.nav_top)
     win.pages = QStackedWidget()
     win.add_page = AddGamePage()
     win.scan_page = ScanPage()
@@ -91,7 +101,8 @@ def build_layout(win: MainWindow) -> None:
     win.export_page = ExportPage()
     win.pages.addWidget(win.qa_page)
     win.pages.addWidget(win.export_page)
-    root.addWidget(win.pages, 1)
+    content.addWidget(win.pages, 1)
+    root.addWidget(win.content_area, 1)
     win.setCentralWidget(central)
     win.statusBar().showMessage("Hazır")
     win.update_badge = button("Yeni sürüm var", icon="download")
@@ -118,6 +129,43 @@ def build_layout(win: MainWindow) -> None:
     win._mascot_poll.setInterval(MASCOT_POLL_MS)
     win._mascot_poll.timeout.connect(win._mascot_check_idle)
     win._mascot_poll.start()
+    apply_nav_position(win)
+
+
+def apply_nav_position(win: MainWindow) -> None:
+    """Etkin temanın gezinme konumuna göre adım listesini yerleştirir (`side`: sol sütun, `top`: üst çubuk).
+
+    Aynı `StepNav` ve `ProjectHeader` nesneleri taşınır (ikinci bir pencere öğesi kurulmaz), böylece geçerli adım,
+    sinyaller, rozetler ve adımların etkinliği korunur. Başlangıçta ve tema değişince çağrılır; değişmediyse hiçbir
+    şey yapmaz. Daralt/genişlet tercihi üst kipte durur, kenar çubuğuna dönünce geri uygulanır.
+    """
+    top = current_style().nav_position == "top"
+    if top == win.nav_is_top:
+        return
+    win.nav_is_top = top
+    column = win.nav_column.layout()
+    assert isinstance(column, QVBoxLayout)
+    if top:
+        column.removeWidget(win.nav_header)
+        column.removeWidget(win.nav)
+        win.nav_column.hide()
+        win.nav.set_collapsed(False)
+        win.nav.set_horizontal(True)
+        win.nav_top.attach(win.nav_header, win.nav)
+        win.nav_top.show()
+    else:
+        win.nav_top.hide()
+        win.nav_top.detach(win.nav_header, win.nav)
+        win.nav.set_horizontal(False)
+        column.insertWidget(0, win.nav_header)
+        column.insertWidget(1, win.nav, 1)
+        win.nav_header.setHidden(win._nav_collapsed)
+        win.nav.set_collapsed(win._nav_collapsed)
+        win.nav_column.show()
+        win._update_nav_width()
+    nav_action = getattr(win, "nav_action", None)
+    if nav_action is not None:  # menü kurulduktan sonra: üst kipte daralt/genişlet anlamsızdır
+        nav_action.setEnabled(not top)
 
 
 def connect_pages(win: MainWindow) -> None:

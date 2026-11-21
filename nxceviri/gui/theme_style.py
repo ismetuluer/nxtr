@@ -20,8 +20,9 @@ log = logging.getLogger(__name__)
 #: Düğme stilleri: `flat` (bugünkü düz görünüm), `outline` (şeffaf, vurgu çerçeveli), `bevel` (alt kalınlık),
 #: `hard` (sağ/alt sert gölge).
 BUTTON_STYLES = ("flat", "outline", "bevel", "hard")
-#: Adım işareti türleri (adım listesinin boyadığı simge/rozet): `default`; diğerleri sonraki aşamalar içindir.
-STEP_MARKERS = ("default",)
+#: Adım işareti türleri (adım listesinde simge yerine boyanan işaret): `icon` (bugünkü simge), `knob` (daire içinde
+#: numara/onay), `cube` (eşkenar küp), `node` (kare düğüm ve düşey tel), `cursor` (▶ ✓ · metin imleci).
+STEP_MARKERS = ("icon", "knob", "cube", "node", "cursor")
 NAV_POSITIONS = ("side", "top")
 
 
@@ -81,7 +82,7 @@ class ThemeStyle:
     scheme: str | None = None
     #: Kaydedilecek yazı tipi klasörleri (`gui/fonts/` altında).
     fonts: tuple[str, ...] = ()
-    step_marker: str = "default"
+    step_marker: str = "icon"
     nav_position: str = "side"
     #: Adım listesi tek renkle (nav_text / nav_sel_text) boyanır; anlamsal renkler (başarı, uyarı) kullanılmaz.
     nav_mono: bool = False
@@ -89,6 +90,8 @@ class ThemeStyle:
     def __post_init__(self) -> None:
         if self.button not in BUTTON_STYLES:
             raise ValueError(f"Bilinmeyen düğme stili: {self.button}")
+        if self.step_marker not in STEP_MARKERS:
+            raise ValueError(f"Bilinmeyen adım işareti: {self.step_marker}")
         if self.nav_position not in NAV_POSITIONS:
             raise ValueError(f"Bilinmeyen gezinme konumu: {self.nav_position}")
         if self.scheme not in (None, "light", "dark"):
