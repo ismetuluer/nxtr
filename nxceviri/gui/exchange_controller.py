@@ -146,6 +146,7 @@ class ExchangeController:
             all_rows=page.model.rows,
             instruction=win.project.setting(REVISE_INSTRUCTION_KEY),
             mode=MODE_TRANSLATION if translation else MODE_REDACTION,
+            name_hint=(win.project.path.stem if win.project.path else "ceviriler") + ("_ceviri" if translation else ""),
         )
         if dialog.exec() != _mw.CsvExportDialog.DialogCode.Accepted or not dialog.rows():
             return
@@ -228,6 +229,7 @@ class ExchangeController:
             instruction=win.project.setting(REVISE_INSTRUCTION_KEY),
             mode=MODE_FINDINGS,
             notes=finding_notes(visible),
+            name_hint=(win.project.path.stem if win.project.path else "ceviriler") + "_bulgular",
         )
         if dialog.exec() != _mw.CsvExportDialog.DialogCode.Accepted or not dialog.rows():
             return

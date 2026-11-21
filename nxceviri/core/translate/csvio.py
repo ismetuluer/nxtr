@@ -397,6 +397,11 @@ MODE_TRANSLATION = "translation"
 MODE_FINDINGS = "findings"
 
 
+def without_empty_source(rows: Sequence[TranslationRow]) -> list[TranslationRow]:
+    """Kaynağı boş satırlar dışarıda kalır: çevrilecek bir şey yoktur (içe aktarma etkilenmez)."""
+    return [r for r in rows if r.source.strip()]
+
+
 def preview_table(
     rows: Sequence[TranslationRow],
     *,

@@ -41,6 +41,7 @@ from nxceviri.core.translate.csvio import (
     revision_prompt_xlsx,
     translation_prompt_txt,
     translation_prompt_xlsx,
+    without_empty_source,
 )
 from nxceviri.gui.dialog_parts import SIDE_WIDTH, header_bar, named_frame, section_label
 from nxceviri.gui.theme import current_tokens
@@ -77,7 +78,8 @@ class CsvExportDialog(QDialog):
     `accepted` ile kapanırsa `format()`, `rows()`, `by_group()` ve `parts()` kullanılır; dosya adını çağıran sorar.
     `mode=MODE_TRANSLATION` ise sütunlar ve hazır istem dış çeviri içindir; `mode=MODE_FINDINGS` ise Kontrol Et
     bulgularının dosyasıdır (`bulgu` sütunu eklenir; kapsam yalnızca seçili ya da görünen bulgular). `notes`:
-    bulgu kipinde satır kimliği → bulgu metni (yalnızca önizleme için; dosyayı çağıran yazar).
+    bulgu kipinde satır kimliği → bulgu metni (yalnızca önizleme için; dosyayı çağıran yazar). `name_hint`: kaydet
+    penceresinin önereceği dosya adı gövdesi (kartlarda gösterilir). Kaynağı boş satırlar hiçbir kapsamda yazılmaz.
     """
 
     def __init__(
@@ -90,8 +92,10 @@ class CsvExportDialog(QDialog):
         instruction: str = "",
         mode: str = MODE_REDACTION,
         notes: Mapping[int, str] | None = None,
+        name_hint: str = "",
     ) -> None:
         super().__init__(parent)
+        self._name_hint = name_hint
         self._instruction = instruction
         self._mode = mode
         self._notes = notes or {}
@@ -206,6 +210,7 @@ class CsvExportDialog(QDialog):
 
         col.addWidget(section_label("SATIRLAR"))
         self._scopes: list[Sequence[TranslationRow]] = []
+        self._skipped: list[int] = []
         self.scope_group = QButtonGroup(self)
         choices = (
             (("Seçili bulguların satırları", selected), ("Görünen bulguların satırları", visible))
@@ -216,7 +221,9 @@ class CsvExportDialog(QDialog):
                 ("Tüm satırlar", all_rows),
             )
         )
-        for text, rows in choices:
+        for text, raw in choices:
+            rows = without_empty_source(raw)
+            self._skipped.append(len(raw) - len(rows))
             radio = QRadioButton(f"{text} ({format_int(len(rows))})")
             if text == "Tabloda görünenler":
                 radio.setToolTip("Çeviri tablosunda şu an görünen satırlar: arama ve süzgeçlere uyanlar.")
@@ -264,7 +271,11 @@ class CsvExportDialog(QDialog):
         font = self.split_label.font()
         font.setBold(True)
         self.split_label.setFont(font)
-        box_row.addWidget(self.split_label)
+        box_col = QVBoxLayout()
+        box_col.addWidget(self.split_label)
+        self.skipped_label = label("", "muted", wrap=True)
+        box_col.addWidget(self.skipped_label)
+        box_row.addLayout(box_col)
         wrap = QVBoxLayout()
         wrap.setContentsMargins(24, 8, 24, 20)
         wrap.addWidget(box)
@@ -411,6 +422,9 @@ class CsvExportDialog(QDialog):
         else:
             text = f"{format_int(plan.files)} dosya, her biri en çok {format_int(plan.max_rows)} satır"
         self.split_label.setText(text)
+        skipped = self._skipped[max(self.scope_group.checkedId(), 0)]
+        self.skipped_label.setText(f"{format_int(skipped)} boş satır atlandı")
+        self.skipped_label.setVisible(skipped > 0)
         self._planned = plan_files(
             self.rows(),
             by_group=self.by_group(),
@@ -443,6 +457,8 @@ class CsvExportDialog(QDialog):
     def _file_name(self, planned: PlannedFile) -> str:
         """Kaydedilecek adın şablonu: adın kendisini çağıran sorar, burada “…” ile gösterilir."""
         ext = ".txt" if self.format() == FORMAT_TXT else ".xlsx"
+        if self._name_hint:
+            return f"{self._name_hint}{planned.suffix}{ext}"
         return f"ad{ext}" if not planned.suffix else f"…{planned.suffix}{ext}"
 
     def _show_cards(self) -> None:
@@ -486,7 +502,9 @@ class CsvExportDialog(QDialog):
         table.setColumnCount(len(header))
         table.setRowCount(len(body))
         table.setHorizontalHeaderLabels(list(header))
-        tint = QBrush(QColor(current_tokens()["warning_bg"]))
+        accent = QColor(current_tokens()["warning"])
+        accent.setAlpha(38)  # hafif vurgu: açık, koyu ve palet temalarında metin okunur kalır
+        tint = QBrush(accent)
         bold = QFont(table.font())
         bold.setBold(True)
         fill_col = 2  # model yalnızca “düzeltme” / “yeni çeviri” sütununu doldurur
