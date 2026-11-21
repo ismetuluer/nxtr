@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+from PySide6.QtCore import QSettings
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.formats import registry
@@ -66,6 +69,40 @@ def test_font_tab_shows_plugin_info_banner(qtbot: QtBot) -> None:
     assert "bilgi dosyasında" in text
     assert "bulunamadı" not in text
     assert page.font_banner.property("state") == "success"
+
+
+def _export_notes(qtbot: QtBot, tmp_path: Path) -> tuple[str, ...]:
+    """Demo eklentili projede (font taranmadı) Dışa Aktar sayfasının üst bilgi notları."""
+    from nxceviri.core.formats.base import TextEntry
+    from nxceviri.core.project import ImportedFile, Project
+    from nxceviri.core.secrets import MemoryStore
+    from nxceviri.gui.main_window import STEP_EXPORT, MainWindow
+
+    project = Project.new()
+    project.import_texts([ImportedFile("a.bin", "0100AAAA", "demoyazi", "base", (TextEntry("k", 0, "Hi", ()),))])
+    w = MainWindow(QSettings(str(tmp_path / "ayarlar.ini"), QSettings.Format.IniFormat))
+    w.secrets = MemoryStore()
+    w._replace_project(project)
+    qtbot.addWidget(w)
+    w.nav.setCurrentRow(STEP_EXPORT)
+    details = w.export_page.header.chip.details()
+    w.dirty = False
+    w.close()
+    return details
+
+
+def test_export_does_not_ask_font_scan_when_plugin_handles_fonts(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _kaydet(monkeypatch, CUMLE)
+    assert not any("Fontlar henüz taranmadı" in n for n in _export_notes(qtbot, tmp_path))
+
+
+def test_export_asks_font_scan_without_plugin_claim(
+    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _kaydet(monkeypatch, None)
+    assert any("Fontlar henüz taranmadı" in n for n in _export_notes(qtbot, tmp_path))
 
 
 def test_font_tab_keeps_warning_without_plugin_claim(qtbot: QtBot) -> None:

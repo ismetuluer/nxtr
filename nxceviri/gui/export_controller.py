@@ -27,6 +27,7 @@ from nxceviri.core.export.layeredfs import (
     collect_translations,
 )
 from nxceviri.core.export.layeredfs import export_mod as export_layeredfs
+from nxceviri.core.formats import registry
 from nxceviri.core.pipeline import check_sources, version_warnings
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa import transliterate
@@ -78,7 +79,10 @@ class ExportController:
                 f"Oyun fontlarında {' '.join(unfixed)} harfleri yok; oyunda kutu veya başka fontla görünürler. "
                 "“Kontrol Et” adımında “Eksik Türkçe harfleri fontlara ekle” kutusunu işaretleyin."
             )
-        if not self._win.project.setting("font_missing") and self._win.font_report is None:
+        project = self._win.project
+        # Fontları eklenti kendisi yamalıyorsa (Kontrol Et → Font da bunu söyler) tarama istenmez.
+        plugin_fonts = registry.font_support_notes((t, kind) for _p, t, kind in project.text_files())
+        if not project.setting("font_missing") and self._win.font_report is None and not plugin_fonts:
             notes.append("Fontlar henüz taranmadı; “Kontrol Et” adımında Türkçe harfleri denetlemeniz önerilir.")
         page.set_notes(problems, notes[len(problems) :])
         page.set_summary(
