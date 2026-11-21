@@ -275,14 +275,6 @@ def rows_translation_xlsx(rows: Sequence[TranslationRow]) -> bytes:
     )
 
 
-def part_paths(path: Path, count: int) -> list[Path]:
-    """Parça dosyalarının adları: tek parçada `path`, değilse `ad_001.csv`, `ad_002.csv` …"""
-    if count <= 1:
-        return [path]
-    width = max(3, len(str(count)))
-    return [path.with_name(f"{path.stem}_{i:0{width}d}{path.suffix}") for i in range(1, count + 1)]
-
-
 _UNSAFE_NAME_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]+')
 
 
@@ -336,6 +328,45 @@ def file_plan(sizes: Sequence[int], parts: int = 0, *, by_group: bool = True) ->
     return FilePlan(sum(per_group), len(sets), biggest, tuple(per_group))
 
 
+@dataclass(frozen=True)
+class PlannedFile:
+    """Dışa aktarmanın üreteceği tek dosya: ad eki (uzantısız) ve içereceği satırlar."""
+
+    suffix: str  # "" | "_UI" | "_001" | "_UI_001": kaydedilen adın gövdesine eklenir
+    rows: Sequence[TranslationRow]
+
+
+def plan_files(
+    rows: Sequence[TranslationRow],
+    *,
+    by_group: bool = False,
+    parts: int = 0,
+    part_rows: int = 0,
+    groups: Mapping[str, Sequence[TranslationRow]] | None = None,
+) -> list[PlannedFile]:
+    """Yazıcının üreteceği dosyaların listesi (ad eki + satırlar); `_write_parts` ve önizleme aynı hesabı kullanır.
+
+    `groups`: gruplama açıksa önceden hesaplanmış `group_rows(rows)` (büyük projede her seferinde yeniden kurulmasın).
+    """
+    if by_group:
+        sets: list[tuple[str, Sequence[TranslationRow]]] = [
+            (f"_{safe_name(g)}", rs) for g, rs in (groups if groups is not None else group_rows(rows)).items()
+        ]
+    else:
+        sets = [("", rows)]
+    planned: list[PlannedFile] = []
+    for base, items in sets:
+        size = rows_per_part(len(items), parts) if parts > 1 else part_rows
+        size = size if size > 0 else max(len(items), 1)
+        chunks = [items[i : i + size] for i in range(0, len(items), size)] or [items]
+        if len(chunks) <= 1:
+            planned.append(PlannedFile(base, chunks[0]))
+            continue
+        width = max(3, len(str(len(chunks))))
+        planned += [PlannedFile(f"{base}_{i:0{width}d}", chunk) for i, chunk in enumerate(chunks, 1)]
+    return planned
+
+
 def _write_parts(
     rows: Sequence[TranslationRow],
     path: Path,
@@ -346,16 +377,10 @@ def _write_parts(
     kind: str,
     render: Callable[[Sequence[TranslationRow]], bytes],
 ) -> list[Path]:
-    if by_group:
-        sets = [(path.with_name(f"{path.stem}_{safe_name(g)}{path.suffix}"), rs) for g, rs in group_rows(rows).items()]
-    else:
-        sets = [(path, list(rows))]
-    jobs: list[tuple[Path, Sequence[TranslationRow]]] = []
-    for base, items in sets:
-        size = rows_per_part(len(items), parts) if parts > 1 else part_rows
-        size = size if size > 0 else max(len(items), 1)
-        chunks = [items[i : i + size] for i in range(0, len(items), size)] or [items]
-        jobs += zip(part_paths(base, len(chunks)), chunks, strict=True)
+    jobs = [
+        (path.with_name(f"{path.stem}{f.suffix}{path.suffix}"), f.rows)
+        for f in plan_files(rows, by_group=by_group, parts=parts, part_rows=part_rows)
+    ]
     try:
         for target, chunk in jobs:
             target.write_bytes(render(chunk))
@@ -364,6 +389,34 @@ def _write_parts(
             f"{kind} dosyası yazılamadı: {exc.strerror or exc}", "Başka bir klasör seçin veya dosya açıksa kapatın."
         ) from exc
     return [t for t, _ in jobs]
+
+
+#: Dışa aktarma kipleri (dosyanın sütunlarını ve hazır talimatı belirler).
+MODE_REDACTION = "redaction"
+MODE_TRANSLATION = "translation"
+MODE_FINDINGS = "findings"
+
+
+def without_empty_source(rows: Sequence[TranslationRow]) -> list[TranslationRow]:
+    """Kaynağı boş satırlar dışarıda kalır: çevrilecek bir şey yoktur (içe aktarma etkilenmez)."""
+    return [r for r in rows if r.source.strip()]
+
+
+def preview_table(
+    rows: Sequence[TranslationRow],
+    *,
+    mode: str = MODE_REDACTION,
+    notes: Mapping[int, str] | None = None,
+    limit: int = 20,
+) -> tuple[tuple[str, ...], list[tuple[str, ...]]]:
+    """Bir dosyanın ilk `limit` satırı: yazıcının yazacağı başlıklar ve hücreler (yalnızca gösterilenler hazırlanır)."""
+    header = {MODE_TRANSLATION: TRANSLATION_COLUMNS, MODE_FINDINGS: FINDING_COLUMNS}.get(mode, TXT_COLUMNS)
+    found = notes or {}
+    body: list[tuple[str, ...]] = []
+    for r in rows[:limit]:
+        cells = (r.source, r.translation, "", row_group(r))
+        body.append((*cells, found.get(r.id, "")) if mode == MODE_FINDINGS else cells)
+    return header, body
 
 
 def finding_notes(issues: Sequence[QaIssue]) -> dict[int, str]:
@@ -1049,6 +1102,15 @@ class CsvPlan:
     same_content: int = 0  # dosyada tek satırı olan, aynı içerikli kardeş satırlara yayılarak değişenler
     source_mismatch: list[int] = field(default_factory=list)
     code_problems: list[tuple[int, str]] = field(default_factory=list)  # (satır kimliği, sorun)
+    rejected: dict[int, str] = field(
+        default_factory=dict
+    )  # kodu uymadığı için yazılmayan satır kimliği → dosyadaki metin
+    matched_lines: set[int] = field(default_factory=set)  # projeyle eşleşen dosya satırlarının sırası (csv_rows dizini)
+
+    @property
+    def skipped(self) -> int:
+        """Yazılmayacak satır sayısı: kodu uymayan, orijinali farklı, kimliği/eşi olmayan ve boş çeviriler."""
+        return len(self.code_problems) + len(self.source_mismatch) + self.unknown + self.unmatched + self.empty
 
 
 def _same_text(a: str, b: str) -> bool:
@@ -1143,6 +1205,97 @@ def prepare_correction(row: TranslationRow, text: str) -> tuple[str, list[str]]:
     return final, list(placeholders.check(row.source, final, row.free_codes).errors)
 
 
+def describe_import(plan: CsvPlan, labels: Mapping[int, str], status_name: str) -> list[str]:
+    """Önizleme penceresinin “Nedenleri göster” bölümü: yazılmayanların nedenleri ve işlemin bütün notları."""
+    lines: list[str] = []
+    skipped = []
+    if plan.code_problems:
+        skipped.append(f"{_n(len(plan.code_problems))} satırın kontrol kodları uymuyor")
+    if plan.source_mismatch:
+        skipped.append(f"{_n(len(plan.source_mismatch))} satırın orijinal metni projedekinden farklı")
+    if plan.unknown:
+        skipped.append(f"{_n(plan.unknown)} satırın kimliği bu projede yok")
+    if plan.unmatched:
+        skipped.append(f"{_n(plan.unmatched)} satır projedeki bir satırla eşleşmedi")
+    if plan.empty:
+        skipped.append(f"{_n(plan.empty)} satırın çevirisi boş")
+    if skipped:
+        lines.append("Yazılmayacak: " + "; ".join(skipped) + ". Bu satırların mevcut çevirileri korunur.")
+    for entry_id, problem in plan.code_problems[:5]:
+        lines.append(f"  • {labels.get(entry_id, entry_id)}: {problem}")
+    if len(plan.code_problems) > 5:
+        lines.append(f"  … ve {_n(len(plan.code_problems) - 5)} satır daha.")
+    if plan.same_content:
+        lines.append(
+            f"{_n(plan.same_content)} satır, dosyadaki bir satırla aynı orijinal ve çeviriye sahip olduğu için "
+            "aynı düzeltmeyi aldı."
+        )
+    if plan.approved:
+        lines.append(f"Değişenlerin {_n(plan.approved)} tanesi onaylıydı; durumları “{status_name}” olur.")
+    if plan.cleaned:
+        lines.append(f"{_n(plan.cleaned)} satırdaki fazla etiket veya bozuk kod yazımı programca düzeltildi.")
+    if plan.unknown and plan.unknown == plan.found:
+        lines.append("Dosya başka bir projeden dışa aktarılmış olabilir.")
+    if plan.unmatched and plan.unmatched == plan.found:
+        lines.append("Dosya başka bir projeden dışa aktarılmış veya orijinal/çeviri metinleri değiştirilmiş olabilir.")
+    return lines
+
+
+def _n(value: int) -> str:
+    """Türkçe binlik ayırıcıyla sayı (ör. 2.373); çekirdek arayüz modülünü içe aktarmaz."""
+    return f"{value:,}".replace(",", ".")
+
+
+def _candidate(c: CsvRow) -> str | None:
+    """Dosya satırının önerdiği çeviri; boş “düzeltme” hücresi öneri değildir (None)."""
+    if c.correction is not None:
+        return c.correction if c.correction.strip() else None
+    return c.text
+
+
+@dataclass(frozen=True)
+class ImportFile:
+    """İçe aktarılacak tek dosyanın özeti (önizleme penceresinin dosya listesi)."""
+
+    name: str
+    lines: int  # dosyadaki satır sayısı
+    corrections: int  # dolu düzeltme/yeni çeviri sayısı
+    matched: int  # projedeki bir satırla eşleşen satır sayısı
+
+    @property
+    def foreign(self) -> bool:
+        """Hiçbir satırı projeyle eşleşmeyen dosya (başka projeden dışa aktarılmış olabilir)."""
+        return self.lines > 0 and self.matched == 0
+
+
+@dataclass
+class ImportPlan:
+    """Birden çok dosyanın birleşik içe aktarma planı ve dosya başına özetler."""
+
+    plan: CsvPlan
+    files: list[ImportFile]
+
+
+def plan_import_files(rows: Sequence[TranslationRow], files: Sequence[tuple[str, Sequence[CsvRow]]]) -> ImportPlan:
+    """Dosyaları art arda tek liste sayıp `plan_import` ile planlar; dosya başına satır/düzeltme/eşleşme sayar."""
+    combined = [c for _, lines in files for c in lines]
+    plan = plan_import(rows, combined)
+    stats: list[ImportFile] = []
+    start = 0
+    for name, lines in files:
+        end = start + len(lines)
+        stats.append(
+            ImportFile(
+                name,
+                len(lines),
+                sum(1 for c in lines if _candidate(c) is not None),
+                sum(1 for i in range(start, end) if i in plan.matched_lines),
+            )
+        )
+        start = end
+    return ImportPlan(plan, stats)
+
+
 def plan_import(rows: Sequence[TranslationRow], csv_rows: Sequence[CsvRow]) -> CsvPlan:
     """Dosya satırlarını projeyle eşleştirir; projeye yazmaz.
 
@@ -1168,12 +1321,7 @@ def plan_import(rows: Sequence[TranslationRow], csv_rows: Sequence[CsvRow]) -> C
             last_id[c.entry_id] = len(entries)  # aynı kimlik birden çok geçerse sonuncusu
             entries.append((by_id.get(c.entry_id), c))
     live = [(row, c) for i, (row, c) in enumerate(entries) if c.entry_id is None or last_id[c.entry_id] == i]
-    plan = CsvPlan(found=len(live))
-
-    def candidate_of(c: CsvRow) -> str | None:
-        if c.correction is not None:
-            return c.correction if c.correction.strip() else None
-        return c.text
+    plan = CsvPlan(found=len(live), matched_lines={i for i, (row, _) in enumerate(entries) if row is not None})
 
     def apply(row: TranslationRow, c: CsvRow, candidate: str | None) -> bool:
         if candidate is None:
@@ -1191,6 +1339,7 @@ def plan_import(rows: Sequence[TranslationRow], csv_rows: Sequence[CsvRow]) -> C
         text, issues = prepare_correction(row, candidate)
         if issues:
             plan.code_problems.append((row.id, " ".join(issues)))
+            plan.rejected[row.id] = text
             return False
         if text == row.translation:
             plan.unchanged += 1
@@ -1211,7 +1360,7 @@ def plan_import(rows: Sequence[TranslationRow], csv_rows: Sequence[CsvRow]) -> C
             else:
                 plan.unknown += 1
             continue
-        candidate = candidate_of(c)
+        candidate = _candidate(c)
         apply(row, c, candidate)
         if c.entry_id is None:
             group = _group_key(row_group(row)) if _group_key(c.group) else ""

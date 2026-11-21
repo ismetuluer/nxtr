@@ -2,21 +2,23 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QSettings, Qt
-from PySide6.QtWidgets import QMenu, QTableWidget, QTableWidgetItem
+from PySide6.QtWidgets import QMenu
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.formats.base import ControlCode, TextEntry
-from nxceviri.core.project import Change, ImportedFile, Project, TranslationRow, row_group
+from nxceviri.core.project import ImportedFile, Project, TranslationRow, row_group
 from nxceviri.core.secrets import MemoryStore
 from nxceviri.core.translate.replace import plan_replace
 from nxceviri.core.translate.status import Status
+from nxceviri.gui import exchange_controller
 from nxceviri.gui import main_window as main_window_module
-from nxceviri.gui.changes_dialog import NEW_TEXT_ROLE, ChangesDialog
+from nxceviri.gui.changes_dialog import NEW_TEXT_ROLE
+from nxceviri.gui.import_dialog import ImportDialog
 from nxceviri.gui.main_window import STEP_TRANSLATE, MainWindow
 
 LB = ControlCode(b"\\n", "Satır sonu")
@@ -365,7 +367,7 @@ def test_revision_export_and_import(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, fmt: str
 ) -> None:
     from PySide6.QtGui import QGuiApplication
-    from PySide6.QtWidgets import QDialog, QFileDialog, QWidget
+    from PySide6.QtWidgets import QDialog, QFileDialog
 
     from nxceviri.core.translate.csvio import TXT_COLUMNS, parse_xlsx, table_xlsx
     from nxceviri.gui.csv_dialog import CsvExportDialog
@@ -416,45 +418,32 @@ def test_revision_export_and_import(
         fixed = [(r.source or "", r.text, fix.get(r.source or "", ""), r.group) for r in parsed]
         target.write_bytes(table_xlsx(TXT_COLUMNS, fixed))
     monkeypatch.setattr(QFileDialog, "getOpenFileNames", lambda *a, **k: ([str(target)], ""))
-    asked: list[str] = []
+    seen: list[ImportDialog] = []
 
-    class Preview(ChangesDialog):
-        def __init__(
-            self,
-            parent: QWidget | None,
-            title: str,
-            changes: list[Change],
-            *,
-            history: bool = False,
-            preview: bool = False,
-            summary: Sequence[str] = (),
-            free_codes: Mapping[int, frozenset[int]] | None = None,
-        ) -> None:
-            asked.append("\n".join(summary))
-            super().__init__(
-                parent, title, changes, history=history, preview=preview, summary=summary, free_codes=free_codes
-            )
-
+    class Preview(ImportDialog):
         def exec(self) -> int:
-            # Uygulamadan önce satır satır karşılaştırma gösterilir: "Yaz, Satır, Orijinal, Önceki, Yeni".
-            assert self.table.columnCount() == 5
-            assert self.table.rowCount() == 2
-            old, new = _cell(self.table, 0, 3), _cell(self.table, 0, 4)
-            assert "<s>içki</s>" in old.text()
-            assert "kadeh" in new.text()
-            assert _cell(self.table, 0, 0).checkState() == Qt.CheckState.Checked
-            assert _cell(self.table, 1, 0).checkState() == Qt.CheckState.Checked
+            seen.append(self)
+            # Tek pencerede: dosya, sonuç ve satır listesi. Önce karşılaştırma, sonra yazılacakların seçimi.
+            assert self.windowTitle() == "Dış redaksiyondan içe aktar"
+            assert self.plan.changes
+            assert len(self.plan.changes) == 2
+            assert self.model.rowCount() == 2
+            old = str(self.model.data(self.model.index(0, 1), Qt.ItemDataRole.DisplayRole))
+            new = str(self.model.data(self.model.index(0, 2), Qt.ItemDataRole.DisplayRole))
+            assert "<s>içki</s>" in old
+            assert "kadeh" in new
+            assert self.write_button.text() == "2 satırı yaz"
+            assert "“Redakte” durumuyla yazılır" in self.footer_note.text()
             # İkinci satırı beğenmedik: işareti kaldır. Birinci satırın önerisini düzenle.
-            _cell(self.table, 1, 0).setCheckState(Qt.CheckState.Unchecked)
-            _cell(self.table, 0, 4).setData(NEW_TEXT_ROLE, "Benimle bir kadeh içelim.")
-            assert "Çevirilere Yaz (1)" in self.revert_button.text()
+            self.model.setData(self.model.index(1, 0), Qt.CheckState.Unchecked, Qt.ItemDataRole.CheckStateRole)
+            self.model.setData(self.model.index(0, 2), "Benimle bir kadeh içelim.", NEW_TEXT_ROLE)
+            assert self.write_button.text() == "1 satırı yaz"
             assert [c.new_text for c in self.accepted_changes()] == ["Benimle bir kadeh içelim."]
             return QDialog.DialogCode.Accepted
 
-    monkeypatch.setattr(main_window_module, "ChangesDialog", Preview)
+    monkeypatch.setattr(exchange_controller, "ImportDialog", Preview)
     window.import_csv()
-    assert "Değişecek: 2 satır" in asked[0]
-    assert "Redakte" in asked[0]
+    assert seen
     imported = _rows(window)["s01"]
     assert (imported.translation, imported.status) == ("Benimle bir kadeh içelim.", Status.REDACTED)
     rejected = _rows(window)["s02"]  # işareti kaldırılan satır eski çevirisiyle kalır
@@ -467,7 +456,7 @@ def test_revision_export_and_import(
 def test_translation_export_and_import_uses_translation_columns(
     window: MainWindow, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from PySide6.QtWidgets import QDialog, QFileDialog, QWidget
+    from PySide6.QtWidgets import QDialog, QFileDialog
 
     from nxceviri.gui.csv_dialog import CsvExportDialog
 
@@ -513,36 +502,22 @@ def test_translation_export_and_import_uses_translation_columns(
     )
     target.write_text(text, encoding="utf-8-sig")
     monkeypatch.setattr(QFileDialog, "getOpenFileNames", lambda *a, **k: ([str(target)], ""))
-    asked: list[str] = []
+    opened: list[ImportDialog] = []
 
-    class Preview(ChangesDialog):
-        def __init__(
-            self,
-            parent: QWidget | None,
-            title: str,
-            changes: list[Change],
-            *,
-            history: bool = False,
-            preview: bool = False,
-            summary: Sequence[str] = (),
-            free_codes: Mapping[int, frozenset[int]] | None = None,
-        ) -> None:
-            assert title == "Dış çeviriden içe aktar"
-            asked.append("\n".join(summary))
-            super().__init__(
-                parent, title, changes, history=history, preview=preview, summary=summary, free_codes=free_codes
-            )
-
+    class Preview(ImportDialog):
         def exec(self) -> int:
+            opened.append(self)
+            assert self.windowTitle() == "Dış çeviriden içe aktar"
+            assert self.model.headerData(2, Qt.Orientation.Horizontal) == "YENİ ÇEVİRİ"
+            assert "“Makine” durumuyla yazılır" in self.footer_note.text()
+            assert len(self.plan.changes) == 2
             # İkinci satırı beğenmedik: işareti kaldır; birinci satır yazılsın.
-            _cell(self.table, 1, 0).setCheckState(Qt.CheckState.Unchecked)
+            self.model.setData(self.model.index(1, 0), Qt.CheckState.Unchecked, Qt.ItemDataRole.CheckStateRole)
             return QDialog.DialogCode.Accepted
 
-    monkeypatch.setattr(main_window_module, "ChangesDialog", Preview)
+    monkeypatch.setattr(exchange_controller, "ImportDialog", Preview)
     window.import_translation()
-    assert "Yeni çeviri sütunu boş: 0 satır" not in asked[0]
-    assert "Değişecek: 2 satır" in asked[0]
-    assert "“Makine”" in asked[0]
+    assert opened
     imported = _rows(window)["s01"]
     assert (imported.translation, imported.status) == ("Benimle bir kadeh iç.", Status.MACHINE)
     rejected = _rows(window)["s02"]
@@ -551,93 +526,6 @@ def test_translation_export_and_import_uses_translation_columns(
 
     window.undo_last()
     assert _rows(window)["s01"].translation == "Benimle bir içki iç."
-
-
-def _cell(table: QTableWidget, row: int, column: int) -> QTableWidgetItem:
-    item = table.item(row, column)
-    assert item is not None
-    return item
-
-
-def _preview_dialog(qtbot: QtBot) -> ChangesDialog:
-    changes = [
-        Change(1, "s01", "Hello ⟦1⟧", "Merhaba ⟦1⟧", "machine", "", "Selam ⟦1⟧", "csv", ""),
-        Change(2, "s02", "Bye", "Hoşça kal", "machine", "", "Güle güle", "csv", ""),
-    ]
-    dialog = ChangesDialog(None, "Dış redaksiyondan içe aktar", changes, preview=True)
-    qtbot.addWidget(dialog)
-    return dialog
-
-
-def test_preview_accepts_rejects_and_edits_individual_rows(qtbot: QtBot) -> None:
-    from PySide6.QtWidgets import QDialog
-
-    dialog = _preview_dialog(qtbot)
-    assert dialog.table.columnCount() == 5
-    assert [_cell(dialog.table, r, 0).checkState() for r in range(2)] == [
-        Qt.CheckState.Checked,
-        Qt.CheckState.Checked,
-    ]
-    assert "Çevirilere Yaz (2)" in dialog.revert_button.text()
-
-    # İkinci satırı beğenmedik: işareti kaldırılınca ne sayıya ne de yazılacaklara girer.
-    _cell(dialog.table, 1, 0).setCheckState(Qt.CheckState.Unchecked)
-    assert "Çevirilere Yaz (1)" in dialog.revert_button.text()
-    assert [c.entry_id for c in dialog.accepted_changes()] == [1]
-
-    # Birinci satırın önerisini düzenle: hücredeki renkli fark tazelenir, yazılacak metin değişir.
-    _cell(dialog.table, 0, 4).setData(NEW_TEXT_ROLE, "Merhaba dünya ⟦1⟧")
-    assert "dünya" in _cell(dialog.table, 0, 4).text()
-    assert dialog.accepted_changes()[0].new_text == "Merhaba dünya ⟦1⟧"
-
-    _cell(dialog.table, 0, 0).setCheckState(Qt.CheckState.Unchecked)
-    assert "Çevirilere Yaz (0)" in dialog.revert_button.text()
-    assert not dialog.revert_button.isEnabled()
-    dialog.accept()
-    assert dialog.result() != QDialog.DialogCode.Accepted  # yazılacak satır kalmadı
-    assert "Yazılacak değişiklik kalmadı" in dialog.status.text.text()
-
-    # Tekrar işaretleyince kabul edilir.
-    _cell(dialog.table, 0, 0).setCheckState(Qt.CheckState.Checked)
-    dialog.accept()
-    assert dialog.result() == QDialog.DialogCode.Accepted
-
-
-def test_preview_new_cell_editor_shows_plain_text(qtbot: QtBot) -> None:
-    from PySide6.QtWidgets import QPlainTextEdit
-
-    dialog = _preview_dialog(qtbot)
-    dialog.show()
-    qtbot.wait(10)
-    item = _cell(dialog.table, 0, 4)
-    dialog.table.setCurrentCell(0, 4)
-    dialog.table.editItem(item)
-    editor = dialog.table.findChild(QPlainTextEdit)
-    assert editor is not None
-    assert editor.toPlainText() == "Selam ⟦1⟧"  # HTML etiketi değil, gerçek metin
-    editor.setPlainText("Merhaba dünya ⟦1⟧")
-    dialog.table.setCurrentCell(0, 1)  # hücre dışına geç: düzenleme yazılır
-    qtbot.waitUntil(lambda: dialog.accepted_changes()[0].new_text == "Merhaba dünya ⟦1⟧")
-    assert "dünya" in item.text()
-
-
-def test_preview_blocks_empty_or_broken_corrections(qtbot: QtBot) -> None:
-    from PySide6.QtWidgets import QDialog
-
-    dialog = _preview_dialog(qtbot)
-    _cell(dialog.table, 0, 4).setData(NEW_TEXT_ROLE, "Selam")  # ⟦1⟧ kayboldu
-    dialog.accept()
-    assert dialog.result() != QDialog.DialogCode.Accepted
-    assert "Eksik kontrol kodu" in dialog.status.text.text()
-
-    _cell(dialog.table, 0, 4).setData(NEW_TEXT_ROLE, "   ")
-    dialog.accept()
-    assert dialog.result() != QDialog.DialogCode.Accepted
-    assert "düzeltme boş" in dialog.status.text.text()
-
-    _cell(dialog.table, 0, 4).setData(NEW_TEXT_ROLE, "Selam ⟦1⟧")
-    dialog.accept()
-    assert dialog.result() == QDialog.DialogCode.Accepted
 
 
 def test_status_cell_shows_row_problems_under_status(qtbot: QtBot, window: MainWindow) -> None:

@@ -4,8 +4,9 @@
 Ana pencereden ayrılmıştır (`ARCHITECTURE.md` karar 221). Denetleyici durum tutmaz; proje, çeviri sayfası ve `busy`
 her çağrıda pencereden okunur. Pencerede yönlendirmesi olan her yöntem (`notify`, `_run`, `_mark_changed`,
 `_reload_rows`, `_refresh_marks`, `_set_last_job`, `_to_translate_step`) pencere üzerinden çağrılır; testler bu adları
-pencerede değiştirir. Testlerin `nxceviri.gui.main_window` üzerinde değiştirdiği `CsvExportDialog` ve `ChangesDialog`
-adları çağrı anında `_mw.<ad>` ile okunur. Onay kaldırma, çeviri kaydetme ve geri alma/geçmiş sonraki adımlara aittir;
+pencerede değiştirir. Testlerin `nxceviri.gui.main_window` üzerinde değiştirdiği `CsvExportDialog` adı çağrı anında
+`_mw.<ad>` ile okunur; `ImportDialog` bu modülden okunur (testler `exchange_controller.ImportDialog`'u değiştirir).
+Onay kaldırma, çeviri kaydetme ve geri alma/geçmiş sonraki adımlara aittir;
 pencerede kalır.
 """
 
@@ -18,7 +19,7 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from nxceviri.core.errors import NxError
-from nxceviri.core.project import Change, TranslationRow
+from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa.checks import QaIssue
 from nxceviri.core.translate.csvio import (
     CsvError,
@@ -29,14 +30,13 @@ from nxceviri.core.translate.csvio import (
     export_txt,
     export_xlsx,
     finding_notes,
-    plan_import,
     prepare_correction,
-    read_revision_file,
 )
 from nxceviri.core.translate.origin import NO_ORIGIN
 from nxceviri.core.translate.port import ReadyTranslations, port_translations, read_ready_translations
 from nxceviri.core.translate.status import Status
 from nxceviri.gui.csv_dialog import FORMAT_TXT, MODE_FINDINGS, MODE_REDACTION, MODE_TRANSLATION
+from nxceviri.gui.import_dialog import ImportDialog
 from nxceviri.gui.jobs import new_job_id
 from nxceviri.gui.machine_controller import REVISE_INSTRUCTION_KEY
 from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_INFO, LEVEL_SUCCESS
@@ -146,6 +146,7 @@ class ExchangeController:
             all_rows=page.model.rows,
             instruction=win.project.setting(REVISE_INSTRUCTION_KEY),
             mode=MODE_TRANSLATION if translation else MODE_REDACTION,
+            name_hint=(win.project.path.stem if win.project.path else "ceviriler") + ("_ceviri" if translation else ""),
         )
         if dialog.exec() != _mw.CsvExportDialog.DialogCode.Accepted or not dialog.rows():
             return
@@ -184,7 +185,7 @@ class ExchangeController:
             page.show_notice(
                 "success",
                 f"{format_int(len(dialog.rows()))} satır {shown} çeviri dosyasına yazıldı: {files}. Çeviri talimatı "
-                "panoya kopyalandı. Çevrilen dosyaları Araçlar → “Dış Çeviriden İçe Aktar” ile geri yükleyin.",
+                "panoya kopyalandı. Çevrilen dosyaları Çeviri → Dış Çeviri → “İçe Aktar” ile geri yükleyin.",
             )
         else:
             page.show_notice(
@@ -227,6 +228,8 @@ class ExchangeController:
             all_rows=[],
             instruction=win.project.setting(REVISE_INSTRUCTION_KEY),
             mode=MODE_FINDINGS,
+            notes=finding_notes(visible),
+            name_hint=(win.project.path.stem if win.project.path else "ceviriler") + "_bulgular",
         )
         if dialog.exec() != _mw.CsvExportDialog.DialogCode.Accepted or not dialog.rows():
             return
@@ -271,15 +274,11 @@ class ExchangeController:
         self._import_external(translation=True)
 
     def _import_external(self, *, translation: bool) -> None:
-        from nxceviri.gui import main_window as _mw  # noqa: PLC0415
-
         win = self._win
         page = win.translate_page
         if win.busy:
             return
         title = "Dış çeviriden içe aktar" if translation else "Dış redaksiyondan içe aktar"
-        column = "yeni çeviri" if translation else "düzeltme"
-        status_name = "Makine" if translation else "Redakte"
         job_kind = "translation" if translation else "csv"
         if not page.model.rows:
             win.notify(LEVEL_INFO, title, "Önce “Metinleri Tara” adımından metinleri çeviri tablosuna aktarın.")
@@ -300,89 +299,26 @@ class ExchangeController:
         if not targets:
             return
         win.settings.setValue("csv/dir", str(Path(targets[0]).parent))
-        try:
-            csv_rows = [r for t in targets for r in read_revision_file(Path(t))]
-        except CsvError as exc:
-            win.notify(LEVEL_ERROR, title, exc.user_text())
-            return
         rows = win.project.translation_rows()
-        plan = plan_import(rows, csv_rows)
-        labels = {r.id: r.context or r.key for r in rows}
-        lines = [f"Dosyalarda {format_int(plan.found)} satır var."]
-        if plan.no_correction:
-            lines.append(
-                f"{column.capitalize()} sütunu boş: {format_int(plan.no_correction)} satırın çevirisi değişmeyecek."
-            )
-        lines.append(
-            f"Değişecek: {format_int(len(plan.changes))} satır (zaten aynı olan {format_int(plan.unchanged)})."
-        )
-        if plan.same_content:
-            lines.append(
-                f"{format_int(plan.same_content)} satır, dosyadaki bir satırla aynı orijinal ve çeviriye sahip "
-                "olduğu için aynı düzeltmeyi aldı."
-            )
-        if plan.approved:
-            lines.append(f"Değişenlerin {format_int(plan.approved)} tanesi onaylıydı; durumları “{status_name}” olur.")
-        if plan.cleaned:
-            lines.append(
-                f"{format_int(plan.cleaned)} satırdaki fazla etiket veya bozuk kod yazımı programca düzeltildi."
-            )
-        skipped = []
-        if plan.code_problems:
-            skipped.append(f"{format_int(len(plan.code_problems))} satırın kontrol kodları uymuyor")
-        if plan.source_mismatch:
-            skipped.append(f"{format_int(len(plan.source_mismatch))} satırın orijinal metni projedekinden farklı")
-        if plan.unknown:
-            skipped.append(f"{format_int(plan.unknown)} satırın kimliği bu projede yok")
-        if plan.unmatched:
-            skipped.append(f"{format_int(plan.unmatched)} satır projedeki bir satırla eşleşmedi")
-        if plan.empty:
-            skipped.append(f"{format_int(plan.empty)} satırın çevirisi boş")
-        if skipped:
-            lines.append("Yazılmayacak: " + "; ".join(skipped) + ". Bu satırların mevcut çevirileri korunur.")
-        for entry_id, problem in plan.code_problems[:5]:
-            lines.append(f"  • {labels.get(entry_id, entry_id)}: {problem}")
-        if len(plan.code_problems) > 5:
-            lines.append(f"  … ve {format_int(len(plan.code_problems) - 5)} satır daha.")
-        if plan.unknown and plan.unknown == plan.found:
-            lines.append("\nDosya başka bir projeden dışa aktarılmış olabilir.")
-        if plan.unmatched and plan.unmatched == plan.found:
-            lines.append(
-                "\nDosya başka bir projeden dışa aktarılmış veya orijinal/çeviri metinleri değiştirilmiş olabilir."
-            )
-        if not plan.changes:
-            win.notify(LEVEL_INFO, title, "Yazılacak bir değişiklik yok.\n\n" + "\n".join(lines))
-            return
-        lines.append(
-            f"Değişiklikler “{status_name}” durumuyla yazılır; “Son İşin Değişiklikleri” veya Geri Al ile geri "
-            "alabilirsiniz."
-        )
-        changed = dict(plan.changes)
-        preview = [
-            Change(
-                row.id,
-                labels.get(row.id, row.key),
-                row.source,
-                row.translation,
-                row.status,
-                row.note,
-                changed[row.id],
-                job_kind,
-                "",
-            )
-            for row in rows
-            if row.id in changed
-        ]
-        dialog = _mw.ChangesDialog(
+        dialog = ImportDialog(
             win,
-            title,
-            preview,
-            preview=True,
-            summary=lines,
-            free_codes={r.id: r.free_codes for r in rows if r.id in changed},
+            title=title,
+            rows=rows,
+            translation=translation,
+            job_kind=job_kind,
+            start_dir=str(Path(targets[0]).parent),
+            context_fn=win._context_html,
+            settings=win.settings,
         )
-        if dialog.exec() != _mw.ChangesDialog.DialogCode.Accepted:
+        errors = dialog.add_files([Path(t) for t in targets])
+        if errors and not dialog.import_files:
+            dialog.deleteLater()
+            win.notify(LEVEL_ERROR, title, "\n".join(errors))
             return
+        if dialog.exec() != ImportDialog.DialogCode.Accepted:
+            return
+        win.settings.setValue("csv/dir", dialog.last_dir)
+        plan = dialog.plan
         accepted = dialog.accepted_changes()
         by_id = {r.id: r for r in rows}
         planned = dict(plan.changes)

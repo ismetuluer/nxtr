@@ -10,6 +10,14 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [Se
   Yerini Göster…" kartın "…" menüsünde ve sağ tık menüsünde. Başlıktaki "Dosya Ekle…" düğmesi dosya seçer.
 - Oyun simgesi ve yayıncı proje dosyasına kaydedilir (proje şeması 8); eski projeler açılır ve simgeleri anahtar
   yüklüyken arka planda bir kez okunur. Simge yoksa oyun adının baş harfleri gösterilir.
+- **İçe aktarma tek pencerede:** Dış redaksiyondan/çeviriden içe aktarırken bilgi metni ve ayrı önizleme penceresi
+  birleşti. Solda dosyalar (dosya başına satır/düzeltme sayısı, projeyle eşleşmeyen dosya uyarısı, “Dosya ekle”,
+  kaldırma) ve sonuç sayıları; sağda Değişecek / Onaylıydı / Kod uymuyor süzgeçleriyle binlerce satırda akıcı liste.
+  Kodu uymayan satırlar gerekçesiyle listelenir ama yazılamaz; yazılmayanların nedenleri “Nedenleri göster”de.
+  Yazılacak değişiklik yoksa da pencere açılır ve nedenleri gösterir.
+- **Dışa aktarma penceresi önizlemeli:** sol panelde biçim, satırlar ve dosya ayarları; sağda çıkacak dosyalar kart
+  olarak (kaydedilecek ad şablonuyla) ve seçili dosyanın gerçek sütunlarıyla ilk 20 satırı; ayar değiştikçe anında
+  güncellenir. Model talimatı açılır bölümdedir. Çeviri, redaksiyon ve bulgu kipleri aynı düzeni kullanır.
 
 ## [0.71.0] — 2026-11-21 — Renk paletleri, Kontrol Et karo sekmeleri, donma düzeltmesi
 

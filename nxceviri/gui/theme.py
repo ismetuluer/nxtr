@@ -312,6 +312,29 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QPushButton[kind="flat"] {{
         background: transparent; border: 1px solid transparent; color: {t["accent"]}; padding: {S4}px {S4}px;
     }}
+    QFrame#dialogHeader, QFrame#dialogFooter, QFrame#mainPanel {{ background: {t["surface"]}; border: none; }}
+    QFrame#dialogHeader {{ border-bottom: 1px solid {t["border"]}; }}
+    QFrame#dialogFooter {{ border-top: 1px solid {t["border"]}; }}
+    QFrame#sidePanel {{ background: {t["bg"]}; border: none; border-right: 1px solid {t["border"]}; }}
+    QLabel[role="sectionLabel"] {{ color: {t["muted"]}; font-weight: 700; }}
+    QFrame#fileRow {{ background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: {R8}px; }}
+    QFrame#fileRow[state="warning"] {{ background: {t["warning_bg"]}; border-color: {t["warning"]}; }}
+    QFrame#fileRow[state="warning"] QLabel[role="muted"] {{ color: {t["warning"]}; }}
+    QFrame#resultRow {{ background: transparent; border-radius: {R8}px; }}
+    QFrame#resultRow[tone="info"] {{ background: {t["selection"]}; }}
+    QFrame#resultRow[tone="danger"] {{ background: {t["danger_bg"]}; }}
+    QFrame#resultRow[tone="danger"] QLabel {{ color: {t["danger"]}; }}
+    QFrame#summaryBox {{ background: {t["selection"]}; border-radius: {R12}px; }}
+    QRadioButton[role="tile"] {{
+        background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: {R8}px; padding: {S8}px {S12}px;
+    }}
+    QRadioButton[role="tile"]:checked {{ background: {t["selection"]}; border-color: {t["accent"]}; }}
+    QScrollArea#cardStrip, QScrollArea#cardStrip > QWidget > QWidget {{ background: transparent; border: none; }}
+    QToolButton[role="fileCard"] {{
+        background: {t["surface"]}; border: 1px solid {t["border"]}; border-radius: {R8}px; padding: {S8}px {S12}px;
+    }}
+    QToolButton[role="fileCard"]:hover {{ border-color: {t["accent"]}; }}
+    QToolButton[role="fileCard"]:checked {{ background: {t["selection"]}; border-color: {t["accent"]}; }}
     QWidget#stepNavColumn {{ background: {t["surface"]}; border-right: 1px solid {t["border"]}; }}
     QListWidget#stepNav {{
         background: transparent; border: none; outline: none; padding: {S4}px {S8}px {S12}px {S8}px;
