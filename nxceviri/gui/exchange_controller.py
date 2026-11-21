@@ -306,6 +306,7 @@ class ExchangeController:
             start_dir=str(Path(targets[0]).parent),
             context_fn=win._context_html,
             settings=win.settings,
+            kinds=win.translate_page.code_kinds,
         )
         errors = dialog.add_files([Path(t) for t in targets])
         if errors and not dialog.import_files:

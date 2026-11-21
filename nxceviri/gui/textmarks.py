@@ -28,6 +28,7 @@ from collections.abc import Mapping, Sequence
 
 from nxceviri.core.translate.codekinds import (
     KIND_LINE_BREAK,
+    KIND_NAMES,
     KIND_OTHER,
     KIND_PAGE_BREAK,
     KIND_STYLE,
@@ -69,6 +70,40 @@ def chip_glyph(kind: str) -> str:
 
 def chip_color(kind: str, tokens: Mapping[str, str]) -> str:
     return tokens[CHIP_TOKENS.get(kind, CHIP_TOKENS[KIND_OTHER])]
+
+
+def chip_html(kind: str, number: int, tokens: Mapping[str, str]) -> str:
+    """Bir `⟦n⟧` kodunun renkli çipi (simge + numara)."""
+    style = f"color:{chip_color(kind, tokens)};background-color:{tokens['selection']};font-weight:600;"
+    return f'<span style="{style}">&nbsp;{chip_glyph(kind)}{number}&nbsp;</span>'
+
+
+def inline_marks_html(text: str, kind_of: KindOf, tokens: Mapping[str, str]) -> str:
+    """Satır içi HTML parçası: kodlar çip, satır sonu `¶` ve yeni satır olur (fark gösterimi için; sarmalayıcısız)."""
+    pilcrow = f'<span style="color:{tokens["muted"]}">¶</span><br>'
+
+    def plain(part: str) -> str:
+        return html.escape(part, quote=False).replace("\r\n", "\n").replace("\n", pilcrow)
+
+    out: list[str] = []
+    pos = 0
+    for start, end, number in code_spans(text):
+        out.append(plain(text[pos:start]))
+        out.append(chip_html(kind_of(number), number, tokens))
+        pos = end
+    out.append(plain(text[pos:]))
+    return "".join(out)
+
+
+def legend_html(tokens: Mapping[str, str]) -> str:
+    """Çip simgelerinin tek satırlık açıklaması: `↵ Satır sonu  § Sayfa sonu …`."""
+    items = [
+        f'<span style="color:{chip_color(kind, tokens)};font-weight:600">{glyph}</span>&nbsp;{KIND_NAMES[kind]}'
+        for kind, glyph in KIND_GLYPHS.items()
+        if kind != KIND_OTHER
+    ]
+    items.append(f'<span style="color:{tokens["muted"]}">¶</span>&nbsp;Yeni satır')
+    return "&nbsp;&nbsp;&nbsp;".join(items)
 
 
 def pua_spans(text: str) -> list[int]:

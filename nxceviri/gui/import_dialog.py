@@ -7,6 +7,7 @@ tabloda, önceki ve yeni metin farkıyla listelenir. Kodu uymayan satırlar list
 
 from __future__ import annotations
 
+import html
 import os
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -42,6 +43,7 @@ from PySide6.QtWidgets import (
 
 from nxceviri.core.project import Change, TranslationRow
 from nxceviri.core.translate import placeholders
+from nxceviri.core.translate.codekinds import CodeKinds, KindOf
 from nxceviri.core.translate.csvio import (
     CsvError,
     CsvPlan,
@@ -68,10 +70,18 @@ from nxceviri.gui.dialog_parts import (
     section_label,
     set_tone,
 )
+from nxceviri.gui.marked_delegate import kind_of_row
+from nxceviri.gui.textmarks import inline_marks_html, legend_html
 from nxceviri.gui.theme import current_tokens
 from nxceviri.gui.widgets import Badge, Banner, button, format_int, label, tip_html
 
 _Index = QModelIndex | QPersistentModelIndex
+
+#: Tablo sütunları: onay kutusu, orijinal, şu anki çeviri, yeni (düzenlenebilir) metin.
+COL_CHECK = 0
+COL_SOURCE = 1
+COL_OLD = 2
+COL_NEW = 3
 
 FILTER_CHANGES = "changes"
 FILTER_APPROVED = "approved"
@@ -95,7 +105,7 @@ class _Item:
     checked: bool
     approved: bool
     reason: str = ""  # boş değilse satır yazılamaz
-    html: tuple[str, str] | None = None
+    html: tuple[str, str, str] | None = None
 
     @property
     def writable(self) -> bool:
@@ -107,14 +117,14 @@ class _Item:
 
 
 class ImportModel(QAbstractTableModel):
-    """Satır listesi (sanal): sütunlar onay kutusu, ŞU AN, DÜZELTME; süzgeç görünen satırları seçer."""
+    """Satır listesi (sanal): sütunlar onay kutusu, ORİJİNAL, ŞU AN, DÜZELTME; süzgeç görünen satırları seçer."""
 
     #: İşaret ya da metin değişti (yazılacak sayısı değişmiş olabilir).
     edited = Signal()
 
     def __init__(self, new_header: str) -> None:
         super().__init__()
-        self._headers = ("", "ŞU AN", new_header)
+        self._headers = ("", "ORİJİNAL", "ŞU AN", new_header)
         self._items: list[_Item] = []
         self._view: list[int] = []
         self._filter = FILTER_CHANGES
@@ -122,6 +132,8 @@ class ImportModel(QAbstractTableModel):
         #: Satır kimliğinden bağlam metnine (HTML); verilirse ve `show_context` açıksa ipucunda görünür.
         self.context_fn: Callable[[int], str] | None = None
         self.show_context = False
+        #: Satır kimliğinden kod türü bulucusuna; verilirse kodlar çip (↵ satır sonu, § sayfa sonu…) olarak çizilir.
+        self.kind_of_fn: Callable[[int], KindOf] | None = None
 
     # --- veri -----------------------------------------------------------------------------------------------
     def items(self) -> list[_Item]:
@@ -181,7 +193,7 @@ class ImportModel(QAbstractTableModel):
         return 0 if parent.isValid() else len(self._view)
 
     def columnCount(self, parent: _Index = QModelIndex()) -> int:  # noqa: B008 - Qt imzası
-        return 0 if parent.isValid() else 3
+        return 0 if parent.isValid() else len(self._headers)
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
@@ -191,21 +203,31 @@ class ImportModel(QAbstractTableModel):
     def flags(self, index: _Index) -> Qt.ItemFlag:
         flags = Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
         if index.isValid() and self.item_at(index.row()).writable:
-            if index.column() == 0:
+            if index.column() == COL_CHECK:
                 flags |= Qt.ItemFlag.ItemIsUserCheckable
-            elif index.column() == 2:
+            elif index.column() == COL_NEW:
                 flags |= Qt.ItemFlag.ItemIsEditable
         return flags
 
-    def _html(self, item: _Item) -> tuple[str, str]:
+    def _html(self, item: _Item) -> tuple[str, str, str]:
         if item.html is None:
-            left, right = diff_html(item.change.old_text, item.text)
             t = current_tokens()
+            if self.kind_of_fn is not None:
+                kind_of = self.kind_of_fn(item.change.entry_id)
+
+                def render(text: str) -> str:
+                    return inline_marks_html(text, kind_of, t)
+
+                source = render(item.change.source)
+                left, right = diff_html(item.change.old_text, item.text, render)
+            else:
+                source = html.escape(item.change.source).replace(chr(10), "<br>")
+                left, right = diff_html(item.change.old_text, item.text)
             if item.reason:
                 right += f'<br><span style="color:{t["danger"]}"><i>{item.reason}</i></span>'
             if item.approved:
                 right += f' <span style="background:{t["selection"]};color:{t["text"]}">&nbsp;onaylıydı&nbsp;</span>'
-            item.html = (left, right)
+            item.html = (source, left, right)
         return item.html
 
     def data(self, index: _Index, role: int = Qt.ItemDataRole.DisplayRole) -> Any:
@@ -213,11 +235,11 @@ class ImportModel(QAbstractTableModel):
             return None
         item = self.item_at(index.row())
         col = index.column()
-        if role == Qt.ItemDataRole.CheckStateRole and col == 0 and item.writable:
+        if role == Qt.ItemDataRole.CheckStateRole and col == COL_CHECK and item.writable:
             return Qt.CheckState.Checked if item.checked else Qt.CheckState.Unchecked
-        if role == Qt.ItemDataRole.DisplayRole and col > 0:
+        if role == Qt.ItemDataRole.DisplayRole and col > COL_CHECK:
             return self._html(item)[col - 1]
-        if role == NEW_TEXT_ROLE and col == 2:
+        if role == NEW_TEXT_ROLE and col == COL_NEW:
             return item.text
         if role == Qt.ItemDataRole.ToolTipRole:
             return self._tip(item, col)
@@ -226,9 +248,9 @@ class ImportModel(QAbstractTableModel):
     def _tip(self, item: _Item, col: int) -> str:
         if item.reason:
             tip = f"Bu satır yazılamaz: {item.reason}\nMevcut çevirisi korunur."
-        elif col == 0:
+        elif col == COL_CHECK:
             tip = "Bu satırın düzeltmesini yaz. İşareti kaldırırsanız satırın mevcut çevirisi korunur."
-        elif col == 2:
+        elif col == COL_NEW:
             tip = "Düzenlemek için çift tıklayın veya F2'ye basın. Satır sonu için Enter."
         else:
             tip = ""
@@ -244,15 +266,15 @@ class ImportModel(QAbstractTableModel):
         if not item.writable:
             return False
         before = item.effective()
-        if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
+        if role == Qt.ItemDataRole.CheckStateRole and index.column() == COL_CHECK:
             item.checked = Qt.CheckState(value) == Qt.CheckState.Checked
-        elif role == NEW_TEXT_ROLE and index.column() == 2:
+        elif role == NEW_TEXT_ROLE and index.column() == COL_NEW:
             item.text = str(value)
             item.html = None
         else:
             return False
         self._n_write += int(item.effective()) - int(before)
-        self.dataChanged.emit(self.index(index.row(), 0), self.index(index.row(), 2))
+        self.dataChanged.emit(self.index(index.row(), COL_CHECK), self.index(index.row(), COL_NEW))
         self.edited.emit()
         return True
 
@@ -313,6 +335,7 @@ class ImportDialog(QDialog):
         start_dir: str = "",
         context_fn: Callable[[int], str] | None = None,
         settings: QSettings | None = None,
+        kinds: CodeKinds | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
@@ -337,7 +360,7 @@ class ImportDialog(QDialog):
         root.setSpacing(0)
         header, header_row = header_bar(
             title,
-            "Yalnızca değişen satırlar yazılır.",
+            legend_html(current_tokens()),
         )
         self.add_button = button("Dosya ekle", icon="file-plus")
         self.add_button.setToolTip("Aynı projeye ait başka dosyaları da ekleyin (ör. parçalara bölünmüş dosyalar).")
@@ -352,6 +375,8 @@ class ImportDialog(QDialog):
         root.addWidget(self._build_footer())
 
         self.model.context_fn = context_fn
+        code_kinds = kinds if kinds is not None else CodeKinds({})
+        self.model.kind_of_fn = lambda entry_id: kind_of_row(self._by_id[entry_id], code_kinds)
         self.model.show_context = self.context_box.isChecked()
         self.model.edited.connect(self._refresh)
         self._fitted: set[int] = set()
@@ -463,14 +488,15 @@ class ImportDialog(QDialog):
             QAbstractItemView.EditTrigger.DoubleClicked | QAbstractItemView.EditTrigger.EditKeyPressed
         )
         self.table.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-        self.table.setItemDelegateForColumn(1, HtmlDelegate(self.table))
-        self.table.setItemDelegateForColumn(2, EditableDiffDelegate(self.table))
+        self.table.setItemDelegateForColumn(COL_SOURCE, HtmlDelegate(self.table))
+        self.table.setItemDelegateForColumn(COL_OLD, HtmlDelegate(self.table))
+        self.table.setItemDelegateForColumn(COL_NEW, EditableDiffDelegate(self.table))
         head = self.table.horizontalHeader()
         head.setDefaultAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        head.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)
-        head.resizeSection(0, 40)
-        head.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        head.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        head.setSectionResizeMode(COL_CHECK, QHeaderView.ResizeMode.Fixed)
+        head.resizeSection(COL_CHECK, 40)
+        for column in (COL_SOURCE, COL_OLD, COL_NEW):
+            head.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
         self.table.verticalHeader().setDefaultSectionSize(self.fontMetrics().height() * 2 + 12)
         table_row = QHBoxLayout()
         table_row.setContentsMargins(20, 0, 20, 16)

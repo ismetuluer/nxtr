@@ -92,6 +92,8 @@ class ChecksController:
         self.recheck_pending = False
         #: İş sürerken Sorunlar'da yerinde yapılan düzenlemeler: satır → (proje, o anki çeviri, yeni metin).
         self.pending_edits: dict[int, tuple[Project, str, str]] = {}
+        #: Son Düzelt isteği Çevir sayfasından mı geldi (sonuç orada bildirilir).
+        self._fix_on_translate = False
 
     def _checks_job(self, rows: list[TranslationRow]) -> Callable[[ProgressCallback | None], list[QaIssue]]:
         """Denetimi `rows` üzerinde çalıştıran işlev (isteğe bağlı ilerleme geri çağrısı alır); ayarlar şimdi okunur
@@ -569,17 +571,18 @@ class ChecksController:
         """Sorunlar panosundaki "N satır düzeltilebilir" bildiriminin planı; Düzelt aynı kuralla çalışır."""
         return plan_for_issues(rows, issues, kinds, self._fix_settings())
 
-    def apply_fixes(self, kinds: list[str], row_ids: list[int]) -> None:
+    def apply_fixes(self, kinds: list[str], row_ids: list[int], *, on_translate: bool = False) -> None:
         """Seçilen türlerdeki bulguları düzeltir (`row_ids` boşsa panodaki tüm bulgular); tek iş olarak geçmişe yazılır.
 
         Onaylı satırlar da düzelir ve onaylı kalır. Yalnızca bulgusu olan satırlar yeniden denetlenir (tüm proje
         değil); çok satır varsa denetim ve plan arka plan işinde çalışır, arayüz donmaz. Rapor “Son İşin
-        Değişiklikleri” penceresidir.
+        Değişiklikleri” penceresidir. `on_translate`: istek Çevir sayfasından geldi; sonuç orada bildirilir.
         """
         if not kinds:
             return
+        self._fix_on_translate = on_translate
         if self._win.busy:
-            self._win.qa_page.show_fix_result("warning", "Bir iş sürerken düzeltilemez; iş bitince yeniden deneyin.")
+            self._fix_result("warning", "Bir iş sürerken düzeltilemez; iş bitince yeniden deneyin.")
             return
         settings = self._fix_settings()
         if row_ids:
@@ -606,8 +609,17 @@ class ChecksController:
             work,
             "Düzeltmeler hazırlanıyor",
             on_success=done,
-            on_failure=lambda text: self._win.qa_page.show_fix_result("danger", text),
+            on_failure=lambda text: self._fix_result("danger", text),
         )
+
+    def _fix_result(self, state: str, text: str, action: str = "") -> None:
+        """Düzeltme sonucunu isteğin geldiği sayfada bildirir."""
+        if self._fix_on_translate:
+            self._win.translate_page.show_notice(state, text)
+        elif action:
+            self._win.qa_page.show_fix_result(state, text, action)
+        else:
+            self._win.qa_page.show_fix_result(state, text)
 
     def _write_fixes(self, rows: list[TranslationRow], plan: FixPlan) -> None:
         """Planı tek iş olarak yazar, değişen satırları yerinde yeniler ve sonucu bildirir."""
@@ -617,20 +629,20 @@ class ChecksController:
             notes.append(f"{format_int(plan.unfixed)} satır düzeltilemedi (anlam gerektiriyor); elle bakın.")
         if plan.empty:
             if plan.unfixed:
-                page.show_fix_result(
+                self._fix_result(
                     "warning",
                     "Kendiliğinden düzeltilemedi. "
                     f"{format_int(plan.unfixed)} satır anlam gerektiriyor; sağ tıklayıp doğru yazımı seçin "
                     "ya da elle düzeltin.",
                 )
             else:
-                page.show_fix_result("warning", "Düzeltilecek bir şey bulunamadı.")
+                self._fix_result("warning", "Düzeltilecek bir şey bulunamadı.")
             return
         job_id = new_job_id("autofix")
         try:
             updated = self._win._write_row_changes(plan.changes, rows, job_id)
         except NxError as exc:
-            page.show_fix_result("danger", exc.user_text())
+            self._fix_result("danger", exc.user_text())
             return
         self._win._mark_changed()
         self._update_rows_handled(updated)
@@ -643,7 +655,7 @@ class ChecksController:
         else:
             page.mark_checking()  # bulgu listesi ve çubuk eskidi: arka plandaki tam denetim bitene dek gösterilmez
             self._win._recheck_if_done()
-        page.show_fix_result(
+        self._fix_result(
             "success", " ".join([f"{format_int(len(plan.changes))} satır düzeltildi.", *notes]), "Raporu Gör"
         )
 

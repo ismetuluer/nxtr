@@ -58,15 +58,22 @@ NEW_TEXT_ROLE = Qt.ItemDataRole.UserRole + 1
 _NEW_COL = 4
 
 
-def diff_html(old: str, new: str) -> tuple[str, str]:
-    """Önceki ve yeni çevirinin HTML'i: silinenler kırmızı ve üstü çizili, eklenenler yeşil."""
+def _plain_html(text: str) -> str:
+    return html.escape(text).replace("\n", "<br>")
+
+
+def diff_html(old: str, new: str, render: Callable[[str], str] = _plain_html) -> tuple[str, str]:
+    """Önceki ve yeni çevirinin HTML'i: silinenler kırmızı ve üstü çizili, eklenenler yeşil.
+
+    `render` her parçanın metnini HTML'e çevirir (ör. kodları çip yapan `inline_marks_html`); `⟦n⟧` kodu fark
+    parçalarına bölünmez, bu yüzden çip hiçbir zaman ikiye ayrılmaz."""
     t = current_tokens()
     left, right = word_diff(old, new)
 
-    def render(parts: list[tuple[str, str]]) -> str:
+    def paint(parts: list[tuple[str, str]]) -> str:
         out = []
         for kind, text in parts:
-            body = html.escape(text).replace("\n", "<br>")
+            body = render(text)
             if kind == REMOVED:
                 out.append(f'<span style="background:{t["danger_bg"]};color:{t["danger"]}"><s>{body}</s></span>')
             elif kind == ADDED:
@@ -75,7 +82,7 @@ def diff_html(old: str, new: str) -> tuple[str, str]:
                 out.append(body)
         return "".join(out)
 
-    return render(left), render(right)
+    return paint(left), paint(right)
 
 
 def fit_visible_rows(table: QTableView, fitted: set[int]) -> None:

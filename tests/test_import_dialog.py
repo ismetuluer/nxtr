@@ -10,9 +10,10 @@ from PySide6.QtCore import QModelIndex, Qt
 from PySide6.QtWidgets import QDialog
 
 from nxceviri.core.project import TranslationRow
+from nxceviri.core.translate.codekinds import KIND_LINE_BREAK, KIND_PAGE_BREAK, CodeKinds
 from nxceviri.core.translate.csvio import TRANSLATION_COLUMNS, TXT_COLUMNS, table_xlsx
 from nxceviri.gui.changes_dialog import NEW_TEXT_ROLE
-from nxceviri.gui.import_dialog import ImportDialog
+from nxceviri.gui.import_dialog import COL_NEW, COL_OLD, COL_SOURCE, ImportDialog
 
 pytestmark = pytest.mark.usefixtures("qapp")
 
@@ -100,8 +101,8 @@ def test_rejected_row_is_listed_but_cannot_be_written(qtbot: object, tmp_path: P
     d.rejected_chip.click()
     index = d.model.index(0, 0)
     assert not d.model.flags(index) & Qt.ItemFlag.ItemIsUserCheckable
-    assert not d.model.flags(d.model.index(0, 2)) & Qt.ItemFlag.ItemIsEditable
-    assert "kod" in str(d.model.data(d.model.index(0, 2), Qt.ItemDataRole.ToolTipRole)).lower()
+    assert not d.model.flags(d.model.index(0, COL_NEW)) & Qt.ItemFlag.ItemIsEditable
+    assert "kod" in str(d.model.data(d.model.index(0, COL_NEW), Qt.ItemDataRole.ToolTipRole)).lower()
     assert 3 not in [c.entry_id for c in d.accepted_changes()]
     d.all_box.click()
     d.all_box.click()
@@ -170,7 +171,7 @@ def test_unticked_row_stays_unticked_after_adding_a_file(qtbot: object, tmp_path
     other = _write(tmp_path, "iki.xlsx", [("Zzz", "q", "w")])
     d = _dialog(qtbot, first)
     d.model.setData(d.model.index(1, 0), Qt.CheckState.Unchecked, Qt.ItemDataRole.CheckStateRole)
-    d.model.setData(d.model.index(0, 2), "Kaydedilsin mi?", NEW_TEXT_ROLE)
+    d.model.setData(d.model.index(0, COL_NEW), "Kaydedilsin mi?", NEW_TEXT_ROLE)
     d.add_files([other])
     assert _checked(d) == [True, False, True]
     assert d.accepted_changes()[0].new_text == "Kaydedilsin mi?"
@@ -191,17 +192,17 @@ def test_edit_changes_accepted_text_and_blocks_broken_codes(qtbot: object, tmp_p
     rows = [_row(1, "Hello ⟦1⟧", "Merhaba ⟦1⟧"), _row(2, "Bye", "Güle")]
     path = _write(tmp_path, "d.xlsx", [("Hello ⟦1⟧", "Merhaba ⟦1⟧", "Selam ⟦1⟧"), ("Bye", "Güle", "Hoşça kal")])
     d = _dialog(qtbot, path, rows=rows)
-    assert d.model.setData(d.model.index(0, 2), "Selam dünya ⟦1⟧", NEW_TEXT_ROLE)
+    assert d.model.setData(d.model.index(0, COL_NEW), "Selam dünya ⟦1⟧", NEW_TEXT_ROLE)
     assert d.accepted_changes()[0].new_text == "Selam dünya ⟦1⟧"
-    d.model.setData(d.model.index(0, 2), "Selam", NEW_TEXT_ROLE)  # ⟦1⟧ kayboldu
+    d.model.setData(d.model.index(0, COL_NEW), "Selam", NEW_TEXT_ROLE)  # ⟦1⟧ kayboldu
     d.accept()
     assert d.result() != QDialog.DialogCode.Accepted
     assert "Eksik kontrol kodu" in d.status.text.text()
-    d.model.setData(d.model.index(0, 2), "  ", NEW_TEXT_ROLE)
+    d.model.setData(d.model.index(0, COL_NEW), "  ", NEW_TEXT_ROLE)
     d.accept()
     assert d.result() != QDialog.DialogCode.Accepted
     assert "boş" in d.status.text.text()
-    d.model.setData(d.model.index(0, 2), "Selam ⟦1⟧", NEW_TEXT_ROLE)
+    d.model.setData(d.model.index(0, COL_NEW), "Selam ⟦1⟧", NEW_TEXT_ROLE)
     d.accept()
     assert d.result() == QDialog.DialogCode.Accepted
 
@@ -240,7 +241,7 @@ def test_translation_mode_uses_new_translation_wording(qtbot: object, tmp_path: 
     path = _write(tmp_path, "c.xlsx", [("Save your game?", "Oyunu kaydetmek istiyor musunuz?", "Oyunu kaydet?")], True)
     d = _dialog(qtbot, path, translation=True)
     assert d.windowTitle() == "Dış çeviriden içe aktar"
-    assert d.model.headerData(2, Qt.Orientation.Horizontal) == "YENİ ÇEVİRİ"
+    assert d.model.headerData(COL_NEW, Qt.Orientation.Horizontal) == "YENİ ÇEVİRİ"
     assert "“Makine” durumuyla yazılır" in d.footer_note.text()
     assert "1 yeni çeviri" in d.file_rows[0].detail.text()
 
@@ -257,12 +258,12 @@ def test_accepted_changes_carry_row_data(qtbot: object, tmp_path: Path) -> None:
 
 def test_diff_cells_highlight_changed_words(qtbot: object, tmp_path: Path) -> None:
     d = _dialog(qtbot, _first(tmp_path))
-    old = str(d.model.data(d.model.index(0, 1), Qt.ItemDataRole.DisplayRole))
-    new = str(d.model.data(d.model.index(0, 2), Qt.ItemDataRole.DisplayRole))
+    old = str(d.model.data(d.model.index(0, COL_OLD), Qt.ItemDataRole.DisplayRole))
+    new = str(d.model.data(d.model.index(0, COL_NEW), Qt.ItemDataRole.DisplayRole))
     assert "<s>" in old
     assert "<b>" in new
     assert "kaydedilsin" in new
-    approved_cell = str(d.model.data(d.model.index(2, 2), Qt.ItemDataRole.DisplayRole))
+    approved_cell = str(d.model.data(d.model.index(2, COL_NEW), Qt.ItemDataRole.DisplayRole))
     assert "onaylıydı" in approved_cell
 
 
@@ -287,3 +288,30 @@ def test_many_rows_stay_fast(qtbot: object, tmp_path: Path) -> None:
     d.all_box.click()
     assert d.write_count() == 0
     assert d.model.index(0, 0) != QModelIndex()
+
+
+def test_original_column_shows_source(qtbot: object, tmp_path: Path) -> None:
+    d = _dialog(qtbot, _first(tmp_path))
+    assert d.model.headerData(COL_SOURCE, Qt.Orientation.Horizontal) == "ORİJİNAL"
+    assert "Save your game?" in str(d.model.data(d.model.index(0, COL_SOURCE), Qt.ItemDataRole.DisplayRole))
+
+
+def test_codes_are_drawn_as_kind_chips_with_legend(qtbot: object, tmp_path: Path) -> None:
+    row = TranslationRow(1, "a>UI", "k1", "One⟦1⟧Two⟦2⟧", "Bir⟦1⟧İki⟦2⟧", "machine", "", ("<br>", "<page>"), None)
+    fixed = "Bir⟦1⟧\nİkii⟦2⟧"
+    path = _write(tmp_path, "kod.xlsx", [("One⟦1⟧Two⟦2⟧", "Bir⟦1⟧İki⟦2⟧", fixed)])
+    kinds = CodeKinds({"<br>": KIND_LINE_BREAK, "<page>": KIND_PAGE_BREAK})
+    d = ImportDialog(None, title="Dış redaksiyondan içe aktar", rows=[row], kinds=kinds)
+    qtbot.addWidget(d)  # type: ignore[attr-defined]
+    assert d.add_files([path]) == []
+    m = d.model
+    cells = [str(m.data(m.index(0, c), Qt.ItemDataRole.DisplayRole)) for c in (COL_SOURCE, COL_OLD, COL_NEW)]
+    for cell in cells:
+        assert "↵1" in cell
+        assert "§2" in cell
+        assert "⟦" not in cell
+    assert "¶" in cells[2]  # yeni satır görünür
+    assert m.data(m.index(0, COL_NEW), NEW_TEXT_ROLE) == fixed  # düzenleme ham metin üzerinde
+    header = " ".join(lbl.text() for lbl in d.findChildren(type(d.empty_label)))
+    assert "Satır sonu" in header
+    assert "Sayfa sonu" in header

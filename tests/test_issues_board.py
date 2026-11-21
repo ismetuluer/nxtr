@@ -10,12 +10,11 @@ from PySide6.QtWidgets import QListWidgetItem, QMenu
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.project import TranslationRow
-from nxceviri.core.qa.autofix import FIX_KINDS
+from nxceviri.core.qa.autofix import FIX_KINDS, RISKY_FIX_KINDS
 from nxceviri.core.qa.checks import KIND_LABELS, QaIssue
 from nxceviri.gui.issue_kinds import KindList
 from nxceviri.gui.qa_page import (
     FIX_TIPS,
-    RISKY_FIX_KINDS,
     SORT_FILE,
     SORT_FINDING,
     SORT_NUMBER,

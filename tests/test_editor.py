@@ -18,7 +18,7 @@ from nxceviri.core.translate.status import Status
 from nxceviri.gui import exchange_controller
 from nxceviri.gui import main_window as main_window_module
 from nxceviri.gui.changes_dialog import NEW_TEXT_ROLE
-from nxceviri.gui.import_dialog import ImportDialog
+from nxceviri.gui.import_dialog import COL_NEW, COL_OLD, ImportDialog
 from nxceviri.gui.main_window import STEP_TRANSLATE, MainWindow
 
 LB = ControlCode(b"\\n", "Satır sonu")
@@ -428,15 +428,15 @@ def test_revision_export_and_import(
             assert self.plan.changes
             assert len(self.plan.changes) == 2
             assert self.model.rowCount() == 2
-            old = str(self.model.data(self.model.index(0, 1), Qt.ItemDataRole.DisplayRole))
-            new = str(self.model.data(self.model.index(0, 2), Qt.ItemDataRole.DisplayRole))
+            old = str(self.model.data(self.model.index(0, COL_OLD), Qt.ItemDataRole.DisplayRole))
+            new = str(self.model.data(self.model.index(0, COL_NEW), Qt.ItemDataRole.DisplayRole))
             assert "<s>içki</s>" in old
             assert "kadeh" in new
             assert self.write_button.text() == "2 satırı yaz"
             assert "“Redakte” durumuyla yazılır" in self.footer_note.text()
             # İkinci satırı beğenmedik: işareti kaldır. Birinci satırın önerisini düzenle.
             self.model.setData(self.model.index(1, 0), Qt.CheckState.Unchecked, Qt.ItemDataRole.CheckStateRole)
-            self.model.setData(self.model.index(0, 2), "Benimle bir kadeh içelim.", NEW_TEXT_ROLE)
+            self.model.setData(self.model.index(0, COL_NEW), "Benimle bir kadeh içelim.", NEW_TEXT_ROLE)
             assert self.write_button.text() == "1 satırı yaz"
             assert [c.new_text for c in self.accepted_changes()] == ["Benimle bir kadeh içelim."]
             return QDialog.DialogCode.Accepted
@@ -508,7 +508,7 @@ def test_translation_export_and_import_uses_translation_columns(
         def exec(self) -> int:
             opened.append(self)
             assert self.windowTitle() == "Dış çeviriden içe aktar"
-            assert self.model.headerData(2, Qt.Orientation.Horizontal) == "YENİ ÇEVİRİ"
+            assert self.model.headerData(COL_NEW, Qt.Orientation.Horizontal) == "YENİ ÇEVİRİ"
             assert "“Makine” durumuyla yazılır" in self.footer_note.text()
             assert len(self.plan.changes) == 2
             # İkinci satırı beğenmedik: işareti kaldır; birinci satır yazılsın.

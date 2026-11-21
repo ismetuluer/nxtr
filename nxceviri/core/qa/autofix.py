@@ -67,6 +67,10 @@ from nxceviri.core.translate.status import Status
 
 #: Satır/sayfa sınırı bulgu türleri (yalnızca projede sınır tanımlıysa çıkar).
 FIT_KINDS = frozenset({PROBLEM_LINE, PROBLEM_PAGE, PROBLEM_BREAK})
+#: Metni yeniden biçimleyen ya da kod yerini değiştiren türler: toplu düzeltmede onay sorulur ya da hiç sunulmaz.
+RISKY_FIX_KINDS = frozenset(
+    {"ascii_turkish", "end_punctuation", "code_position", "newlines", "line_too_long", "page_too_tall", "bad_break"}
+)
 #: Düzeltilebilen bulgu türleri, arayüzdeki liste sırasıyla.
 FIX_KINDS = (
     "placeholder",

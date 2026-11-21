@@ -50,6 +50,7 @@ from nxceviri.core.errors import NxError
 from nxceviri.core.languages import natural_sort_key
 from nxceviri.core.project import TranslationRow, row_group
 from nxceviri.core.qa import ignored
+from nxceviri.core.qa.autofix import FIX_KINDS, RISKY_FIX_KINDS
 from nxceviri.core.qa.checks import (
     KIND_LABELS,
     ROW_FLAG_KINDS,
@@ -237,6 +238,10 @@ def status_legend_html() -> str:
     )
 
 
+#: Sağ tık menüsünde düzeltme önerilerinin hesaplandığı en çok seçili satır sayısı.
+FIX_MENU_ROWS = 500
+
+
 class TranslationModel(QAbstractTableModel):
     """Binlerce satırda akıcı çalışan sanal model. Düzenlemeler `commit` ile hemen kaydedilir."""
 
@@ -308,6 +313,10 @@ class TranslationModel(QAbstractTableModel):
         self._ignored = set(entries)
         if self.rows:
             self.dataChanged.emit(self.index(0, 0), self.index(len(self.rows) - 1, len(_COLUMNS) - 1))
+
+    def all_issues(self, r: TranslationRow) -> list[QaIssue]:
+        """Satırın bütün bulguları (bilgi düzeyi dahil, yok sayılanlar hariç)."""
+        return self._all_issues(r)
 
     def issues(self, r: TranslationRow) -> list[QaIssue]:
         """Satırın hata ve uyarıları (bilgi düzeyi sayılmaz)."""
@@ -793,6 +802,8 @@ class TranslatePage(QWidget):
     history_requested = Signal(int)  # bir satırın çeviri geçmişi (satır kimliği)
     unapprove_requested = Signal(list)  # onayı kaldırılacak satır kimlikleri
     reflow_requested = Signal(list)  # satır sonları yeniden bölünecek satır kimlikleri
+    fix_requested = Signal(list, list)  # bağlam menüsü: düzeltilecek bulgu türleri, satır kimlikleri
+    ascii_choice_requested = Signal(str, str)  # bağlam menüsü: belirsiz sözcük, seçilen yazım
     cancel_machine = Signal()
     csv_export_requested = Signal()
     csv_import_requested = Signal()
@@ -1375,6 +1386,11 @@ class TranslatePage(QWidget):
         if row is not None:
             self.approve([row])
             self._refresh_pane_row(row.id)
+
+    @property
+    def code_kinds(self) -> CodeKinds:
+        """Projenin kod türü eşlemesi (içe aktarma penceresi de aynı çipleri çizer)."""
+        return self._kinds
 
     def set_code_kinds(self, kinds: CodeKinds) -> None:
         """Proje kod türü eşlemesi (çip simgeleri ve renkleri bundan gelir)."""
@@ -2185,6 +2201,8 @@ class TranslatePage(QWidget):
         menu.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         menu.setToolTipsVisible(True)
         counts = self._counts(rows)
+        if self._add_fix_actions(menu, rows):
+            menu.addSeparator()
         translate = self._submenu(menu, "Çevir", "languages")
         for action, text, command, n, icon_name in (
             (ACTION_TRANSLATE, "Çevir", "translate.selected", counts.translate, "languages"),
@@ -2281,6 +2299,44 @@ class TranslatePage(QWidget):
         reveal.setEnabled(len(rows) == 1)
         reveal.triggered.connect(self.reveal_selected)
         return menu
+
+    def _add_fix_actions(self, menu: QMenu, rows: list[TranslationRow]) -> bool:
+        """Kontrol Et'teki gibi önerilen düzeltmeler; eklenen bir şey varsa True.
+
+        Biçimi değiştiren (riskli) türler yalnızca tek satır seçiliyken sunulur; toplusu Kontrol Et'te. Çok satır
+        seçiliyse (menü açılırken binlerce satır denetlenmesin) düzeltme sunulmaz.
+        """
+        if len(rows) > FIX_MENU_ROWS:
+            return False
+        issues = [i for r in rows for i in self.model.all_issues(r)]
+        present = {i.kind for i in issues}
+        kinds = [k for k in FIX_KINDS if k in present and (len(rows) == 1 or k not in RISKY_FIX_KINDS)]
+        added = False
+        if kinds and not self._machine_running:
+            names = ", ".join(KIND_LABELS[k] for k in kinds)
+            row_ids = sorted({i.row_id for i in issues if i.kind in kinds})
+            fix = self._menu_action(
+                menu, f"Düzelt: {names}" if len(kinds) == 1 else f"Düzelt ({len(kinds)} tür)", "refresh-cw"
+            )
+            fix.setToolTip(names)
+            fix.triggered.connect(lambda: self.fix_requested.emit(kinds, row_ids))
+            added = True
+        choices: dict[str, tuple[str, ...]] = {}
+        for issue in issues:
+            for key, candidates in issue.choices:
+                choices.setdefault(key, candidates)
+        if choices and not self._machine_running:
+            choose = self._submenu(menu, "Şununla düzelt", "spell-check")
+            for key, candidates in choices.items():
+                target = choose if len(choices) == 1 else choose.addMenu(key)
+                for candidate in candidates:
+                    action = target.addAction(f"{key} → {candidate}")
+                    action.setToolTip("Projedeki bütün çevirilere uygulanır.")
+                    action.triggered.connect(
+                        lambda _c=False, k=key, c=candidate: self.ascii_choice_requested.emit(k, c)
+                    )
+            added = True
+        return added
 
     # --- seçili satırlara iş (menü çubuğu, bağlam menüsü ve kısayollar aynı yolu kullanır) --------
 

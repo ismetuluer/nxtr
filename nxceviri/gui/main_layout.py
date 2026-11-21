@@ -196,6 +196,8 @@ def connect_pages(win: MainWindow) -> None:
     win.qa_page.unignore_requested.connect(win.unignore_issues)
     win.qa_page.user_dictionary_requested.connect(win.edit_user_dictionary)
     win.translate_page.changes_requested.connect(win.show_job_changes)
+    win.translate_page.fix_requested.connect(lambda kinds, ids: win.checks.apply_fixes(kinds, ids, on_translate=True))
+    win.translate_page.ascii_choice_requested.connect(win.apply_ascii_choice)
     win.translate_page.history_requested.connect(win.show_row_history)
     win.translate_page.unapprove_requested.connect(win.unapprove)
     win.translate_page.reflow_requested.connect(win.reflow_selected)

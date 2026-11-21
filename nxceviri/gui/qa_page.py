@@ -49,7 +49,7 @@ from PySide6.QtWidgets import (
 
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa import transliterate
-from nxceviri.core.qa.autofix import FIX_KINDS, FixPlan
+from nxceviri.core.qa.autofix import FIX_KINDS, RISKY_FIX_KINDS, FixPlan
 from nxceviri.core.qa.checks import (
     KIND_LABELS,
     SEVERITY_ERROR,
@@ -157,11 +157,6 @@ FIX_TIPS: dict[str, str] = {
     "page_too_tall": "Sınırdan fazla satırlı sayfaları yeniden böler.",
     "bad_break": "Kötü yerden bölünmüş satırları noktalama ve sözcük sınırlarına göre yeniden böler.",
 }
-#: Metni yeniden biçimleyen ya da kod yerini değiştiren türler: "Tüm bulgular"da düzeltilmez; yalnızca türü solda
-#: ya da satırı listede seçilince düzeltilir; birden çok satırda uygulanmadan önce onay sorulur (`ask_risky_fix`).
-RISKY_FIX_KINDS = frozenset(
-    {"ascii_turkish", "end_punctuation", "code_position", "newlines", "line_too_long", "page_too_tall", "bad_break"}
-)
 
 
 def ask_risky_fix(parent: QWidget, text: str) -> bool:
