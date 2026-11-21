@@ -2,6 +2,15 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [Yayımlanmadı]
+
+### Değişti
+- **Oyunu Ekle yeni "oyun kartı" düzeninde:** kaynak dosya tablosu yerine oyunun simgesi, adı, yayıncısı, sürüm ve
+  çeviri durumu rozetleri ve ek içerik (DLC) kartı görünür; dosya ayrıntıları rozetlerin ipucunda, "Kaldır" ve "Yeni
+  Yerini Göster…" kartın "…" menüsünde ve sağ tık menüsünde. Başlıktaki "Dosya Ekle…" düğmesi dosya seçer.
+- Oyun simgesi ve yayıncı proje dosyasına kaydedilir (proje şeması 8); eski projeler açılır ve simgeleri anahtar
+  yüklüyken arka planda bir kez okunur. Simge yoksa oyun adının baş harfleri gösterilir.
+
 ## [0.71.0] — 2026-11-21 — Renk paletleri, Kontrol Et karo sekmeleri, donma düzeltmesi
 
 ### Eklendi

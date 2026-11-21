@@ -117,7 +117,9 @@ def test_full_flow_drop_scan_save_reopen(qtbot: QtBot, window: MainWindow, game:
     _drop(window, [game.base_nsz_block, game.update_nsp, tmp_path / "belge.txt"])
     _wait_idle(qtbot, window)
     assert [s.kind for s in window.sources] == ["base", "update"]
-    assert window.add_page.table.rowCount() == 2
+    assert not window.add_page.game_card.isHidden()
+    assert window.add_page.game_card.name.text() == "Deneme Oyunu"
+    assert [p.text() for p in window.add_page.game_card.pills()][:2] == ["Ana oyun · 1.0.0", "Güncelleme · v65536"]
     assert window.add_page.next_button.isEnabled()
     assert _dirty(window)
 

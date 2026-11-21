@@ -13,7 +13,6 @@ from nxceviri.core.formats import registry
 from nxceviri.core.project import Change
 from nxceviri.core.translate.providers.base import GlossaryTerm
 from nxceviri.core.translate.terms import TermSuggestion
-from nxceviri.gui.add_game_page import AddGamePage
 from nxceviri.gui.changes_dialog import ChangesDialog
 from nxceviri.gui.limits_table import LimitsTable
 from nxceviri.gui.machine_dialogs import GlossaryDialog, TermSuggestionsDialog
@@ -81,12 +80,6 @@ def test_changes_dialog_headers(qtbot: QtBot) -> None:
     dialog = ChangesDialog(None, "Değişiklikler", changes)
     qtbot.addWidget(dialog)
     assert _is_left(dialog.table.horizontalHeader())
-
-
-def test_add_game_page_headers(qtbot: QtBot) -> None:
-    page = AddGamePage()
-    qtbot.addWidget(page)
-    assert _is_left(page.table.horizontalHeader())
 
 
 def test_spell_window_headers(qtbot: QtBot) -> None:

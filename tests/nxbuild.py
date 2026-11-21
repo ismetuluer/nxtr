@@ -532,6 +532,7 @@ def build_package(
     romfs_files: dict[str, bytes] | None = None,
     program: BuiltNca | None = None,
     use_rights_id: bool = True,
+    control_extra: dict[str, bytes] | None = None,
 ) -> BuiltPackage:
     """Bir NSP üretir. `program` verilmezse `romfs_files`'tan bir Program/Data NCA kurulur."""
     meta_type = {"base": 0x80, "update": 0x81, "dlc": 0x82}[kind]
@@ -555,9 +556,8 @@ def build_package(
             tickets.append((program.rights_id.hex() + ".tik", build_ticket(program.rights_id, program.enc_title_key)))
 
     if kind != "dlc":
-        control = build_nca(
-            keys, 2, application_id, [romfs_section(build_romfs({"control.nacp": build_nacp(name, display_version)}))]
-        )
+        control_files = {"control.nacp": build_nacp(name, display_version), **(control_extra or {})}
+        control = build_nca(keys, 2, application_id, [romfs_section(build_romfs(control_files))])
         files.append((control.content_id + ".nca", control.data))
         contents.append((control.content_id, len(control.data), 3))
 

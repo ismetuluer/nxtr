@@ -66,6 +66,8 @@ def read_source(path: Path, keys: KeySet, title_keys: Mapping[bytes, bytes] | No
             display_version=pkg.nacp.display_version if pkg.nacp else "",
             name=pkg.display_name,
             file_size=path.stat().st_size,
+            publisher=pkg.nacp.publisher if pkg.nacp else "",
+            icon=pkg.icon,
         )
 
 

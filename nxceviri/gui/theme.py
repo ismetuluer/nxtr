@@ -251,6 +251,23 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     QLabel[state="warning"] {{ background: {t["warning_bg"]}; color: {t["warning"]}; }}
     QLabel[state="danger"] {{ background: {t["danger_bg"]}; color: {t["danger"]}; }}
     QLabel[state="info"] {{ background: {t["selection"]}; color: {t["text"]}; }}
+    /* Yuvarlak köşe için saydam çerçeve gerekir: çerçevesiz QLabel/QFrame arka planı köşeleri yuvarlamaz. */
+    QLabel[role="pill"] {{
+        border: 1px solid transparent; border-radius: {R12}px; padding: {S4}px {S12}px; font-weight: 600;
+    }}
+    QLabel[role="gameName"] {{ font-size: {size(1.5)}; font-weight: 600; }}
+    QLabel[role="cover"] {{
+        background: {t["text"]}; color: {t["surface"]}; border: 1px solid transparent; border-radius: {R12}px;
+        font-size: {size(3.0)}; font-weight: 700;
+    }}
+    QLabel[role="coverImage"] {{ background: transparent; }}
+    QLabel[role="dot"] {{ border: 1px solid transparent; border-radius: {R4}px; }}
+    QFrame#dlcTile {{ background: {t["surface2"]}; border: 1px solid transparent; border-radius: {R8}px; }}
+    QFrame#dlcTile[state="danger"] {{ background: {t["danger_bg"]}; }}
+    QFrame#dlcTile QLabel {{ background: transparent; }}
+    QFrame#dlcTile QLabel[role="dot"][state="success"] {{ background: {t["success"]}; }}
+    QFrame#dlcTile QLabel[role="dot"][state="danger"] {{ background: {t["danger"]}; }}
+    QLabel[state="info"] {{ background: {t["selection"]}; color: {t["text"]}; }}
     QToolButton[role="statusChip"] {{
         border: 1px solid transparent; border-radius: {R8}px; padding: 2px {S8}px; font-weight: 600;
     }}
@@ -386,6 +403,7 @@ def _qss(t: dict[str, str], pt: int = DEFAULT_FONT_SIZE) -> str:
     }}
     QToolButton[role="link"]:hover {{ text-decoration: underline; }}
     QToolButton[role="link"]:disabled {{ color: {t["muted"]}; }}
+    QToolButton#manageButton::menu-indicator {{ image: none; width: 0; }}
     QToolButton#viewButton::menu-indicator {{ subcontrol-position: right center; right: 6px; }}
     /* Klavye odağı: çerçeve kalınlığı sabit kalır (yalnızca renk değişir), boyut oynamaz. En sonda durur ki
        rol kurallarının `border` tanımları odak rengini ezmesin. */

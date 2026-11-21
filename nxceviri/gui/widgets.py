@@ -340,6 +340,11 @@ class DropZone(QFrame):
         lay.addWidget(self.button, alignment=Qt.AlignmentFlag.AlignCenter)
         lay.addStretch(1)
 
+    def set_compact(self, compact: bool) -> None:
+        """Dar kip: maskot gizlenir, alan tek satırlık şerit olur (oyun eklenmişken)."""
+        self.mascot.setVisible(not compact)
+        self.setMinimumHeight(0 if compact else 110)
+
     def _paths(self, event: QDragEnterEvent | QDropEvent) -> list[Path]:
         mime = event.mimeData()
         if not mime.hasUrls():

@@ -130,6 +130,7 @@ class ProjectController:
         if notes:
             win.add_page.set_files_message("warning", " ".join(notes), RELINK_ACTION if missing else "")
         win.statusBar().showMessage(f"Proje açıldı: {path.name}", 5000)
+        win.scanning.backfill_source_meta()  # eski projelerde oyun simgesi arka planda bir kez okunup projeye yazılır
         return True
 
     def save_project(self) -> bool:
