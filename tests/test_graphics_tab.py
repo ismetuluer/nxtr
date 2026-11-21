@@ -250,6 +250,26 @@ def test_watcher_rechecks_after_new_file(
     assert _badges(win)["b"] == BADGE_READY
 
 
+def test_originals_only_in_subfolders_are_listed_and_watched(
+    qtbot: QtBot, win: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Oyunun klasör düzeni (orijinal/images/olum/…): ilk seviyede resim yoksa da sonuçlar görünür."""
+    folder = tmp_path / "grafik"
+    _image(folder / "orijinal" / "images" / "olum" / "a.png")
+    _image(folder / "orijinal" / "images" / "menu" / "b.png")
+    _image(folder / "turkce" / "images" / "olum" / "a.png", box=(4, 6, 32, 14))
+    _use_folder(qtbot, win, monkeypatch, folder)
+    tab = win.qa_page.graphics
+    assert tab.page() == PAGE_RESULTS
+    assert _badges(win) == {"images/menu/b": BADGE_MISSING, "images/olum/a": BADGE_READY}
+    watched = {Path(p) for p in win.graphics_check.watcher.directories()}
+    assert folder / "turkce" / "images" / "olum" in watched  # alt klasöre kaydedilen resim de yakalanır
+    _image(folder / "turkce" / "images" / "menu" / "b.png", box=(5, 6, 30, 14))
+    win.graphics_check.timer.timeout.emit()
+    _wait(qtbot, win)
+    assert _badges(win)["images/menu/b"] == BADGE_READY
+
+
 def test_half_written_file_keeps_list_and_retries(
     qtbot: QtBot, win: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

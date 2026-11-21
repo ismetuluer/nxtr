@@ -73,13 +73,19 @@ class GraphicsSummary:
     warnings: int
 
 
-def _images(folder: Path) -> dict[str, Path]:
+def image_paths(folder: Path) -> list[Path]:
+    """Klasördeki ve alt klasörlerindeki resimler, göreli yola göre sıralı (oyunun klasör düzeni korunabilir)."""
     if not folder.is_dir():
-        return {}
+        return []
+    found = (p for p in folder.rglob("*") if p.suffix.lower() in IMAGE_SUFFIXES and p.is_file())
+    return sorted(found, key=lambda p: p.relative_to(folder).as_posix())
+
+
+def _images(folder: Path) -> dict[str, Path]:
+    """Ad → dosya. Ad, uzantısız göreli yoldur (`ui/menu/baslik`); ilk seviyedeki resmin adı dosya adıdır."""
     found: dict[str, Path] = {}
-    for path in sorted(folder.iterdir()):
-        if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES:
-            found.setdefault(path.stem, path)
+    for path in image_paths(folder):
+        found.setdefault(path.relative_to(folder).with_suffix("").as_posix(), path)
     return found
 
 
@@ -194,7 +200,7 @@ def _original_only(name: str, original: Path) -> GraphicsItem:
 def check_folders(
     original_dir: Path, turkish_dir: Path, *, cancel: Callable[[], bool] | None = None
 ) -> list[GraphicsItem]:
-    """İki klasördeki resimleri adlarına göre eşleyip denetler; ada göre sıralı döner.
+    """İki klasördeki (alt klasörler dahil) resimleri göreli yollarına göre eşleyip denetler; ada göre sıralı döner.
 
     Klasör yoksa boş sayılır. `cancel()` True dönerse `OperationCancelled` fırlatılır (projenin diğer uzun
     işleriyle aynı iptal sözleşmesi; yarım liste sessizce dönmez, arayüz iptali açıkça bilir)."""
@@ -215,7 +221,8 @@ def check_folders(
             issue = GraphicsIssue(
                 "orphan",
                 "error",
-                "Adı yanlış olabilir; orijinal/ içinde aynı adlı resim yok. Adı özgün resimle aynı yapın.",
+                "Adı ya da klasörü yanlış olabilir; orijinal/ içinde aynı yerde aynı adlı resim yok. "
+                "Özgün resimle aynı alt klasöre aynı adla koyun.",
             )
             items.append(GraphicsItem(name, None, new, "orphan", (issue,), None, None, None, digest))
     return items

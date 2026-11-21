@@ -98,9 +98,17 @@ def _approvable(item: GraphicsItem) -> bool:
 
 
 def _has_images(folder: Path) -> bool:
+    """Klasörde ya da alt klasörlerinde en az bir resim var mı (oyunun klasör düzeni korunabilir)."""
     if not folder.is_dir():
         return False
-    return any(p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES for p in folder.iterdir())
+    return any(p.suffix.lower() in IMAGE_SUFFIXES and p.is_file() for p in folder.rglob("*"))
+
+
+def _with_subfolders(folder: Path) -> list[Path]:
+    """Klasör ve bütün alt klasörleri (yoksa boş): izleyici alt klasöre kaydedilen resmi de görsün diye."""
+    if not folder.is_dir():
+        return []
+    return [folder, *(p for p in folder.rglob("*") if p.is_dir())]
 
 
 class GraphicsController:
@@ -139,13 +147,17 @@ class GraphicsController:
         return _Source(Path(stored), None) if stored else None
 
     def _watch(self) -> bool:
-        """İzlenen klasörleri günceller (yalnızca var olanlar); küme değiştiyse True."""
+        """İzlenen klasörleri günceller (yalnızca var olanlar; resim klasörlerinin alt klasörleri dahil).
+
+        Yeni alt klasör açılınca üst klasör değiştiği için izleyici tetiklenir ve buradan eklenir.
+        Küme değiştiyse True."""
         source = self.source()
         wanted: set[str] = set()
         if source is not None:
-            for path in (source.folder, source.folder / ORIGINAL_DIR, derived.turkish_dir(source.folder)):
-                if path.is_dir():
-                    wanted.add(str(path))
+            if source.folder.is_dir():
+                wanted.add(str(source.folder))
+            for root in (source.folder / ORIGINAL_DIR, derived.turkish_dir(source.folder)):
+                wanted.update(str(path) for path in _with_subfolders(root))
         current = set(self.watcher.directories())
         if wanted == current:
             return False

@@ -39,7 +39,9 @@ Kullanıcı Türkçe resimleri hazırladıkça uygulamada **Kontrol Et → Grafi
 - **Klasör:** resim çevirisini bilen oyunda (eklenti `GraphicsSupport` sunuyor) klasör kendiliğinden bulunur; özgünler
   yoksa sekmedeki **Görselleri Çıkar** düğmesi (Dışa Aktar → Görseller ile aynı iş). Bilmeyen oyunda **Klasör Seç…**
   ile içinde `orijinal/` ve `turkce/` (ya da eski `temiz/`) bulunan klasör seçilir; seçim projeye kaydedilir. Bu
-  durumda sekme yalnızca karşılaştırır, resimleri moda yerleştirmez (yerleştirme eklentinin işidir).
+  durumda sekme yalnızca karşılaştırır, resimleri moda yerleştirmez (yerleştirme eklentinin işidir). Alt klasörler
+  okunur: Türkçe resim `turkce/` içinde özgünüyle aynı alt klasörde ve aynı adla durur (`orijinal/ui/menu/a.png` ↔
+  `turkce/ui/menu/a.png`); listede adı bu göreli yoldur.
 - **Liste:** her resim için durum: Onaylandı, Hazır, Uyarı, Hata, Eksik, Değişmemiş. Hatalar: boyut özgünden farklı,
   arka plan saydamlığı kaybolmuş, `orijinal/`de aynı adlı resim yok, dosya açılamıyor. Uyarılar: özgünle aynı
   (düzenlenmemiş), yazı resmin kenarına değiyor (oyunda kesilebilir). Süzgeç: Sorunlu / Eksik / Hepsi.

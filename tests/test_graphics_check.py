@@ -74,6 +74,32 @@ def test_missing_directories_count_as_empty(tmp_path: Path) -> None:
     assert check_folders(tmp_path / "yok1", tmp_path / "yok2") == []
 
 
+def test_subfolders_pair_by_relative_path(tmp_path: Path) -> None:
+    """Oyunun klasör düzeni korunur: resimler alt klasör yoluyla eşlenir; aynı ad farklı klasörde ayrı resimdir."""
+    original, turkish = _dirs(tmp_path)
+    for sub in ("ui/menu", "ui/olum"):
+        (original / sub).mkdir(parents=True)
+        _original().save(original / sub / "a.png")
+    (turkish / "ui" / "menu").mkdir(parents=True)
+    _original((8, 8, 56, 24)).save(turkish / "ui" / "menu" / "a.png")
+    _original().save(original / "kok.png")
+    items = check_folders(original, turkish)
+    assert [item.name for item in items] == ["kok", "ui/menu/a", "ui/olum/a"]
+    assert _one(items, "ui/menu/a").state == "ready"
+    assert _one(items, "ui/olum/a").state == "missing"
+    assert _one(items, "kok").state == "missing"
+
+
+def test_subfolder_turkish_in_wrong_folder_is_orphan(tmp_path: Path) -> None:
+    original, turkish = _dirs(tmp_path)
+    (original / "ui").mkdir()
+    _original().save(original / "ui" / "a.png")
+    _original().save(turkish / "a.png")  # Türkçesi alt klasöre değil köke konmuş
+    items = check_folders(original, turkish)
+    assert _one(items, "ui/a").state == "missing"
+    assert _one(items, "a").state == "orphan"
+
+
 def test_broken_file(tmp_path: Path) -> None:
     original, turkish = _dirs(tmp_path)
     _original().save(original / "a.png")
