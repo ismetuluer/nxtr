@@ -6,6 +6,7 @@ Ayrıntılar: docs/formats/cnmt-nacp-ticket.md
 from __future__ import annotations
 
 import struct
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import IntEnum
 
@@ -104,6 +105,28 @@ def parse_nacp(data: bytes) -> Nacp:
             publisher = text(entry[0x200:0x300])
             break
     return Nacp(name, publisher, text(data[0x3060:0x3070]))
+
+
+#: control NCA'sındaki simge dosyaları: `icon_<Dil>.dat` (256x256 JPEG). Önce İngilizce, yoksa adı sıradaki ilk dosya.
+ICON_PREFIX = "icon_"
+ICON_SUFFIX = ".dat"
+PREFERRED_ICON = "icon_AmericanEnglish.dat"
+#: Kabul edilen en büyük simge; gerçek simgeler 100 KB civarındadır, bundan büyüğü bozuk sayılır.
+MAX_ICON_BYTES = 1 << 20
+_JPEG_MAGIC = b"\xff\xd8\xff"
+
+
+def pick_icon_name(names: Iterable[str]) -> str | None:
+    """Simge dosyası adlarından kullanılacak olanı seçer (AmericanEnglish, yoksa alfabetik ilk); yoksa None."""
+    icons = sorted(n for n in names if n.startswith(ICON_PREFIX) and n.endswith(ICON_SUFFIX))
+    if not icons:
+        return None
+    return PREFERRED_ICON if PREFERRED_ICON in icons else icons[0]
+
+
+def valid_icon(data: bytes) -> bytes:
+    """Simge baytları JPEG ve makul boyuttaysa kendisi, değilse boş bayt (yer tutucu gösterilir)."""
+    return data if data.startswith(_JPEG_MAGIC) and len(data) <= MAX_ICON_BYTES else b""
 
 
 _SIG_SIZES = {

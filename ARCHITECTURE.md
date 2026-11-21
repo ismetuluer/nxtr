@@ -1544,3 +1544,15 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     “kopyalanan sözcük” işaretlemesi ve otomatik terim adayları bu listeyi atlar. `yes`/`no` menü terimi olabildiği
     için listede değildir. Dışa aktarmada bölme parça sayısıyla yapılır (`csvio.rows_per_part`, `file_plan`; önizleme
     ve yazıcı aynı hesabı kullanır).
+246. **Oyunu Ekle sayfası "oyun kartı" düzenindedir; oyun simgesi ve yayıncı projeye önbelleklenir (ürün sahibi, 2026-11-21):**
+    kaynak dosya tablosu kalktı; yerine oyun kartı (simge, ad, ana oyun / güncelleme / ek içerik / çeviri durumu rozetleri,
+    oyun kimliği, yayıncı) ve ek içerikler kartı (DLC başına kutucuk, eksik dosyada "Yerini göster") geldi (`gui/game_card.py`).
+    Tablodaki bilgiler (dosya adı, boyut, tür, TitleID, sürümler, "bulunamadı") rozet ve kutucuk ipuçlarında; "Kaldır" ve
+    "Yeni Yerini Göster…" eylemleri kartın "…" menüsünde (klavyeyle erişilir) ve rozet/kutucuğun sağ tık menüsünde.
+    Simge control NCA'sından (`icon_AmericanEnglish.dat`, yoksa ilk `icon_*.dat`; yalnızca JPEG, en çok 1 MiB) oyun eklenirken
+    zaten yapılan açma işinde okunur (`GamePackage.icon`, `SourceRecord.icon/publisher`); şema göçü 8 `sources` tablosuna
+    `publisher` ve `icon` sütunlarını ekler, böylece proje her açıldığında oyun dosyası yeniden okunmaz. Eski projeler
+    açılır; simgesiz kaynaklar anahtar yüklüyken arka planda bir kez okunup projeye yazılır (`ScanController.backfill_source_meta`:
+    `win.busy` sayılmaz, projeyi "değişti" yapmaz, proje değiştiyse sonucu atar; simgesi olmayan oyunda oturum başına bir kez denenir).
+    Okunamayan simge/anahtar yokluğu sessizce harf yer tutucusuna düşer, yalnızca günlüğe yazılır. Bırakma alanı yalnızca
+    kartın altındaki şerittir (pencere genelinde bırakma yoktur; metin buna göre "buraya").

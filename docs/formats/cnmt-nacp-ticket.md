@@ -24,6 +24,10 @@ olmadığını CNMT'deki ana oyun ID'siyle denetler.
 16 dil × 0x300: ad (0x200) + yayıncı (0x100). Görünen sürüm 0x3060'ta (0x10). Ad için önce
 İngilizce kayıtlara bakılır.
 
+Simge: aynı RomFS'te `icon_<Dil>.dat` (256x256 JPEG; `icon_AmericanEnglish.dat`, yoksa adı sıradaki ilk dosya).
+Yalnızca `FF D8 FF` ile başlayan ve 1 MiB'den küçük dosya kabul edilir (`metadata.pick_icon_name`, `valid_icon`).
+Oyun kartı için yayıncı ve simge okunur, projeye önbelleklenir (`sources.publisher`, `sources.icon`).
+
 ## Bilet (.tik)
 
 İmza türü u32 (0x10004 = RSA-2048/SHA-256) → imza + dolgu atlanır (RSA-2048: 0x13C bayt).

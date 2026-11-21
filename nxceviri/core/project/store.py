@@ -18,7 +18,7 @@ import shutil
 import sqlite3
 import sys
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -187,6 +187,11 @@ MIGRATIONS: tuple[str, ...] = (
     ALTER TABLE history ADD COLUMN old_mt_provider TEXT NOT NULL DEFAULT '';
     ALTER TABLE history ADD COLUMN old_mt_model TEXT NOT NULL DEFAULT '';
     """,
+    # 8: oyun kartı için yayıncı ve simge (control NCA'sından; proje her açıldığında oyun dosyası yeniden okunmasın)
+    """
+    ALTER TABLE sources ADD COLUMN publisher TEXT NOT NULL DEFAULT '';
+    ALTER TABLE sources ADD COLUMN icon BLOB NOT NULL DEFAULT x'';
+    """,
 )
 SCHEMA_VERSION = len(MIGRATIONS)
 
@@ -226,6 +231,9 @@ class SourceRecord:
     display_version: str
     name: str
     file_size: int
+    #: Oyun kartı için önbelleğe alınan bilgiler (control NCA'sından; ARCHITECTURE 246). Boşsa yer tutucu gösterilir.
+    publisher: str = ""
+    icon: bytes = field(default=b"", repr=False)
 
 
 def _connect(target: str | Path) -> sqlite3.Connection:
@@ -576,10 +584,10 @@ class Project:
 
     def sources(self) -> list[SourceRecord]:
         rows = self._conn.execute(
-            "SELECT path, kind, title_id, application_id, version, display_version, name, file_size "
+            "SELECT path, kind, title_id, application_id, version, display_version, name, file_size, publisher, icon "
             "FROM sources ORDER BY CASE kind WHEN 'base' THEN 0 WHEN 'update' THEN 1 ELSE 2 END, title_id, version"
         ).fetchall()
-        return [SourceRecord(Path(r[0]), *r[1:]) for r in rows]
+        return [SourceRecord(Path(r[0]), r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], bytes(r[9])) for r in rows]
 
     def set_sources(self, sources: list[SourceRecord]) -> None:
         """Kaynak listesini tek işlemde değiştirir."""
@@ -588,7 +596,7 @@ class Project:
             self._conn.execute("DELETE FROM sources")
             self._conn.executemany(
                 "INSERT INTO sources (path, kind, title_id, application_id, version, display_version, name, "
-                "file_size, added_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "file_size, publisher, icon, added_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     (
                         str(s.path),
@@ -599,6 +607,8 @@ class Project:
                         s.display_version,
                         s.name,
                         s.file_size,
+                        s.publisher,
+                        s.icon,
                         now,
                     )
                     for s in sources

@@ -24,6 +24,8 @@ from nxceviri.core.container.metadata import (
     parse_cnmt,
     parse_nacp,
     parse_ticket,
+    pick_icon_name,
+    valid_icon,
 )
 from nxceviri.core.container.nca import FsType, Nca
 from nxceviri.core.container.ncz import is_block_mode, iter_ncz_as_nca, open_ncz_random_access, verify_nca_hash
@@ -76,6 +78,7 @@ class GamePackage:
     _cache_dir: Path | None
     _ncas: dict[str, Nca] = field(default_factory=dict)
     _extra: list[FileStorage] = field(default_factory=list)
+    icon: bytes = field(default=b"", repr=False)  # control NCA'sındaki oyun simgesi (JPEG); yoksa boş
 
     @property
     def title_id(self) -> str:
@@ -230,7 +233,7 @@ def open_package(
         )
         control = pkg.record(CnmtContentType.CONTROL)
         if control is not None:
-            pkg.nacp = _read_nacp(pkg, control)
+            pkg.nacp, pkg.icon = _read_control(pkg, control)
         log.info("Paket açıldı: %s (%s, %s, v%d)", path.name, pkg.kind, pkg.title_id, pkg.version)
         return pkg
     except BaseException:
@@ -238,17 +241,29 @@ def open_package(
         raise
 
 
-def _read_nacp(pkg: GamePackage, record: ContentRecord) -> Nacp | None:
+def _read_control(pkg: GamePackage, record: ContentRecord) -> tuple[Nacp | None, bytes]:
+    """control NCA'sından oyun bilgisini ve simgeyi okur; ikisi de yalnızca bilgi amaçlıdır, okunamazsa boş döner."""
     try:
         nca = pkg.open_nca(record)
         fs = nca.find_section(FsType.ROMFS)
         if fs is None:
-            return None
+            return None, b""
         romfs = RomFs(nca.data_storage(fs), nca.name)
         if "control.nacp" not in romfs.files:
-            return None
-        return parse_nacp(romfs.open("control.nacp").read_all())
+            return None, b""
+        nacp = parse_nacp(romfs.open("control.nacp").read_all())
     except NxError as exc:
         # Oyun adı yalnızca bilgi amaçlıdır; okunamaması paketi kullanılmaz kılmaz.
         log.warning("Oyun bilgisi okunamadı (%s): %s", pkg.path.name, exc.message)
-        return None
+        return None, b""
+    icon = b""
+    icon_name = pick_icon_name(romfs.files)
+    if icon_name is not None:
+        try:
+            icon = valid_icon(romfs.open(icon_name).read_all())
+        except NxError as exc:
+            log.warning("Oyun simgesi okunamadı (%s): %s", pkg.path.name, exc.message)
+        else:
+            if not icon:
+                log.warning("Oyun simgesi geçerli bir JPEG değil, yok sayıldı (%s).", pkg.path.name)
+    return nacp, icon

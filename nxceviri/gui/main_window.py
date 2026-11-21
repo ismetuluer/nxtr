@@ -767,10 +767,12 @@ class MainWindow(QMainWindow):
     def _refresh_status(self) -> None:
         """Durum çubuğu bölmeleri; satır sayıları, hatalı satırlar, sağlayıcı ve kayıt durumundan türetilir."""
         rows = self.translate_page.model.rows
+        translated = sum(1 for r in rows if r.status in TRANSLATED_STATUSES)
+        self.add_page.set_progress(len(rows), translated)  # oyun kartındaki "N satır · %P çevrildi" rozeti
         self.status_segments.update(
             rows=len(rows),
             shown=self.translate_page.filter.rowCount(),  # grup başlıkları ve katlama sayılmaz
-            translated=sum(1 for r in rows if r.status in TRANSLATED_STATUSES),
+            translated=translated,
             approved=sum(1 for r in rows if r.status == Status.APPROVED),
             errors=sum(1 for r in rows if r.status == Status.ERROR),
             provider=self._provider_kind(),
@@ -1836,7 +1838,11 @@ class MainWindow(QMainWindow):
         self.translate_page.cancel_precheck()
         self.checks.pending_edits.clear()  # kullanıcı vazgeçmeyi onayladı; kapanan projeye geç yazılmasın
         self.scheduler.timer.stop()  # kapanırken yeni iş başlatılmasın
-        running = [t for t in (self.task, self._update_task, self._spell_scan, self._board_task) if t is not None]
+        running = [
+            t
+            for t in (self.task, self._update_task, self._spell_scan, self._board_task, self.scanning.meta_task)
+            if t is not None
+        ]
         for thread in running:
             thread.cancel()
         self.hide()  # bekleme sürerken pencere "yanıt vermiyor" görünmesin

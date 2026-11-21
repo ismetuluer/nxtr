@@ -13,7 +13,9 @@ Anahtar dosyasının içeriği hiçbir yerde gösterilmez ya da yazılmaz; yaln�
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Collection
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -22,6 +24,7 @@ from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from nxceviri.arac.teshis import RAPOR_ADI, UYARI, rapor_uret
+from nxceviri.core.container.package import KIND_DLC
 from nxceviri.core.errors import NxError
 from nxceviri.core.formats.scanner import ScanReport
 from nxceviri.core.keys import load_keys, load_title_keys
@@ -39,10 +42,13 @@ from nxceviri.core.project.relink import apply_moved, find_moved
 from nxceviri.gui.add_game_page import RELINK_ACTION
 from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_INFO
 from nxceviri.gui.step_nav import STEP_SCAN, STEP_TRANSLATE
+from nxceviri.gui.tasks import Task, release_thread
 from nxceviri.gui.widgets import format_int
 
 if TYPE_CHECKING:
     from nxceviri.gui.main_window import MainWindow
+
+log = logging.getLogger(__name__)
 
 
 class ScanController:
@@ -50,6 +56,72 @@ class ScanController:
 
     def __init__(self, win: MainWindow) -> None:
         self._win = win
+        #: Oyun bilgisi önbelleğini dolduran arka plan işi (`win.busy` sayılmaz; yalnızca kapanışta beklenir).
+        self.meta_task: Task | None = None
+        #: Bu oturumda oyun bilgisi okunması denenmiş dosyalar; okunamayan dosya tekrar tekrar denenmez.
+        self._meta_tried: set[Path] = set()
+
+    def backfill_source_meta(self) -> None:
+        """Simge/yayıncı önbelleği olmayan eski proje kaynaklarını arka planda bir kez okuyup projeye yazar.
+
+        Yalnızca kayıtlı projede ve anahtar yüklüyken çalışır; başarısızlık sessizdir (oyun kartı yer tutucu gösterir,
+        günlüğe yazılır). Kullanıcı eylemlerini engellemez ve projeyi "değişti" saymaz."""
+        win = self._win
+        if win.keys is None or win.project.path is None or self.meta_task is not None:
+            return
+        todo = [
+            s
+            for s in win.sources
+            if s.kind != KIND_DLC and not s.icon and s.path.is_file() and s.path not in self._meta_tried
+        ]
+        if not todo:
+            return
+        self._meta_tried.update(s.path for s in todo)
+        keys, title_keys, project = win.keys, win.title_keys, win.project
+
+        def work(_ctx: TaskContext) -> object:
+            found: dict[Path, tuple[str, bytes]] = {}
+            for source in todo:
+                try:
+                    record = read_source(source.path, keys, title_keys)
+                except NxError as exc:
+                    log.info("Oyun bilgisi okunamadı (%s): %s", source.path.name, exc.message)
+                    continue
+                if record.icon or record.publisher:
+                    found[source.path] = (record.publisher, record.icon)
+            return found
+
+        task = Task(work, "Oyun bilgisi okunuyor")
+        self.meta_task = task
+        task.succeeded.connect(lambda result: self._meta_done(project, result))
+        task.failed.connect(lambda _text: None)  # Task hatayı günlüğe yazar; kullanıcıya gösterilmez
+
+        def finished() -> None:
+            self.meta_task = None
+            release_thread(task)
+
+        task.finished.connect(finished)
+        task.start()
+
+    def _meta_done(self, project: object, result: object) -> None:
+        win = self._win
+        if win.project is not project or not isinstance(result, dict):
+            return  # proje bu arada değişti
+        updated = [
+            replace(s, publisher=result[s.path][0] or s.publisher, icon=result[s.path][1])
+            if s.path in result and not s.icon
+            else s
+            for s in win.sources
+        ]
+        if updated == win.sources:
+            return
+        try:
+            win.project.set_sources(updated)
+        except NxError as exc:
+            log.warning("Oyun bilgisi projeye yazılamadı: %s", exc.message)
+            return
+        win.sources = updated
+        win.add_page.set_sources(win.sources)
 
     # --- anahtarlar ----------------------------------------------------------------------
 
@@ -95,6 +167,7 @@ class ScanController:
         if remember:
             win.settings.setValue("keys/prod", str(path))
         win._refresh()
+        self.backfill_source_meta()  # anahtar sonradan geldiyse açık eski projenin simgesi okunur
         return True
 
     def _choose_title_keys(self) -> None:
