@@ -2,6 +2,16 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.75.0] — 2026-11-22 — Tek tıkla güncelleme
+
+### Değişti
+- **Güncelleme tek tık:** yeni sürüm varsa durum çubuğunda “Güncelle · sürüm” düğmesi çıkar. Basınca düğme
+  indirmeyi gösterir (%54 · 47 / 87 MB); bitince uygulama soru sormadan yeni sürümle yeniden açılır. Kaydedilmemiş
+  yeni proje varsa yalnızca kaydetme sorulur; süren bir iş varsa düğme “Yeniden başlat” olur ve bekler.
+- Yeni sürümle açılınca kısa bir “kuruldu” bildirimi ve **Yenilikler** bağlantısı çıkar.
+- Yardım → Güncellemeleri Denetle penceresi açılınca kendisi denetler; Güncelle düğmesi aynı tek tık akışını
+  başlatır (pencerede ayrıca indirme ve “kapatılsın mı?” sorusu yok).
+
 ## [0.74.0] — 2026-11-22 — İçe aktarmada orijinal ve semboller, Çevir'de sağ tıkla düzeltme
 
 ### Eklendi

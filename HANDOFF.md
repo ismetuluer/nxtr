@@ -1,6 +1,7 @@
-# HANDOFF — oturum devri (2026-11-22, 0.74.0)
+# HANDOFF — oturum devri (2026-11-22, 0.75.0)
 
 ## Durum
+- **Sürüm 0.75.0** (2026-11-22; CHANGELOG 0.75.0): tek tıkla güncelleme (update_controller.start_update; durum çubuğu düğmesi ilerleme gösterir, INSTALLING_KEY ile açılışta “kuruldu”). Sıradaki sadeleştirmeler: Modu Oluştur, Tara ve Aktar, dış redaksiyon tek tık.
 - **Sürüm 0.74.0** (2026-11-22; CHANGELOG 0.74.0): Çevir sağ tık Düzelt (translate_page._add_fix_actions, checks.apply_fixes on_translate); içe aktarmada ORİJİNAL sütunu ve kod çipleri (textmarks.inline_marks_html); kısa arayüz metinleri.
 - **Sürüm 0.73.1** (2026-11-21; CHANGELOG 0.73.1): Kontrol Et → Grafik alt klasörleri okur (core/qa/graphics._images göreli yol adı; denetleyici alt klasörleri izler).
 - **Sürüm 0.73.0** (2026-11-21; CHANGELOG 0.73.0): konsol temaları — şekil/yazı tipi katmanı ThemeStyle (gui/theme_style.py), beş tema gui/console_themes.py, adım işaretleri gui/step_markers.py, Gece Mavisi üst gezinme main_layout.apply_nav_position, OFL yazı tipleri gui/fonts/ (ARCHITECTURE 248). Gerçek pencerede elle denenmedi.
