@@ -286,8 +286,8 @@ class UpdateController:
         root, _packaged = self._target()
         if root is None:  # git deposu: güncelleme “git pull” ile yapılır, düğme pencereyi açar
             self._badge(f"Yeni sürüm · {result.version}", "Güncellemek için uygulama klasöründe “git pull”.")
-            return
-        self._badge_idle()
+        else:
+            self._badge_idle()
         self._win.notifier.notify(
             LEVEL_INFO,
             f"Yeni sürüm: {result.version}",

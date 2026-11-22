@@ -103,7 +103,7 @@ def test_new_version_is_announced(window: MainWindow) -> None:
     window._update_checked(UpdateInfo(current="0.1.0", version="9.9.9", sha="", notes=""))
     notice = window.notifier.history[0]
     assert notice.title == "Yeni sürüm: 9.9.9"
-    assert [a.label for a in notice.actions] == ["Şimdi Güncelle", "Sonra"]
+    assert [a.label for a in notice.actions] == ["Güncelle", "Sonra"]
 
 
 def test_install_failure_is_announced_with_retry(window: MainWindow) -> None:
