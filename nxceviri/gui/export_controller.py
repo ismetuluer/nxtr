@@ -31,6 +31,7 @@ from nxceviri.core.formats import registry
 from nxceviri.core.pipeline import check_sources, version_warnings
 from nxceviri.core.project import TranslationRow
 from nxceviri.core.qa import transliterate
+from nxceviri.gui import trash
 from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_SUCCESS, LEVEL_WARNING, NoticeAction
 from nxceviri.gui.widgets import format_int
 
@@ -198,9 +199,15 @@ class ExportController:
                 message += f"\n\nFont yaması: {format_int(len(result.font_patches))} fonta Türkçe harf eklendi."
             if result.warnings:
                 message += "\n\nDikkat: " + " ".join(result.warnings)
-            # Sayfada kısa durum; ayrıntılar (kurulum, hatalı satırlar, uyarılar) bildirimin "Ayrıntılar"ında.
-            page.result.show_message("warning" if result.warnings else "success", f"Mod oluşturuldu: {result.dest}")
+            page.result.show_message("warning" if result.warnings else "success", f"Mod hazır: {result.dest}")
             page.open_button.show()
+            # Ayrıntı yoksa ve sayfa açıksa sayfadaki “Mod hazır” ile Klasörü Aç yeter; bildirim (genel “bitti” dahil)
+            # yalnızca anlatılacak bir şey varsa ya da kullanıcı başka adımdaysa gelir.
+            details = bool(kept or refused or result.font_patches or result.warnings)
+            details = details or (options.include_errors and result.rows_error > 0)
+            if not details and page.isVisible():
+                self._win._outcome_noticed = True
+                return
             self._win.notify(
                 LEVEL_WARNING if result.warnings else LEVEL_SUCCESS,
                 "Mod oluşturuldu",
@@ -217,11 +224,13 @@ class ExportController:
             page.result.show_message("warning", "Dışa aktarma iptal edildi; hedefte hiçbir dosya bırakılmadı.")
 
         self._win._run(
-            lambda ctx: export_layeredfs(inputs, files, rows, options=options, info=info, ctx=ctx),
+            lambda ctx: export_layeredfs(
+                inputs, files, rows, options=options, info=info, ctx=ctx, discard_old=trash.move_to_trash
+            ),
             "Mod oluşturuluyor",
             on_success=done,
             on_failure=failed,
-            on_progress=page.progress.update_progress,
+            on_progress=page.update_progress,
             on_cancel=cancelled,
         )
 

@@ -475,7 +475,9 @@ def test_machine_translation_flow(qtbot: QtBot, window: MainWindow, game: GameFi
     assert secrets.get(DEEPL_API_KEY) is None
 
 
-def test_qa_and_export_flow(qtbot: QtBot, window: MainWindow, game: GameFiles, tmp_path: Path) -> None:
+def test_qa_and_export_flow(
+    qtbot: QtBot, window: MainWindow, game: GameFiles, tmp_path: Path, trashed: list[Path]
+) -> None:
     from nxceviri.gui.issue_rows import ROLE_TRANSLATION
     from nxceviri.gui.main_window import STEP_EXPORT, STEP_QA
 
@@ -520,26 +522,28 @@ def test_qa_and_export_flow(qtbot: QtBot, window: MainWindow, game: GameFiles, t
     assert export.summary.text().startswith("1 yazılacak")
     export.export_button.click()
     _wait_idle(qtbot, window)
-    assert "Mod oluşturuldu" in export.result.text.text()
+    assert "Mod hazır" in export.result.text.text()
     out = tmp_path / "Çıktılar" / "Deneme Türkçe" / "atmosphere" / "contents"
     written = [p for p in out.rglob("*") if p.is_file()]
     assert [p.name for p in written] == ["Ana_Menü.msbt"]
     from nxceviri.core.formats.msbt import MsbtPlugin
 
     assert MsbtPlugin().extract(written[0].read_bytes())[0].source == "Maceraya Basla"
-    # Aynı klasöre ikinci kez üretmek sorulur: Vazgeç hiçbir şeye dokunmaz, Üzerine Yaz eski modu değiştirir.
+    # Aynı klasöre ikinci kez üretmek sorulmaz: NXTR'nin eski modu Geri Dönüşüm Kutusu'na gider, yenisi yerine geçer.
+    asked: list[str] = []
 
-    answers = ["Vazgeç", "Üzerine Yaz"]
+    def ask(_parent: object, text: str, _buttons: list[str]) -> str:
+        asked.append(text)
+        return "Vazgeç"
+
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr("nxceviri.gui.main_window.choose_button", lambda _p, _t, _b: answers.pop(0))
-        stamp = written[0].stat().st_mtime_ns
-        export.export_button.click()
-        assert window.task is None  # vazgeçildi: iş başlamadı
-        assert written[0].stat().st_mtime_ns == stamp
+        mp.setattr("nxceviri.gui.main_window.choose_button", ask)
         export.export_button.click()
         _wait_idle(qtbot, window)
-    assert "Mod oluşturuldu" in export.result.text.text()
-    assert not answers
+    assert not asked
+    assert [p.name for p in trashed] == ["Deneme Türkçe (eski)"]
+    assert "Mod hazır" in export.result.text.text()
+    assert written[0].is_file()
 
 
 def test_qt_standard_texts_are_turkish(qtbot: QtBot) -> None:

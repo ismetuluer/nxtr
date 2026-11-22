@@ -13,13 +13,12 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QRadioButton,
     QScrollArea,
-    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from nxceviri.core.export.layeredfs import LAYOUT_ATMOSPHERE, LAYOUT_EMULATOR, LAYOUT_LABELS, safe_mod_name
-from nxceviri.gui.widgets import Banner, Card, PageHeader, ProgressPanel, button, format_int, label, tip_html
+from nxceviri.gui.widgets import Banner, Card, PageHeader, button, format_int, label, tip_html
 
 
 class ExportPage(QWidget):
@@ -54,15 +53,14 @@ class ExportPage(QWidget):
             "klasörü üretilir. Oyun dosyalarınız değişmez; tam oyun kopyası üretilmez.",
         )
         self.export_button = button("Modu Oluştur", "primary", icon="package")
-        self.export_button.setToolTip(
-            tip_html("Çevirileri oyun dosyalarına işleyip mod klasörünü seçtiğiniz konuma yazar. Oyununuz değişmez.")
-        )
-        self.export_button.clicked.connect(self.export_requested)
+        self._idle_tip = tip_html("Çevirileri oyun dosyalarına işleyip mod klasörünü seçtiğiniz konuma yazar.")
+        self.export_button.setToolTip(self._idle_tip)
+        self.export_button.clicked.connect(self._on_export_clicked)
         self.header.add_action(self.export_button)
         self._can_export = False
+        #: Mod oluşurken düğme ilerlemeyi gösterir; o sırada basmak işi durdurur.
+        self._running = False
         lay.addWidget(self.header)
-        self.stack = QStackedWidget()
-        lay.addWidget(self.stack)
 
         form_box = QWidget()
         fl = QVBoxLayout(form_box)
@@ -152,12 +150,8 @@ class ExportPage(QWidget):
         self.open_button.clicked.connect(self.open_folder)
         self.open_button.hide()
         fl.addWidget(self.open_button, alignment=Qt.AlignmentFlag.AlignLeft)
-        self.stack.addWidget(form_box)
+        lay.addWidget(form_box)
         self.form_box = form_box
-
-        self.progress = ProgressPanel()
-        self.progress.cancel_requested.connect(self.cancel)
-        self.stack.addWidget(self.progress)
         lay.addStretch(1)
 
     def set_graphics(self, folder: Path | None, status: tuple[int, int]) -> None:
@@ -230,7 +224,7 @@ class ExportPage(QWidget):
             "Hatalı satırlar kutu işaretlenmedikçe yazılmaz; çevrilmemiş satırlar oyunda orijinal hâliyle kalır."
         )
         self._can_export = can_export
-        self.export_button.setEnabled(can_export and self.stack.currentWidget() is not self.progress)
+        self.export_button.setEnabled(can_export or self._running)
 
     def set_notes(self, problems: list[str], warnings: list[str]) -> None:
         """Dışa aktarma öncesi sorunlar ve uyarılar: başlıktaki çipte sayı, ayrıntıda cümleler (sorunlar önce)."""
@@ -242,11 +236,30 @@ class ExportPage(QWidget):
         state = "danger" if problems else "warning" if warnings else ""
         self.header.chip.show_status(state, " · ".join(parts), [*problems, *warnings])
 
-    def show_running(self) -> None:
-        self.progress.start("Mod oluşturuluyor")
-        self.stack.setCurrentWidget(self.progress)
+    def _on_export_clicked(self) -> None:
+        if not self._running:
+            self.export_requested.emit()
+            return
         self.export_button.setEnabled(False)
+        self.export_button.setText("İptal ediliyor…")
+        self.cancel.emit()
+
+    def show_running(self) -> None:
+        """Mod oluşurken: ilerleme düğmede, seçenekler kilitli (iş başında alındılar)."""
+        self._running = True
+        self.form_box.setEnabled(False)
+        self.export_button.setEnabled(True)
+        self.export_button.setToolTip("Durdurur; hedefte hiçbir dosya kalmaz.")
+        self.update_progress(0, 0, "")
+
+    def update_progress(self, done: int, total: int, _message: str) -> None:
+        if self._running and self.export_button.isEnabled():
+            percent = done * 100 // total if total > 0 else 0
+            self.export_button.setText(f"%{percent} · İptal")
 
     def show_form(self) -> None:
-        self.stack.setCurrentWidget(self.form_box)
+        self._running = False
+        self.form_box.setEnabled(True)
+        self.export_button.setText("Modu Oluştur")
+        self.export_button.setToolTip(self._idle_tip)
         self.export_button.setEnabled(self._can_export)

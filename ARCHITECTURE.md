@@ -1601,3 +1601,13 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     uygulanır. Çubuk dar kalırsa başlık gizlenir. Konsol temalarında devre dışı menü öğeleri soluk renkle çizilir
     (Varsayılan'ın QSS'i değişmedi). "Yeşil Işık" seçili satır çubuğu hücre başına tekrarlandığı için yalnızca ağaç ve
     liste öğelerinde kaldı; tabloda seçili metin vurgu rengindedir.
+249. **Modu Oluştur tek tık (ürün sahibi, 2026-11-22):** Hedefte NXTR'nin önceki modu (`INFO_FILE` olan klasör) varsa
+    “Üzerine Yaz” sorusu kalktı (`main_window.ask_full_folder` "overwrite" döner); başka dolu klasör yine silinmez ve
+    çekirdeğin iki koruması (`options.overwrite`, `INFO_FILE`) değişmedi. Eski mod kalıcı silinmez: `export_mod`'un
+    `discard_old` parametresi yerine yenisi konan yedeği “<ad> (eski)” adına çevirip verir; arayüz `gui/trash.py`
+    (`QFile.moveToTrash`, Qt çekirdeğe girmesin diye arayüzde) ile Geri Dönüşüm Kutusu'na gönderir. Kutu kullanılamazsa
+    eski mod bu adla yanında kalır ve sonuç uyarısına yazılır (sessiz silme yok); parametre verilmezse (komut satırı,
+    çekirdek testleri) eski davranış: silinir. İlerleme `ProgressPanel` yerine Modu Oluştur düğmesinde (“%54 · İptal”);
+    sürerken düğme işi durdurur, seçenekler kilitlenir. Ayrıntısız sonuç sayfa açıkken bildirim açmaz (“Mod hazır” +
+    Mod Klasörünü Aç); hatalı satır, reddedilen satır, font yaması, uyarı varsa ya da kullanıcı başka adımdaysa
+    bildirim gelir. Testler gerçek kutuyu doldurmasın diye `tests/conftest.py` `trash.move_to_trash`'i değiştirir.

@@ -467,13 +467,33 @@ def test_export_summary_one_line(qtbot: QtBot) -> None:
     assert page.summary.text() == "21 yazılacak · 0 hatalı · 10 çevrilmemiş · Harf dönüştürme: yok"
 
 
-def test_export_running_disables_header_action(qtbot: QtBot) -> None:
+def test_export_running_turns_button_into_progress(qtbot: QtBot) -> None:
     page = _export(qtbot)
     page.set_summary(written=1, errors=0, untranslated=0, conversion="yok", can_export=True)
     page.show_running()
-    assert not page.export_button.isEnabled()
+    assert page.export_button.text() == "%0 · İptal"
     page.show_form()
     assert page.export_button.isEnabled()
+
+
+def test_export_button_shows_progress_and_cancels(qtbot: QtBot) -> None:
+    """Mod oluşurken ilerleme düğmenin içindedir; o sırada düğmeye basmak işi durdurur, form yerinde kalır."""
+    page = _export(qtbot)
+    page.set_summary(written=1, errors=0, untranslated=0, conversion="yok", can_export=True)
+    page.show_running()
+    assert page.export_button.isEnabled()
+    assert not page.form_box.isEnabled()  # seçenekler iş başında alındı; sürerken değiştirilemez
+    page.update_progress(1, 4, "Yazılıyor")
+    assert page.export_button.text() == "%25 · İptal"
+    with qtbot.waitSignal(page.cancel):
+        page.export_button.click()
+    assert not page.export_button.isEnabled()  # iptal ediliyor
+    page.show_form()
+    assert page.export_button.text() == "Modu Oluştur"
+    assert page.export_button.isEnabled()
+    assert page.form_box.isEnabled()
+    with qtbot.waitSignal(page.export_requested):
+        page.export_button.click()
 
 
 def test_export_running_keeps_disabled_export_disabled(qtbot: QtBot) -> None:

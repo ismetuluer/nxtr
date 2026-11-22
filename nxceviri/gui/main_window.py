@@ -288,26 +288,22 @@ def build_save_box(parent: QWidget, closing: bool) -> tuple[QMessageBox, QPushBu
 
 
 def ask_full_folder(parent: QWidget, dest: Path) -> str:
-    """Hedef doluysa ne yapılacağını sorar: "empty" (sorun yok), "overwrite", "other" ya da "cancel".
+    """Hedef doluysa ne yapılacağını söyler: "empty" (sorun yok), "overwrite", "other" ya da "cancel".
 
-    Üzerine yazma yalnızca NXTR'nin ürettiği (bilgi dosyası olan) mod klasörü için önerilir; başka bir klasör silinmez.
+    NXTR'nin önceki modu (bilgi dosyası olan klasör) sorulmadan değişir; eskisi Geri Dönüşüm Kutusu'na gider.
+    Başka bir dolu klasör silinmez; yalnızca o zaman sorulur.
     """
     if not dest.exists() or (dest.is_dir() and not any(dest.iterdir())):
         return "empty"
     if (dest / INFO_FILE).is_file():
-        choice = choose_button(
-            parent,
-            f"“{dest.name}” klasöründe daha önce üretilmiş bir mod var. Eski mod silinip yenisi yazılsın mı?",
-            ["Üzerine Yaz", "Başka Klasör…", "Vazgeç"],
-        )
-    else:
-        choice = choose_button(
-            parent,
-            f"“{dest.name}” klasörü dolu ve NXTR'nin ürettiği bir mod değil; güvenlik için silinmez. "
-            "Başka bir klasör seçin.",
-            ["Başka Klasör…", "Vazgeç"],
-        )
-    return {"Üzerine Yaz": "overwrite", "Başka Klasör…": "other"}.get(choice, "cancel")
+        return "overwrite"
+    choice = choose_button(
+        parent,
+        f"“{dest.name}” klasörü dolu ve NXTR'nin ürettiği bir mod değil; güvenlik için silinmez. "
+        "Başka bir klasör seçin.",
+        ["Başka Klasör…", "Vazgeç"],
+    )
+    return "other" if choice == "Başka Klasör…" else "cancel"
 
 
 #: Maskot: "bitti" ve "hata" hâllerinin süresi (ms); sistem bu kadar saniye boştaysa uyur

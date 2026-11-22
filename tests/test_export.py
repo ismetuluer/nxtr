@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import hashlib
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -732,6 +733,56 @@ def test_overwrite_replaces_an_earlier_nxtr_mod(msbt_project: tuple[Inputs, Proj
     assert result.files
     assert (dest / INFO_FILE).is_file()
     assert not list(tmp_path.glob(".mod*"))  # yedek ve geçici klasör kalmadı
+
+
+def test_overwrite_hands_old_mod_to_discard_under_readable_name(
+    msbt_project: tuple[Inputs, Project], tmp_path: Path
+) -> None:
+    """Arayüz eski modu Geri Dönüşüm Kutusu'na gönderir; kutuda gizli yedek adıyla değil “mod (eski)” adıyla durur."""
+    inputs, project = msbt_project
+    dest = tmp_path / "mod"
+    _export(project, inputs, dest)
+    (dest / "eski-kalinti.txt").write_text("eski", encoding="utf-8")
+    seen: list[tuple[str, bool]] = []
+
+    def discard(old: Path) -> bool:
+        seen.append((old.name, (old / "eski-kalinti.txt").is_file()))
+        shutil.rmtree(old)
+        return True
+
+    result = export_mod(
+        inputs,
+        _refs(project),
+        project.translation_rows(),
+        options=ExportOptions(LAYOUT_ATMOSPHERE, dest, "x", overwrite=True),
+        info=INFO,
+        discard_old=discard,
+    )
+    assert seen == [("mod (eski)", True)]
+    assert not (dest / "eski-kalinti.txt").exists()
+    assert not result.warnings
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["mod"]
+
+
+def test_overwrite_keeps_old_mod_when_discard_fails(msbt_project: tuple[Inputs, Project], tmp_path: Path) -> None:
+    """Geri Dönüşüm Kutusu kullanılamazsa eski mod sessizce silinmez: yanında kalır ve uyarı verilir."""
+    inputs, project = msbt_project
+    dest = tmp_path / "mod"
+    _export(project, inputs, dest)
+    (tmp_path / "mod (eski)").mkdir()  # önceki bir denemeden kalan aynı adlı klasör ezilmez
+    (dest / "eski-kalinti.txt").write_text("eski", encoding="utf-8")
+    result = export_mod(
+        inputs,
+        _refs(project),
+        project.translation_rows(),
+        options=ExportOptions(LAYOUT_ATMOSPHERE, dest, "x", overwrite=True),
+        info=INFO,
+        discard_old=lambda _old: False,
+    )
+    kept = tmp_path / "mod (eski 2)"
+    assert (kept / "eski-kalinti.txt").read_text(encoding="utf-8") == "eski"
+    assert any("mod (eski 2)" in w for w in result.warnings)
+    assert (dest / INFO_FILE).is_file()
 
 
 def test_overwrite_never_deletes_a_folder_nxtr_did_not_make(

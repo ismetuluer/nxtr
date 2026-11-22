@@ -138,6 +138,28 @@ class TextFileRef:
         object.__setattr__(self, "format", legacy.format_id(self.format))
 
 
+def _discard_backup(backup: Path, dest: Path, discard: Callable[[Path], bool], result: ExportResult) -> None:
+    """Yerine yenisi konan eski modu “<ad> (eski)” adına çevirip `discard`'a verir (gizli yedek adı kutuda anlaşılmaz
+    ve bir sonraki dışa aktarma o kalıptaki klasörü siler). Atılamazsa eski mod bu adla yerinde kalır, uyarılır."""
+    kept = dest.parent / f"{dest.name} (eski)"
+    number = 2
+    while kept.exists():
+        kept = dest.parent / f"{dest.name} (eski {number})"
+        number += 1
+    try:
+        os.replace(backup, kept)
+    except OSError as exc:
+        log.warning("Eski mod yeniden adlandırılamadı (%s → %s): %s", backup, kept, exc)
+        kept = backup
+    try:
+        discarded = discard(kept)
+    except OSError as exc:
+        log.warning("Eski mod atılamadı (%s): %s", kept, exc)
+        discarded = False
+    if not discarded:
+        result.warnings.append(f"Eski mod Geri Dönüşüm Kutusu'na taşınamadı; “{kept.name}” klasöründe duruyor.")
+
+
 @dataclass(frozen=True)
 class ExportOptions:
     layout: str
@@ -498,7 +520,11 @@ def export_mod(
     options: ExportOptions,
     info: ExportInfo,
     ctx: TaskContext | None = None,
+    discard_old: Callable[[Path], bool] | None = None,
 ) -> ExportResult:
+    """Modu üretir. Hedefteki eski NXTR modu yenisiyle değişince `discard_old` verilmişse eski mod okunur bir adla
+    ona verilir (arayüz Geri Dönüşüm Kutusu'na gönderir; False dönerse eski mod yerinde kalır ve uyarılır); verilmezse
+    silinir."""
     ctx = ctx or TaskContext()
     dest = options.dest
     _recover_leftover_backups(dest)
@@ -764,7 +790,10 @@ def export_mod(
             except BaseException:
                 os.replace(backup, dest)
                 raise
-            shutil.rmtree(backup, ignore_errors=True)  # kalırsa bir sonraki dışa aktarma artığı temizler
+            if discard_old is None:
+                shutil.rmtree(backup, ignore_errors=True)  # kalırsa bir sonraki dışa aktarma artığı temizler
+            else:
+                _discard_backup(backup, dest, discard_old, result)
         else:
             if dest.exists():
                 dest.rmdir()

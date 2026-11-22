@@ -117,7 +117,7 @@ def test_export_with_box_reports_error_rows(
     export.include_errors_box.setChecked(True)
     export.export_button.click()
     qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
-    assert "Mod oluşturuldu" in export.result.text.text()  # sayfada kısa durum
+    assert "Mod hazır" in export.result.text.text()  # sayfada kısa durum
     assert window.notifier.history[0].title == "Mod oluşturuldu"
     text = window.notifier.history[0].text  # ayrıntılar bildirimde
     assert "Hatalı satırlar: 0 tanesi çevirisiyle yazıldı, 1 tanesi orijinal bırakıldı" in text
@@ -134,6 +134,51 @@ def test_export_with_box_reports_error_rows(
     open_action = next(a for a in window.notifier.history[0].actions if a.label == "Klasörü Aç")
     open_action.callback()  # bildirimdeki düğme gerçekten klasörü açar
     assert opened
+
+
+def _clean_export_ready(qtbot: QtBot, window: MainWindow, game: GameFiles, tmp_path: Path) -> None:
+    """Oyun eklenir, taranır, yalnızca geçerli bir satır çevrilir; Dışa Aktar açık ve hedef seçili kalır."""
+    window.load_keys_file(game.keys_path)
+    window.add_files([game.base_nsp, game.update_nsp])
+    qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
+    window.start_scan()
+    qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
+    window.scan_page.report.model.set_checked(range(window.scan_page.report.model.rowCount()), True)
+    window.ask_remove_files = lambda _files, _translated: True  # type: ignore[assignment]
+    window.import_texts()
+    qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
+    rows = {r.key: r for r in window.translate_page.model.rows}
+    window.translate_page.model.apply([(rows["Menu_Start"].id, "Maceraya Başla")])
+    window.nav.setCurrentRow(STEP_EXPORT)
+    window.export_page.folder.setText(str(tmp_path / "Çıktılar"))
+    window.export_page.mod_name.setText("Temiz")
+
+
+def test_clean_export_on_page_is_quiet(qtbot: QtBot, window: MainWindow, game: GameFiles, tmp_path: Path) -> None:
+    """Ayrıntısız, sayfa açıkken biten dışa aktarma bildirim açmaz: sayfada “Mod hazır” ve Klasörü Aç yeter."""
+    _clean_export_ready(qtbot, window, game, tmp_path)
+    export = window.export_page
+    seen = len(window.notifier.history)
+    export.export_button.click()
+    qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
+    assert export.result.text.text().startswith("Mod hazır")
+    assert not export.open_button.isHidden()
+    assert len(window.notifier.history) == seen  # ne “Mod oluşturuldu” ne genel “bitti” bildirimi
+
+
+def test_export_finished_off_page_still_notifies(
+    qtbot: QtBot, window: MainWindow, game: GameFiles, tmp_path: Path
+) -> None:
+    """Kullanıcı başka adıma geçtiyse sayfadaki sonuç görünmez; bildirim Klasörü Aç ile gelir."""
+    from nxceviri.gui.main_window import STEP_TRANSLATE
+
+    _clean_export_ready(qtbot, window, game, tmp_path)
+    window.export_page.export_button.click()
+    window.nav.setCurrentRow(STEP_TRANSLATE)
+    qtbot.waitUntil(lambda: window.task is None, timeout=20_000)
+    notice = window.notifier.history[0]
+    assert notice.title == "Mod oluşturuldu"
+    assert "Klasörü Aç" in [a.label for a in notice.actions]
 
 
 def test_full_folder_offers_overwrite_or_other_folder(
@@ -156,7 +201,7 @@ def test_full_folder_offers_overwrite_or_other_folder(
 
     monkeypatch.setattr("nxceviri.gui.main_window.choose_button", fake)
     assert ask_full_folder(window, nxtr) == "overwrite"
-    assert asked[-1][1] == ["Üzerine Yaz", "Başka Klasör…", "Vazgeç"]
+    assert not asked  # NXTR'nin önceki modu sorulmadan değişir (eskisi Geri Dönüşüm Kutusu'na)
     assert ask_full_folder(window, other) == "other"  # NXTR modu değil: üzerine yazma önerilmez
     assert asked[-1][1] == ["Başka Klasör…", "Vazgeç"]
     assert "silinmez" in asked[-1][0]

@@ -41,7 +41,9 @@ Taşma denetimi font ölçüsü kullanmaz; yalnızca uzunluk oranına bakar.
 | Atmosphère | `atmosphere/contents/<TitleID>/romfs/<yol>` | `atmosphere` klasörünü SD kartın köküne kopyalayın |
 | Emülatör | `<TitleID>/<Mod Adı>/romfs/<yol>` | Ryujinx: `mods/contents/`; Yuzu türevleri: `load/` |
 
-- Mod her zaman yeni/boş bir klasöre üretilir; var olan dosyaların üzerine yazılmaz.
+- Mod yeni/boş bir klasöre üretilir. Hedefte NXTR'nin önceki modu (bilgi dosyası olan klasör) varsa sorulmadan
+  yenisiyle değişir; eski mod “<ad> (eski)” adıyla Geri Dönüşüm Kutusu'na gider (kutu kullanılamazsa yanında kalır ve
+  uyarılır). NXTR'nin üretmediği dolu bir klasör hiç silinmez (karar 249).
 - Önce geçici klasöre yazılır; her dosya yeniden açılıp her metnin beklenen değerde olduğu
   doğrulanır; sonra tek hamlede hedefe taşınır. İptal veya hatada hedefte hiçbir şey kalmaz.
 - Yalnızca değişen dosyalar yazılır. İç içe arşivler (SARC/Yaz0/ZSTD) yeniden kapatılır.

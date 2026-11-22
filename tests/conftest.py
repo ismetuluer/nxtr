@@ -24,6 +24,24 @@ def _private_app_data(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pyt
 
 
 @pytest.fixture(autouse=True)
+def trashed(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
+    """Testler gerçek Geri Dönüşüm Kutusu'nu doldurmasın: “kutuya” giden yol listelenir ve silinir."""
+    import shutil
+
+    from nxceviri.gui import trash
+
+    sent: list[Path] = []
+
+    def fake(path: Path) -> bool:
+        sent.append(path)
+        shutil.rmtree(path)
+        return True
+
+    monkeypatch.setattr(trash, "move_to_trash", fake)
+    return sent
+
+
+@pytest.fixture(autouse=True)
 def _accept_risky_fixes(monkeypatch: pytest.MonkeyPatch) -> None:
     """Riskli toplu düzeltmenin onay sorusu kipli pencere açıp testi bekletmesin: kullanıcı "Evet" der.
     Sorunun kendisini sınayan test bunu kendi yanıtıyla değiştirir."""

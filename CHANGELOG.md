@@ -2,6 +2,17 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.76.0] — 2026-11-22 — Modu Oluştur tek tık
+
+### Değişti
+- **Üzerine Yaz sorusu kalktı:** hedefte NXTR'nin önceki modu varsa yenisi sorulmadan yerine geçer; eskisi
+  “(eski)” adıyla Geri Dönüşüm Kutusu'na gider, oradan geri alınabilir. Kutu kullanılamazsa eski mod yanında kalır ve
+  uyarılır. NXTR'nin üretmediği dolu bir klasör yine hiç silinmez.
+- **İlerleme düğmede:** mod oluşurken Modu Oluştur düğmesi ilerlemeyi gösterir (%54 · İptal); basmak işi durdurur.
+  Sayfa artık ayrı bir ilerleme ekranına geçmez.
+- **Sessiz sonuç:** sorunsuz biten mod bildirim açmaz; sayfada “Mod hazır” ve Mod Klasörünü Aç çıkar. Hatalı satır,
+  uyarı ya da font yaması varsa ya da başka adıma geçtiyseniz bildirim yine gelir.
+
 ## [0.75.0] — 2026-11-22 — Tek tıkla güncelleme
 
 ### Değişti
