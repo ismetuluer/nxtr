@@ -3,7 +3,10 @@
 Tarama, oyunun içindeki dosyaları açar ve tanınan metin biçimlerini bulur: MSBT, Unity Localization ve I2,
 Unreal `.locres`, GFMSG mesajları ve bazı oyunlara özel biçimler.
 
-- Büyük oyunlarda tarama birkaç dakika sürebilir; işi istediğiniz an **İptal** edebilirsiniz. Bitince bildirim gelir.
+- **Tara ve Aktar:** Boş projede tek tık yeter. Tarama bitince kaynak dildeki dosyalar kendiliğinden aktarılır ve
+  Çevir açılır; seçimi değiştirmek için bildirimdeki **Dosyaları Seç**'e basın. Birden çok dil varken dili
+  anlaşılamayan dosya varsa aktarma kendiliğinden başlamaz; rapor açılır, siz seçersiniz.
+- Büyük oyunlarda tarama birkaç dakika sürebilir; işi istediğiniz an **İptal** edebilirsiniz.
 - Rapor, bulunan metin dosyalarını, satır sayılarını ve tanınmayan dosyaları gösterir.
 - **Kaynak dil:** Türkçe metin, seçtiğiniz dilin (çoğunlukla İngilizce) yerine yazılır. Oyunu da o dilde oynamanız
   gerekir. Oyun dosyalarının içinde dil listesi taşıyan biçimlerde (ör. I2 Localization) o dosyadaki diller de bu

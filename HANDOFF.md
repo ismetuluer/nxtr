@@ -1,6 +1,7 @@
-# HANDOFF — oturum devri (2026-11-22, 0.76.0)
+# HANDOFF — oturum devri (2026-11-22, 0.77.0)
 
 ## Durum
+- **Sürüm 0.77.0** (2026-11-22; CHANGELOG 0.77.0, karar 250): Tara ve Aktar tek tık (boş projede tarama bitince seçim kesinse aktarma kendiliğinden; ScanController.import_pending, ReportView.auto_import_ready). Sıradaki sadeleştirme: dış redaksiyon tek tık.
 - **Sürüm 0.76.0** (2026-11-22; CHANGELOG 0.76.0, karar 249): Modu Oluştur tek tık (Üzerine Yaz sorusu yok, eski mod gui/trash.py ile Geri Dönüşüm Kutusu'na; ilerleme düğmede; sorunsuz sonuç sessiz). Sıradaki sadeleştirmeler: Tara ve Aktar, dış redaksiyon tek tık.
 - **Sürüm 0.75.0** (2026-11-22; CHANGELOG 0.75.0): tek tıkla güncelleme (update_controller.start_update; durum çubuğu düğmesi ilerleme gösterir, INSTALLING_KEY ile açılışta “kuruldu”). Sıradaki sadeleştirmeler: Modu Oluştur, Tara ve Aktar, dış redaksiyon tek tık.
 - **Sürüm 0.74.0** (2026-11-22; CHANGELOG 0.74.0): Çevir sağ tık Düzelt (translate_page._add_fix_actions, checks.apply_fixes on_translate); içe aktarmada ORİJİNAL sütunu ve kod çipleri (textmarks.inline_marks_html); kısa arayüz metinleri.

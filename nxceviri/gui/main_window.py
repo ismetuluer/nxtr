@@ -891,7 +891,7 @@ class MainWindow(QMainWindow):
             if self.report is not None:
                 self._show_scan_report(self.report)
             else:
-                self.scan_page.show_empty()
+                self.scan_page.show_empty(auto_import=not self.project.text_files())
         elif row == STEP_QA:
             self._refresh_qa()
             self.graphics_check.shown()
@@ -1037,6 +1037,8 @@ class MainWindow(QMainWindow):
             self.checks.flush_pending_edits()  # iş sürerken Sorunlar'da yapılan düzenlemeler
         if self._recheck_pending:
             self._recheck_if_done()
+        if self.scanning.import_pending:
+            self.scanning.run_pending_import()
 
     def _cancel_task(self) -> None:
         if self.task is not None:
@@ -1109,8 +1111,8 @@ class MainWindow(QMainWindow):
     def _go_scan(self) -> None:
         return self.scanning._go_scan()
 
-    def start_scan(self) -> None:
-        return self.scanning.start_scan()
+    def start_scan(self, auto_import: bool = False) -> None:
+        return self.scanning.start_scan(auto_import)
 
     def _scan_done(self, result: object) -> None:
         return self.scanning._scan_done(result)

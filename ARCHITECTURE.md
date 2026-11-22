@@ -1611,3 +1611,10 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     sürerken düğme işi durdurur, seçenekler kilitlenir. Ayrıntısız sonuç sayfa açıkken bildirim açmaz (“Mod hazır” +
     Mod Klasörünü Aç); hatalı satır, reddedilen satır, font yaması, uyarı varsa ya da kullanıcı başka adımdaysa
     bildirim gelir. Testler gerçek kutuyu doldurmasın diye `tests/conftest.py` `trash.move_to_trash`'i değiştirir.
+250. **Tara ve Aktar tek tık (ürün sahibi, 2026-11-22):** Boş projede “Tara ve Aktar” düğmesi ve Oyunu Ekle'deki
+    Metinleri Tara (`start_scan(auto_import=True)`) tarama bitince metinleri kendiliğinden aktarır; aktarma iş kapandıktan
+    sonra başlar (`ScanController.import_pending`, pencerenin `_task_finished`'ı). Yalnızca seçim kesinse
+    (`ReportView.auto_import_ready`: aktarılabilir dosya seçili, rapor güncel, birden çok dil varsa seçili her dosyanın
+    dili biliniyor); belirsizse rapor açık kalır ve kullanıcı seçer. Yeniden Tara ve dolu proje projeyi kendiliğinden
+    değiştirmez (yeniden aktarma dosya silebilir; o kararı kullanıcı verir). Sonuç bildirimi “Dosyaları Seç” ile
+    rapora döndürür.

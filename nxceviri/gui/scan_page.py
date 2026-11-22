@@ -429,6 +429,8 @@ class ReportView(QWidget):
         self.import_button.clicked.connect(self.import_requested)
         self.can_import = False
         self.has_language_choice = False
+        #: Rapor eski (projedeki metin dosyası raporda yok); kendiliğinden aktarma yapılmaz.
+        self._stale = False
         #: Çipin dayanağı (durum, not, uyarılar); desteklenen dosya yoksa None. Metni seçime göre kurulur.
         self._status: tuple[str, str, list[str]] | None = None
         lay.addWidget(self.summary)
@@ -563,6 +565,13 @@ class ReportView(QWidget):
         """İşaretli dosyaların yolları: aktarma yalnızca bunları alır."""
         return self.model.selected_paths()
 
+    def auto_import_ready(self) -> bool:
+        """Seçim kendiliğinden aktarılacak kadar kesin mi: aktarılabilir dosya seçili, rapor güncel ve birden çok dil
+        varsa seçili her dosyanın dili biliniyor (bilinmeyen dil başka dil olabilir; o zaman kullanıcı seçer)."""
+        if not self.can_import or self._stale or not self.model.checked_count():
+            return False
+        return not self.has_language_choice or not self.model.checked_unknown_language_count()
+
     def _check_visible(self, value: bool) -> None:
         rows = (self.proxy.mapToSource(self.proxy.index(i, 0)).row() for i in range(self.proxy.rowCount()))
         self.model.set_checked(rows, value)
@@ -658,6 +667,7 @@ class ReportView(QWidget):
         listed = {e.path for e in supported}
         missing = sum(1 for path in imported_paths if path not in listed)
         stale = f"{format_int(missing)} metin dosyası raporda yok. Yeniden Tara'ya basın." if missing else ""
+        self._stale = bool(stale)
         if stale and not supported:
             self._status = None
             self.status_changed.emit("warning", "Tarama eski", [stale, *report.warnings])
@@ -711,7 +721,7 @@ class ScanPage(QWidget):
         self.stack = QStackedWidget()
         lay.addWidget(self.stack, 1)
 
-        self.start_button = button("Taramayı Başlat", "primary", icon="scan-search")
+        self.start_button = button("Tara ve Aktar", "primary", icon="scan-search")
         self.start_button.clicked.connect(self.start_scan)
         self.empty = EmptyState("Henüz tarama yapılmadı", "Büyük oyunlarda birkaç dakika sürebilir.")
         self.loading = ProgressPanel()
@@ -743,7 +753,9 @@ class ScanPage(QWidget):
             self.stack.addWidget(w)
         self._sync_header()
 
-    def show_empty(self) -> None:
+    def show_empty(self, auto_import: bool = True) -> None:
+        """Tarama yok. `auto_import`: proje boş, tarama bitince metinler kendiliğinden aktarılacak."""
+        self.start_button.setText("Tara ve Aktar" if auto_import else "Taramayı Başlat")
         self.stack.setCurrentWidget(self.empty)
         self._set_mode("empty")
 

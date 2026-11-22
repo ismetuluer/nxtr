@@ -40,7 +40,7 @@ from nxceviri.core.progress import TaskContext
 from nxceviri.core.project import SourceRecord
 from nxceviri.core.project.relink import apply_moved, find_moved
 from nxceviri.gui.add_game_page import RELINK_ACTION
-from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_INFO
+from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_INFO, LEVEL_SUCCESS, LEVEL_WARNING, NoticeAction
 from nxceviri.gui.step_nav import STEP_SCAN, STEP_TRANSLATE
 from nxceviri.gui.tasks import Task, release_thread
 from nxceviri.gui.widgets import format_int
@@ -60,6 +60,12 @@ class ScanController:
         self.meta_task: Task | None = None
         #: Bu oturumda oyun bilgisi okunması denenmiş dosyalar; okunamayan dosya tekrar tekrar denenmez.
         self._meta_tried: set[Path] = set()
+        #: “Tara ve Aktar”: bu tarama bitince seçim kesinse metinler kendiliğinden aktarılır (yalnızca boş projede).
+        self._auto_import = False
+        #: Tarama işi kapanınca aktarma başlasın (pencere `_task_finished`'da bakar; iş sürerken başlatılamaz).
+        self.import_pending = False
+        #: Son aktarma kendiliğinden başladı: sonuç bildiriminde “Dosyaları Seç” olur.
+        self._auto_run = False
 
     def backfill_source_meta(self) -> None:
         """Simge/yayıncı önbelleği olmayan eski proje kaynaklarını arka planda bir kez okuyup projeye yazar.
@@ -367,16 +373,19 @@ class ScanController:
         """“Metinleri Tara”: güncel rapor varsa onu gösterir, yoksa taramayı hemen başlatır."""
         win = self._win
         if win.report is None:
-            win.start_scan()
+            win.start_scan(auto_import=True)
         else:
             win.nav.setCurrentRow(STEP_SCAN)
 
-    def start_scan(self) -> None:
+    def start_scan(self, auto_import: bool = False) -> None:
+        """Taramayı başlatır. `auto_import` (Tara ve Aktar): proje boşsa ve seçim kesinse ardından metinler aktarılır;
+        Yeniden Tara projeyi kendiliğinden değiştirmez."""
         from nxceviri.gui import main_window as _mw  # noqa: PLC0415
 
         win = self._win
         if win.busy:
             return
+        self._auto_import = auto_import and not win.project.text_files()
         problems = _mw.check_sources(win.sources)
         if win.keys is None or problems:
             win.scan_page.show_error(" ".join(problems) or "Önce geçerli bir anahtar dosyası seçin.")
@@ -405,13 +414,16 @@ class ScanController:
         win._mark_changed()
         win._show_scan_report(result)
         win.statusBar().showMessage(f"Tarama {result.duration_s:.1f} saniyede tamamlandı.", 8000)
+        # Seçim belirsizse (birden çok dil ve dili bilinmeyen dosya) rapor açık kalır, kullanıcı seçer.
+        self.import_pending = self._auto_import and win.scan_page.report.auto_import_ready()
+        self._auto_import = False
 
     def _scan_cancelled(self) -> None:
         win = self._win
         if win.report is not None:
             win._show_scan_report(win.report)
         else:
-            win.scan_page.show_empty()
+            win.scan_page.show_empty(auto_import=not win.project.text_files())
         win.statusBar().showMessage("Tarama iptal edildi.", 5000)
 
     def _extract(self, mode: str) -> None:
@@ -499,10 +511,17 @@ class ScanController:
 
     # --- metinleri aktarma -------------------------------------------------------------------
 
+    def run_pending_import(self) -> None:
+        """Tara ve Aktar'ın ikinci yarısı: tarama işi kapandıktan sonra metinleri aktarır."""
+        self.import_pending = False
+        self._win.import_texts()
+        self._auto_run = self._win.busy
+
     def import_texts(self) -> None:
         from nxceviri.gui import main_window as _mw  # noqa: PLC0415
 
         win = self._win
+        self._auto_run = False
         if win.busy or win.report is None or win.keys is None:
             return
         problems = _mw.check_sources(win.sources)
@@ -602,5 +621,16 @@ class ScanController:
             summary += "\n\nAçılamayan dosyalar:\n• " + "\n• ".join(shown)
             if more > 0:
                 summary += f"\n… ve {more} dosya daha"
-        win.translate_page.show_notice("warning" if result.warnings else "success", summary)
+        if self._auto_run:
+            # Tara ve Aktar: seçimi kullanıcı görmedi; sonuç kısa, seçimi değiştirmek bir tık.
+            self._auto_run = False
+            win.translate_page.notice_text = summary
+            win.notify(
+                LEVEL_WARNING if result.warnings else LEVEL_SUCCESS,
+                f"{format_int(stats.files)} dosyadan {format_int(stats.added)} satır aktarıldı",
+                summary,
+                (NoticeAction("Dosyaları Seç", lambda: win.nav.setCurrentRow(STEP_SCAN)),),
+            )
+        else:
+            win.translate_page.show_notice("warning" if result.warnings else "success", summary)
         win.nav.setCurrentRow(STEP_TRANSLATE)

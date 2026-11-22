@@ -86,6 +86,17 @@ def test_default_selection_is_source_language_plus_unknown(qtbot: QtBot) -> None
     assert view.model.data(ja, Qt.ItemDataRole.ToolTipRole) == "Seçili kaynak dilde değil"
 
 
+def test_auto_import_only_when_selection_is_certain(qtbot: QtBot) -> None:
+    """Tara ve Aktar yalnızca seçim kesinse kendiliğinden aktarır: tek dil, ya da dilleri bilinen dosyalar."""
+    assert _page(qtbot, [EN, *UNKNOWN]).report.auto_import_ready()  # tek dil: bilinmeyenler de o dildedir
+    assert _page(qtbot, [EN, JA, FR]).report.auto_import_ready()  # çok dil ama hepsinin dili belli
+    mixed = _mixed(qtbot).report
+    assert not mixed.auto_import_ready()  # çok dil + dili bilinmeyen dosya: kullanıcı seçer
+    mixed.model.set_checked([_row(mixed, p) for p in UNKNOWN], False)
+    assert mixed.auto_import_ready()
+    assert not _page(qtbot, [], (OTHER,)).report.auto_import_ready()  # aktarılabilir dosya yok
+
+
 def test_unsupported_rows_have_no_checkbox(qtbot: QtBot) -> None:
     view = _mixed(qtbot).report
     index = view.model.index(_row(view, OTHER), COL_IMPORT)

@@ -127,12 +127,12 @@ def test_full_flow_drop_scan_save_reopen(qtbot: QtBot, window: MainWindow, game:
     window.add_files([game.base_nsz_block])
     assert len(window.sources) == 2
 
-    # "Metinleri Tara" tarama sayfasına geçer ve taramayı hemen başlatır (ikinci düğmeye basmak gerekmez).
+    # "Metinleri Tara" taramayı hemen başlatır; boş projede bitince metinler kendiliğinden aktarılır (Tara ve Aktar).
     window.add_page.next_button.click()
     assert window.pages.currentIndex() == STEP_SCAN
     assert window.scan_page.stack.currentWidget() is window.scan_page.loading
     _wait_idle(qtbot, window)
-    assert window.scan_page.stack.currentWidget() is window.scan_page.report_scroll
+    assert window.pages.currentIndex() == STEP_TRANSLATE
     report = window.scan_page.report
     assert report.stat_values["msbt"].text() == "3"
     assert "Deneme Oyunu" in report.game_line.text()
@@ -140,11 +140,7 @@ def test_full_flow_drop_scan_save_reopen(qtbot: QtBot, window: MainWindow, game:
     report.search.setText("yeni_dosya")
     assert report.proxy.rowCount() == 1
 
-    # Metinleri çeviri tablosuna aktar ve düzenle.
-    assert report.import_button.isVisible()
-    report.import_button.click()
-    _wait_idle(qtbot, window)
-    assert window.pages.currentIndex() == STEP_TRANSLATE
+    # Aktarılan metinler çeviri tablosunda; düzenle.
     page = window.translate_page
     assert page.stack.currentWidget() is page.content
     assert page.model.rowCount() == 6
@@ -618,6 +614,35 @@ def test_import_takes_only_checked_files(qtbot: QtBot, window: MainWindow, game:
     window.nav.setCurrentRow(STEP_SCAN)
     view.model.set_checked(range(view.model.rowCount()), False)
     assert not view.import_button.isEnabled()
+
+
+def test_scan_button_scans_and_imports_into_empty_project(qtbot: QtBot, window: MainWindow, game: GameFiles) -> None:
+    """Boş projede “Tara ve Aktar” tek tıktır: tarama bitince seçim kesinse metinler kendiliğinden aktarılır."""
+
+    window.load_keys_file(game.keys_path)
+    window.add_files([game.base_nsp, game.update_nsp])
+    _wait_idle(qtbot, window)
+    window.nav.setCurrentRow(STEP_SCAN)
+    start = window.scan_page.start_button
+    assert start.text() == "Tara ve Aktar"
+    start.click()
+    _wait_idle(qtbot, window)
+    assert window.pages.currentIndex() == STEP_TRANSLATE
+    assert window.project.text_files()
+    notice = window.notifier.history[0]
+    assert "satır aktarıldı" in notice.title
+    choose = next(a for a in notice.actions if a.label == "Dosyaları Seç")
+    choose.callback()  # seçimi değiştirmek isteyen tarama raporuna döner
+    assert window.pages.currentIndex() == STEP_SCAN
+    assert window.scan_page.stack.currentWidget() is window.scan_page.report_scroll
+    # Yeniden tarama projeyi kendiliğinden değiştirmez: aktarma yine kullanıcının elindedir.
+    before = window.project.translated_counts_by_file()
+    rows = len(window.translate_page.model.rows)
+    window.scan_page.report.rescan_button.click()
+    _wait_idle(qtbot, window)
+    assert window.pages.currentIndex() == STEP_SCAN
+    assert window.project.translated_counts_by_file() == before
+    assert len(window.translate_page.model.rows) == rows
 
 
 def _imported_window(qtbot: QtBot, window: MainWindow, game: GameFiles) -> None:

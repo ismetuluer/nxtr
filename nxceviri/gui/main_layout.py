@@ -177,7 +177,7 @@ def connect_pages(win: MainWindow) -> None:
     win.add_page.relink_requested.connect(win.relink_sources_dialog)
     win.add_page.next_step.connect(win._go_scan)
     win.add_page.open_recent.connect(win.open_recent)
-    win.scan_page.start_scan.connect(win.start_scan)
+    win.scan_page.start_scan.connect(lambda: win.start_scan(auto_import=True))
     win.scan_page.cancel.connect(win._cancel_task)
     win.scan_page.go_back.connect(lambda: win.nav.setCurrentRow(STEP_ADD))
     win.scan_page.report.rescan_requested.connect(win.start_scan)

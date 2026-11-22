@@ -2,6 +2,14 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.77.0] — 2026-11-22 — Tara ve Aktar tek tık
+
+### Değişti
+- **Tara ve Aktar:** boş projede tarama düğmesi (ve Oyunu Ekle'deki Metinleri Tara) tarama bitince metinleri
+  kendiliğinden aktarır, Çevir açılır. Bildirimdeki **Dosyaları Seç** seçimi değiştirmek için rapora döndürür.
+- Birden çok dil varken dili anlaşılamayan dosya varsa aktarma kendiliğinden başlamaz; rapor açılır, siz seçersiniz.
+  Yeniden Tara ve dolu projede aktarma yine elle yapılır.
+
 ## [0.76.0] — 2026-11-22 — Modu Oluştur tek tık
 
 ### Değişti
