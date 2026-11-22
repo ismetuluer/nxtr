@@ -157,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
     window = MainWindow(settings)
     project_args = [Path(a) for a in args[1:] if a.lower().endswith(".nxproj")]
     window.show()
+    window.announce_update_installed()
     if update_error:
         window.notify_update_failure(update_error)
     install_failure = take_install_failure()

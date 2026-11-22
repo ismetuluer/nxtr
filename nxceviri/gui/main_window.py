@@ -697,8 +697,11 @@ class MainWindow(QMainWindow):
     def open_updates(self) -> None:
         return self.updates.open_updates()
 
-    def _install_package(self, prepared: PreparedInstall, install_dir: Path) -> bool:
-        return self.updates._install_package(prepared, install_dir)
+    def start_update(self) -> None:
+        return self.updates.start_update()
+
+    def announce_update_installed(self) -> None:
+        return self.updates.announce_installed()
 
     def check_updates_in_background(self) -> None:
         return self.updates.check_updates_in_background()
@@ -1858,7 +1861,14 @@ class MainWindow(QMainWindow):
         self.scheduler.timer.stop()  # kapanırken yeni iş başlatılmasın
         running = [
             t
-            for t in (self.task, self._update_task, self._spell_scan, self._board_task, self.scanning.meta_task)
+            for t in (
+                self.task,
+                self._update_task,
+                self.updates.download_task,
+                self._spell_scan,
+                self._board_task,
+                self.scanning.meta_task,
+            )
             if t is not None
         ]
         for thread in running:

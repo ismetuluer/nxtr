@@ -1,6 +1,7 @@
-"""Yardım → Güncellemeleri Denetle: sürüm denetimi, değişiklik notu, indirme ve hazırlama.
+"""Yardım → Güncellemeleri Denetle: açılınca sürümü denetler, değişiklik notunu gösterir.
 
-Denetim önce anahtarsız yapılır. GitHub erişim anahtarı adımları yalnızca depo anahtarsız
+Güncelle'ye basılınca pencere `Accepted` ile kapanır; indirme ve kurulum durum çubuğundaki düğmede sürer
+(`update_controller`). Denetim önce anahtarsız yapılır. GitHub erişim anahtarı adımları yalnızca depo anahtarsız
 okunamadığında (özel depo) görünür; açık depoda hiç çıkmaz.
 """
 
@@ -8,10 +9,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 
 from PySide6.QtCore import QSettings, QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QDesktopServices, QShowEvent
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -26,16 +26,13 @@ from PySide6.QtWidgets import (
 from nxceviri.core.errors import NxError
 from nxceviri.core.progress import TaskContext
 from nxceviri.core.secrets import GITHUB_UPDATE_KEY, SecretStore
-from nxceviri.core.selfupdate import PreparedInstall, prepare_package
 from nxceviri.core.update import (
     ACCESS_KEY_HELP_URL,
     RELEASES_URL,
     REPO_NAME,
     REPO_OWNER,
     AccessError,
-    GitHubUpdater,
     ManualInstallError,
-    UpdateError,
     UpdateInfo,
     Updater,
 )
@@ -62,27 +59,29 @@ def auto_check_enabled(settings: QSettings) -> bool:
 
 
 @dataclass(frozen=True)
-class _Problem:
+class Problem:
     """Arayüzün özel karşılık verdiği hata: "key" (anahtar gerekir) veya "manual" (elle indirin)."""
 
     kind: str
     text: str
 
 
-def _guarded(fn: Callable[[TaskContext], object]) -> Callable[[TaskContext], object]:
+def guarded(fn: Callable[[TaskContext], object]) -> Callable[[TaskContext], object]:
+    """Anahtar ve elle kurulum hatalarını `Problem` olarak döndürür (arayüz bunlara özel karşılık verir)."""
+
     def run(ctx: TaskContext) -> object:
         try:
             return fn(ctx)
         except AccessError as exc:
-            return _Problem("key", exc.user_text())
+            return Problem("key", exc.user_text())
         except ManualInstallError as exc:
-            return _Problem("manual", exc.user_text())
+            return Problem("manual", exc.user_text())
 
     return run
 
 
 class UpdateDialog(QDialog):
-    """Sürüm denetimi ve indirme. İndirilen sürüm hazırlanınca pencere `Accepted` ile kapanır."""
+    """Sürüm denetimi. Yeni sürüm varsa Güncelle pencereyi `Accepted` ile kapatır (`info` yeni sürümdür)."""
 
     def __init__(
         self,
@@ -91,10 +90,8 @@ class UpdateDialog(QDialog):
         secrets: SecretStore,
         settings: QSettings,
         current: str,
-        root: Path,
         updater_factory: UpdaterFactory,
         git_mode: bool = False,
-        packaged: bool = False,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Güncellemeler")
@@ -102,14 +99,11 @@ class UpdateDialog(QDialog):
         self._secrets = secrets
         self._settings = settings
         self._current = current
-        self._root = root
         self._factory = updater_factory
         self._task: Task | None = None
         self._git_mode = git_mode
-        self._packaged = packaged
+        self._checked_once = False
         self.info: UpdateInfo | None = None
-        #: Paketlenmiş sürümde indirilip doğrulanmış, yerine konmayı bekleyen yeni sürüm.
-        self.prepared: PreparedInstall | None = None
 
         lay = QVBoxLayout(self)
         lay.setSpacing(12)
@@ -181,10 +175,11 @@ class UpdateDialog(QDialog):
         lay.addWidget(self.progress_box)
 
         buttons = QHBoxLayout()
-        self.check = button("Güncellemeleri Denetle", "primary")
+        self.check = button("Yeniden Denetle")
         self.check.clicked.connect(self.check_now)
-        self.install = button("Güncelle ve Yeniden Başlat" if git_mode else "İndir ve Yeniden Başlat", "primary")
-        self.install.clicked.connect(self.download)
+        self.install = button("Güncelle", "primary", icon="download")
+        self.install.setToolTip("İndirip yeni sürümle yeniden açar.")
+        self.install.clicked.connect(self.accept)
         self.install.hide()
         self.manual = button("Sürümler Sayfasını Aç")
         self.manual.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(RELEASES_URL)))
@@ -249,7 +244,7 @@ class UpdateDialog(QDialog):
     def _start(
         self, fn: Callable[[TaskContext], object], description: str, on_success: Callable[[object], None]
     ) -> None:
-        task = Task(_guarded(fn), description)
+        task = Task(guarded(fn), description)
         self._task = task
         task.progress.connect(self._on_progress)
         task.succeeded.connect(lambda result: self._succeeded(result, on_success))
@@ -261,7 +256,7 @@ class UpdateDialog(QDialog):
         task.start()
 
     def _succeeded(self, result: object, on_success: Callable[[object], None]) -> None:
-        if isinstance(result, _Problem):
+        if isinstance(result, Problem):
             self.status.show_message("danger", result.text)
             if result.kind == "key" and not self._git_mode:
                 self.key_box.show()
@@ -283,6 +278,13 @@ class UpdateDialog(QDialog):
         self._task = None
         self._set_busy(False)
         self.install.setEnabled(self.info is not None and self.info.newer)
+
+    def showEvent(self, event: QShowEvent) -> None:
+        """Açılınca bir kez kendiliğinden denetler (ayrıca “Denetle”ye basmak gerekmez)."""
+        super().showEvent(event)
+        if not self._checked_once:
+            self._checked_once = True
+            self.check_now()
 
     def check_now(self) -> None:
         if self._task is not None:
@@ -319,34 +321,6 @@ class UpdateDialog(QDialog):
             return
         self.status.show_message("warning", f"Yeni sürüm var: {result.version} (kurulu: {result.current}).")
         self.install.show()
-
-    def download(self) -> None:
-        info = self.info
-        if self._task is not None or info is None or not info.newer:
-            return
-        token = self._stored_key()
-        root = self._root
-
-        packaged = self._packaged
-
-        def work(ctx: TaskContext) -> object:
-            updater = self._factory(token)
-            try:
-                if not isinstance(updater, GitHubUpdater):
-                    raise UpdateError("Bu kurulumda otomatik güncelleme yapılamıyor.")
-                if packaged:
-                    return prepare_package(updater, info, root, ctx)
-                updater.prepare(info, root, ctx)
-                return None
-            finally:
-                updater.close()
-
-        self._start(work, "Hazırlanıyor", self._staged)
-
-    def _staged(self, result: object) -> None:
-        if isinstance(result, PreparedInstall):
-            self.prepared = result
-        self.accept()
 
     def _close_or_cancel(self) -> None:
         if self._task is not None:

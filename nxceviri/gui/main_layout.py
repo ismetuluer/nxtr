@@ -26,7 +26,7 @@ from nxceviri.gui.statusbar import StatusSegments
 from nxceviri.gui.step_nav import STEP_ADD, STEP_SCAN, ProjectHeader, StepNav, TopNavBar
 from nxceviri.gui.theme import current_style
 from nxceviri.gui.translate_page import TranslatePage
-from nxceviri.gui.widgets import button, tip_html
+from nxceviri.gui.widgets import button
 
 if TYPE_CHECKING:
     from nxceviri.gui.main_window import MainWindow
@@ -105,9 +105,8 @@ def build_layout(win: MainWindow) -> None:
     root.addWidget(win.content_area, 1)
     win.setCentralWidget(central)
     win.statusBar().showMessage("Hazır")
-    win.update_badge = button("Yeni sürüm var", icon="download")
-    win.update_badge.setToolTip(tip_html("Yeni sürümü görmek ve kurmak için tıklayın."))
-    win.update_badge.clicked.connect(win.open_updates)
+    win.update_badge = button("Güncelle", "primary", icon="download")
+    win.update_badge.clicked.connect(win.start_update)
     win.update_badge.hide()
     win.status_segments = StatusSegments(win.statusBar(), win.update_badge)
     win.status_segments.problems_clicked.connect(win._open_qa_from_status)

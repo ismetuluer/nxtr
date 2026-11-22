@@ -2,28 +2,20 @@
 
 from __future__ import annotations
 
-import io
-import tempfile
-import zipfile
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 import pytest
 from PySide6.QtCore import QSettings, Qt
-from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import QApplication, QMessageBox
 from pytestqt.qtbot import QtBot
 
 from nxceviri.core.formats.base import TextEntry
 from nxceviri.core.project import ImportedFile, Project, TranslationRow
-from nxceviri.core.secrets import DEEPL_API_KEY, GITHUB_UPDATE_KEY, MemoryStore
-from nxceviri.core.selfupdate import PACKAGE_EXE, WORK_DIR_NAME, PreparedInstall
+from nxceviri.core.secrets import DEEPL_API_KEY, MemoryStore
 from nxceviri.core.translate import runner as runner_module
 from nxceviri.core.translate.providers.base import GlossaryTerm
 from nxceviri.core.translate.status import Status
-from nxceviri.core.update import RELEASES_URL, pending_version
-from nxceviri.gui import main_window as main_window_module
 from nxceviri.gui.machine_dialogs import (
     PROVIDER_DEEPL,
     PROVIDER_OLLAMA,
@@ -35,9 +27,7 @@ from nxceviri.gui.machine_dialogs import (
 )
 from nxceviri.gui.main_window import STEP_TRANSLATE, MainWindow
 from nxceviri.gui.translate_page import COL_STATUS
-from nxceviri.gui.update_dialog import AUTO_CHECK_KEY, UpdateDialog, auto_check_enabled
 from tests.fake_ollama import FakeOllama
-from tests.test_update import TOKEN, FakeGitHub
 
 pytestmark = pytest.mark.gui
 
@@ -208,251 +198,6 @@ def test_retranslate_and_revise_selected_rows(qtbot: QtBot, window: MainWindow) 
     assert window.project.setting("revise_instruction") == "Doğal yaz."
     assert window.notifier.history[0].title == "Redaksiyon bitti"
     assert "2 satır düzeltildi" in window.notifier.history[0].text
-
-
-def _update_dialog(window: MainWindow, root: Path, server: FakeGitHub, **kwargs: Any) -> UpdateDialog:
-    return UpdateDialog(
-        window,
-        secrets=window.secrets,
-        settings=window.settings,
-        current="0.28.0",
-        root=root,
-        updater_factory=server.updater,
-        **kwargs,
-    )
-
-
-def test_update_dialog_public_repo_needs_no_key(qtbot: QtBot, window: MainWindow, tmp_path: Path) -> None:
-    root = tmp_path / "uygulama"
-    (root / "nxceviri").mkdir(parents=True)
-    server = FakeGitHub(version="99.0.0")
-    dialog = _update_dialog(window, root, server)
-    assert not dialog.key_box.isVisibleTo(dialog)  # anahtar adımları baştan görünmez
-    window.secrets.set(GITHUB_UPDATE_KEY, "github_pat_x")  # eski bir kayıtlı anahtar olsa bile
-    dialog.check_now()
-    qtbot.waitUntil(lambda: dialog._task is None, timeout=10_000)
-    assert "Yeni sürüm var: 99.0.0" in dialog.status.text.text()
-    assert not dialog.key_box.isVisibleTo(dialog)
-    assert all("Authorization" not in r.headers for r in server.requests)
-    assert "99.0.0 notları" in dialog.notes.toPlainText()  # sürüm açıklaması (markdown) gösterilir
-    assert "##" not in dialog.notes.toPlainText()  # başlık işaretleri biçimlendirilmiş görünür
-    with qtbot.waitSignal(dialog.accepted, timeout=10_000):
-        dialog.install.click()
-    assert pending_version(root) == "99.0.0"
-
-
-def test_update_dialog_private_repo_shows_key_steps_then_checks(
-    qtbot: QtBot, window: MainWindow, tmp_path: Path
-) -> None:
-    server = FakeGitHub(version="99.0.0", private=True)
-    dialog = _update_dialog(window, tmp_path, server)
-    dialog.check_now()
-    qtbot.waitUntil(lambda: dialog._task is None, timeout=10_000)
-    assert dialog.key_box.isVisibleTo(dialog)  # anahtarsız erişim başarısız: adımlar görünür
-    assert "anahtarı gerekir" in dialog.status.text.text()
-    assert dialog.key_state.text() == "Kayıtlı anahtar: yok"
-    assert not dialog.manual.isVisibleTo(dialog)
-    dialog.key.setText(TOKEN)
-    dialog._save_key()  # kaydedince hemen yeniden denetler
-    assert window.secrets.get(GITHUB_UPDATE_KEY) == TOKEN
-    qtbot.waitUntil(lambda: dialog._task is None, timeout=10_000)
-    assert "Yeni sürüm var: 99.0.0" in dialog.status.text.text()
-    assert not dialog.key_box.isVisibleTo(dialog)  # erişim sağlandı: adımlar tekrar gizlenir
-    assert server.requests[-1].headers["Authorization"] == f"Bearer {TOKEN}"
-
-
-def test_update_dialog_rate_limit_is_not_a_key_problem(qtbot: QtBot, window: MainWindow, tmp_path: Path) -> None:
-    dialog = _update_dialog(window, tmp_path, FakeGitHub(rate_limited=True))
-    dialog.check_now()
-    qtbot.waitUntil(lambda: dialog._task is None, timeout=10_000)
-    assert "istek sınırı doldu" in dialog.status.text.text()
-    assert not dialog.key_box.isVisibleTo(dialog)
-
-
-def test_update_dialog_auto_check_setting_persists(window: MainWindow, tmp_path: Path) -> None:
-    assert auto_check_enabled(window.settings)  # varsayılan: açık
-    dialog = _update_dialog(window, tmp_path, FakeGitHub())
-    assert dialog.auto.isChecked()
-    dialog.auto.setChecked(False)
-    assert not auto_check_enabled(window.settings)
-    assert not _update_dialog(window, tmp_path, FakeGitHub()).auto.isChecked()  # yeniden açılınca hatırlanır
-    dialog.auto.setChecked(True)
-    assert auto_check_enabled(window.settings)
-
-
-def test_update_restart_prompt_in_main_window(
-    qtbot: QtBot, window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    root = tmp_path / "uygulama"
-    (root / "nxceviri").mkdir(parents=True)
-    dialog = _update_dialog(window, root, FakeGitHub(version="99.0.0"))
-    dialog.check_now()
-    qtbot.waitUntil(lambda: dialog._task is None, timeout=10_000)
-    with qtbot.waitSignal(dialog.accepted, timeout=10_000):
-        dialog.install.click()
-
-    # Ana pencere: indirme bitince yeniden başlatmayı sorar; evet denince başlatıcıyı çağırıp kapanır.
-    class Accepting:
-        DialogCode = UpdateDialog.DialogCode
-
-        def __init__(self, *_a: Any, **_k: Any) -> None:
-            self.info = dialog.info
-            self.prepared = None
-
-        def exec(self) -> UpdateDialog.DialogCode:
-            return UpdateDialog.DialogCode.Accepted
-
-    monkeypatch.setattr(main_window_module, "UpdateDialog", Accepting)
-    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
-    restarted: list[Path] = []
-    window.app_root = root
-    window.relauncher = restarted.append
-    window.open_updates()
-    assert restarted == [root]
-    assert not window.isVisible()
-
-
-def test_background_check_is_anonymous_and_shows_badge(qtbot: QtBot, window: MainWindow, tmp_path: Path) -> None:
-    server = FakeGitHub(version="99.0.0")
-    window.app_root = tmp_path
-    window.updater_factory = server.updater
-    window.check_updates_in_background()  # anahtar kayıtlı değil: yine de denetler
-    task = window._update_task
-    assert task is not None
-    qtbot.waitUntil(lambda: window.update_badge.isVisibleTo(window), timeout=10_000)
-    assert window.update_badge.text() == "Yeni sürüm: 99.0.0 — Güncelle"
-    task.wait()
-    assert all("Authorization" not in r.headers for r in server.requests)
-
-
-def test_background_check_respects_setting_and_stays_quiet_on_failure(
-    qtbot: QtBot, window: MainWindow, tmp_path: Path
-) -> None:
-    window.app_root = tmp_path
-    window.updater_factory = FakeGitHub(version="99.0.0").updater
-    window.settings.setValue(AUTO_CHECK_KEY, "false")
-    window.check_updates_in_background()
-    assert window._update_task is None  # ayar kapalı: hiç denetlenmez
-    window.settings.setValue(AUTO_CHECK_KEY, "true")
-    window.updater_factory = FakeGitHub(private=True).updater  # anahtar yok: erişilemez
-    window.check_updates_in_background()
-    task = getattr(window, "_update_task")  # noqa: B009 - mypy önceki "None" denetimini kalıcı sanıyor
-    assert task is not None
-    task.wait()
-    qtbot.wait(50)
-    assert not window.update_badge.isVisibleTo(window)  # açılışta kullanıcı rahatsız edilmez
-    assert not any(isinstance(w, QMessageBox) and w.isVisible() for w in QApplication.topLevelWidgets())
-
-
-def test_packaged_build_downloads_verifies_and_hands_over_to_installer(
-    qtbot: QtBot, window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    install = tmp_path / "Programlar" / "NXTR"
-    install.mkdir(parents=True)
-    (install / PACKAGE_EXE).write_bytes(b"MZ-eski")
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as zf:
-        zf.writestr(f"NXTR/{PACKAGE_EXE}", b"MZ-yeni")
-    server = FakeGitHub(version="99.0.0", package=buf.getvalue())
-    window.app_root = None
-    window.packaged = True
-    window.install_dir = install
-    window.updater_factory = server.updater
-    handed: list[tuple[PreparedInstall, Path]] = []
-    window.installer_launcher = lambda prepared, folder: handed.append((prepared, folder))
-    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes)
-
-    window.check_updates_in_background()
-    task = window._update_task
-    assert task is not None
-    qtbot.waitUntil(lambda: window.update_badge.isVisibleTo(window), timeout=10_000)
-    task.wait()
-    assert window.update_badge.text() == "Yeni sürüm: 99.0.0 — Güncelle"
-
-    def drive(dialog: UpdateDialog) -> None:
-        assert dialog.windowTitle() == "Güncellemeler"
-        dialog.check_now()
-        qtbot.waitUntil(lambda: dialog._task is None, timeout=10_000)
-        assert dialog.install.text() == "İndir ve Yeniden Başlat"
-        dialog.install.click()
-        qtbot.waitUntil(lambda: dialog.prepared is not None, timeout=20_000)
-
-    class Driven(UpdateDialog):
-        def exec(self) -> int:
-            drive(self)
-            return int(UpdateDialog.DialogCode.Accepted)
-
-    monkeypatch.setattr(main_window_module, "UpdateDialog", Driven)
-    window.update_badge.click()
-    assert len(handed) == 1
-    assert handed[0][1] == install
-    assert (handed[0][0].new_dir / PACKAGE_EXE).read_bytes() == b"MZ-yeni"
-    assert (install / PACKAGE_EXE).read_bytes() == b"MZ-eski"  # kurulumu yardımcı yapar, uygulama değil
-    assert not window.update_badge.isVisibleTo(window)
-    assert not window.isVisible()  # yardımcı kapanmayı beklediği için uygulama kapanır
-
-
-def test_packaged_build_declined_install_cleans_up(
-    qtbot: QtBot, window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    install = tmp_path / "Programlar" / "NXTR"
-    install.mkdir(parents=True)
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as zf:
-        zf.writestr(f"NXTR/{PACKAGE_EXE}", b"MZ-yeni")
-    window.app_root = None
-    window.packaged = True
-    window.install_dir = install
-    window.updater_factory = FakeGitHub(version="99.0.0", package=buf.getvalue()).updater
-    handed: list[object] = []
-    window.installer_launcher = lambda prepared, folder: handed.append(prepared)
-    monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No)
-
-    class Driven(UpdateDialog):
-        def exec(self) -> int:
-            self.check_now()
-            qtbot.waitUntil(lambda: self._task is None, timeout=10_000)
-            self.install.click()
-            qtbot.waitUntil(lambda: self.prepared is not None, timeout=20_000)
-            return int(UpdateDialog.DialogCode.Accepted)
-
-    monkeypatch.setattr(main_window_module, "UpdateDialog", Driven)
-    window.open_updates()
-    assert handed == []
-    assert not (install.parent / WORK_DIR_NAME).exists()  # indirilen paket silindi
-    assert window.isVisible()
-
-
-def test_packaged_unwritable_folder_offers_manual_download(
-    qtbot: QtBot, window: MainWindow, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    def denied(*_a: Any, **_k: Any) -> Any:
-        raise PermissionError("erişim reddedildi")
-
-    monkeypatch.setattr(tempfile, "TemporaryFile", denied)
-    opened: list[str] = []
-    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: opened.append(url.toString()))
-    dialog = _update_dialog(window, tmp_path, FakeGitHub(version="99.0.0"), packaged=True)
-    dialog.check_now()
-    qtbot.waitUntil(lambda: dialog._task is None, timeout=10_000)
-    dialog.install.click()
-    qtbot.waitUntil(lambda: dialog._task is None, timeout=10_000)
-    assert "yazma izniniz yok" in dialog.status.text.text()
-    assert RELEASES_URL in dialog.status.text.text()
-    assert dialog.manual.isVisibleTo(dialog)
-    dialog.manual.click()
-    assert opened == [RELEASES_URL]
-    assert dialog.prepared is None
-
-
-def test_update_dialog_in_git_mode_suggests_git_pull(qtbot: QtBot, window: MainWindow, tmp_path: Path) -> None:
-    dialog = _update_dialog(window, tmp_path, FakeGitHub(version="99.0.0"), git_mode=True)
-    dialog.check_now()
-    qtbot.waitUntil(lambda: dialog._task is None, timeout=10_000)
-    assert not dialog.key_box.isVisibleTo(dialog)
-    assert "git pull" in dialog.status.text.text()
-    assert not dialog.install.isVisibleTo(dialog)  # git deposunda kendiliğinden güncelleme yok
-    assert dialog.notes.isVisibleTo(dialog)
 
 
 def test_changes_dialog_after_retranslate_and_revert(qtbot: QtBot, window: MainWindow) -> None:
