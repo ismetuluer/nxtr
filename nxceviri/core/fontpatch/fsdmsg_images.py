@@ -13,6 +13,7 @@ başka bir sürümünde resim farklıysa özet eşleşmez ve sayfaya dokunulmaz.
 
 from __future__ import annotations
 
+import bisect
 import hashlib
 import struct
 from collections.abc import Iterator, Mapping
@@ -103,7 +104,12 @@ def translate_file(
     out = bytearray(data)
     fonts: dict[str, Path] = {}
     done: dict[bytes, bytes] = {}  # aynı sayfa dosyada defalarca geçer: özgün veri → yeni veri
-    for page in iter_pages(data):
+    found = list(iter_pages(data))
+    starts = sorted(page.offset for page in found)
+    for page in found:
+        later = bisect.bisect_right(starts, page.offset)
+        if later < len(starts) and starts[later] < page.data_offset + page.size:
+            continue  # sahte başlık: verisi başka bir sayfanın başlığına biner; yazılırsa o sayfa bozulur
         key = page_key(page.image)
         new = ready.get(key)
         if new is not None and new.size != page.image.size:
@@ -119,6 +125,6 @@ def translate_file(
                 if label.style not in fonts:
                     fonts[label.style] = find_font(label.style)
                 image = draw_label(image, label, fonts[label.style], reference=page.image)
-            done[digest] = _encode(page, original, image)
+            done[digest] = original if image.tobytes() == page.image.tobytes() else _encode(page, original, image)
         out[page.data_offset : page.data_offset + page.size] = done[digest]
     return bytes(out)

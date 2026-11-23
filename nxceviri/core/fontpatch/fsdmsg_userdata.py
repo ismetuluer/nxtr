@@ -8,7 +8,10 @@ dosyasını grafik klasörüne (`NXCEVIRI_FSD_GRAFIK`) koyar:
   "parilti", "esik", "kutu", "dolgu", "boy", "kaydir"}]}]}` (sayfa özeti: `fsdmsg_images.page_key`); isteğe bağlı
   `"menuler": [{"dokular": [8 haneli onaltılık doku kimlikleri], "etiketler": [aynı etiket şeması]}]` durum menüsü
   başlık dokularını (`fsdmsg_menu`) çevirir;
-- `aciklamalar.json`: `{"aciklamalar": [{"ozet": özgün İngilizce metnin SHA-256'sı, "turkce": "…"}]}`, kod sırasıyla.
+- `aciklamalar.json`: `{"aciklamalar": [{"ozet": özgün İngilizce metnin SHA-256'sı, "turkce": "…"}]}`, kod sırasıyla;
+- `kod_yamasi.json` (isteğe bağlı): program koduna eklenecek hazır baytlar (koddaki eşya adları, sistem mesajları):
+  `{"yapi_kimligi": "<32 hane>", "kayitlar": [{"ofset": IPS ofseti, "veri": "onaltılık baytlar"}]}`. Düşman
+  açıklamaları yamasıyla aynı yapı kimliğine eklenir; kayıtlar üst üste binerse dışa aktarma durur.
 
 Dosya yoksa o yazılar çevrilmeden kalır (dışa aktarma bilgi dosyasına not düşülür). Dosya bozuksa dışa aktarma, neyin
 bozuk olduğunu söyleyen bir hatayla durur; yarım mod yazılmaz. Biçim: docs/formats/fsd-msg.md.
@@ -27,6 +30,7 @@ from nxceviri.core.fontpatch.labels import STYLES, Label
 
 IMAGE_TEXTS = "resim_yazilari.json"
 DESCRIPTIONS = "aciklamalar.json"
+CODE_PATCH = "kod_yamasi.json"
 
 _HINT = (
     "Dosyayı bir metin düzenleyiciyle düzeltin (biçim: docs/formats/fsd-msg.md) ya da klasörden kaldırın; "
@@ -35,6 +39,7 @@ _HINT = (
 _PAGE_KEY = re.compile(r"[0-9a-f]{16}")
 _TEXTURE_ID = re.compile(r"[0-9A-Fa-f]{8}")
 _SHA256 = re.compile(r"[0-9a-f]{64}")
+_BUILD_ID = re.compile(r"[0-9A-Fa-f]{32}")
 _ALIGNS = ("center", "left", "right")
 _FILLS = ("spread", "filter", "keep")
 #: Etiket alanları: JSON adı → (`Label` alanı, zorunlu mu).
@@ -69,6 +74,7 @@ class ImageTexts:
 class UserData:
     image_texts: ImageTexts | None
     descriptions: tuple[tuple[str, str], ...] | None  # (özgün metnin özeti, Türkçe), kod sırasıyla
+    code_patch: tuple[str, tuple[tuple[int, bytes], ...]] | None = None  # (yapı kimliği, (IPS ofseti, veri)…)
 
     @property
     def missing(self) -> tuple[str, ...]:
@@ -233,14 +239,40 @@ def load_descriptions(path: Path) -> tuple[tuple[str, str], ...]:
     return tuple(out)
 
 
+def load_code_patch(path: Path) -> tuple[str, tuple[tuple[int, bytes], ...]]:
+    reader = _Reader(path.name)
+    root = reader.object(_read(path), "", {"yapi_kimligi": True, "kayitlar": True})
+    build_id = root["yapi_kimligi"]
+    if not isinstance(build_id, str) or not _BUILD_ID.fullmatch(build_id):
+        raise reader.fail("yapi_kimligi", "32 haneli onaltılık yapı kimliği olmalı")
+    rows = reader.items(root["kayitlar"], "kayitlar")
+    if not rows:
+        raise reader.fail("kayitlar", "en az bir kayıt içermeli")
+    records = []
+    for i, raw in enumerate(rows, 1):
+        where = f"kayitlar[{i}]"
+        row = reader.object(raw, where, {"ofset": True, "veri": True})
+        offset = reader.number(row["ofset"], f"{where}.ofset", 0, 0xFFFFFFFF)
+        value = row["veri"]
+        try:
+            data = bytes.fromhex(value) if isinstance(value, str) else b""
+        except ValueError:
+            data = b""
+        if not data:
+            raise reader.fail(f"{where}.veri", "boş olmayan, çift haneli onaltılık baytlar olmalı")
+        records.append((offset, data))
+    return build_id.upper(), tuple(records)
+
+
 def load(folder: Path | None) -> UserData:
     """Klasördeki veri dosyalarını okur ve denetler; olmayan dosya None kalır, bozuk dosya `UserDataError` verir."""
     if folder is None:
         return UserData(None, None)
-    texts, descriptions = folder / IMAGE_TEXTS, folder / DESCRIPTIONS
+    texts, descriptions, code = folder / IMAGE_TEXTS, folder / DESCRIPTIONS, folder / CODE_PATCH
     return UserData(
         load_image_texts(texts) if texts.is_file() else None,
         load_descriptions(descriptions) if descriptions.is_file() else None,
+        load_code_patch(code) if code.is_file() else None,
     )
 
 

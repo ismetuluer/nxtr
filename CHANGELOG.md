@@ -2,6 +2,31 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.78.0] — 2026-11-23 — Kayıt ekranı çökmesi ve program kodu ek yaması
+
+### Düzeltildi
+- **Oyun, kayıt yüklerken çöküyordu:** bazı dosyalarda gerçek bir resim olmayan, başlığı olup verisi bir sonraki
+  sayfanın başlığına binen sahte sayfa girdileri var. Dışa aktarma bunları 256×256 resim sanıp yazıyor ve gerçek
+  sayfanın başlığını eziyordu. Artık verisi başka bir sayfanın başlığına binen girdilere yazılmaz.
+- Değişmeyen sayfa (hazır resim özgünle aynıysa) yeniden kodlanmaz; baytları olduğu gibi kalır.
+
+### Eklendi
+- **"Mission Clear" başlık animasyonları:** 90 karelik 448×128 başlık bantları (altın, şimşek, ateş, kırmızı; BC1 ve
+  BC7) artık Türkçeleştirilebilir. Kullanıcının hazırladığı son kare ile özgün son kare arasındaki fark her kareye
+  eklenir; arka plan (alev, şimşek) oynamaya devam eder, yazı her karede Türkçedir. Görev girişi animasyonları
+  eskisi gibi çalışır.
+- **Program kodu ek yaması (`kod_yamasi.json`, isteğe bağlı):** kullanıcı klasöründeki hazır baytlar (koddaki eşya
+  adları, kayıt/yükleme sistem mesajları) düşman açıklamaları yamasının yanına eklenir. Uygulamaya oyun verisi
+  gömülmez. Kayıtlar üst üste binerse dışa aktarma durur. Biçim: `docs/formats/fsd-msg.md`.
+
+## [0.77.1] — 2026-11-22 — BC7 kodlama etcpak ile
+
+### Düzeltildi
+- **Grafik yamalarında BC7 çapakları:** yazı kenarlarındaki çapaklı pikseller giderildi. BC7 sayfalar artık etcpak
+  (bc7enc) ile kodlanır; opak bloklarda alfa tam 255 kalır, değişmeyen bloklar özgün baytlarıyla durur. Gerçek bir
+  sayfada ölçüm: 42,8 dB (eski kodlayıcı 31,9 dB), sayfa başına 0,2 sn (eski 4,1 sn).
+- `etcpak` artık `pyproject.toml`'da açıkça listelenir (UnityPy zaten getiriyordu; yeni bağımlılık değil).
+
 ## [0.77.0] — 2026-11-22 — Tara ve Aktar tek tık
 
 ### Değişti

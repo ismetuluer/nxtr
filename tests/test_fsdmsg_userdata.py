@@ -23,9 +23,10 @@ from nxceviri.core.export.layeredfs import (
 )
 from nxceviri.core.fontpatch import fsdmsg_graphics, fsdmsg_userdata
 from nxceviri.core.fontpatch.fsdmsg_images import iter_pages, page_key
-from nxceviri.core.fontpatch.fsdmsg_userdata import DESCRIPTIONS, IMAGE_TEXTS, UserDataError
+from nxceviri.core.fontpatch.fsdmsg_userdata import CODE_PATCH, DESCRIPTIONS, IMAGE_TEXTS, UserDataError
 from nxceviri.core.fontpatch.labels import Label
 from nxceviri.core.formats import legacy
+from nxceviri.core.formats.base import FormatError
 from nxceviri.core.formats.fsdmsg import FsdMsgPlugin, exe
 from nxceviri.core.formats.fsdmsg.plugin import MENU_FILES
 from nxceviri.core.keys import load_keys
@@ -316,3 +317,80 @@ def test_missing_menu_section_is_named_separately(tmp_path: Path, monkeypatch: p
     (note,) = plugin.derived_files(lambda _p: b"", [], None).notes
     assert '"menuler"' in note
     assert DESCRIPTIONS not in note
+
+
+# --- program kodu ek yaması (kod_yamasi.json) ---------------------------------------------------
+
+
+def _code_patch(*rows: tuple[int, str], build_id: str = exe.BUILD_ID) -> dict[str, Any]:
+    return {"yapi_kimligi": build_id, "kayitlar": [{"ofset": offset, "veri": data} for offset, data in rows]}
+
+
+def test_code_patch_is_read_and_is_optional(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    folder = _folder(tmp_path, monkeypatch, **{CODE_PATCH: _code_patch((0x1000, "0a0b"), (0x2000, "ff"))})
+    data = fsdmsg_userdata.load(folder)
+    assert data.code_patch == (exe.BUILD_ID, ((0x1000, bytes.fromhex("0a0b")), (0x2000, bytes.fromhex("ff"))))
+    assert data.missing == (IMAGE_TEXTS, DESCRIPTIONS)  # isteğe bağlı: eksikliği bilgi notuna girmez
+    assert fsdmsg_userdata.load(None).code_patch is None
+
+
+@pytest.mark.parametrize(
+    ("content", "where"),
+    [
+        ({"kayitlar": []}, "yapi_kimligi"),
+        (_code_patch(build_id="xyz"), "yapi_kimligi"),
+        (_code_patch(), "kayitlar"),
+        (_code_patch((-1, "00")), "kayitlar[1].ofset"),
+        (_code_patch((0, "0")), "kayitlar[1].veri"),
+        (_code_patch((0, "zz")), "kayitlar[1].veri"),
+        (_code_patch((0, "")), "kayitlar[1].veri"),
+        ({**_code_patch((0, "00")), "tipo": 1}, "tipo"),
+    ],
+)
+def test_broken_code_patch_is_a_clear_error(
+    content: Any, where: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = _folder(tmp_path, monkeypatch, **{CODE_PATCH: content})
+    with pytest.raises(UserDataError) as caught:
+        fsdmsg_userdata.load(folder)
+    assert CODE_PATCH in caught.value.message
+    assert where in caught.value.message
+
+
+def _records(blob: bytes) -> dict[int, bytes]:
+    out: dict[int, bytes] = {}
+    pos = 5
+    while blob[pos : pos + 4] != b"EEOF":
+        offset, size = int.from_bytes(blob[pos : pos + 4], "big"), int.from_bytes(blob[pos + 4 : pos + 6], "big")
+        out[offset] = blob[pos + 6 : pos + 6 + size]
+        pos += 6 + size
+    return out
+
+
+def test_code_patch_alone_makes_a_program_patch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _folder(tmp_path, monkeypatch, **{CODE_PATCH: _code_patch((0x1000, "0a0b"))})
+    code, _starts = _code()
+    patches = FsdMsgPlugin().exefs_patches(code)
+    assert list(patches) == [exe.BUILD_ID]
+    assert _records(patches[exe.BUILD_ID]) == {0x1000: bytes.fromhex("0a0b")}
+
+
+def test_code_patch_is_merged_with_descriptions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    code, _starts = _code()
+    _folder(tmp_path, monkeypatch, **{DESCRIPTIONS: _descriptions(), CODE_PATCH: _code_patch((0x1000, "0a0b"))})
+    merged = _records(FsdMsgPlugin().exefs_patches(code)[exe.BUILD_ID])
+    only_descriptions = exe.ips(
+        exe.build_patch(code, [(row["ozet"], row["turkce"]) for row in _descriptions()["aciklamalar"]])
+    )
+    assert merged == {**_records(only_descriptions), 0x1000: bytes.fromhex("0a0b")}
+
+
+def test_overlapping_code_patch_is_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    code, _starts = _code()
+    first = min(
+        _records(exe.ips(exe.build_patch(code, [(r["ozet"], r["turkce"]) for r in _descriptions()["aciklamalar"]])))
+    )
+    _folder(tmp_path, monkeypatch, **{DESCRIPTIONS: _descriptions(), CODE_PATCH: _code_patch((first + 1, "0a0b"))})
+    with pytest.raises(FormatError) as caught:
+        FsdMsgPlugin().exefs_patches(code)
+    assert "üst üste" in caught.value.message

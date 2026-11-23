@@ -230,7 +230,11 @@ Görev girişi animasyonları (`status_u/mssn_ips_NN.ip2`, 60 kare DXT1): kullan
 Türkçeleştirir; `fontpatch/fsdmsg_animation.py` ara kareleri türetir: son karede özgün ile Türkçe arasında farklı
 bölgeler parçalara ayrılır, her parçanın belirme eğrisi özgün karelerin parlaklığından ölçülür, kare başına özgün
 yazı çevreden doldurulur ve Türkçe son karenin bu oranda karışımı konur. Dalgalanma efekti yoktur. 38 animasyon, 21 sn/adet.
-"Mission Clear" animasyonları (`mssn_ips_00–15, 42`) ve çözülemeyen sayfalar bu sürümde yapılmadı.
+"Mission Clear" başlık animasyonları (`status_u/mssn_ips_00–15, 42`: 90 kare, 448×128, BC1; 03 BC7) alçak olduğu
+için farklı işlenir: yazı baştan görünür, bu yüzden özgün ile Türkçe son kare farkı her kareye eklenir (yazı bölgesinde
+%60 sabit karışım harf kenarı parazitini azaltır); alev ve şimşek oynamaya devam eder. Dört görünüm vardır (altın 00,
+şimşek 01, ateş 02/04–15/42, kırmızı 03); her dosya için `status_u__mssn_ips_NN.ip2__son_kare.png` çifti gerekir.
+Çözülemeyen sayfalar bu sürümde yapılmadı.
 Cihazda **henüz doğrulanmadı** (Mod #19).
 
 ## Ek çeviri verisi (resim yazıları, menü başlıkları ve düşman açıklamaları)
@@ -287,3 +291,13 @@ isteğe bağlı JSON dosyası olarak koyar; `fontpatch/fsdmsg_userdata.py` okur 
 
 Özet `formats/fsdmsg/exe.digest(metin)` ile hesaplanır. Sıra koddakiyle aynı olmalıdır; uymazsa yama üretilmez ve
 dışa aktarma uyarı verir.
+
+`kod_yamasi.json` (isteğe bağlı; koddaki eşya adları ve sistem mesajları gibi, açıklamalar dışındaki metinler için
+hazır baytlar; örnek uydurmadır):
+
+```json
+{"yapi_kimligi": "<32 haneli yapı kimliği>", "kayitlar": [{"ofset": 8835960, "veri": "0a0b0c"}]}
+```
+
+`ofset` IPS yamasındaki konumdur (NSO bellek adresi + 0x100); `veri` onaltılık baytlardır. Kayıtlar, aynı yapı
+kimliğine giden düşman açıklamaları yamasına eklenir. Üst üste binen kayıtlar hatadır; yama üretilmez.

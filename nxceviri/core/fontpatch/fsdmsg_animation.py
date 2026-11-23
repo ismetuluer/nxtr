@@ -11,12 +11,14 @@ from __future__ import annotations
 
 from PIL import Image, ImageChops, ImageFilter, ImageMath
 
-from nxceviri.core.fontpatch import bc1
+from nxceviri.core.fontpatch import bc1, bc7
 from nxceviri.core.fontpatch.fsdmsg_images import Page, iter_pages, page_key
 
 _GRID = 8  # bölge ayırma çözünürlüğü (piksel)
 _MIN_CELLS = 6  # bundan küçük bölgeler gürültüdür
 _SHRINK = 4  # parlaklık ölçümü ve doldurma bu kadar küçültülmüş karede yapılır
+_BANNER_FREEZE = 0.6  # yazı bölgesinde Türkçe son karenin payı (kalanı oynayan arka plan)
+_BANNER_HEIGHT = 160  # bundan alçak animasyon başlık bandıdır (görev sonu): yazı baştan görünür, arka plan oynar
 
 
 def _difference_mask(before: Image.Image, after: Image.Image) -> Image.Image:
@@ -111,14 +113,49 @@ def animate_pages(frames: list[Image.Image], last_english: Image.Image, last_tur
     return result
 
 
+def animate_banner(
+    frames: list[Image.Image], last_english: Image.Image, last_turkish: Image.Image
+) -> list[Image.Image]:
+    """Başlık bandı: yazı baştan sona görünür, yalnızca arka plan (alev, şimşek) oynar.
+
+    Özgün ile Türkçe son kare arasındaki fark (yazının değişen bölgesi) her kareye eklenir: yazı her karede Türkçe olur,
+    yazı dışındaki arka plan özgün karede kalır, harflerin altındaki alev oynamaya devam eder.
+    """
+    mask = _difference_mask(last_english, last_turkish)
+    if not mask.getbbox():
+        return frames
+    alpha = mask.filter(ImageFilter.MaxFilter(5)).filter(ImageFilter.GaussianBlur(1.5))
+    english, turkish = last_english.convert("RGB"), last_turkish.convert("RGB")
+    frozen = alpha.point(lambda v: int(v * _BANNER_FREEZE))  # harf kenarı parazitini azaltmak için sabit karışım
+    gain = ImageChops.multiply(ImageChops.subtract(turkish, english), Image.merge("RGB", [alpha] * 3))
+    loss = ImageChops.multiply(ImageChops.subtract(english, turkish), Image.merge("RGB", [alpha] * 3))
+    result: list[Image.Image] = []
+    for frame in frames:
+        moving = ImageChops.subtract(ImageChops.add(frame.convert("RGB"), gain), loss)
+        result.append(Image.composite(turkish, moving, frozen).convert("RGBA"))
+    result[-1] = turkish.convert("RGBA")  # son kare, kullanıcının hazırladığıyla birebir aynı
+    return result
+
+
+_ENCODERS = {"bc1": bc1.reencode, "bc7": bc7.reencode}
+
+
 def translate_animation(data: bytes, last_english: Image.Image, last_turkish: Image.Image) -> bytes:
-    """`.ip2` dosyasının karelerini Türkçeleştirir (son karesi `last_english` olan animasyon); boyut ve yapı korunur."""
+    """`.ip2` dosyasının karelerini Türkçeleştirir (son karesi `last_english` olan animasyon); boyut ve yapı korunur.
+
+    Alçak (başlık bandı) animasyonlar `animate_banner` ile, görev girişi animasyonları `animate_pages` ile işlenir."""
     pages: list[Page] = list(iter_pages(data))
-    if not pages or page_key(pages[-1].image) != page_key(last_english) or any(p.format != "bc1" for p in pages):
+    if (
+        not pages
+        or page_key(pages[-1].image) != page_key(last_english)
+        or any(p.format not in _ENCODERS for p in pages)
+    ):
         return data
-    new = animate_pages([p.image for p in pages], last_english, last_turkish)
+    frames = [p.image for p in pages]
+    banner = pages[0].height <= _BANNER_HEIGHT
+    new = (animate_banner if banner else animate_pages)(frames, last_english, last_turkish)
     out = bytearray(data)
     for page, image in zip(pages, new, strict=True):
         original = data[page.data_offset : page.data_offset + page.size]
-        out[page.data_offset : page.data_offset + page.size] = bc1.reencode(original, page.image, image)
+        out[page.data_offset : page.data_offset + page.size] = _ENCODERS[page.format](original, page.image, image)
     return bytes(out)

@@ -151,11 +151,18 @@ class FsdMsgPlugin:
         return patches
 
     def exefs_patches(self, code: bytes) -> dict[str, bytes]:
-        """Program koduna uygulanacak IPS yamaları (yapı kimliği → yama): Türkçe düşman açıklamaları (veri varsa)."""
-        descriptions = fsdmsg_userdata.load(fsdmsg_graphics.folder()).descriptions
-        if descriptions is None:
-            return {}
-        return {exe.BUILD_ID: exe.ips(exe.build_patch(code, list(descriptions)))}
+        """Program koduna uygulanacak IPS yamaları (yapı kimliği → yama): Türkçe düşman açıklamaları ve kullanıcının
+        `kod_yamasi.json` kayıtları (veri varsa)."""
+        data = fsdmsg_userdata.load(fsdmsg_graphics.folder())
+        records: dict[str, list[tuple[int, bytes]]] = {}
+        if data.descriptions is not None:
+            records[exe.BUILD_ID] = exe.build_patch(code, list(data.descriptions))
+        if data.code_patch is not None:
+            build_id, extra = data.code_patch
+            records.setdefault(build_id, []).extend(extra)
+        for rows in records.values():
+            exe.check_overlap(rows)
+        return {build_id: exe.ips(rows) for build_id, rows in records.items()}
 
     def derived_files(self, read: Callable[[str], bytes], files: Collection[str], game_dir: Path | None) -> Derived:
         """Dosya üretmez; ek çeviri verisi eksikse bilgi dosyasına bunu söyleyen bir not ekler."""

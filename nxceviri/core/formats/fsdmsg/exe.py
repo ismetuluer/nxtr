@@ -130,6 +130,18 @@ def build_patch(code: bytes, pairs: list[tuple[str, str]]) -> list[tuple[int, by
     return records
 
 
+def check_overlap(records: list[tuple[int, bytes]]) -> None:
+    """Yama kayıtlarından ikisi aynı baytlara yazıyorsa hata verir (biri ötekini sessizce bozmasın)."""
+    previous_end = -1
+    for offset, data in sorted(records):
+        if offset < previous_end:
+            raise FormatError(
+                f"Program yaması kayıtları üst üste biniyor (ofset 0x{offset:X}).",
+                "kod_yamasi.json kayıtları düşman açıklamaları yamasıyla çakışıyor; çakışan kaydı kaldırın.",
+            )
+        previous_end = offset + len(data)
+
+
 def ips(records: list[tuple[int, bytes]]) -> bytes:
     """IPS32 yaması (Atmosphère ve emülatörler destekler): "IPS32" | (u32 ofset, u16 boy, veri)… | "EEOF"."""
     out = bytearray(b"IPS32")

@@ -160,3 +160,39 @@ def test_user_graphics_replace_pages_and_are_matched_by_original(tmp_path) -> No
     assert next(iter(iter_pages(out))).image.tobytes() == turkish.tobytes()
     assert out[-4:] == b"TAIL"
     assert translate_file(data, {}, {}) == data
+
+
+def test_bc7_opaque_blocks_keep_alpha_255_and_size_is_checked() -> None:
+    image = Image.new("RGBA", (16, 8), (255, 255, 255, 255))
+    for x in range(16):
+        image.putpixel((x, 3), (30, 30, 30, 255))
+        image.putpixel((x, 4), (220, 40, 40, 255))
+    decoded = bc7.decode(bc7.encode(image), 16, 8)
+    assert decoded.getchannel("A").getextrema() == (255, 255)
+    with pytest.raises(ValueError, match="4"):
+        bc7.encode(Image.new("RGBA", (6, 4)))
+
+
+def _overlapping_file() -> tuple[bytes, Image.Image, Image.Image]:
+    """Sahte bir başlık (16×16 diyor, verisi yalnızca 32 bayt) ve hemen arkasından gerçek bir sayfa (elle üretilmiş)."""
+    real = Image.new("RGBA", (16, 16), (10, 20, 30, 255))
+    stray = _bgra_page(Image.new("RGBA", (16, 16), (1, 2, 3, 255)))[:128] + bytes(32)
+    return b"HEAD" + stray + _bgra_page(real) + b"TAIL", real, Image.new("RGBA", (16, 16), (200, 100, 50, 255))
+
+
+def test_page_overlapping_another_header_is_never_written() -> None:
+    data, real, turkish = _overlapping_file()
+    pages = list(iter_pages(data))
+    assert len(pages) == 2  # sahte başlık da sayfa gibi çözülür; veri aralığı gerçek sayfanın başlığını kapsar
+    replacements = {page_key(pages[0].image): Image.new("RGBA", (16, 16), (9, 9, 9, 255)), page_key(real): turkish}
+    out = translate_file(data, {}, replacements)
+    assert len(out) == len(data)
+    assert out[: pages[1].offset + 128] == data[: pages[1].offset + 128]  # gerçek sayfanın başlığı ve öncesi aynı
+    assert [p.image.tobytes() for p in iter_pages(out)][1] == turkish.tobytes()
+    assert out[-4:] == b"TAIL"
+
+
+def test_unchanged_replacement_leaves_file_identical() -> None:
+    original = _label_page()
+    data = b"HEAD" + _bgra_page(original) + b"TAIL"
+    assert translate_file(data, {}, {page_key(original): original.copy()}) == data
