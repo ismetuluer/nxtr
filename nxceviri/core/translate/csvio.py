@@ -1086,6 +1086,42 @@ def read_revision_file(path: Path) -> list[CsvRow]:
         raise CsvError(f"{path.name}: {exc.message}", exc.hint) from exc
 
 
+#: Pencereye bırakılınca içe aktarılan dosya uzantıları (dış redaksiyon / dış çeviri).
+REVISION_SUFFIXES = (".txt", ".xlsx", ".csv")
+
+
+def revision_file_kind(path: Path) -> str:
+    """Dosya dış çeviri mi (`MODE_TRANSLATION`: başlıkta “yeni çeviri”) yoksa redaksiyon mu (`MODE_REDACTION`).
+
+    Yalnızca başlığa bakılır (XLSX'te ilk satır, metinde ilk dolu satır); okunamayan dosya redaksiyon sayılır ve
+    asıl hatayı içe aktarma penceresi söyler.
+    """
+    try:
+        raw = path.read_bytes()
+    except OSError:
+        return MODE_REDACTION
+    if raw.startswith(b"PK\x03\x04"):
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                sheet = archive.read("xl/worksheets/sheet1.xml").decode("utf-8", "replace")
+                shared = (
+                    archive.read("xl/sharedStrings.xml").decode("utf-8", "replace")
+                    if "xl/sharedStrings.xml" in archive.namelist()
+                    else ""
+                )
+        except (zipfile.BadZipFile, KeyError):
+            return MODE_REDACTION
+        first_row = sheet.split("</row>", 1)[0]
+        head = first_row if 't="s"' not in first_row else first_row + shared
+    else:
+        try:
+            text = _decode(raw, path.name)
+        except CsvError:
+            return MODE_REDACTION
+        head = next((line for line in _strip_fences(text).splitlines() if line.strip()), "")
+    return MODE_TRANSLATION if "yeni çeviri" in _norm(head) else MODE_REDACTION
+
+
 @dataclass
 class CsvPlan:
     """İçe aktarmada ne olacağı: yazılacaklar ve yazılmayacakların nedenleri."""

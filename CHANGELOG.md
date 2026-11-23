@@ -2,6 +2,16 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.79.0] — 2026-11-24 — Dış redaksiyon tek tık
+
+### Değişti
+- **Dosya Oluştur tek tık:** dış redaksiyon ve dış çeviri dosyası ilk seferden sonra pencere açmadan, aynı klasöre,
+  son ayarlarla ve tarihli yeni bir adla yazılır (eski dosyanın üzerine yazılmaz); talimat panoya kopyalanır.
+  Sağ tık yalnızca seçili satırları yazar. Bildirimde **Klasörü Aç** ve **Ayarlar** var.
+- **Sürükle bırak ile geri yükleme:** dönen TXT/XLSX/CSV dosyasını pencereye bırakmak yeter; dış çeviri mi
+  redaksiyon mu olduğu dosyanın başlığından anlaşılır ve karşılaştırma penceresi doğrudan açılır.
+- Ayarlar penceresi son seçimleri (biçim, gruplama, parça sayısı) hatırlar.
+
 ## [0.78.0] — 2026-11-23 — Kayıt ekranı çökmesi ve program kodu ek yaması
 
 ### Düzeltildi

@@ -44,11 +44,14 @@ Katlamak süzmek değildir: sayılar, Otomatik Çeviri ve Bul/Değiştir'in "Gö
 **Çeviri → Dış Redaksiyon** ve **Çeviri → Dış Çeviri** menüleri çeviriyi başka bir yerde (sohbet modeli, çevirmen)
 yaptırıp geri almanızı sağlar.
 
-- **Dışa aktarırken** sol tarafta biçimi (Excel ya da TXT), hangi satırların yazılacağını ve dosyaların nasıl
-  bölüneceğini seçersiniz; sağda çıkacak dosyalar kartlar olarak, altında seçili dosyanın ilk satırları görünür.
-  Bir karta basınca o dosyanın satırlarını görürsünüz. **Model için hazır talimat** bölümünü açıp okuyabilir,
-  **Talimatı Kopyala** ile panoya alabilirsiniz.
-- **İçe aktarırken** dosyaları seçince tek pencere açılır: solda dosyalar (projeyle hiç eşleşmeyen dosya sarı
+- **Dosya Oluştur** ilk seferde ayar penceresini ve kaydetme yerini sorar. Sonrakiler tek tıktır: dosya aynı
+  klasöre, son ayarlarla ve tarihli yeni bir adla yazılır (eski dosyanın üzerine yazılmaz), talimat panoya kopyalanır.
+  Sağ tıkla yalnızca seçili satırlar yazılır. Ayarı değiştirmek için bildirimdeki **Ayarlar**'a basın.
+- **Ayarlar** penceresinde sol tarafta biçimi (Excel ya da TXT), hangi satırların yazılacağını ve dosyaların nasıl
+  bölüneceğini seçersiniz; sağda çıkacak dosyalar ve ilk satırları görünür. **Model için hazır talimat** bölümünü
+  açıp okuyabilirsiniz.
+- **Geri yüklemek** için dönen dosyayı programın penceresine sürükleyip bırakmanız yeter; dış çeviri mi redaksiyon
+  mu olduğu dosyanın başlığından anlaşılır. Menüdeki **İçe Aktar** da aynı pencereyi açar: solda dosyalar (projeyle hiç eşleşmeyen dosya sarı
   uyarıyla işaretlenir) ve sonuç sayıları, sağda yazılacak satırlar. Üstteki **Değişecek**, **Onaylıydı** ve
   **Kod uymuyor** düğmeleriyle listeyi süzersiniz. Kontrol kodu uymayan satırlar listelenir ama yazılamaz;
   mevcut çevirileri korunur. Beğenmediğiniz satırın işaretini kaldırın ya da metni çift tıklayıp düzeltin;

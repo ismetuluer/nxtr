@@ -411,7 +411,7 @@ def test_context_menu_is_grouped_and_short(window: MainWindow) -> None:
     assert groups["Çevir"] == ["Çevir (1)", "Yeniden çevir (2)", "Redaksiyon (2)"]
     assert groups["Düzenle"] == ["Satırları yeniden böl", "Orijinali yaz", "Temizle"]
     assert groups["Kopyala"] == ["Orijinal ve çeviri", "Yalnızca orijinal", "Yalnızca çeviri"]
-    assert groups["Dışa aktar"] == ["Dış redaksiyon dosyası (2)…", "Dış çeviri dosyası (2)…"]
+    assert groups["Dışa aktar"] == ["Dış redaksiyon dosyası (2)", "Dış çeviri dosyası (2)"]
     assert groups["Büyük harf"][0] == "Seçili satırlar (i → İ)"
     assert not [a for a in menu.actions() if _strip_key(a.text()) == "Daha fazla"]
     for action in _leaf_actions(menu):

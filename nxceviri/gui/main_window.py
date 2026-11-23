@@ -10,7 +10,15 @@ from pathlib import Path
 
 import httpx
 from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, QUrl
-from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDesktopServices, QGuiApplication
+from PySide6.QtGui import (
+    QAction,
+    QActionGroup,
+    QCloseEvent,
+    QDesktopServices,
+    QDragEnterEvent,
+    QDropEvent,
+    QGuiApplication,
+)
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -66,6 +74,7 @@ from nxceviri.core.spell.loader import load_spell_checker
 from nxceviri.core.spell.report import UnknownWordCache, replace_unknown
 from nxceviri.core.spell.suggest import Suggestion
 from nxceviri.core.spell.userdict import UserDictionary, default_user_dictionary_path
+from nxceviri.core.translate.csvio import MODE_TRANSLATION, REVISION_SUFFIXES, revision_file_kind
 from nxceviri.core.translate.fitconfig import (
     FitConfig,
 )
@@ -388,6 +397,7 @@ class MainWindow(QMainWindow):
         #: Kontrol Et → Grafik: resim klasörü, arka plan denetimi, klasör izleme, onay; durumu da orada.
         self.graphics_check = GraphicsController(self)
         self.exchange = ExchangeController(self)
+        self.setAcceptDrops(True)  # dış redaksiyon/çeviri dosyası pencereye bırakılınca içe aktarılır
         self.history = HistoryController(self)
         #: Anahtarlar, kaynak dosyalar, tarama ve metin aktarma; durum pencerede kalır.
         self.scanning = ScanController(self)
@@ -1732,11 +1742,40 @@ class MainWindow(QMainWindow):
 
     # --- dış dosya: dışa / içe aktarma (redaksiyon ve çeviri) ------------------------------------
 
-    def export_csv(self) -> None:
-        return self.exchange.export_csv()
+    def export_csv(self, selected: bool = False) -> None:
+        return self.exchange.export_csv(selected)
 
-    def export_translation(self) -> None:
-        return self.exchange.export_translation()
+    def export_translation(self, selected: bool = False) -> None:
+        return self.exchange.export_translation(selected)
+
+    def _revision_drop(self, event: QDragEnterEvent | QDropEvent) -> list[Path]:
+        """Bırakılan TXT/XLSX/CSV dosyaları (çeviri tablosunda satır varken); başka bir şeyse boş."""
+        if self.busy or not self.translate_page.model.rows or not event.mimeData().hasUrls():
+            return []
+        paths = [Path(u.toLocalFile()) for u in event.mimeData().urls() if u.isLocalFile()]
+        if not paths or any(p.suffix.lower() not in REVISION_SUFFIXES or not p.is_file() for p in paths):
+            return []
+        return paths
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        if self._revision_drop(event):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        """Dönen dış redaksiyon/çeviri dosyası: başlığına göre ilgili içe aktarma doğrudan açılır."""
+        paths = self._revision_drop(event)
+        if not paths:
+            event.ignore()
+            return
+        event.acceptProposedAction()
+        translated = [p for p in paths if revision_file_kind(p) == MODE_TRANSLATION]
+        revised = [p for p in paths if p not in translated]
+        if revised:
+            self.exchange.import_files(revised, translation=False)
+        if translated:
+            self.exchange.import_files(translated, translation=True)
 
     def export_findings(self) -> None:
         return self.exchange.export_findings()

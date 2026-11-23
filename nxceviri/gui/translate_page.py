@@ -2263,10 +2263,10 @@ class TranslatePage(QWidget):
 
         export = self._submenu(menu, "Dışa aktar", "file-up")
         count = format_int(len(rows))
-        self._menu_action(export, f"Dış redaksiyon dosyası ({count})…", "user-check").triggered.connect(
+        self._menu_action(export, f"Dış redaksiyon dosyası ({count})", "user-check").triggered.connect(
             self.csv_export_requested
         )
-        self._menu_action(export, f"Dış çeviri dosyası ({count})…", "languages").triggered.connect(
+        self._menu_action(export, f"Dış çeviri dosyası ({count})", "languages").triggered.connect(
             self.translation_export_requested
         )
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QGuiApplication
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -49,6 +49,22 @@ from nxceviri.gui.widgets import button, format_int, label
 
 FORMAT_TXT = "txt"
 FORMAT_XLSX = "xlsx"
+#: QSettings anahtarları: dışa aktarma penceresinde son kabul edilen biçim, gruplama, parça sayısı.
+CHOICE_FORMAT = "csv/format"
+CHOICE_GROUP = "csv/by_group"
+CHOICE_PARTS = "csv/parts"
+
+
+def saved_choices(settings: QSettings) -> tuple[str, bool, int]:
+    """(biçim, gruplu mu, parça sayısı; 0 = bölünmez): hiç seçilmediyse XLSX, tek dosya."""
+    fmt = FORMAT_TXT if str(settings.value(CHOICE_FORMAT, FORMAT_XLSX)) == FORMAT_TXT else FORMAT_XLSX
+    try:
+        parts = max(int(str(settings.value(CHOICE_PARTS, 0) or 0)), 0)
+    except ValueError:
+        parts = 0
+    return fmt, bool(settings.value(CHOICE_GROUP, "")), parts
+
+
 __all__ = [
     "FORMAT_TXT",
     "FORMAT_XLSX",
@@ -93,8 +109,10 @@ class CsvExportDialog(QDialog):
         mode: str = MODE_REDACTION,
         notes: Mapping[int, str] | None = None,
         name_hint: str = "",
+        settings: QSettings | None = None,
     ) -> None:
         super().__init__(parent)
+        self._settings = settings
         self._name_hint = name_hint
         self._instruction = instruction
         self._mode = mode
@@ -141,6 +159,7 @@ class CsvExportDialog(QDialog):
         self.part_spin.valueChanged.connect(lambda _v: self._update_split())
         self.format_group.buttonToggled.connect(lambda *_: self._format_changed())
         self._update_group_box()
+        self._restore_choices()
         self._update_split()
         self._update_prompt()
 
@@ -369,6 +388,26 @@ class CsvExportDialog(QDialog):
         return self._groups_cache[scope]
 
     # --- güncelleme -----------------------------------------------------------------------------------------
+    def _restore_choices(self) -> None:
+        """Son kabul edilen biçim, gruplama ve parça sayısı (tek tıkla dışa aktarma da bunları kullanır)."""
+        if self._settings is None:
+            return
+        fmt, by_group, parts = saved_choices(self._settings)
+        (self.txt_radio if fmt == FORMAT_TXT else self.xlsx_radio).setChecked(True)
+        if self.group_box.isEnabled():
+            self.group_box.setChecked(by_group)
+        self._update_split()
+        if parts and self.split_box.isEnabled():
+            self.split_box.setChecked(True)
+            self.part_spin.setValue(parts)
+
+    def save_choices(self) -> None:
+        """Kabul edilen biçim, gruplama ve parça sayısını sonraki tek tıklar için saklar (pencereyi açan çağırır)."""
+        if self._settings is not None:
+            self._settings.setValue(CHOICE_FORMAT, self.format())
+            self._settings.setValue(CHOICE_GROUP, "1" if self.by_group() else "")
+            self._settings.setValue(CHOICE_PARTS, self.parts())
+
     def _update_group_box(self) -> None:
         count = len(self._groups())
         self.group_box.setText(f"Her grup ayrı dosyaya ({format_int(count)} grup)")

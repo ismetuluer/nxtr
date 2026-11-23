@@ -12,10 +12,13 @@ pencerede kalır.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import QUrl
+from PySide6.QtGui import QDesktopServices, QGuiApplication
 from PySide6.QtWidgets import QFileDialog, QMessageBox
 
 from nxceviri.core.errors import NxError
@@ -31,15 +34,20 @@ from nxceviri.core.translate.csvio import (
     export_xlsx,
     finding_notes,
     prepare_correction,
+    revision_prompt_txt,
+    revision_prompt_xlsx,
+    translation_prompt_txt,
+    translation_prompt_xlsx,
+    without_empty_source,
 )
 from nxceviri.core.translate.origin import NO_ORIGIN
 from nxceviri.core.translate.port import ReadyTranslations, port_translations, read_ready_translations
 from nxceviri.core.translate.status import Status
-from nxceviri.gui.csv_dialog import FORMAT_TXT, MODE_FINDINGS, MODE_REDACTION, MODE_TRANSLATION
+from nxceviri.gui.csv_dialog import FORMAT_TXT, MODE_FINDINGS, MODE_REDACTION, MODE_TRANSLATION, saved_choices
 from nxceviri.gui.import_dialog import ImportDialog
 from nxceviri.gui.jobs import new_job_id
 from nxceviri.gui.machine_controller import REVISE_INSTRUCTION_KEY
-from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_INFO, LEVEL_SUCCESS
+from nxceviri.gui.notify import LEVEL_ERROR, LEVEL_INFO, LEVEL_SUCCESS, NoticeAction
 from nxceviri.gui.step_nav import STEP_TRANSLATE
 from nxceviri.gui.widgets import format_int
 
@@ -124,21 +132,68 @@ class ExchangeController:
             on_progress=lambda _d, _t, message: win.statusBar().showMessage(message),
         )
 
-    def export_csv(self) -> None:
-        """Çevirileri dış redaksiyon için TXT/XLSX olarak dışa aktarır."""
-        self._export_external(translation=False)
+    def export_csv(self, selected: bool = False) -> None:
+        """Çevirileri dış redaksiyon için TXT/XLSX olarak dışa aktarır (`selected`: yalnızca seçili satırlar)."""
+        self._export_external(translation=False, selected=selected)
 
-    def export_translation(self) -> None:
+    def export_translation(self, selected: bool = False) -> None:
         """Çevirileri dış çeviri (çevirmen/model) için TXT/XLSX olarak dışa aktarır."""
-        self._export_external(translation=True)
+        self._export_external(translation=True, selected=selected)
 
-    def _export_external(self, *, translation: bool) -> None:
+    def _export_external(self, *, translation: bool, selected: bool = False, ask: bool = False) -> None:
+        """Tek tık: önceki dışa aktarmanın klasörüne, Ayarlar penceresinin son seçimleriyle yazar. Klasör henüz
+        yoksa (ilk kez) ya da `ask` ise Ayarlar penceresi ve kaydetme sorulur."""
+        win = self._win
+        if win.busy or not win._to_translate_step():
+            return
+        remembered = str(win.settings.value("csv/dir", "") or "")
+        folder = Path(remembered)
+        if ask or not remembered or not folder.is_dir():
+            self._export_with_dialog(translation=translation)
+            return
+        page = win.translate_page
+        rows = without_empty_source(page.selected_rows() if selected else page.model.rows)
+        if not rows:
+            win.notify(LEVEL_INFO, "Yazılacak satır yok", "Orijinali dolu bir satır seçin.")
+            return
+        fmt, by_group, parts = saved_choices(win.settings)
+        txt = fmt == FORMAT_TXT
+        suffix = ".txt" if txt else ".xlsx"
+        path = _fresh_path(folder, self._name(translation) + datetime.now().strftime("_%Y-%m-%d_%H-%M"), suffix)
+        if translation:
+            export = export_translation_txt if txt else export_translation_xlsx
+            prompt = translation_prompt_txt if txt else translation_prompt_xlsx
+        else:
+            export = export_txt if txt else export_xlsx
+            prompt = revision_prompt_txt if txt else revision_prompt_xlsx
+        try:
+            paths = export(rows, path, by_group=by_group, parts=parts if 2 <= parts <= len(rows) else 0)
+        except CsvError as exc:
+            win.notify(LEVEL_ERROR, "Dosya yazılamadı", exc.user_text())
+            return
+        QGuiApplication.clipboard().setText(prompt(win.project.setting(REVISE_INSTRUCTION_KEY)))
+        files = paths[0].name if len(paths) == 1 else f"{format_int(len(paths))} dosya ({paths[0].name} …)"
+        win.notify(
+            LEVEL_SUCCESS,
+            f"{format_int(len(rows))} satır yazıldı",
+            f"{files} · talimat panoda",
+            (
+                NoticeAction("Klasörü Aç", lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))),
+                NoticeAction(
+                    "Ayarlar", lambda: self._export_external(translation=translation, selected=selected, ask=True)
+                ),
+            ),
+        )
+
+    def _name(self, translation: bool) -> str:
+        project = self._win.project
+        return (project.path.stem if project.path else "ceviriler") + ("_ceviri" if translation else "_redaksiyon")
+
+    def _export_with_dialog(self, *, translation: bool) -> None:
         from nxceviri.gui import main_window as _mw  # noqa: PLC0415
 
         win = self._win
         page = win.translate_page
-        if win.busy or not win._to_translate_step():
-            return
         dialog = _mw.CsvExportDialog(
             win,
             selected=page.selected_rows(),
@@ -147,9 +202,11 @@ class ExchangeController:
             instruction=win.project.setting(REVISE_INSTRUCTION_KEY),
             mode=MODE_TRANSLATION if translation else MODE_REDACTION,
             name_hint=(win.project.path.stem if win.project.path else "ceviriler") + ("_ceviri" if translation else ""),
+            settings=win.settings,
         )
         if dialog.exec() != _mw.CsvExportDialog.DialogCode.Accepted or not dialog.rows():
             return
+        dialog.save_choices()
         txt = dialog.format() == FORMAT_TXT
         suffix = ".txt" if txt else ".xlsx"
         name = win.project.path.stem if win.project.path else "ceviriler"
@@ -271,6 +328,11 @@ class ExchangeController:
         self._import_external(translation=True)
 
     def _import_external(self, *, translation: bool) -> None:
+        self.import_files(None, translation=translation)
+
+    def import_files(self, paths: Sequence[Path] | None, *, translation: bool) -> None:
+        """Dış dosyaları içe aktarır; `paths` verilmezse (menü) dosya seçtirilir, verilirse (pencereye bırakılan
+        dosyalar) doğrudan karşılaştırma penceresi açılır."""
         win = self._win
         page = win.translate_page
         if win.busy:
@@ -279,6 +341,9 @@ class ExchangeController:
         job_kind = "translation" if translation else "csv"
         if not page.model.rows:
             win.notify(LEVEL_INFO, title, "Önce “Metinleri Tara” adımından metinleri çeviri tablosuna aktarın.")
+            return
+        if paths:
+            self._import_paths([str(p) for p in paths], translation=translation, title=title, job_kind=job_kind)
             return
         start = str(win.settings.value("csv/dir", str(Path.home())))
         pick_title = (
@@ -295,6 +360,11 @@ class ExchangeController:
         )
         if not targets:
             return
+        self._import_paths(targets, translation=translation, title=title, job_kind=job_kind)
+
+    def _import_paths(self, targets: Sequence[str], *, translation: bool, title: str, job_kind: str) -> None:
+        win = self._win
+        page = win.translate_page
         win.settings.setValue("csv/dir", str(Path(targets[0]).parent))
         rows = win.project.translation_rows()
         dialog = ImportDialog(
@@ -369,3 +439,12 @@ class ExchangeController:
         if skipped_count:
             text += f" {format_int(skipped_count)} satır kontrol kodları uymadığı için yazılmadı."
         page.show_notice("success" if not skipped_count else "warning", text)
+
+
+def _fresh_path(folder: Path, stem: str, suffix: str) -> Path:
+    """Klasörde hiçbir dosyayla (parçalar dahil: `ad_001`, `ad_UI`) çakışmayan ad; dönen düzeltilmiş dosya ezilmez."""
+    candidate, number = stem, 2
+    while (folder / f"{candidate}{suffix}").exists() or any(folder.glob(f"{candidate}_*{suffix}")):
+        candidate = f"{stem}-{number}"
+        number += 1
+    return folder / f"{candidate}{suffix}"

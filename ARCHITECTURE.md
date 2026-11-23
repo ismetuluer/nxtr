@@ -1618,3 +1618,12 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     dili biliniyor); belirsizse rapor açık kalır ve kullanıcı seçer. Yeniden Tara ve dolu proje projeyi kendiliğinden
     değiştirmez (yeniden aktarma dosya silebilir; o kararı kullanıcı verir). Sonuç bildirimi “Dosyaları Seç” ile
     rapora döndürür.
+251. **Dış redaksiyon / dış çeviri tek tık (ürün sahibi, 2026-11-24):** Dosya Oluştur, önceki dışa aktarmanın
+    klasörü (`csv/dir`) biliniyorsa pencere açmadan yazar: Ayarlar penceresinin son kabul edilen biçimi, gruplaması ve
+    parça sayısı (`csv_dialog.saved_choices`, `CsvExportDialog.save_choices`), tarihli yeni ad
+    (`exchange_controller._fresh_path`: parçalar dahil hiçbir dosyayla çakışmaz; dönen düzeltilmiş dosya ezilmez),
+    talimat panoya. Klasör yoksa (ilk kez) ya da bildirimdeki Ayarlar'a basılırsa eski akış (pencere + kaydet).
+    Sağ tık yalnızca seçili satırları, menü bütün satırları yazar. Geri yükleme: TXT/XLSX/CSV dosyası ana pencereye
+    bırakılınca `csvio.revision_file_kind` başlığa bakar (“yeni çeviri” → dış çeviri, yoksa redaksiyon) ve
+    `ExchangeController.import_files` karşılaştırma penceresini dosya sormadan açar; tabloda satır yokken ya da iş
+    sürerken bırakma kabul edilmez.

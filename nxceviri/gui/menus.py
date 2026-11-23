@@ -375,7 +375,7 @@ class Menus:
             self._add(menu, "Hazır Çeviriyi İçe Aktar…", w.import_ready_translation, icon="file-down")
         )
         redaction = self._submenu(menu, "Dış Redaksiyon", "user-check")
-        self._needs_rows.append(self._add(redaction, "Dosya Oluştur (TXT/XLSX)…", w.export_csv, icon="file-up"))
+        self._needs_rows.append(self._add(redaction, "Dosya Oluştur", w.export_csv, icon="file-up"))
         self._add(
             redaction,
             "Kontrol Bulgularını Dosyaya Yaz…",
@@ -386,7 +386,7 @@ class Menus:
         )
         self._needs_rows.append(self._add(redaction, "İçe Aktar…", w.import_csv, icon="file-down"))
         external = self._submenu(menu, "Dış Çeviri", "languages")
-        self._needs_rows.append(self._add(external, "Dosya Oluştur (TXT/XLSX)…", w.export_translation, icon="file-up"))
+        self._needs_rows.append(self._add(external, "Dosya Oluştur", w.export_translation, icon="file-up"))
         self._needs_rows.append(self._add(external, "İçe Aktar…", w.import_translation, icon="file-down"))
 
     def _go_menu(self) -> None:
