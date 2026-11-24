@@ -122,3 +122,35 @@ def test_describe_import_flags_whole_file_from_another_project() -> None:
     csv_plan = plan_import([_row(1)], [CsvRow(77, "Zzz", "w")])
     assert any("başka bir projeden" in line for line in describe_import(csv_plan, {}, "Redakte"))
     assert describe_import(plan_import([_row(1)], []), {}, "Redakte") == []
+
+
+def _plain(i: int, source: str, text: str = "") -> TranslationRow:
+    return TranslationRow(i, "a.msbt", f"k{i}", source, text, "untranslated" if not text else "machine", "", (), None)
+
+
+def test_broken_line_does_not_steal_another_lines_row() -> None:
+    """Orijinali değişmiş bir dosya satırı, “çevirisi aynı (ör. boş) ilk satırı” kapıp asıl sahibinin eşleşmesini
+    bozmaz: dosyadaki bütün düzeltmeler ilk içe aktarmada yazılır, her seferinde farklı bir kısmı değil."""
+    rows = [_plain(1, "Hello"), _plain(2, "World"), _plain(3, "Cat")]
+    lines = [
+        CsvRow(None, "Helo there", "", "Yanlış"),  # model orijinali değiştirmiş: hiçbir satıra ait değil
+        CsvRow(None, "Hello", "", "Merhaba"),
+        CsvRow(None, "World", "", "Dünya"),
+        CsvRow(None, "Cat", "", "Kedi"),
+    ]
+    plan = plan_import(rows, lines)
+    assert dict(plan.changes) == {1: "Merhaba", 2: "Dünya", 3: "Kedi"}
+    assert plan.unmatched == 1
+
+
+def test_import_is_complete_in_one_pass_and_idempotent() -> None:
+    """Aynı dosyayı ikinci kez içe aktarmak yeni değişiklik üretmez (ilk geçiş hepsini yazmıştır)."""
+    rows = [_plain(i, f"Line {i}") for i in range(1, 30)]
+    lines = [CsvRow(None, f"Lne {i}", "", f"Bozuk {i}") for i in range(1, 6)]  # orijinali bozuk 5 satır başta
+    lines += [CsvRow(None, f"Line {i}", "", f"Satır {i}") for i in range(1, 30)]
+    first = plan_import(rows, lines)
+    assert len(first.changes) == 29
+    updated = [
+        TranslationRow(r.id, r.file, r.key, r.source, dict(first.changes)[r.id], "redacted", "", (), None) for r in rows
+    ]
+    assert plan_import(updated, lines).changes == []

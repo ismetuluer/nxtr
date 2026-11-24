@@ -2,6 +2,16 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.79.2] — 2026-11-25 — İçe aktarma tek seferde tamam
+
+### Düzeltildi
+- **Dış çeviri / redaksiyon içe aktarma her seferinde başka bir kısmı yazıyordu:** orijinal sütunu değişmiş tek bir
+  dosya satırı, “çevirisi aynı (ör. boş) ilk satırı” kapıyor, o satırın asıl sahibi de kendi satırını bulamayıp bir
+  sonrakini kapıyordu; kayma zincirleme büyüyor, düzeltmelerin bir kısmı hiç yazılmıyordu. İlk içe aktarma çevirileri
+  değiştirdiği için ikinci seferde başka satırlar kayıyordu. Artık önce bütün satırlar tam eşleşmeyle (orijinal +
+  çeviri) yerine oturur; tutmayanlar ancak sonra ve yalnızca orijinali uyan satırla eşleşir. Aynı dosyayı ikinci kez
+  içe aktarmak yeni değişiklik üretmez.
+
 ## [0.79.1] — 2026-11-25 — Açılış çökmesi düzeltildi
 
 ### Düzeltildi

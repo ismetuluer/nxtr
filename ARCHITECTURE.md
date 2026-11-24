@@ -1637,3 +1637,11 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     anlamsız biri “bilinen” çıkabiliyordu. Aday üretiminde eklenen ı/ö/ü iki yanındaki ünlülerin ikisi de öteki
     sınıftansa (ince/kalın) aday atılır (tek yanı uyumsuz alıntılar geçer: otobüs, kıble); camelCase ve aynı harfin
     üç kez yinelendiği sözcükler onarılmaz. Tek adaylı yanlış olumlu (Kipa → Kıpa) kural ile ayrılamaz; öneri kalır.
+253. **Dış dosya içe aktarmada iki geçişli eşleştirme (2026-11-25):** `_TxtMatcher` eskiden her dosya satırını sırayla
+    tam çift → orijinal → çeviri ile eşliyordu. Çeviriyle arama “adayların çevirisi aynıysa ilkini al” dediği için
+    orijinali değişmiş bir satır, çevirisi boş (ya da aynı) ilk proje satırını kapıyor, o satırın sahibi bir sonrakini
+    kapıyordu; zincirleme kayma düzeltmeleri düşürüyor, her içe aktarmada başka bir kısmı yazılıyordu. Şimdi
+    `plan_import` önce bütün TXT/XLSX satırlarını `match_exact` ile (çift, verildiyse grup) yerleştirir; kalanlar
+    `match_loose` ile aranır: orijinalle (tek ya da çevirileri aynı adaylar), sonra çeviriyle ama yalnızca orijinali
+    kod onarımından sonra dosyadakiyle aynı olan adaylar arasında. Çeviri metni projede tek olan satır, orijinali
+    uymasa da eşlenir (başkasının hedefi olamaz; “orijinal metni farklı” diye bildirilir, yazılmaz).

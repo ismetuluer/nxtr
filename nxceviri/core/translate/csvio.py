@@ -1213,7 +1213,8 @@ class _TxtMatcher:
     def take(self, row: TranslationRow) -> None:
         self._used.add(row.id)
 
-    def match(self, source: str, text: str, group: str = "") -> TranslationRow | None:
+    def match_exact(self, source: str, text: str, group: str = "") -> TranslationRow | None:
+        """(orijinal, çeviri) çifti (verildiyse grubuyla) tutan ilk serbest satır."""
         src = " ".join(source.split())
         txt = " ".join(text.split())
         grp = _group_key(group)
@@ -1225,7 +1226,25 @@ class _TxtMatcher:
         free = self._free(pair) if pair else []
         if free:
             return self._take(free[0])  # aynı çiftten birden çok varsa dosya sırasıyla
-        return self._unique(self._by_source.get(src, []), grp) or self._unique(self._by_text.get(txt, []), grp)
+        return None
+
+    def match_loose(self, source: str, text: str, group: str = "") -> TranslationRow | None:
+        """Çift tutmadıysa: yalnızca orijinal (çeviri sütunu değişmiş) ya da yalnızca çeviri (orijinaldeki kodlar
+        bozulmuş). Çeviriyle aramada aday, orijinali kod onarımından sonra dosyadakiyle aynı olan satırlarla
+        sınırlıdır: yoksa “çevirisi aynı (ör. boş) ilk satır” başka bir dosya satırının hedefini kapar, iki satır
+        da yazılmaz ve kayma zincirleme büyürdü (her içe aktarmada başka bir kısmı yazılıyordu)."""
+        grp = _group_key(group)
+        found = self._unique(self._by_source.get(" ".join(source.split()), []), grp)
+        if found is not None:
+            return found
+        by_text = self._by_text.get(" ".join(text.split()), [])
+        same_source = [r for r in by_text if _same_text(placeholders.repair(r.source, source), r.source)]
+        found = self._unique(same_source, grp)
+        if found is None and len(by_text) == 1 and by_text[0].id not in self._used:
+            # Çeviri metni projede tek: başka satırın hedefi olamaz. Orijinal uymasa da eşlenir ki kullanıcıya
+            # “orijinal metni projedekinden farklı” diye bildirilsin (yazılmaz).
+            found = self._take(by_text[0])
+        return found
 
 
 def prepare_correction(row: TranslationRow, text: str) -> tuple[str, list[str]]:
@@ -1352,10 +1371,15 @@ def plan_import(rows: Sequence[TranslationRow], csv_rows: Sequence[CsvRow]) -> C
     last_id: dict[int, int] = {}
     for c in csv_rows:
         if c.entry_id is None:
-            entries.append((matcher.match(c.source or "", c.text, c.group), c))
+            entries.append((matcher.match_exact(c.source or "", c.text, c.group), c))
         else:
             last_id[c.entry_id] = len(entries)  # aynı kimlik birden çok geçerse sonuncusu
             entries.append((by_id.get(c.entry_id), c))
+    # Tam eşleşmeyenler ancak bütün tam eşleşmeler satırlarını aldıktan sonra gevşek yolla aranır: önce davranan
+    # satır, asıl sahibi dosyada daha aşağıda olan satırı kapmasın.
+    for i, (row, c) in enumerate(entries):
+        if row is None and c.entry_id is None:
+            entries[i] = (matcher.match_loose(c.source or "", c.text, c.group), c)
     live = [(row, c) for i, (row, c) in enumerate(entries) if c.entry_id is None or last_id[c.entry_id] == i]
     plan = CsvPlan(found=len(live), matched_lines={i for i, (row, _) in enumerate(entries) if row is not None})
 

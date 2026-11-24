@@ -1,6 +1,7 @@
-# HANDOFF — oturum devri (2026-11-25, 0.79.1)
+# HANDOFF — oturum devri (2026-11-25, 0.79.2)
 
 ## Durum
+- **Sürüm 0.79.2** (2026-11-25; CHANGELOG 0.79.2, karar 253): içe aktarma eşleştirmesi iki geçişli (`_TxtMatcher.match_exact`, sonra `match_loose`; gevşek yol çeviriyle aramada orijinali uyan satırla sınırlı).
 - **Sürüm 0.79.1** (2026-11-25; CHANGELOG 0.79.1, karar 252): 0.79.0 paketi açılmıyordu (archspec verisi eksik; NXTR.spec collect_all), release.yml artık `--paket-denetimi` ile .exe'yi denetler; asciitr ses uyumu ve camelCase/uzatma eleği (Bloom yanlış olumluları).
 - **Sürüm 0.79.0** (2026-11-24; CHANGELOG 0.79.0, karar 251): dış redaksiyon/çeviri tek tık (csv/dir biliniyorsa pencere açmadan yazar; Ayarlar son seçimleri saklar; dosyayı pencereye bırakmak içe aktarır). Tek tık planının dört akışı bitti.
 - **Sürüm 0.77.0** (2026-11-22; CHANGELOG 0.77.0, karar 250): Tara ve Aktar tek tık (boş projede tarama bitince seçim kesinse aktarma kendiliğinden; ScanController.import_pending, ReportView.auto_import_ready). Sıradaki sadeleştirme: dış redaksiyon tek tık.
