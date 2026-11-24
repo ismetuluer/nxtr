@@ -49,6 +49,9 @@ _ASCII_MISTAKES = frozenset({"simdi", "sey", "aksam", "buyuk", "tum", "basla", "
 _PARTICLES = frozenset({"mi", "mı", "mu", "mü"})
 #: Soru ekinin ünlüsü, önceki sözcüğün son ünlüsüne göre.
 _HARMONY = {"a": "ı", "ı": "ı", "e": "i", "i": "i", "o": "u", "u": "u", "ö": "ü", "ü": "ü"}
+#: İnce ve kalın ünlüler (ses uyumu denetimi; küçük harf).
+_FRONT = frozenset("eiöü")
+_BACK = frozenset("aıou")
 _BLANKS = " \t "
 
 
@@ -107,10 +110,32 @@ def _known(spell: SpellChecker, word: str, extra: Collection[str]) -> bool:
     return spell.is_known(word, extra)
 
 
+def _disharmonic(word: str, candidate: str) -> bool:
+    """Adayda eklenen bir ünlü (ı ö ü) iki yanındaki ünlülerle ses uyumuna aykırı mı: önceki ve sonraki ünlü varsa
+    ve ikisi de öteki sınıftansa (ince/kalın). Gerçek Türkçe sözcükte neredeyse hiç olmaz; sözlük süzgecinin yanlış
+    olumlu verdiği anlamsız adayları (ırönıkselfıe, kuküyu) eler. Tek yanı uyumsuz alıntılar (otobüs, kıble) geçer."""
+    vowels = [(n, c) for n, c in enumerate(turkish_lower(candidate)) if c in _FRONT or c in _BACK]
+    for k, (n, c) in enumerate(vowels):
+        if word[n] == candidate[n] or c not in "ıöü":
+            continue
+        if 0 < k < len(vowels) - 1:
+            other = _BACK if c in _FRONT else _FRONT
+            if vowels[k - 1][1] in other and vowels[k + 1][1] in other:
+                return True
+    return False
+
+
+def _implausible(word: str) -> bool:
+    """Onarılmayacak biçimler: camelCase (#ileriDönüşüm) ve aynı harfin üç kez yinelendiği uzatmalar (istiyoruuuum)."""
+    if any(a.islower() and b.isupper() for a, b in itertools.pairwise(word)):
+        return True
+    return any(a == b == c for a, b, c in zip(word, word[1:], word[2:], strict=False))
+
+
 def _candidates(word: str) -> list[str]:
     """Sözcüğün değiştirilebilir harflerinin tüm kombinasyonları (kendisi hariç); çoksa boş."""
     spots = [n for n, c in enumerate(word) if c in _OPTIONS]
-    if not spots or len(spots) > _MAX_TOGGLES:
+    if not spots or len(spots) > _MAX_TOGGLES or _implausible(word):
         return []
     out: list[str] = []
     for combo in itertools.product(*(_OPTIONS[word[n]] for n in spots)):
@@ -118,7 +143,7 @@ def _candidates(word: str) -> list[str]:
         for n, c in zip(spots, combo, strict=True):
             chars[n] = c
         candidate = "".join(chars)
-        if candidate != word:
+        if candidate != word and not _disharmonic(word, candidate):
             out.append(candidate)
     return out
 

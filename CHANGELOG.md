@@ -2,6 +2,20 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.79.1] — 2026-11-25 — Açılış çökmesi düzeltildi
+
+### Düzeltildi
+- **0.79.0 açılmıyordu:** paket, BC7 kodlayıcının (etcpak) açılışta okuduğu işlemci veri dosyasını (archspec) taşımıyordu;
+  program açılırken `microarchitectures.json` bulunamadı hatasıyla kapanıyordu. 0.79.0 kullananlar güncellemeyi
+  program içinden yapamaz; 0.79.1'i Sürümler sayfasından indirip eski klasörün yerine koymaları gerekir.
+- **Yanlış “Türkçe harf eksik” önerileri:** sözlük süzgecinin rastlantıyla “bilinen” saydığı anlamsız biçimler
+  önerilmez: ses uyumuna aykırı adaylar (ironikselfie → ırönıkselfıe, Kukuyu → Kuküyu), camelCase etiketler
+  (#ileriDönüşüm) ve uzatılmış sözcükler (istiyoruuuum) artık onarılmaz.
+
+### Eklendi
+- Sürüm derlemesi paketi yayımlamadan önce `NXTR.exe --paket-denetimi` ile her modülün yüklendiğini denetler; açılışta
+  çöken bir paket artık derlemede yakalanır.
+
 ## [0.79.0] — 2026-11-24 — Dış redaksiyon tek tık
 
 ### Değişti

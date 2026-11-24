@@ -1627,3 +1627,13 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     bırakılınca `csvio.revision_file_kind` başlığa bakar (“yeni çeviri” → dış çeviri, yoksa redaksiyon) ve
     `ExchangeController.import_files` karşılaştırma penceresini dosya sormadan açar; tabloda satır yokken ya da iş
     sürerken bırakma kabul edilmez.
+252. **Paket denetimi ve ASCII onarımında ses uyumu (2026-11-25):** 0.79.0 paketi açılışta çöktü: etcpak içe
+    aktarılırken archspec kendi JSON verisini okur, PyInstaller bunu toplamıyordu (`NXTR.spec` artık `archspec` ve
+    `etcpak` için `collect_all`). Benzeri yayımlanmasın diye `nxceviri/paket_denetimi.py`: `NXTR.exe
+    --paket-denetimi <rapor>` her `nxceviri` modülünü içe aktarır, hatayı yakalayıp rapora yazar (pencere/çökme
+    kutusu açılmaz, derleme beklemez); `release.yml` bunu zaman sınırıyla çalıştırır, başarısızsa zip yüklenmez.
+    Komut ayrıştırıcıdan önce (`__main__._run`) yakalanır, çünkü komut modülleri de kayıt defterini içe aktarır.
+    `asciitr`: yazım sözlüğü Bloom süzgecidir (yanlış olumlu ~%0,075); bir sözcük için 1024'e kadar aday denendiğinde
+    anlamsız biri “bilinen” çıkabiliyordu. Aday üretiminde eklenen ı/ö/ü iki yanındaki ünlülerin ikisi de öteki
+    sınıftansa (ince/kalın) aday atılır (tek yanı uyumsuz alıntılar geçer: otobüs, kıble); camelCase ve aynı harfin
+    üç kez yinelendiği sözcükler onarılmaz. Tek adaylı yanlış olumlu (Kipa → Kıpa) kural ile ayrılamaz; öneri kalır.

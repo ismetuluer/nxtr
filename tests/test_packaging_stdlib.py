@@ -73,3 +73,45 @@ def test_license_collection_fails_loudly_for_missing_distribution() -> None:
     ):
         assert f'"{name}"' in text
         metadata.distribution(name)  # spec'teki adların hepsi gerçek dağıtım adıdır
+
+
+def test_every_module_imports_for_release_check(tmp_path: Path) -> None:
+    """Sürüm derlemesi .exe'yi `--paket-denetimi` ile çalıştırır; geliştirme ortamında her modül yüklenmelidir."""
+    from nxceviri.__main__ import _run
+
+    report = tmp_path / "denetim.txt"
+    assert _run(["--paket-denetimi", str(report)]) == 0
+    assert report.read_text(encoding="utf-8").startswith("Tamam")
+
+
+def test_spec_bundles_data_of_runtime_dependencies() -> None:
+    """etcpak açılışta archspec'in JSON verisini okur; paket bunu taşımazsa .exe açılmaz (0.79.0)."""
+    spec = (PACKAGING / "NXTR.spec").read_text(encoding="utf-8")
+    assert '"archspec"' in spec
+    assert '"etcpak"' in spec
+
+
+def test_release_runs_package_check() -> None:
+    workflow = (PACKAGING.parent / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert "--paket-denetimi" in workflow
+
+
+def test_package_check_reports_broken_subpackage_instead_of_crashing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Paketin içe aktarılması (walk_packages'in kendi yaptığı da) ImportError dışı hatayla patlasa da denetim çökmez,
+    hatayı rapora yazar (0.79.0'da FileNotFoundError, çökme penceresi açtırıyordu)."""
+    import importlib as real_importlib
+
+    from nxceviri import paket_denetimi
+
+    original = real_importlib.import_module
+
+    def broken(name: str, package: str | None = None) -> ModuleType:
+        if name == "nxceviri.core.formats.fsdmsg":
+            raise FileNotFoundError("microarchitectures.json")
+        return original(name, package)
+
+    monkeypatch.setattr(real_importlib, "import_module", broken)
+    for loaded in [m for m in sys.modules if m.startswith("nxceviri.core.formats.fsdmsg")]:
+        monkeypatch.delitem(sys.modules, loaded)
+    problems = paket_denetimi.denetle()
+    assert any("nxceviri.core.formats.fsdmsg" in p and "microarchitectures.json" in p for p in problems)

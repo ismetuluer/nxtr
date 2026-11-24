@@ -4,6 +4,10 @@ import sys
 
 
 def _run(args: list[str]) -> int:
+    if args[:1] == ["--paket-denetimi"]:  # sürüm derlemesi: paketin açılabildiğini denetler (komutlardan önce)
+        from nxceviri.paket_denetimi import main as check  # noqa: PLC0415
+
+        return check(args[1:])
     from nxceviri.arac import komut_mu  # noqa: PLC0415 - arayüz yüklenmeden karar verilir
 
     if komut_mu(args):

@@ -27,7 +27,8 @@ hiddenimports = ["keyring.backends.Windows"]
 EXCLUDED = ["tkinter", "pytest", "mypy", "ruff"]  # stdlib listesi packaging/stdlib_modules.py'dedir
 hiddenimports += collect_submodules("nxceviri")
 hiddenimports += stdlib_hidden_imports()
-for package in ("UnityPy",):
+# etcpak (BC7 kodlama) açılışta archspec ile işlemciyi tanır; archspec JSON verisi olmadan .exe açılmaz (0.79.0).
+for package in ("UnityPy", "archspec", "etcpak"):
     d, b, h = collect_all(package)
     datas += d
     binaries += b

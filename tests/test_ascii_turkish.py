@@ -210,3 +210,30 @@ def test_real_untranslated_word_still_flagged_with_flag_copied() -> None:
     checker = SpellChecker(BloomFilter.build(["burada", "merhaba"], error_rate=0.00001))
     checker.flag_copied = True
     assert checker.unknown_words("you merhaba sword", "you hello sword") == ["sword"]
+
+
+#: Sözlük süzgecinin rastgele “bilinen” saydığı anlamsız biçimleri taklit eder: bunları bilen bir denetçi.
+NOISY = SpellChecker(
+    BloomFilter.build([*WORDS, "ilerı", "ırönıkselfıe", "istıyörüüüm", "kuküyu", "otobüs", "kıble"], error_rate=0.00001)
+)
+
+
+def test_nonsense_dictionary_hits_are_not_applied() -> None:
+    """Sözlük süzgeci yanlış olumlu verebilir (çok aday denendikçe olasılık büyür); Türkçe ses uyumuna aykırı
+    aday ya da camelCase/uzatılmış sözcük onarılmaz (ekran görüntüsündeki önerilerden)."""
+
+    def fix(text: str, source: str) -> str:
+        return repair_ascii_turkish(source, text, NOISY).text
+
+    assert fix("#ironikselfie", "#ironicselfie") == "#ironikselfie"  # eklenen ı ince ünlülerle
+    assert fix("BZZZ #ileriDönüşüm", "#upcycling") == "BZZZ #ileriDönüşüm"  # camelCase
+    assert fix("Eve gitmek istiyoruuuum!", "I want to go hoooome!") == "Eve gitmek istiyoruuuum!"  # uzatma
+    assert fix("Kukuyu caldi.", "jingle") == "Kukuyu caldi."  # eklenen ü kalın ünlüler arasında
+
+
+def test_real_loanword_repairs_still_work() -> None:
+    def fix(text: str) -> str:
+        return repair_ascii_turkish("Bus", text, NOISY).text
+
+    assert fix("otobus") == "otobüs"  # alıntı sözcük: ü yalnızca bir yanında kalın ünlü
+    assert fix("kible") == "kıble"
