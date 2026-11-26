@@ -2,6 +2,29 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/), sürümleme [SemVer](https://semver.org/lang/tr/).
 
+## [0.79.3] — 2026-11-26 — Ajandan ajana tecrübe aktarımı
+
+### Değişti
+- **Eklenti iskeletinin `NOT.md`'si artık oyunun haritası:** arşiv yerleşimi ve kaynak dil, metinler nerede (gömülü
+  ve taramanın bulmadığı metinler dahil), biçim, fontlar, resimdeki yazılar ve kopyaları, video ve program kodu, mod
+  çıktısı, "belirti → neden → çözüm" tablosu. Bulunduğu anda yazılır; işi devralan ajan dosyaları baştan
+  incelemez. `CALISMA_GUNLUGU.md`'ye "Eklenti dışındaki betikler ve dosyalar" ve "Cihaz sonuçları" bölümleri eklendi.
+  Haritayı güncellemek, günlük gibi, eklentiyi yeniden onaylatmaz (kökteki `NOT.md` onay parmak izine girmez).
+  Daha önce onaylanmış eklentiler güncellemeden sonra yeniden sorulmaz: eski izle verilen onay, kod aynıysa ilk
+  yüklemede kendiliğinden yeni ize taşınır. Eklentisi olmayan (yerleşik biçimle çevrilen) oyunda iki dosya oyun
+  klasöründe durur.
+- **Rehberler ve skill'ler:** yeni oyun, font, grafik ve sorun giderme yolları önce eklentinin haritasını ve günlüğünü
+  okutur, bulguyu anında yazdırır; iskelet teşhisten hemen sonra kurulur. Başka oyunlarda yaşananlar oyun adı
+  vermeden rehberlere işlendi: sorun gidermede yeni "G. Başka oyunlarda yaşananlar" tablosu (gömülü arayüz metinleri,
+  dil son ekleri, oyunda kullanılan resim kopyası, aynı resmin birden çok konumu, video ve program kodundaki yazılar,
+  IPS dosya adı = yapı kimliğinin tamamı, oyunun kendi harf kodlaması, mod boyutu), grafik rehberinde "Önceki
+  oyunlardan tuzaklar", font rehberinde yeni tuzaklar. `docs/istemler.md`'ye "Yarım kalan işi başka ajanla sürdür"
+  kartı.
+
+### Düzeltildi
+- `docs/formats/fsd-msg.md` `.nbz` arşivini "çözülmedi" diyordu; sıradan zip olduğu ve modun yalnızca değişen
+  üyeleri taşıyan güncelleme arşivi olduğu yazıldı.
+
 ## [0.79.2] — 2026-11-25 — İçe aktarma tek seferde tamam
 
 ### Düzeltildi

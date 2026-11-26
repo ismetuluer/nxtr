@@ -34,12 +34,32 @@ seçili olması. Oyun dosyası aranmaz, indirilmez.
    yapılanları baştan yapma. Günlükte: şimdiki durum ve sıradaki adım (en üstte), yapılanlar (çalıştırılan komut ve
    sonucun özeti), karşılaşılan engeller ve nasıl çözüldüğü, denenip işe yaramayanlar (neden), açık sorular.
    Yazılmaz: anahtar içeriği, oyundan uzun metin ya da resim, kullanıcının kişisel yolları (`<oyun klasörü>` yaz).
+9. **Tecrübe aktarımı (ajandan ajana).** Bir sonraki ajan dosyaları baştan didiklememeli. Bu yüzden iki dosya ve
+   rehberler birlikte tutulur:
+   - `NOT.md` = **oyunun haritası** (kalıcı bilgi): arşiv yerleşimi ve kaynak dil, metinler nerede (gömülü ve
+     taramanın bulmadığı metinler dahil), fontlar ve harf kodlaması, resimdeki yazılar ve kopyaları, video ve program
+     kodundaki metinler, mod çıktısı, "belirti → neden → çözüm" tablosu. Bir şey **bulunduğu anda** yazılır.
+   - `CALISMA_GUNLUGU.md` = **kronoloji**: durum, sıradaki adım, yapılanlar, denenip olmayanlar, eklenti dışındaki
+     betikler (yol + ne yapar + nasıl çalıştırılır), cihaz sonuçları (kullanıcının ekran görüntüsüyle bildirdiği).
+   - Eklenti klasörü dışında iş bırakma: deneme betiği, konum dizini, döküm klasörü ya eklentiye taşınır ya da
+     günlükte yolu ve kullanımı yazılır. Yalnızca bir ajanın kendi belleğine (hafıza dosyası) yazılan bilgi başka
+     sağlayıcının ajanına geçmez; o bilgiyi `NOT.md`'ye de yaz.
+   - Başka oyunda da işe yarayacak ders (oyun adı vermeden, motor/biçim adıyla) ilgili rehbere eklenir:
+     `sorun-giderme.md` belirti tablosu, `font.md`, `grafik.md`, ilgili `docs/formats/` notu.
+   - İskelet erken kurulur (adım 1b): günlük ve harita ilk bulgudan itibaren var olsun.
+   - Oyun yerleşik biçimlerle çevriliyor ve eklenti yoksa iki dosya oyun klasöründe durur
+     (`<oyun klasörü>/NOT.md`, `<oyun klasörü>/CALISMA_GUNLUGU.md`, `grafik_temizleme`'nin yanında), aynı bölümlerle.
+     Depoya girmezler; oyun adı ve kişisel yol yazılabilir.
 
 ## Adımlar
 
 ### 0. Önceki çalışmayı oku
-Eklenti klasörü zaten varsa `CALISMA_GUNLUGU.md`'yi baştan sona oku; "Şimdiki durum" ve "Sıradaki adım"dan devam
-et. Dosyada yazan komut sonuçlarını yeniden üretme gerekmez; yalnızca şüpheliysen tekrar çalıştır.
+`python -m nxceviri.arac eklentiler` eklenti klasörlerini ve her eklentinin oyunlarını (TitleID) listeler; oyunun
+eklentisi orada yoksa oyun klasöründe `NOT.md` / `CALISMA_GUNLUGU.md` var mı bak (kural 9). Varsa önce `NOT.md`'yi (oyunun haritası), sonra `CALISMA_GUNLUGU.md`'yi baştan sona oku;
+"Şimdiki durum" ve "Sıradaki adım"dan devam et. Dosyada yazan komut sonuçlarını yeniden üretme gerekmez; yalnızca
+şüpheliysen tekrar çalıştır. Günlükteki "Eklenti dışındaki betikler ve dosyalar" bölümündeki betikleri yeniden yazma,
+yerinde mi diye bak ve kullan. Sonra `sorun-giderme.md` belirti tablosuna ve `docs/formats/README.md`'ye göz at:
+benzer sorun başka oyunda çözülmüş olabilir.
 
 ### 1. Teşhis
 ```
@@ -58,6 +78,12 @@ Karar:
 Raporun "aday metin dosyaları" listesini bir kapsam tablosuna çevir (dosya → kapsayan eklenti ya da kapsanmama
 nedeni); iş bitene kadar bu tabloyu güncel tut, raporda göster (bağlayıcı kural 3).
 
+### 1b. İskeleti hemen kur, haritayı başlat
+Yeni kod gerekecekse eklenti iskeletini şimdi üret (`eklenti-olustur`, adım 4), testleri sonra yaz. Teşhisin
+bulduklarını (TitleID, sürüm, arşiv yerleşimi, dil dosyaları, aday metin dosyaları, font ve resim dosyaları) hemen
+`NOT.md`'ye, komutu ve sonucunu `CALISMA_GUNLUGU.md`'ye yaz. Kotan teşhisten sonra bitse bile sonraki ajan buradan
+başlar.
+
 ### 2. Ekranda görülen metni dosyalarda bul
 Kullanıcıdan oyunda gördüğü **kısa, ayırt edici bir cümleyi** iste (menü sözcüğü değil; bir diyalog cümlesi ya da eşya
 açıklaması iyi olur). Sonra:
@@ -72,6 +98,26 @@ python -m nxceviri.arac ara "<cümle>" "<oyun dosyaları ya da çıkarılmış k
 - Sonuç dil klasörlerinde (`en`, `fr`, `ja`…) → yapı dil başına dosyadır; yalnızca kaynak dil aktarılır, `ja` kopyası
   bazen metni kimlikten ayırmaya yarar (NNI arşivli oyunda böyle).
 - Aynı cümle birden çok yerde (SRT + TSV + önbellek) → oyunun hangisini okuduğunu bilmeden hepsini yaz (düz metin + `Locoliser` oyunu).
+- Ana metinler çıktı ama menü / onay penceresi / öğretici yazıları tabloda yok → bu yazılar çoğu zaman **başka
+  dosyaların içine gömülüdür** (paket içindeki betik, sahne dosyası), taramanın açmadığı bir arşivdedir ya da
+  **program kodundadır** (aşağıda). Kullanıcının ekran görüntüsündeki İngilizce cümleyi `ara` ile çıkarılmış bütün
+  arşivlerde ara; bulunduğu dosya ailesini (aynı son ekli bütün dosyalar) kapsam tablosuna ekle.
+
+#### Yazı ne metinde ne resimde: video ve program kodu
+- **Videodaki yazı** (açılış uyarısı, jenerik): `ara` ve resim taraması bulmaz. Videoyu kare kare çıkar, yazının
+  **en net** göründüğü kareyi (en parlak kare değil; yazı çoğu zaman ilk birkaç saniyede belirip kaybolur) kullanıcıya
+  ver. Türkçe kareyi yazının göründüğü kareler boyunca bindirip yeniden kodla; işe yarayan ayar: ffmpeg, x264
+  `-profile:v main -crf 15`, ses `-c:a copy`, çözünürlük ve kare hızı özgünle aynı. Aynı videonun dil kopyaları
+  olabilir (dosya adının son ekiyle); hangisinin oynatıldığını ekran görüntüsüyle doğrula, ötekilere dokunma.
+- **Program kodundaki yazı** (exefs `main`): Evet/Hayır, kayıt uyarısı gibi kısa yazılar çoğu zaman burada. `ara`
+  yalnızca RomFS'i tarar, program kodunu taramaz. `main` bir NSO dosyasıdır (bölümleri LZ4 ile sıkıştırılmış);
+  açıp ham bayt araması yap. Yazı oyunun kendi harf kodlamasındaysa aranan baytları o kodlamayla üret. Eklentide
+  `exefs_patches(code)` kancası oyunun `main`'ini (güncelleme yüklüyse güncellemeninkini) alır ve yapı kimliği →
+  IPS yaması döndürür (`eklenti-yazma.md`). Yama IPS dosyasıdır; ayrıntı ve tuzaklar `docs/formats/fsd-msg.md`
+  "Program kodundaki metinler" (`.rela.dyn` göstericileri, IPS32) ve `sorun-giderme.md` belirti tablosu. Özet: dosya adı modülün **yapı kimliğidir** (sondaki
+  sıfır baytlar kırpılmış onaltılık; kimlik 16 ya da 20 bayt olabilir), base ve güncelleme ayrı kimlik taşır, IPS
+  ofseti = bellek adresi + 0x100; metin oyunun kendi harf kodlamasıyla yazılır; daha uzun metni çalışma anında
+  sıfırlanan boş alana değil, kullanılmayan bir dil dizgisinin yerine yaz ve göstericileri oraya yönlendir.
 
 ### 3. Motora göre yol
 Kısa tarifler; ayrıntı ilgili not dosyasında (`docs/formats/README.md` dizin).
@@ -198,9 +244,11 @@ Uygulamayı aç (`NX Ceviri Studyosu.bat` ya da `python -m nxceviri`):
    o harfler `unsupported_letters`'ta.
 7. **Resim:** yazılı resimlerin sayısı ve örnek adları kullanıcıya bildirildi; kullanıcı istediyse `orijinal/` ve
    `turkce/` düzeni kuruldu, `turkce/`deki resimler moda yerleşti.
-8. `NOT.md` yazıldı (font sonucu, kapsam tablosu dahil). Cihazda deneme yapılmadıysa raporda "cihazda denenmedi" yazar.
-9. `CALISMA_GUNLUGU.md` güncel: durum "bitti" (ya da kalan iş), engeller ve çözümleri, sıradaki adım (kullanıcının
-   cihazda denemesi) yazılı.
+8. `NOT.md` (oyunun haritası) dolu: metinler, fontlar, resimler, video ve program kodu, mod çıktısı ve "belirti →
+   neden → çözüm" bölümleri yazılı (yoksa "yok"). Cihazda deneme yapılmadıysa raporda "cihazda denenmedi" yazar.
+9. `CALISMA_GUNLUGU.md` güncel: durum "bitti" (ya da kalan iş), engeller ve çözümleri, eklenti dışındaki betikler,
+   cihaz sonuçları, sıradaki adım (kullanıcının cihazda denemesi) yazılı.
+10. Başka oyunda da işe yarayacak her yeni ders oyun adı vermeden ilgili rehbere eklendi (kural 9).
 
 ## Kullanıcıya rapor
 Kısa Türkçe: oyun ve motor, eklenti klasörünün yolu (ve `nxceviri/` altında değişiklik olmadığı), kaç dosyadan kaç

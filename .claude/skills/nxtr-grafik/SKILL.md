@@ -6,6 +6,10 @@ description: NXTR'de oyundaki menü, düğme, başlık veya hikâye kartı gibi 
 # NXTR: grafik (resimlerdeki yazılar)
 
 1. `AGENTS.md`'yi baştan sona oku (oyun resimleri telifli: depoya konmaz, paylaşılmaz; ana koda yazma yasağı).
+1b. Oyunun eklentisi varsa önce klasöründeki (eklenti yoksa oyun klasöründeki) `NOT.md` ("Resimdeki yazılar") ve `CALISMA_GUNLUGU.md`'yi oku;
+   resimleri yeniden arama. Hangi arşivde hangi resim, kopyaları, oyunda kullanılan kopya ve kullanıcının resim
+   koyduğu klasör bulduğun anda bu iki dosyaya yazılır. Rehberdeki "Önceki oyunlardan tuzaklar" bölümünü atlama;
+   yeni tuzağı oyun adı vermeden oraya ekle.
 2. `docs/rehber/grafik.md` rehberini baştan sona oku; örnekler için `docs/formats/nni.md` ("Grafikler") ve
    `docs/formats/fsd-msg.md`.
 3. Yazı içeren resimleri tespit et, sayısını ve örnek adlarını kullanıcıya bildir. Yazının gerçekten resimde olduğunu

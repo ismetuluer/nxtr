@@ -30,6 +30,29 @@ yalnızca İngilizce metni aktar. `python -m nxceviri.arac font` ile Türkçe ha
 önce font yamasıyla (gerekirse eklentinin içinde) kapat, harf dönüştürmeyi yalnızca son çare olarak kullan. Yazı
 içeren resimleri say ve bana örnek adlarla bildir. Anahtar içeriğini gösterme, oyun dosyası indirme. Her adımda ne
 yaptığını ve ne test ettiğini çıktısıyla göster.
+
+Kotan ya da oturumun her an bitebilir; işi başka bir ajan sürdürecek. Teşhisten hemen sonra eklenti iskeletini kur.
+Bir şey bulduğun anda (işin sonunda değil) eklenti klasöründeki NOT.md'ye (oyunun haritası: metinler, fontlar,
+resimler, video ve program kodu nerede, belirti → neden → çözüm) ve CALISMA_GUNLUGU.md'ye (durum, sıradaki adım,
+denenip olmayanlar, eklenti dışındaki betiklerin yolu) yaz.
+```
+
+## 1b. Yarım kalan işi başka ajanla sürdür
+
+Önceki ajanın kotası bittiyse ya da başka bir yapay zekâyla devam etmek istiyorsanız bunu yapıştırın:
+
+```
+Bu klasördeki NXTR projesinde başka bir ajanın yarım bıraktığı oyun çevirisini sürdüreceksin.
+Önce AGENTS.md'yi, sonra docs/rehber/yeni-oyun.md'yi oku. Ardından eklenti klasöründeki şu iki dosyayı baştan sona
+oku: <eklentiler\eklenti_adi>\NOT.md (oyunun haritası) ve CALISMA_GUNLUGU.md (durum ve sıradaki adım).
+
+Bu dosyalarda yazan işleri ve dosya incelemelerini baştan yapma; "Sıradaki adım"dan devam et. "Eklenti dışındaki
+betikler ve dosyalar" bölümündeki betikler yerindeyse onları kullan. Bir sonucundan şüphelenirsen yalnızca o komutu
+tekrar çalıştır. Önce bana 5 satırda neyin bittiğini, neyin kaldığını ve ilk adımını söyle, sonra işe başla.
+Çalışırken her bulguyu ve her adımı bu iki dosyaya yazmaya devam et; senden sonra da başka bir ajan devam edebilir.
+
+Oyun dosyaları: <C:\...\oyun.nsz>, <C:\...\guncelleme.nsp>
+Cihazda denediklerim (varsa): <ne çalıştı, ne İngilizce kaldı, ekran görüntüsü klasörü>
 ```
 
 ## 2. Modda sorun var

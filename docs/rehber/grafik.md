@@ -119,6 +119,29 @@ Yukarıdaki çözülmüş örneklerin kodu (`fontpatch/…`) yerleşik biçimler
    (`nxceviri/assets/fonts`: Kaushan Script, Pirata One) kullanılabilir.
 6. **Dışa aktar ve kullanıcı cihazda/emülatörde bakar.** Resimler çok yer kaplar; mod boyutunu söyle.
 
+## Önceki oyunlardan tuzaklar
+Her bulguyu oyunun `NOT.md` "Resimdeki yazılar" bölümüne yaz (hangi arşivde ne var, kopyalar, oyunda kullanılan
+kopya); kullanıcının resim koyduğu klasörleri `CALISMA_GUNLUGU.md`'ye. Sonraki ajan resimleri yeniden aramaz.
+- **Oyunda görünen kopyayı doğrula.** Aynı ekranın resmi birden çok pakette olabilir (eski çözünürlük + yüksek
+  çözünürlüklü yeniden yapım paketi, dil başına paket). Kullanıcının ekran görüntüsünü adaylarla karşılaştırmadan
+  çevirtme; şüphede ikisini de çıkar ve hangisinin kullanıldığını cihaz denemesiyle doğrula.
+- **Aynı resim birden çok konumda.** Arşivde aynı doku farklı ofsetlerde tekrar edebilir; yalnızca biri değişirse
+  oyun ötekini gösterir. Resmi içerik özetiyle (hash) tanı, bütün konumlarını bir dizine çıkar (`hash → [konumlar]`)
+  ve Türkçesini hepsine yaz. Aynı resmin iki çevirisi varsa en yenisini kullan ve kullanıcıya söyle.
+- **Metin ve resim aynı dosyadaysa** resim adımı metin yazılmış baytlardan başlar; orijinalden başlarsa metin
+  yamasını ezer.
+- **Değişti mi denetimi bayt kıyasıyla.** Pillow'da RGBA fark resminin `getbbox()`'ı yalnızca alfa kanalına bakar,
+  renk değişikliğini kaçırır; `a.tobytes() != b.tobytes()` ile karşılaştır.
+- **Animasyonlu başlıklar** (kare kare dokular): kullanıcı yalnızca son kareyi Türkçeleştirir; son karedeki farkı
+  bütün karelere aktar, yazı bölgesini kısmen sabitle (titreşmesin), son kareyi Türkçenin aynısı yap.
+- **Kullanıcıya bir kerede ver.** Bir ekranın bütün adaylarını (bütün paketlerden) tek seferde `orijinal/`e çıkar ve
+  listesini (`OKU.md`: dosya → ekran) yaz; parça parça vermek tur kaybettirir. Kullanıcı Türkçeleri farklı bir
+  klasöre koyabilir: klasörü sorup günlüğe yaz.
+- **Başka platformun (PC) Türkçe yaması varsa** resimleri doğrudan konmaz: sanat aynı olsa da Switch sürümü farklı
+  doku biçimi (BC3 yerine BC7) ve kimi sayfada iki kat çözünürlük kullanabilir. Türkçe resmi Switch dosyasının
+  biçimine yeniden kodla; her sayfayı Switch dosyasıyla karşılaştır.
+- **Video:** yazı videodaysa resim taraması bulmaz; `yeni-oyun.md` "video ve program kodu".
+
 ## Karar noktaları
 - **Yeni kod yazmadan önce:** yazı sayısı azsa (10-20 etiket) kullanıcının elle yaptığı `turkce/` yolu, çoksa ve düz
   zeminse etiket çizimi daha verimli olabilir.

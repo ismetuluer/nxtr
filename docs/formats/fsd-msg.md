@@ -80,7 +80,8 @@ yok. Dışa aktarırken bu harfler otomatik dönüştürülür (ğ→g, ş→s, 
 # Aynı oyunun sonraki sürümleri (`.nbz`)
 
 Metinler `data/dmc2/dmc2-0.nbz` ve `data/dmc3/dmc3-0.nbz` arşivlerinde (birinde güncelleme `dmc3-1.nbz`
-ile değiştiriyor). `.nbz` biçimi çözülmedi. Rusça mod ayrıca `exefs/main` (çalıştırılabilir dosya) yamalıyor;
+ile değiştiriyor). `.nbz` sıradan bir zip arşividir (2026-11-26); mod, yalnızca değişen üyeleri taşıyan
+`<ad>-1.nbz`'dir (güncelleme arşivi, aynı yolu taşıyan üye base'dekini geçersiz kılar). Rusça mod ayrıca `exefs/main` (çalıştırılabilir dosya) yamalıyor;
 kodlama veya yazı tipi yürütülebilir dosyada olabilir.
 
 # PC (HD Collection) topluluk Türkçe yaması ve yazı dokusu (0.23.0)
@@ -116,7 +117,9 @@ Hatalı önceki varsayımlar (bu bölümün eski sürümü): dosyayı ham 512×2
 DDS başlığının görüntüyü 32 piksel kaydırmasıydı). DDS başlığı olmayan veya boş hücreli bir doku oyunu açılışta çökertti
 ("Hata oluştu, kapatılıyor"; cihazda iki kez). Oyun 0x47 dışındaki tüm hücreleri ölçüyor olabilir; üretilen doku hepsini doldurur.
 
-## Sonraki sürümler (ön değerlendirme, doğrulanmadı)
+## Sonraki sürümler (ön değerlendirme; aşağıdaki bindirme sorusu sonradan çözüldü)
+Güncelleme: `.nbz` zip'tir; yalnızca değişen üyeleri taşıyan `<ad>-1.nbz` mod olarak eklenince oyun onu okuyor
+(cihazda doğrulandı, 2026-11). Büyük `-0.nbz`'yi yeniden yazmak gerekmez.
 - İkinci oyun: PC yamasındaki 87 dosyanın hepsi Switch `dmc2-0.nbz` içinde aynı adla var; 73'ü (`edm_*_e.bin`, altyazı görüntüleri) aynı
   boyutta, 14'ü (`msg_*.nb`, metin) farklı boyutta (Türkçe metin). Switch'te `dmc2-1.nbz` bindirmesi yok; uygulamak için ya 768 MB'lık
   `dmc2-0.nbz` yeniden yazılmalı ya da oyunun başka bir yüklemesi aranmalı.

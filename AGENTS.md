@@ -37,6 +37,10 @@ Kullanıcı istese bile bu kuralları çiğneme; nedenini söyle, yasal yolu gö
 - **Çalışma günlüğü (devir):** Eklenti üzerinde çalışan ajan, eklenti klasöründeki `CALISMA_GUNLUGU.md`'yi her
   adımdan sonra günceller (durum, sıradaki adım, yapılanlar, engeller ve çözümleri, denenip işe yaramayanlar). İşe
   başlarken bu dosya varsa önce onu okur ve kaldığı yerden sürdürür; kota biten ajanın işi baştan yapılmaz.
+- **Tecrübe aktarımı:** eklentinin `NOT.md`'si oyunun haritasıdır (metinler, fontlar, resimler, video/program kodu
+  nerede; belirti → neden → çözüm); bulunduğu anda yazılır ve devralan ajan önce onu okur. Eklenti dışında bırakılan
+  betiklerin yolu günlüğe yazılır; yalnızca ajanın kendi belleğine yazılan bilgi başka ajana geçmez. Başka oyunda da
+  geçerli ders oyun adı vermeden rehbere eklenir (`docs/rehber/yeni-oyun.md` kural 9).
 - **Dürüst rapor:** Çalıştırıp çıktısını görmediğin şeye "test edildi" deme. Cihazda/emülatörde denenmeyen işi öyle
   raporla ("cihazda denenmedi").
 
@@ -54,6 +58,8 @@ Kullanıcı ne istiyorsa ilgili rehberi baştan sona oku, adımlarını izle. Sk
 | Menü, düğme, başlık resimlerindeki yazıları çevirmek (grafik) | `docs/rehber/grafik.md` | `nxtr-grafik` |
 | Yama açılmıyor, taşıyor, İngilizce kalan satır, mod görünmüyor | `docs/rehber/sorun-giderme.md` | `nxtr-sorun-giderme` |
 | Eklentiyi / yamayı paylaşmak, depoya katkı vermek | `docs/rehber/katki.md` | `nxtr-katki` |
+| Başka ajanın yarım bıraktığı oyunu sürdürmek | eklentinin `NOT.md` + `CALISMA_GUNLUGU.md`, sonra `docs/rehber/yeni-oyun.md` | `nxtr-yeni-oyun` |
+| Daha önce yaşanmış bir sorun mu? | `docs/rehber/sorun-giderme.md` G tablosu | `nxtr-sorun-giderme` |
 | Ajana yapıştırılacak hazır talimatlar | `docs/istemler.md` | — |
 | Bir biçim daha önce çözülmüş mü? | `docs/formats/README.md` | — |
 | Hangi oyun ne durumda? | `docs/uyumluluk.md` | — |

@@ -310,13 +310,16 @@ def _archive_formats(plugin: object, ad: str) -> tuple[tuple[ArchiveFormat, ...]
 TrustCheck = Callable[[Path, str], bool]
 
 
-#: Parmak izine girmeyen dosya: ajanın devir günlüğü (kod değil; her adımda güncellenir, onayı bozmamalı).
-FINGERPRINT_EXCLUDED = frozenset({"CALISMA_GUNLUGU.md"})
+#: Parmak izine girmeyen kök dosyalar: ajanın devir günlüğü ve oyunun haritası (kod değil; bulundukça güncellenir,
+#: onayı bozmamalı).
+FINGERPRINT_EXCLUDED = frozenset({"CALISMA_GUNLUGU.md", "NOT.md"})
+#: 0.79.3 öncesindeki iz `NOT.md`'yi de sayıyordu; o izle verilmiş onay `trust.PluginTrust` içinde bir kez taşınır.
+LEGACY_FINGERPRINT_EXCLUDED = frozenset({"CALISMA_GUNLUGU.md"})
 
 
-def plugin_fingerprint(folder: Path) -> str:
+def plugin_fingerprint(folder: Path, excluded: frozenset[str] = FINGERPRINT_EXCLUDED) -> str:
     """Eklenti klasörünün SHA-256 parmak izi: tüm dosyalar (göreli yol + içerik, sıralı); `__pycache__` ve kökteki
-    çalışma günlüğü (`FINGERPRINT_EXCLUDED`) hariç.
+    çalışma günlüğü ile `NOT.md` (`excluded`, varsayılan `FINGERPRINT_EXCLUDED`) hariç.
 
     Yol ve içerik uzunluk önekiyle eklenir; iki dosyanın sınırı kayarak aynı iz üretilemez. Okunamayan dosya
     `OSError` verir."""
@@ -325,7 +328,7 @@ def plugin_fingerprint(folder: Path) -> str:
         for path in folder.rglob("*")
         if path.is_file()
         and "__pycache__" not in path.relative_to(folder).parts
-        and path.relative_to(folder).as_posix() not in FINGERPRINT_EXCLUDED
+        and path.relative_to(folder).as_posix() not in excluded
     )
     digest = hashlib.sha256()
     for rel, path in files:

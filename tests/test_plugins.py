@@ -339,6 +339,24 @@ def test_scaffold_has_work_log_template_for_handover(tmp_path: Path) -> None:
     ):
         assert heading in log
     assert "önce bu dosyayı" in log  # devralan ajana ilk talimat
+    # Eklenti klasörü dışında yazılan betikler ve ekran görüntüsüyle gelen kullanıcı geri bildirimi de devredilir.
+    assert "## Eklenti dışındaki betikler ve dosyalar" in log
+    assert "## Cihaz sonuçları" in log
+
+
+def test_scaffold_note_is_a_game_map_for_the_next_agent(tmp_path: Path) -> None:
+    note = (create_plugin("ornek_oyun", tmp_path) / "NOT.md").read_text(encoding="utf-8")
+    for heading in (
+        "## Oyun ve dosyalar",
+        "## Metinler nerede",
+        "## Fontlar",
+        "## Resimdeki yazılar",
+        "## Video ve program kodu",
+        "## Mod çıktısı",
+        "## Belirti → neden → çözüm",
+    ):
+        assert heading in note
+    assert "CALISMA_GUNLUGU.md" in note  # kalıcı bilgi burada, kronoloji günlükte
 
 
 def test_work_log_does_not_change_plugin_fingerprint(tmp_path: Path) -> None:
@@ -347,6 +365,10 @@ def test_work_log_does_not_change_plugin_fingerprint(tmp_path: Path) -> None:
     (folder / "CALISMA_GUNLUGU.md").write_text("güncellendi", encoding="utf-8")
     assert plugin_fingerprint(folder) == before  # günlüğü güncellemek eklentiyi yeniden onaylatmaz
     (folder / "NOT.md").write_text("değişti", encoding="utf-8")
+    assert plugin_fingerprint(folder) == before  # oyunun haritası da (bulundukça yazılır, kod değil)
+    (folder / "tests" / "NOT.md").write_text("alt klasör", encoding="utf-8")
+    assert plugin_fingerprint(folder) != before  # yalnızca kökteki iki belge dışlanır
+    (folder / "plugin.py").write_text("# değişti\n", encoding="utf-8")
     assert plugin_fingerprint(folder) != before
 
 

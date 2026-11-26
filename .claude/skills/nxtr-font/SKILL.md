@@ -6,6 +6,10 @@ description: NXTR'de oyunda Türkçe harfler (ğ ş ı İ gibi) kutucuk ya da ya
 # NXTR: font ve Türkçe harfler
 
 1. `AGENTS.md`'yi baştan sona oku (ana koda yazma yasağı dahil).
+1b. Oyunun eklentisi varsa önce klasöründeki (eklenti yoksa oyun klasöründeki) `NOT.md` ("Fontlar" bölümü) ve `CALISMA_GUNLUGU.md`'yi oku;
+   orada yazan font incelemelerini baştan yapma. Bulduğun her şeyi (font dosyaları, biçim, harf kodlaması, yama
+   sonucu) bulduğun anda `NOT.md`'ye, adımları günlüğe yaz; başka oyunda da geçerli tuzağı oyun adı vermeden
+   `docs/rehber/font.md` "Bilinen tuzaklar"a ekle.
 2. `docs/rehber/font.md` rehberini baştan sona oku; ayrıntı için `docs/formats/tmp-font.md`.
 3. Önce `python -m nxceviri.arac font <oyun dosyaları>` çalıştır (sonuç a/b/c). Sonra uygulamada Kontrol Et → Fontları Tara çalıştır ve
    tablodaki sayıları (eksik harfler, "Yamayla eklenir") kullanıcıya aktar. Sırayla: fontta zaten var mı → yerleşik font

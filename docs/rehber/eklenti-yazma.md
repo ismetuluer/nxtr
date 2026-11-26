@@ -12,8 +12,8 @@ Kullanıcı eklentisi bir klasördür:
 | `eklenti.toml` | `ad`, `surum`, `yazar`, `oyunlar` (TitleID listesi), `aciklama` (isteğe bağlı kısa metin), `api = 1` |
 | `plugin.py` | Biçim eklentisi: `detect` / `extract` / `inject` (aşağıda) |
 | `tests/` | Elle üretilmiş örnekle bayt bayt round-trip testi |
-| `NOT.md` | Biçim notu: yapı, kaynak, tuzaklar, cihazda denendi mi |
-| `CALISMA_GUNLUGU.md` | Ajanın çalışma günlüğü: durum, sıradaki adım, yapılanlar, engeller ve çözümleri, denenip işe yaramayanlar. Her adımdan sonra güncellenir; işi devralan ajan önce bunu okur (`yeni-oyun.md` kural 8). Onay parmak izine girmez: güncellemek eklentiyi yeniden onaylatmaz |
+| `NOT.md` | Oyunun haritası (kalıcı bilgi): arşiv yerleşimi ve kaynak dil, metinler nerede, biçim, fontlar, resimdeki yazılar, video ve program kodu, mod çıktısı, belirti → neden → çözüm. Bulunduğu anda yazılır; devralan ajan önce bunu okur (`yeni-oyun.md` kural 9). Onay parmak izine girmez |
+| `CALISMA_GUNLUGU.md` | Ajanın çalışma günlüğü (kronoloji): durum, sıradaki adım, yapılanlar, engeller ve çözümleri, denenip işe yaramayanlar, eklenti dışındaki betikler, cihaz sonuçları. Her adımdan sonra güncellenir; devralan ajan `NOT.md`'den sonra bunu okur (`yeni-oyun.md` kural 8). Onay parmak izine girmez: güncellemek eklentiyi yeniden onaylatmaz |
 
 Konum: `%LOCALAPPDATA%\NXCeviri\eklentiler\<ad>\` (her çalıştırma biçiminde; güncelleme dokunmaz) ve kaynak kurulumda
 depo içi `eklentiler/<ad>/` (git'e girmez). İskelet için `python -m nxceviri.arac eklenti-olustur <ad>`; yüklü eklentiler
@@ -30,7 +30,7 @@ klasöründe varsa kullanıcı klasöründeki kullanılır, diğeri "gölgelendi
 > **Onay:** Uygulama, kullanıcı eklenti klasörüne konmuş yeni ya da içeriği değişmiş bir eklentiyi açılışta sorar
 > ("Yeni eklenti bulundu": Yükle / Şimdi Değil); onaylanana kadar kodu çalıştırılmaz, Araçlar → Eklentiler'de
 > "Onay bekliyor" görünür ve oradan "Onayla ve Yükle" ile de onaylanabilir. Onay, klasördeki dosyaların parmak izi
-> (SHA-256, `__pycache__` ve kökteki `CALISMA_GUNLUGU.md` hariç) olarak `%LOCALAPPDATA%\NXCeviri\eklenti_onaylari.json` dosyasında tutulur; dosya
+> (SHA-256, `__pycache__` ile kökteki `CALISMA_GUNLUGU.md` ve `NOT.md` hariç) olarak `%LOCALAPPDATA%\NXCeviri\eklenti_onaylari.json` dosyasında tutulur; dosya
 > değişince yeniden sorulur. "Eklenti Ekle…" ile kurulan eklenti onaylı sayılır. Depo içi `eklentiler/` klasörü ve komut
 > satırı araçları (`python -m nxceviri.arac …`) onay sormaz; eklenti geliştirirken her değişiklikte uygulama yeniden
 > soracağı için önce araçlarla dene. Bu, bilmeden kopyalanan eklentinin sessizce çalışmasını önler; klasöre ve onay

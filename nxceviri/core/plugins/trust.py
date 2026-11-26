@@ -20,7 +20,7 @@ import tempfile
 from pathlib import Path
 
 from nxceviri.core.errors import NxError
-from nxceviri.core.plugins.loader import user_data_dir
+from nxceviri.core.plugins.loader import LEGACY_FINGERPRINT_EXCLUDED, plugin_fingerprint, user_data_dir
 
 log = logging.getLogger(__name__)
 
@@ -61,8 +61,26 @@ class PluginTrust:
         return entries
 
     def is_trusted(self, folder: Path, fingerprint: str) -> bool:
-        """Klasör bu içerikle (parmak iziyle) onaylanmış mı?"""
-        return self._read().get(trust_key(folder)) == fingerprint
+        """Klasör bu içerikle (parmak iziyle) onaylanmış mı?
+
+        0.79.3 öncesi iz `NOT.md`'yi de sayıyordu: kayıt o eski izle eşleşiyorsa (kod aynı) onay yeni ize taşınır,
+        kullanıcıya yeniden sorulmaz. Taşıma yazılamazsa bu açılışta yine onaylı sayılır, bir sonrakinde denenir."""
+        stored = self._read().get(trust_key(folder))
+        if stored is None:
+            return False
+        if stored == fingerprint:
+            return True
+        try:
+            legacy = plugin_fingerprint(folder, LEGACY_FINGERPRINT_EXCLUDED)
+        except OSError:
+            return False
+        if stored != legacy or fingerprint != plugin_fingerprint(folder):
+            return False
+        try:
+            self.approve(folder, fingerprint)
+        except PluginTrustError:
+            log.warning("Eklenti onayı yeni parmak izine taşınamadı: %s", folder, exc_info=True)
+        return True
 
     def known(self, folder: Path) -> bool:
         """Klasör daha önce (belki başka bir içerikle) onaylanmış mı? Onay bekliyorsa "içerik değişti" demektir."""

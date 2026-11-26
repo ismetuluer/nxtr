@@ -7,10 +7,14 @@ description: NXTR'de yeni bir Switch oyununun metinlerine erişmek, çeviri tabl
 
 1. `AGENTS.md`'yi baştan sona oku; anahtar, oyun dosyası, orijinal dosya ve **ana koda yazma yasağı** kuralları
    bağlayıcıdır.
-1b. **Devir:** eklenti klasörü zaten varsa önce içindeki `CALISMA_GUNLUGU.md`'yi baştan sona oku ve kaldığı yerden
-   devam et. Her adımdan sonra (işin sonunda değil) günlüğü güncelle: şimdiki durum ve sıradaki adım, yapılanlar
-   (komut + sonuç özeti), engeller ve çözümleri, denenip işe yaramayanlar, açık sorular. Kota/oturum her an bitebilir;
-   başka bir ajan bu dosyadan devam edebilmeli. Anahtar içeriği, uzun oyun metni, kişisel yol yazma.
+1b. **Devir:** eklenti klasörü zaten varsa önce `NOT.md`'yi (oyunun haritası), sonra `CALISMA_GUNLUGU.md`'yi baştan
+   sona oku ve kaldığı yerden devam et; orada yazan incelemeleri baştan yapma. Yoksa iskeleti teşhisten hemen sonra
+   kur. Bir şey bulduğun anda `NOT.md`'ye (metinler, fontlar, resimler, video/program kodu nerede; belirti → neden →
+   çözüm), her adımdan sonra günlüğe (durum, sıradaki adım, denenip olmayanlar, eklenti dışındaki betiklerin yolu,
+   cihaz sonuçları) yaz. Kota/oturum her an bitebilir; başka sağlayıcının ajanı bu iki dosyadan devam edebilmeli.
+   Yalnızca kendi belleğine yazdığın bilgi ona geçmez. Anahtar içeriği, uzun oyun metni, kişisel yol yazma.
+   Başka oyunda da işe yarayacak dersi oyun adı vermeden `docs/rehber/sorun-giderme.md` G tablosuna ya da ilgili
+   rehbere ekle (`yeni-oyun.md` kural 9).
 2. `docs/rehber/yeni-oyun.md` rehberini baştan sona oku ("Bağlayıcı kurallar" dahil). Eklenti yazılacaksa
    `docs/rehber/eklenti-yazma.md`'yi de oku (izinli çekirdek modülleri, çok dosyalı eklenti, font/resim kancaları).
 3. Bütün kod (metin, font, resim) **tek bir eklenti klasöründe** durur; `nxceviri/` altında dosya oluşturma ya da
@@ -22,6 +26,6 @@ description: NXTR'de yeni bir Switch oyununun metinlerine erişmek, çeviri tabl
    `grafik_temizleme/orijinal` + `turkce`) → uygulamada Tara/Çevir/Dışa Aktar. Kullanıcı başka dil demedikçe yalnızca
    İngilizce. Çözülmüş biçimler için `docs/formats/README.md`'ye bak; çözülmüşse yeni kod yazma.
 5. Bitti demeden: `dogrula` geçti ve `İçe aktarma:` bulgusu yok, `python -m nxceviri.arac eklentiler` temiz,
-   `git status --porcelain nxceviri/` boş, font durumu raporda, `CALISMA_GUNLUGU.md` güncel; komut çıktılarını göster. Cihazda denenmeyen işi öyle
+   `git status --porcelain nxceviri/` boş, font durumu raporda, `NOT.md` haritası dolu ve `CALISMA_GUNLUGU.md` güncel; komut çıktılarını göster. Cihazda denenmeyen işi öyle
    raporla.
 6. Kullanıcıya kısa Türkçe rapor ver (rehberin "Kullanıcıya rapor" bölümü). Kurulum eksikse önce `docs/rehber/baslarken.md`.

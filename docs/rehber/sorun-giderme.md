@@ -6,6 +6,11 @@ taşıyor, harfler kutucuk, bazı satırlar İngilizce kalmış, mod hiç görü
 ekranda gördüğü haliyle** al ("şu menüde, şu cümle", mümkünse fotoğraf). `AGENTS.md` kurallarını unutma:
 anahtar, oyun dosyası, orijinal dosyalara dokunma yok.
 
+Oyunun eklentisi varsa önce klasöründeki `NOT.md`'yi (oyunun haritası, "Belirti → neden → çözüm" tablosu) ve
+`CALISMA_GUNLUGU.md`'yi ("Cihaz sonuçları", "Denenip işe yaramayanlar") oku: aynı sorun bu oyunda daha önce
+yaşanmış olabilir. Sonra aşağıdaki G bölümüne bak: başka oyunlarda yaşananlar. Nedeni bulunca oyunun `NOT.md`
+tablosuna, cihaz sonucunu günlüğe yaz; başka oyunda da işe yarayacak dersi oyun adı vermeden G tablosuna ekle.
+
 ## Başlamadan önce üç soru
 1. **Mod hangi yapıyla üretildi ve nereye kondu?** Atmosphère (`atmosphere/contents/<TitleID>/romfs/…`) ya da emülatör
    (`<TitleID>/<Mod Adı>/romfs/…`). Yol hataları en sık sebeptir.
@@ -84,7 +89,25 @@ dönüştürmeyi seç; açıksa ve hâlâ kutucuk varsa tabloda o fontun "Yamayl
    taşımayan kodlarda (renk/biçim, satır/sayfa sonu) sıra otomatik düzeltilir; değişkenler elle düzeltilir.
 3. Fazla `<div>` gibi etiketler yerel modelden gelir: Kontrol Et'te soldan *Fazla etiket* türünü seçip düzeltme çubuğundaki düğmeye bas.
 
-### G. Tüm bunlardan sonra hâlâ belirsiz
+### G. Başka oyunlarda yaşananlar (belirti → neden → çözüm)
+Ajandan ajana aktarılan dersler. Yeni bir ders eklerken oyun ya da firma adı yazma; motor ya da biçim adını yaz.
+
+| Belirti | Asıl neden | Çözüm |
+|---|---|---|
+| Ana metinler Türkçe ama menü, onay penceresi, öğretici yazıları İngilizce | Bu yazılar başka dosyaların içine gömülü (paket içindeki betik / mesaj bölümü); tarama o dosya ailesini açmamıştı | Ekrandaki cümleyi `ara` ile bütün iç arşivlerde ara; bulunan ailenin İngilizce kopyalarının hepsini (son ekler dahil) projeye ekle |
+| Aynı yazı hem metin dosyasında hem oyunda, ama oyunda İngilizce | Dil kopyası yanlış seçildi: dosya adının son eki dili verir ve İngilizce birden çok son ekte olabilir | Her son ekin hangi dil olduğunu bir örnek cümleyle belirle, `NOT.md`'ye tablo olarak yaz |
+| Türkçe resim hazırlandı ama oyunda hâlâ İngilizce | Oyunda görünen resim başka bir kopyadır (yüksek çözünürlüklü yeniden yapım paketi, ayrı dil paketi); ya da aynı resim arşivde birden çok konumda durur ve yalnızca biri değişti | Ekran görüntüsünü çıkarılan adaylarla karşılaştır, kullanılan kopyayı bul; resmi içerik özetiyle (hash) tanı ve **bütün** konumlarına yaz (`grafik.md` "Önceki oyunlardan tuzaklar") |
+| Grafik yamasından sonra çevrilmiş metinler geri İngilizce oldu | Metin ve resim aynı dosyadaydı; resim adımı orijinal dosyadan başlayıp metin yamasını ezdi | Resim adımı, metin yazılmış baytlardan başlar (aynı dosyayı iki adım ayrı ayrı yazmaz) |
+| Açılış uyarısı / jenerik İngilizce, `ara` da resim taraması da bulamıyor | Yazı videonun içinde | Kareyi çıkar, kullanıcıya ver, Türkçe kareyi bindirip videoyu yeniden kodla (`yeni-oyun.md` "video ve program kodu") |
+| Evet/Hayır, kayıt uyarısı gibi kısa yazılar İngilizce, hiçbir RomFS dosyasında yok | Yazı program kodunda (exefs `main`) | `ara`'yı çözülmüş `main` üzerinde çalıştır; IPS yaması yaz |
+| IPS yaması SD kartta ama hiçbir şey değişmiyor | Dosya adı yanlış: Atmosphère yapı kimliğinin **tamamını** (sondaki sıfır baytlar kırpılmış onaltılık) ister; kimlik 16 değil 20 bayt olabilir. Ya da güncelleme yüklüyken base'in kimliği kullanıldı | Kimliği NSO başlığından oku (0x40'tan 32 bayt), sondaki sıfırları kırp; base ve güncelleme için ayrı dosya üret. Ofset = bellek adresi + 0x100 |
+| Program kodundaki Türkçe yazı başka alfabeden harfler (ör. Japonca) gibi görünüyor | Program kodundaki yazı UTF-8 değil, oyunun kendi harf kodlamasıyla bayt bayt çiziliyor | Türkçe harfleri oyunun harf tablosuyla kodla (o oyunun font/harf notu) |
+| Uzatılan program kodu yazısı oyun açılınca bozuluyor / boşalıyor | Yazı sıfırlarla dolu "boş" alana konmuştu; o alan çalışma anında kullanılıyor | Yalnızca kullanılmayan bir dil dizgisinin (ya da kanıtla boş salt okunur bölgenin) yerine yaz; göstericiyi (`.rela.dyn` R_AARCH64_RELATIVE addend) yeni adrese çevir |
+| Makine çevirisinden sonra bazı harfler kutucuk | Çeviri, fontta olmayan bir harf üretti (ör. şapkalı `â`) | Kontrol Et'te font denetimi; harfi fontta olanla değiştir, sözlüğe kural ekle |
+| Mod çok büyük (GB düzeyinde) | LayeredFS dosyanın tamamını değiştirir; birkaç baytı değişen büyük arşiv de bütün olarak moda girer | Oyun sıkıştırılmış güncelleme arşivini (yalnızca değişen üyeleri taşıyan) okuyorsa onu üret; okumuyorsa küçültme güvenli değildir, kullanıcıya söyle |
+| Mod uzun süren üretimden sonra eksik çıktı, kullanıcı bir girdiyi daha bekliyordu | Kullanıcıdan gelecek resim / kare beklenmeden üretime başlandı | Uzun üretimden önce bekleyen kullanıcı girdilerini sor ve günlüğe yaz |
+
+### H. Tüm bunlardan sonra hâlâ belirsiz
 Sorunu **küçült**: tek dosya, tek satır, tek harf. Elle üretilmiş küçük örnekle (yani gerçek oyun dosyası olmadan)
 tekrarlanabiliyorsa test yaz; tekrarlanmıyorsa gerçek dosyada `dogrula`'yı çalıştır. Çözemezsen kullanıcıya hangi
 bilgiyi toplayıp (TitleID, sürüm, `teshis-raporu.md` özeti, yapılan adımlar, hata ekranı) bir konu açabileceğini söyle;

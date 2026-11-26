@@ -76,6 +76,26 @@ def test_approved_plugin_loads_and_changed_content_asks_again(tmp_path: Path) ->
     assert trust.known(folder)  # biliniyor ama içerik değişti
 
 
+def test_approval_with_pre_0793_fingerprint_is_migrated_once(tmp_path: Path) -> None:
+    """0.79.3'ten önce `NOT.md` de ize giriyordu; o izle onaylanmış eklenti yeniden sorulmadan yüklenir ve kayıt yeni
+    ize taşınır (sonraki `NOT.md` düzenlemesi de onayı bozmaz). Kod değişmişse eski iz de tutmaz."""
+    marker = tmp_path / "calisti.txt"
+    folder = _side_effect_plugin(tmp_path / "ek", marker)
+    (folder / "NOT.md").write_text("harita", encoding="utf-8")
+    trust = PluginTrust(tmp_path / "onay.json")
+    trust.approve(folder, plugin_fingerprint(folder, loader.LEGACY_FINGERPRINT_EXCLUDED))
+    (info,) = load_plugins([tmp_path / "ek"], set(), trust.is_trusted).infos
+    assert info.yuklu
+    assert trust.is_trusted(folder, plugin_fingerprint(folder))
+    (folder / "NOT.md").write_text("harita güncellendi", encoding="utf-8")
+    assert trust.is_trusted(folder, plugin_fingerprint(folder))
+
+    other = _side_effect_plugin(tmp_path / "ek2", marker, folder="demo2")
+    trust.approve(other, plugin_fingerprint(other, loader.LEGACY_FINGERPRINT_EXCLUDED))
+    (other / "plugin.py").write_text("raise SystemExit('kotu')\n", encoding="utf-8")
+    assert not trust.is_trusted(other, plugin_fingerprint(other))
+
+
 def test_approval_of_older_content_does_not_load_newer(tmp_path: Path) -> None:
     """Onaydan sonra içerik değişirse yüklemeden hemen önceki denetim bunu yakalar."""
     marker = tmp_path / "calisti.txt"

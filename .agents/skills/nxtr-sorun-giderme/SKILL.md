@@ -6,9 +6,12 @@ description: NXTR ile üretilen modda sorun olduğunda kullan: oyun açılmıyor
 # NXTR: sorun giderme
 
 1. `AGENTS.md`'yi baştan sona oku (anahtar, oyun dosyası, dürüst rapor kuralları).
+1b. Oyunun eklentisi varsa önce klasöründeki (eklenti yoksa oyun klasöründeki) `NOT.md` ("Belirti → neden → çözüm") ve `CALISMA_GUNLUGU.md`'yi
+   ("Cihaz sonuçları") oku. Bulunan nedeni oyunun `NOT.md` tablosuna, kullanıcının cihaz sonucunu günlüğe yaz;
+   başka oyunda da geçerli dersi oyun adı vermeden rehberin G tablosuna ekle.
 2. `docs/rehber/sorun-giderme.md` rehberini baştan sona oku.
 3. Kullanıcıdan belirtiyi ekranda gördüğü haliyle al (hangi ekran, hangi cümle, modun yeri, TitleID/sürüm), sonra rehberdeki
-   karar ağacını (A-G) izle. Harf sorunuysa `docs/rehber/font.md`, resimdeki yazıysa `docs/rehber/grafik.md`.
+   karar ağacını (A-H; G = başka oyunlarda yaşananlar) izle. Harf sorunuysa `docs/rehber/font.md`, resimdeki yazıysa `docs/rehber/grafik.md`.
 4. Nedeni komut çıktısıyla kanıtla; tahmini tahmin olarak belirt. Sorunu küçült (tek dosya, tek satır) ve düzeltmeyi test
    ile sabitle.
 5. Cihazda denemeyi kullanıcıdan iste ve ne deneyeceğini açıkça söyle. Kısa Türkçe rapor: belirti, neden, düzeltme,

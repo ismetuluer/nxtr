@@ -1645,3 +1645,14 @@ Ayrıntılı tasarım: `docs/superpowers/specs/2026-11-01-diger-sayfalar-design.
     `match_loose` ile aranır: orijinalle (tek ya da çevirileri aynı adaylar), sonra çeviriyle ama yalnızca orijinali
     kod onarımından sonra dosyadakiyle aynı olan adaylar arasında. Çeviri metni projede tek olan satır, orijinali
     uymasa da eşlenir (başkasının hedefi olamaz; “orijinal metni farklı” diye bildirilir, yazılmaz).
+254. **Eklenti `NOT.md`'si oyunun haritası; ders rehberlere (ürün sahibi, 2026-11-26):** karar 239'daki günlük
+    kronolojiyi taşıyordu ama "ne nerede" bilgisi (metin, font, resim, video, program kodu) yazılmıyor, kotası biten
+    ajanın yerine geçen başka sağlayıcının ajanı dosyaları baştan inceliyordu; ayrıca eklenti dışında bırakılan
+    betikler ve yalnızca ajanın kendi belleğine yazılan bulgular devredilmiyordu. Üçüncü dosya eklenmedi: `NOT.md` şablonu sabit bölümlü haritaya,
+    günlük "eklenti dışındaki betikler" ve "cihaz sonuçları" bölümlerine genişledi (`core/plugins/scaffold.py`, `tests/test_plugins.py`). Oyunlar arası dersler ayrı bir dosyada değil,
+    ajanların zaten okuduğu rehberlerde: `sorun-giderme.md` G tablosu, `grafik.md`, `font.md`; oyun ve firma adı
+    geçmez. Harita bulundukça güncellendiği için kökteki `NOT.md` de onay parmak izinden dışlandı
+    (`loader.FINGERPRINT_EXCLUDED`; kod değil, yükleyici okumaz; bu dışlama ajanın kararıdır); alt klasördeki aynı
+    adlı dosya dışlanmaz. Eski izle (`LEGACY_FINGERPRINT_EXCLUDED`) verilmiş onay, şimdiki iz de tutuyorsa
+    `PluginTrust.is_trusted` içinde bir kez yeni ize yazılır; kod değiştiyse eski iz de tutmaz. Eklentisi olmayan
+    oyunda iki dosya oyun klasöründe durur (depoya girmez).

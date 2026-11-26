@@ -1,6 +1,7 @@
-# HANDOFF — oturum devri (2026-11-25, 0.79.2)
+# HANDOFF — oturum devri (2026-11-26, 0.79.3)
 
 ## Durum
+- **Sürüm 0.79.3** (2026-11-26; CHANGELOG 0.79.3, karar 254): eklenti `NOT.md`'si oyunun haritası (sabit bölümler, onay parmak izine girmez; eski izle verilmiş onay trust.PluginTrust.is_trusted içinde bir kez taşınır), günlükte eklenti dışı betikler ve cihaz sonuçları; rehber ve skill'ler haritayı önce okutur, bulguyu anında yazdırır; oyunlar arası dersler `sorun-giderme.md` G tablosu, `grafik.md`, `font.md`; `istemler.md` 1b devir kartı.
 - **Sürüm 0.79.2** (2026-11-25; CHANGELOG 0.79.2, karar 253): içe aktarma eşleştirmesi iki geçişli (`_TxtMatcher.match_exact`, sonra `match_loose`; gevşek yol çeviriyle aramada orijinali uyan satırla sınırlı).
 - **Sürüm 0.79.1** (2026-11-25; CHANGELOG 0.79.1, karar 252): 0.79.0 paketi açılmıyordu (archspec verisi eksik; NXTR.spec collect_all), release.yml artık `--paket-denetimi` ile .exe'yi denetler; asciitr ses uyumu ve camelCase/uzatma eleği (Bloom yanlış olumluları).
 - **Sürüm 0.79.0** (2026-11-24; CHANGELOG 0.79.0, karar 251): dış redaksiyon/çeviri tek tık (csv/dir biliniyorsa pencere açmadan yazar; Ayarlar son seçimleri saklar; dosyayı pencereye bırakmak içe aktarır). Tek tık planının dört akışı bitti.

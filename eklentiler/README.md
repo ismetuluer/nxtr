@@ -8,7 +8,8 @@ eklentiler/<ad>/
     eklenti.toml   ad, surum, yazar, oyunlar (TitleID listesi), aciklama (isteğe bağlı), api = 1
     plugin.py      detect / extract / inject (docs/rehber/eklenti-yazma.md)
     tests/         elle üretilmiş örnekle bayt bayt round-trip testi
-    NOT.md         biçim notu
+    NOT.md         oyunun haritası: metinler, fontlar, resimler, video/program kodu nerede; belirti → neden → çözüm
+    CALISMA_GUNLUGU.md  ajanın devir günlüğü: durum, sıradaki adım, denenip olmayanlar, eklenti dışı betikler
     *.py           yardımcı modüller (arşiv, font, resim): plugin.py'de `from . import x`
 ```
 

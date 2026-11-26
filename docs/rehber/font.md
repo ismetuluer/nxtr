@@ -102,6 +102,13 @@ dosyalar. Raporda "atlandı" gördüğünde o fontun gerçekten oyunda kullanıl
   çalışır ama metin yazım kuralını bozar. Kullanıcıya önerini kısa gerekçeyle söyle.
 
 ## Bilinen tuzaklar
+Fontlar, harf kodlaması ve yamanın sonucu oyunun `NOT.md` "Fontlar" bölümüne yazılır; sonraki ajan fontları
+yeniden aramaz. Başka oyunda da geçerli yeni tuzağı oyun adı vermeden buraya ekle.
+- Oyun Türkçe harfleri UTF-8 ile değil kendi harf tablosuyla gösterebilir (kullanılmayan kod noktalarına çizilmiş
+  glifler). Böyle oyunda program kodundaki yazılar da aynı tabloyla kodlanır; UTF-8 yazılırsa başka alfabe harfleri
+  görünür.
+- Makine çevirisi fontta olmayan harf (şapkalı `â`, `î`) üretebilir; dışa aktarmadan önce Kontrol Et'in font
+  denetimi bunları gösterir.
 - Atlas büyütülünce `m_AtlasHeight`, `m_CreationSettings.atlasHeight` ve atlası kullanan malzemelerin
   `_TextureHeight` değeri güncellenir; elle yazıyorsan unutma.
 - Fontta `ă`, `˘`, `ŭ`, `ŏ` yoksa breve (ğ'nin üstü) çizilir, fontun kendi çizimi değildir (TECH_DEBT 50/76); el

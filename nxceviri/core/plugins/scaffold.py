@@ -133,22 +133,57 @@ def test_inject_rejects_newline_in_translation() -> None:
 
 _NOTE = """# __AD__ eklentisi
 
-Bu eklentinin neyi çevirdiğini, biçimin yapısını ve bilinen tuzakları buraya yazın.
+Oyunun haritası: **kalıcı bilgi** (ne nerede, nasıl çözüldü). Bu oyuna gelen ajan dosyaları baştan didiklemeden
+önce bunu okur. Bir şey bulduğunda (işin sonunda değil) buraya yaz. Kronoloji (ne zaman ne yapıldı, sıradaki adım)
+`CALISMA_GUNLUGU.md`'dedir. Oyundan uzun metin ya da resim, anahtar içeriği, kişisel yol yazılmaz (`<oyun klasörü>`).
 
 ## Oyun ve dosyalar
 
-- Oyun / TitleID:
-- Dosya adları ve konumları:
+- TitleID, base / güncelleme sürümü:
+- Arşiv yerleşimi (kapsayıcı → iç arşiv → dosya):
+- Dil dosyaları nasıl ayrılıyor (klasör, son ek, dosya içi) ve kaynak dil (İngilizce) hangisi:
+
+## Metinler nerede
+
+<!-- Dosya → satır sayısı → kapsayan eklenti ya da kapsanmama nedeni. Başka dosyaların içine gömülü metinler
+(betik, paket içi mesaj), taramanın bulmadığı yerler ve bulma yöntemi (`ara` cümlesi) dahil. -->
+
+| Dosya / iç yol | Ne var | Satır | Durum |
+|---|---|---|---|
 
 ## Biçim
 
 - Başlık ve alanlar:
 - Metin kodlaması, sonlandırıcılar, uzunluk sınırları:
 - Kontrol kodları (renk, değişken, satır sonu) ve `⟦n⟧` yer tutucularına nasıl çevrildiği:
+- Geri yazarken güncellenen alanlar (uzunluk, ofset, hizalama, kapsayıcı dizini):
 
-## Bilinen tuzaklar
+## Fontlar
 
--
+<!-- Font dosyaları ve biçimi, `arac font` sonucu (a/b/c), eksik harfler, yamanın nasıl yapıldığı, harf kodlaması
+(UTF-8 değilse tablo), dönüştürmeye kalan harfler ve kanıtı. -->
+
+## Resimdeki yazılar
+
+<!-- Hangi arşivde hangi resimler, doku biçimi (BC1/BC7/…), aynı resmin kopyaları (birden çok konum), oyunda
+gerçekten hangi kopyanın kullanıldığı, animasyon kareleri, `grafik_temizleme/orijinal` ve `turkce` durumu. -->
+
+## Video ve program kodu
+
+<!-- Videoya gömülü yazılar (uyarı, jenerik), program kodundaki (exefs) metinler, IPS yaması dosya adı (yapı
+kimliği), base ve güncelleme ayrı mı. Yoksa "yok" yaz. -->
+
+## Mod çıktısı
+
+<!-- Hangi dosyalar moda giriyor, boyut, sıkıştırma, Atmosphère / emülatör yolu, sürüm bağımlılığı. -->
+
+## Belirti → neden → çözüm
+
+<!-- Oyunda görülen sorun (ya da araç hatası) → asıl neden → çözüm. Başka oyunda da işe yarayacak dersi oyun adı
+vermeden ilgili rehbere de yaz (`docs/rehber/sorun-giderme.md`, `font.md`, `grafik.md`). -->
+
+| Belirti | Neden | Çözüm |
+|---|---|---|
 """
 
 #: Ajanın devir günlüğü: kotası biten ajanın yerine geçen (başka sağlayıcının ajanı da olabilir) işi baştan yapmasın.
@@ -158,7 +193,8 @@ _WORK_LOG = """# __AD__ — çalışma günlüğü
 
 Bu eklenti üzerinde çalışan yapay zekâ ajanının günlüğü. İşi devralan ajan **önce bu dosyayı** baştan sona okur ve
 "Sıradaki adım"dan devam eder; burada yazan işleri baştan yapmaz. Her adımdan sonra (işin sonunda değil) güncellenir:
-kota ya da oturum her an bitebilir. En yeni bilgi en üstteki iki bölümdedir.
+kota ya da oturum her an bitebilir. En yeni bilgi en üstteki iki bölümdedir. Kalıcı bilgi (metin, font, resim, video
+nerede; nasıl çözüldü) `NOT.md`'dedir: önce onu, sonra bunu oku.
 
 Yazılmaz: anahtar dosyası içeriği, oyundan uzun metin ya da resim, kullanıcının kişisel yolları (`<oyun klasörü>`
 yaz). Bu dosya eklentinin onay parmak izine girmez; güncellemek eklentiyi yeniden onaylatmaz.
@@ -184,6 +220,17 @@ yaz). Bu dosya eklentinin onay parmak izine girmez; güncellemek eklentiyi yenid
 ## Denenip işe yaramayanlar
 
 <!-- Ne denendi, neden olmadı; aynı yolu yeniden denememek için. -->
+
+## Eklenti dışındaki betikler ve dosyalar
+
+<!-- Eklenti klasörü dışında bırakılan her şey: deneme betikleri, konum dizinleri, döküm klasörleri, kullanıcının
+resim koyduğu klasörler. Her biri: yol (`<oyun klasörü>/…` ya da geçici klasör), ne yapar, nasıl yeniden çalıştırılır.
+Kalıcı olması gereken betik eklentiye taşınır. -->
+
+## Cihaz sonuçları
+
+<!-- Kullanıcının cihazda / emülatörde denediği her mod: tarih, mod klasörü, ne çalıştı, ne İngilizce kaldı ya da
+bozuk göründü (ekran görüntüsü adı), sonra ne yapıldı. -->
 
 ## Açık sorular
 
